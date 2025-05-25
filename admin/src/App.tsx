@@ -5,6 +5,9 @@ import ProductsNewPage from "./pages/ProductsNewPage";
 import ProductsEditPage from "./pages/ProductsEditPage";
 import AdminSidebar from "./components/AdminSidebar";
 import CategoriesPage from './pages/CategoriesPage';
+import CustomersPage from './pages/CustomersPage';
+import CustomerNewPage from "./pages/CustomerNewPage";
+import CustomerEditPage from './pages/CustomerEditPage';
 
 function App() {
   return (
@@ -13,6 +16,9 @@ function App() {
         <AdminSidebar />
         <main className="ml-52 w-full p-6">
           <Routes>
+          <Route path="/customers/:id" element={<CustomerEditPage />} />
+          <Route path="/customers/new" element={<CustomerNewPage />} />
+          <Route path="/customers" element={<CustomersPage />} />
           <Route path="/categories" element={<CategoriesPage />} />
             <Route path="/products" element={<ProductsPage />} />
             <Route path="/products/new" element={<ProductsNewPage />} />

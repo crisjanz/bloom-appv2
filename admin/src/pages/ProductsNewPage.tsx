@@ -1,7 +1,14 @@
-import { useState } from "react";
+// ProductsNewPage.tsx
 import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+
 
 export default function ProductsNewPage() {
+    const [categories, setCategories] = useState([]);
+const [reportingCategories, setReportingCategories] = useState([]);
+const [categoryId, setCategoryId] = useState("");
+const [reportingCategoryId, setReportingCategoryId] = useState("");
+
   const navigate = useNavigate();
   const [product, setProduct] = useState({
     name: "",
@@ -10,13 +17,30 @@ export default function ProductsNewPage() {
     visibility: "ONLINE",
   });
 
+  useEffect(() => {
+    fetch("/api/categories")
+      .then((res) => res.json())
+      .then(setCategories)
+      .catch(() => alert("Failed to load categories"));
+  
+    fetch("/api/reporting-categories")
+      .then((res) => res.json())
+      .then(setReportingCategories)
+      .catch(() => alert("Failed to load reporting categories"));
+  }, []);
+  
+
   const handleSave = async () => {
     const res = await fetch("http://localhost:4000/api/products", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(product),
+      body: JSON.stringify({
+        ...product,
+        categoryId,
+        reportingCategoryId,
+      }),
     });
-
+  
     if (res.ok) {
       alert("Product created");
       navigate("/products");
@@ -24,6 +48,7 @@ export default function ProductsNewPage() {
       alert("Create failed");
     }
   };
+  
 
   return (
     <div className="p-6 max-w-xl">
@@ -63,6 +88,33 @@ export default function ProductsNewPage() {
         <option value="POS">POS</option>
         <option value="BOTH">BOTH</option>
       </select>
+      <label className="block mb-2">Category</label>
+<select
+  className="w-full mb-4 p-2 border"
+  value={categoryId}
+  onChange={(e) => setCategoryId(e.target.value)}
+>
+  <option value="">-- Select category --</option>
+  {categories.map((cat: any) => (
+    <option key={cat.id} value={cat.id}>
+      {cat.name}
+    </option>
+  ))}
+</select>
+
+<label className="block mb-2">Reporting Category</label>
+<select
+  className="w-full mb-4 p-2 border"
+  value={reportingCategoryId}
+  onChange={(e) => setReportingCategoryId(e.target.value)}
+>
+  <option value="">-- Select reporting category --</option>
+  {reportingCategories.map((cat: any) => (
+    <option key={cat.id} value={cat.id}>
+      {cat.name}
+    </option>
+  ))}
+</select>
 
       <button
         className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"

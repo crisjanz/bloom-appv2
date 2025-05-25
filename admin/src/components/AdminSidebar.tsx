@@ -3,6 +3,8 @@ import { Link, useLocation } from "react-router-dom";
 const links = [
   { path: "/products", label: "Products" },
   { path: "/categories", label: "Categories" },
+  { path: "/customers", label: "Customers" },
+
   // Add more as needed
 ];
 

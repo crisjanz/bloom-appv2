@@ -137,6 +137,34 @@ model ReportingCategory {
   products Product[] @relation("ProductReportingCategory")
 }
 
+model Customer {
+  id        String    @id @default(cuid())
+  name      String
+  email     String?   @unique
+  phone     String?
+  notes     String?
+  homeAddress   Address? @relation("HomeAddress", fields: [homeAddressId], references: [id])
+  homeAddressId String? @unique
+  addresses Address[] @relation("RecipientAddresses")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Address {
+  id         String   @id @default(cuid())
+  firstName  String
+  lastName   String
+  address1   String
+  address2   String?
+  city       String
+  province   String
+  postalCode String
+  phone      String?
+  customer   Customer? @relation("RecipientAddresses", fields: [customerId], references: [id])
+  customerId String?
+  homeOf     Customer? @relation("HomeAddress")
+}
+
 
 
 enum ProductType {

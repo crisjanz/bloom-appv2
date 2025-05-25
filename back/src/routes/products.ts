@@ -29,7 +29,7 @@ router.get('/', async (req, res) => {
 
 // POST new product
 router.post('/', async (req, res) => {
-  const { name, slug, status, visibility } = req.body;
+    const { name, slug, status, visibility, categoryId, reportingCategoryId } = req.body;
 
   try {
     const product = await prisma.product.create({
@@ -42,8 +42,9 @@ router.post('/', async (req, res) => {
         isActive: true,
         productType: 'MAIN',
         inventoryMode: 'OWN',
-        category: { connect: { id: '2e82e023-fc75-4267-a400-6a3c1ab87030' } },
-        reportingCategory: { connect: { id: '26813aca-d6d2-4b89-9fda-c1660b3d233b' } },
+        category: { connect: { id: categoryId } },
+        reportingCategory: { connect: { id: reportingCategoryId } },
+        
       },
     });
 
