@@ -1,24 +1,26 @@
 import ProductList from './components/ProductList';
-
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import ProductsPage from "./pages/ProductsPage";
-import ProductsEditPage from "./pages/ProductsEditPage";
 import ProductsNewPage from "./pages/ProductsNewPage";
-
-
-
-
+import ProductsEditPage from "./pages/ProductsEditPage";
+import AdminSidebar from "./components/AdminSidebar";
+import CategoriesPage from './pages/CategoriesPage';
 
 function App() {
   return (
     <Router>
-      <Routes>
-      <Route path="/products/new" element={<ProductsNewPage />} />
-
-      <Route path="/products/:id" element={<ProductsEditPage />} />
-        <Route path="/products" element={<ProductsPage />} />
-        {/* Add other routes here */}
-      </Routes>
+      <div className="flex">
+        <AdminSidebar />
+        <main className="ml-52 w-full p-6">
+          <Routes>
+          <Route path="/categories" element={<CategoriesPage />} />
+            <Route path="/products" element={<ProductsPage />} />
+            <Route path="/products/new" element={<ProductsNewPage />} />
+            <Route path="/products/:id" element={<ProductsEditPage />} />
+            {/* Categories route to be added next */}
+          </Routes>
+        </main>
+      </div>
     </Router>
   );
 }
