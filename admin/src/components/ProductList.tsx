@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { fetchProducts } from '../api/fetchProducts';
+import { useNavigate } from "react-router-dom";
 
 type Product = {
   id: string;
@@ -11,6 +12,7 @@ type Product = {
 export default function ProductList() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchProducts()
@@ -23,7 +25,16 @@ export default function ProductList() {
 
   return (
     <div>
-      <h2 className="text-xl font-bold mb-4">Product Manager</h2>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-bold">Product Manager</h2>
+        <button
+          onClick={() => navigate("/products/new")}
+          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+        >
+          + Add Product
+        </button>
+      </div>
+
       <table className="w-full table-auto border">
         <thead>
           <tr className="bg-gray-100 text-left">
@@ -40,7 +51,10 @@ export default function ProductList() {
               <td className="p-2">${(p.price / 100).toFixed(2)}</td>
               <td className="p-2">{p.status}</td>
               <td className="p-2">
-                <button className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700">
+                <button
+                  className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
+                  onClick={() => navigate(`/products/${p.id}`)}
+                >
                   Edit
                 </button>
               </td>

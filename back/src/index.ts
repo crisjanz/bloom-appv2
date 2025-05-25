@@ -1,7 +1,9 @@
+console.log("🚀 Starting backend...");
+
 import express from 'express';
 import cors from 'cors';
 import { PrismaClient } from '@prisma/client';
-import productsRouter from './routes/products.js'; // <- Note the `.js`
+import productsRouter from './routes/products';
 
 const app = express();
 const prisma = new PrismaClient();
