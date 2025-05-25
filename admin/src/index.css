@@ -3,3 +3,8 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@theme {
+    --color-card: #f4f4f5;
+
+  }

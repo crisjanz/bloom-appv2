@@ -1,10 +1,11 @@
+//AdminSidebar.tsx
 import { Link, useLocation } from "react-router-dom";
 
 const links = [
+  { path: "/orders/new", label: "Take Order" },
   { path: "/products", label: "Products" },
   { path: "/categories", label: "Categories" },
   { path: "/customers", label: "Customers" },
-
   // Add more as needed
 ];
 

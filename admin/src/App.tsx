@@ -8,6 +8,8 @@ import CategoriesPage from './pages/CategoriesPage';
 import CustomersPage from './pages/CustomersPage';
 import CustomerNewPage from "./pages/CustomerNewPage";
 import CustomerEditPage from './pages/CustomerEditPage';
+import OrderForm from "./pages/OrderForm";
+
 
 function App() {
   return (
@@ -16,6 +18,8 @@ function App() {
         <AdminSidebar />
         <main className="ml-52 w-full p-6">
           <Routes>
+          <Route path="/orders/new" element={<OrderForm />} />
+
           <Route path="/customers/:id" element={<CustomerEditPage />} />
           <Route path="/customers/new" element={<CustomerNewPage />} />
           <Route path="/customers" element={<CustomersPage />} />

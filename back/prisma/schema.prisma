@@ -7,11 +7,42 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum ProductType {
+  MAIN
+  ADDON
+  SERVICE
+}
+
+enum InventoryMode {
+  NONE
+  OWN
+  BUNDLE
+}
+
+enum Visibility {
+  ONLINE
+  POS
+  BOTH
+}
+
+enum OrderType {
+  DELIVERY
+  PICKUP
+}
+
+enum OrderStatus {
+  DRAFT
+  PAID
+  CANCELLED
+  SCHEDULED
+  COMPLETED
+}
+
 model Product {
   id                      String        @id @default(uuid())
   name                    String
   slug                    String        @unique
-  status    String   @default("DRAFT")
+  status                  String        @default("DRAFT")
   description             String
   categoryId              String
   reportingCategoryId     String
@@ -24,8 +55,9 @@ model Product {
   isActive                Boolean       @default(true)
   createdAt               DateTime      @default(now())
   updatedAt               DateTime      @updatedAt
-  category            Category  @relation("ProductCategory", fields: [categoryId], references: [id])
-  reportingCategory   ReportingCategory @relation("ProductReportingCategory", fields: [reportingCategoryId], references: [id])
+
+  category          Category          @relation("ProductCategory", fields: [categoryId], references: [id])
+  reportingCategory ReportingCategory @relation("ProductReportingCategory", fields: [reportingCategoryId], references: [id])
 
   featuredAssetId   String?
   variants          ProductVariant[]
@@ -33,6 +65,7 @@ model Product {
   addonGroups       ProductAddOnGroup[]
   bundleComponents  BundleItem[]        @relation("BundleParent")
   includedInBundles BundleItem[]        @relation("BundleChild")
+  orderItems        OrderItem[]
 }
 
 model ProductVariant {
@@ -59,20 +92,22 @@ model ProductOption {
 }
 
 model ProductOptionValue {
-  id        String          @id @default(uuid())
+  id        String @id @default(uuid())
   label     String
   optionId  String
-  sortOrder Int             @default(0)
-  option    ProductOption   @relation(fields: [optionId], references: [id])
-  variants  VariantOption[]
+  sortOrder Int    @default(0)
+
+  option   ProductOption   @relation(fields: [optionId], references: [id])
+  variants VariantOption[]
 }
 
 model VariantOption {
-  id            String             @id @default(uuid())
+  id            String @id @default(uuid())
   variantId     String
   optionValueId String
-  variant       ProductVariant     @relation(fields: [variantId], references: [id])
-  optionValue   ProductOptionValue @relation(fields: [optionValueId], references: [id])
+
+  variant     ProductVariant     @relation(fields: [variantId], references: [id])
+  optionValue ProductOptionValue @relation(fields: [optionValueId], references: [id])
 }
 
 model BundleItem {
@@ -138,20 +173,22 @@ model ReportingCategory {
 }
 
 model Customer {
-  id        String    @id @default(cuid())
-  name      String
-  email     String?   @unique
-  phone     String?
-  notes     String?
-  homeAddress   Address? @relation("HomeAddress", fields: [homeAddressId], references: [id])
-  homeAddressId String? @unique
-  addresses Address[] @relation("RecipientAddresses")
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id            String    @id @default(cuid())
+  name          String
+  email         String?   @unique
+  phone         String?
+  notes         String?
+  homeAddress   Address?  @relation("HomeAddress", fields: [homeAddressId], references: [id])
+  homeAddressId String?   @unique
+  addresses     Address[] @relation("RecipientAddresses")
+  orders        Order[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Address {
-  id         String   @id @default(cuid())
+  id         String  @id @default(cuid())
   firstName  String
   lastName   String
   address1   String
@@ -160,27 +197,86 @@ model Address {
   province   String
   postalCode String
   phone      String?
+
   customer   Customer? @relation("RecipientAddresses", fields: [customerId], references: [id])
   customerId String?
-  homeOf     Customer? @relation("HomeAddress")
+
+  homeOf            Customer? @relation("HomeAddress")
+  ordersAsRecipient Order[]   @relation("OrderRecipient")
+  ordersAsPickup    Order[]   @relation("PickupPerson")
 }
 
+model Order {
+  id     String      @id @default(cuid())
+  type   OrderType
+  status OrderStatus @default(DRAFT)
 
+  customer   Customer @relation(fields: [customerId], references: [id])
+  customerId String
 
-enum ProductType {
-  MAIN
-  ADDON
-  SERVICE
+  recipient   Address? @relation("OrderRecipient", fields: [recipientId], references: [id])
+  recipientId String?
+
+  pickupPerson   Address? @relation("PickupPerson", fields: [pickupPersonId], references: [id])
+  pickupPersonId String?
+
+  orderItems OrderItem[]
+
+  cardMessage         String?
+  specialInstructions String?
+  occasion            String?
+
+  deliveryDate DateTime?
+  deliveryTime String?
+
+  deliveryFee Float   @default(0)
+  discount    Float   @default(0)
+  couponCode  String?
+  couponId    String?
+  coupon      Coupon? @relation(fields: [couponId], references: [id])
+
+  gst           Float   @default(0)
+  pst           Float   @default(0)
+  paymentAmount Float   @default(0)
+  paymentMethod String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
-enum InventoryMode {
-  NONE
-  OWN
-  BUNDLE
+model OrderItem {
+  id      String @id @default(cuid())
+  order   Order  @relation(fields: [orderId], references: [id])
+  orderId String
+
+  product   Product? @relation(fields: [productId], references: [id])
+  productId String?
+
+  customName String?
+  unitPrice  Int
+  quantity   Int
+  rowTotal   Int
 }
 
-enum Visibility {
-  ONLINE
-  POS
-  BOTH
+model Coupon {
+  id              String    @id @default(uuid())
+  code            String    @unique
+  description     String?
+  discountPercent Float
+  active          Boolean   @default(true)
+  startDate       DateTime?
+  endDate         DateTime?
+
+  orders Order[]
+}
+
+model AddressShortcut {
+  id           String   @id @default(cuid())
+  label        String
+  address1     String
+  address2     String?
+  city         String
+  province     String
+  postalCode   String
+  phoneNumbers String[]
 }
