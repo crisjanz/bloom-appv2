@@ -1,3 +1,4 @@
+//App.tsx
 import ProductList from './components/ProductList';
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import ProductsPage from "./pages/ProductsPage";
@@ -9,6 +10,9 @@ import CustomersPage from './pages/CustomersPage';
 import CustomerNewPage from "./pages/CustomerNewPage";
 import CustomerEditPage from './pages/CustomerEditPage';
 import OrderForm from "./pages/OrderForm";
+import SettingsPage from './pages/SettingsPage';
+
+
 
 
 function App() {
@@ -19,6 +23,7 @@ function App() {
         <main className="ml-52 w-full p-6">
           <Routes>
           <Route path="/orders/new" element={<OrderForm />} />
+          <Route path="/settings" element={<SettingsPage />} />
 
           <Route path="/customers/:id" element={<CustomerEditPage />} />
           <Route path="/customers/new" element={<CustomerNewPage />} />

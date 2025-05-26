@@ -1,8 +1,9 @@
 import express from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from "../lib/prisma";
+
 
 const router = express.Router();
-const prisma = new PrismaClient();
+
 
 router.delete('/:id', async (req, res) => {
   const { id } = req.params;

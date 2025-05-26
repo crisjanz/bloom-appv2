@@ -6,6 +6,7 @@ const links = [
   { path: "/products", label: "Products" },
   { path: "/categories", label: "Categories" },
   { path: "/customers", label: "Customers" },
+  { path: "/settings", label: "Settings" },
   // Add more as needed
 ];
 
@@ -13,7 +14,7 @@ export default function AdminSidebar() {
   const { pathname } = useLocation();
 
   return (
-    <aside className="w-52 h-screen bg-gray-100 border-r p-4 fixed">
+    <aside className="w-52 h-screen bg-gray-100 p-4 fixed">
       <h2 className="text-lg font-bold mb-6">Admin Panel</h2>
       <nav className="space-y-2">
         {links.map(({ path, label }) => (
@@ -22,7 +23,7 @@ export default function AdminSidebar() {
             to={path}
             className={`block px-3 py-2 rounded ${
               pathname.startsWith(path)
-                ? "bg-blue-600 text-white"
+                ? "bg-primary text-white"
                 : "text-gray-800 hover:bg-gray-200"
             }`}
           >

@@ -1,10 +1,62 @@
 @import "tailwindcss";
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
 
 @theme {
-    --color-card: #f4f4f5;
+    --color-card: #fafafa;
+        --color-primary: #597485;
+        --color-accent: #f1e9e0;
+        --color-accent-dark: #dacdbf; /* 50% darker version of accent */
+    
+  }
+  
+  @layer components {
+  
+        input,
+        select,
+        textarea {
+        background-color: color-mix(in srgb, var(--color-card), rgb(0, 0, 0) 5%);
+        border: solid transparent;
+        }
+      
+        .input-primary {
+            @apply appearance-none
+            border rounded px-3 w-90 py-2;
+            webkit-appearance: none;
+            
+          }
+          
+          .select-input {
+            @apply appearance-none w-90 mt-1 px-3 py-2 rounded shadow-sm focus:outline-none focus:ring-2;
+            background-color: color-mix(in srgb, var(--color-card), rgb(0, 0, 0) 5%);
+            border: solid 3px transparent;
+          }
+          
+
+    .btn-primary {
+        background-color: var(--color-primary);
+      @apply text-white px-4 py-2 rounded transition text-sm;
+    }
+    .btn-primary:hover {
+        background-color: color-mix(in srgb, var(--color-primary), white 20%);
+      }
+      
+  
+    .select-primary {
+    background-color: var(--color-primary);
+      @apply appearance-none text-white px-4 py-2 rounded text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400;
+    }
+
+    input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield; /* Firefox */
+}
 
   }
+  
+  
+  

@@ -38,6 +38,21 @@ enum OrderStatus {
   COMPLETED
 }
 
+enum EmployeeType {
+  CASHIER
+  DESIGNER
+  DRIVER
+  ADMIN
+}
+
+enum ShortcutType {
+  CHURCH
+  FUNERAL_HOME
+  SCHOOL
+  HOSPITAL
+  OTHER
+}
+
 model Product {
   id                      String        @id @default(uuid())
   name                    String
@@ -220,6 +235,10 @@ model Order {
   pickupPerson   Address? @relation("PickupPerson", fields: [pickupPersonId], references: [id])
   pickupPersonId String?
 
+  employee     Employee? @relation("EmployeeOrders", fields: [employeeId], references: [id])
+  employeeId   String?
+
+
   orderItems OrderItem[]
 
   cardMessage         String?
@@ -271,6 +290,7 @@ model Coupon {
 }
 
 model AddressShortcut {
+  type ShortcutType
   id           String   @id @default(cuid())
   label        String
   address1     String
@@ -279,4 +299,22 @@ model AddressShortcut {
   province     String
   postalCode   String
   phoneNumbers String[]
+}
+
+model Employee {
+  id        String        @id @default(cuid())
+  name      String
+  email     String?       
+  phone     String?
+  type      EmployeeType  @default(CASHIER)
+  isActive  Boolean       @default(true)
+  orders    Order[]       @relation("EmployeeOrders")
+}
+
+
+
+model MessageSuggestion {
+  id      String   @id @default(cuid())
+  label   String   // e.g. "Sympathy", "Birthday"
+  message String
 }
