@@ -5,19 +5,22 @@ export default function CustomerNewPage() {
   const navigate = useNavigate();
 
   const [customer, setCustomer] = useState({
-    name: "",
+    firstName: "",
+    lastName: "",
     email: "",
     phone: "",
     notes: "",
   });
+  
 
   const [error, setError] = useState("");
 
   const handleSave = async () => {
-    if (!customer.name.trim()) {
-      setError("Name is required");
+    if (!customer.firstName.trim() || !customer.lastName.trim()) {
+      setError("First and Last Name are required");
       return;
     }
+    
 
     const res = await fetch("/api/customers", {
       method: "POST",
@@ -39,12 +42,20 @@ export default function CustomerNewPage() {
 
       {error && <div className="text-red-600 mb-4">{error}</div>}
 
-      <label className="block mb-2">Name</label>
-      <input
-        className="w-full mb-4 p-2 border"
-        value={customer.name}
-        onChange={(e) => setCustomer({ ...customer, name: e.target.value })}
-      />
+      <label className="block mb-2">First Name</label>
+<input
+  className="w-full mb-4 p-2 border"
+  value={customer.firstName}
+  onChange={(e) => setCustomer({ ...customer, firstName: e.target.value })}
+/>
+
+<label className="block mb-2">Last Name</label>
+<input
+  className="w-full mb-4 p-2 border"
+  value={customer.lastName}
+  onChange={(e) => setCustomer({ ...customer, lastName: e.target.value })}
+/>
+
 
       <label className="block mb-2">Email</label>
       <input

@@ -85,13 +85,19 @@ export default function MessageSuggestionsCard() {
 
           {/* Right: Form */}
           <div className="flex flex-col gap-3">
-            <input
-              type="text"
-              placeholder="Label (e.g. Sympathy)"
-              className="input-primary"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-            />
+          <select
+  value={label}
+  onChange={(e) => setLabel(e.target.value)}
+  className="select-input"
+>
+  <option value="" disabled hidden>Select category</option>
+  <option value="SYMPATHY">Sympathy</option>
+  <option value="BIRTHDAY">Birthday</option>
+  <option value="ANNIVERSARY">Anniversary</option>
+  <option value="THANK_YOU">Thank You</option>
+  <option value="OTHER">Other</option>
+</select>
+
             <textarea
               placeholder="Message"
               className="input-primary"

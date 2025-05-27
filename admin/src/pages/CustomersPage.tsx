@@ -2,20 +2,24 @@ import { useEffect, useState } from "react";
 
 type Customer = {
   id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   email?: string;
   phone?: string;
   notes?: string;
 };
 
+
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [newCustomer, setNewCustomer] = useState({
-    name: "",
+    firstName: "",
+    lastName: "",
     email: "",
     phone: "",
     notes: "",
   });
+  
 
   useEffect(() => {
     fetch("/api/customers")
@@ -77,7 +81,9 @@ export default function CustomersPage() {
       <table className="w-full table-auto border">
         <thead>
           <tr className="bg-gray-100">
-            <th className="p-2 text-left">Name</th>
+          <th className="p-2 text-left">First</th>
+<th className="p-2 text-left">Last</th>
+
             <th className="p-2 text-left">Email</th>
             <th className="p-2 text-left">Phone</th>
             <th className="p-2 text-left">Notes</th>
@@ -88,12 +94,20 @@ export default function CustomersPage() {
           {customers.map((c) => (
             <tr key={c.id} className="border-t">
               <td className="p-2">
-                <input
-                  className="w-full border p-1"
-                  value={c.name}
-                  onChange={(e) => handleUpdate(c.id, "name", e.target.value)}
-                />
-              </td>
+  <input
+    className="w-full border p-1"
+    value={c.firstName}
+    onChange={(e) => handleUpdate(c.id, "firstName", e.target.value)}
+  />
+</td>
+<td className="p-2">
+  <input
+    className="w-full border p-1"
+    value={c.lastName}
+    onChange={(e) => handleUpdate(c.id, "lastName", e.target.value)}
+  />
+</td>
+
               <td className="p-2">
                 <input
                   className="w-full border p-1"

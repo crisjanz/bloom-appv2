@@ -189,7 +189,8 @@ model ReportingCategory {
 
 model Customer {
   id            String    @id @default(cuid())
-  name          String
+  firstName     String
+  lastName      String
   email         String?   @unique
   phone         String?
   notes         String?

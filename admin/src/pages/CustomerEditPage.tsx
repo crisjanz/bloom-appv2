@@ -2,13 +2,15 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 type Customer = {
-    id: string;
-    name: string;
-    email?: string;
-    phone?: string;
-    notes?: string;
-    homeAddress?: Address;
-  };
+  id: string;
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+  notes?: string;
+  homeAddress?: Address;
+};
+
   
 
 type Address = {
@@ -122,12 +124,25 @@ export default function CustomerEditPage() {
       <div>
         <h1 className="text-xl font-bold mb-4">Edit Customer</h1>
 
-        <label className="block mb-2">Name</label>
-        <input
-          className="w-full mb-4 p-2 border"
-          value={customer.name}
-          onChange={(e) => handleChange("name", e.target.value)}
-        />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+  <div>
+    <label className="block mb-2">First Name</label>
+    <input
+      className="w-full p-2 border"
+      value={customer.firstName || ""}
+      onChange={(e) => handleChange("firstName", e.target.value)}
+    />
+  </div>
+  <div>
+    <label className="block mb-2">Last Name</label>
+    <input
+      className="w-full p-2 border"
+      value={customer.lastName || ""}
+      onChange={(e) => handleChange("lastName", e.target.value)}
+    />
+  </div>
+</div>
+
 
         <label className="block mb-2">Email</label>
         <input
