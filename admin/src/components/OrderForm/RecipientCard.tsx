@@ -53,7 +53,7 @@ export default function RecipientCard({
               value={shortcutQuery}
               onChange={(e) => setShortcutQuery(e.target.value)}
             />
-            {filteredShortcuts.length > 0 && (
+            {Array.isArray(filteredShortcuts) && filteredShortcuts.length > 0 && (
               <div className="absolute z-50 mt-1 w-full bg-white border rounded shadow max-h-40 overflow-y-auto text-sm">
                 {filteredShortcuts.map((s) => (
                   <div

@@ -9,6 +9,36 @@ import ProductsCard from "../components/OrderForm/ProductsCard";
 import PaymentCard from "../components/OrderForm/PaymentCard";
 import MessageSuggestions from "../components/OrderForm/MessageSuggestions";
 import PaymentModal from "../components/OrderForm/PaymentModal";
+import MultiOrderTabs from "../components/OrderForm/MultiOrderTabs";
+
+type OrderEntry = {
+    recipientFirstName: string;
+    recipientLastName: string;
+    recipientCompany: string;
+    recipientPhone: string;
+    recipientAddress: {
+      address1: string;
+      address2: string;
+      city: string;
+      province: string;
+      postalCode: string;
+    };
+    orderType: "DELIVERY" | "PICKUP";
+    deliveryDate: string;
+    deliveryTime: string;
+    deliveryInstructions: string;
+    cardMessage: string;
+    customProducts: {
+      description: string;
+      category: string;
+      price: string;
+      qty: string;
+      tax: boolean;
+    }[]; // ← array
+    shortcutQuery: string;
+    filteredShortcuts: any[];
+  };
+  
 
 
 export default function OrderForm() {
@@ -16,8 +46,34 @@ export default function OrderForm() {
   const [orderType, setOrderType] = useState<"DELIVERY" | "PICKUP" | "">("DELIVERY");
   const [employee, setEmployee] = useState("");
   const [employeeList, setEmployeeList] = useState<{ id: string; name: string; type: string }[]>([]);
+  
   const [formError, setFormError] = useState<string | null>(null);
-
+  const [orders, setOrders] = useState<OrderEntry[]>([
+    {
+      recipientFirstName: "",
+      recipientLastName: "",
+      recipientCompany: "",
+      recipientPhone: "",
+      recipientAddress: {
+        address1: "",
+        address2: "",
+        city: "",
+        province: "",
+        postalCode: "",
+      },
+      orderType: "DELIVERY",
+      deliveryDate: "",
+      deliveryTime: "",
+      deliveryInstructions: "",
+      cardMessage: "",
+      customProducts: [
+        { description: "", category: "", price: "", qty: "1", tax: true },
+      ],
+    },
+  ]);
+  const [activeTab, setActiveTab] = useState(0);
+  
+  
 
   useEffect(() => {
     fetch("/api/employees")
@@ -145,10 +201,13 @@ const [customerResults, setCustomerResults] = useState<any[]>([]);
 
 
   // 🔧 Payment Helpers
-  const itemTotal = customProducts.reduce((sum, item) => {
-    const lineTotal = parseFloat(item.price || "0") * parseInt(item.qty || "0");
-    return sum + lineTotal;
+  const itemTotal = orders.reduce((total, order) => {
+    const subtotal = order.customProducts.reduce((sum, item) => {
+      return sum + parseFloat(item.price || "0") * parseInt(item.qty || "0");
+    }, 0);
+    return total + subtotal;
   }, 0);
+  
 
   const calculateDiscountAmount = () => {
     return discountType === "%" ? itemTotal * (discount / 100) : discount;
@@ -217,53 +276,22 @@ const [customerResults, setCustomerResults] = useState<any[]>([]);
   customer={customer}
   setCustomer={setCustomer}
   savedRecipients={savedRecipients}
-  setRecipientFirstName={setRecipientFirstName}
-  setRecipientLastName={setRecipientLastName}
-  setRecipientPhone={setRecipientPhone}
-  setRecipientAddress={setRecipientAddress}
   clearSavedRecipients={clearSavedRecipients}
+  orders={orders}
+  setOrders={setOrders}
+  activeTab={activeTab}
 />
 
 
-      {/* 🔸 Recipient Info */}
-      <RecipientCard
-        orderType={orderType}
-        recipientFirstName={recipientFirstName}
-        setRecipientFirstName={setRecipientFirstName}
-        recipientLastName={recipientLastName}
-        setRecipientLastName={setRecipientLastName}
-        recipientCompany={recipientCompany}
-        setRecipientCompany={setRecipientCompany}
-        recipientPhone={recipientPhone}
-        setRecipientPhone={setRecipientPhone}
-        recipientAddress={recipientAddress}
-        setRecipientAddress={setRecipientAddress}
-        shortcutQuery={shortcutQuery}
-        setShortcutQuery={setShortcutQuery}
-        filteredShortcuts={filteredShortcuts}
-        setFilteredShortcuts={setFilteredShortcuts}
-      />
+<MultiOrderTabs
+  orders={orders}
+  setOrders={setOrders}
+  activeTab={activeTab}
+  setActiveTab={setActiveTab}
+  setShowSuggestions={setShowSuggestions}
+  setCardMessage={setCardMessage}
+/>
 
-      {/* 🔸 Delivery Info + Card Message */}
-      <DeliveryCard
-        deliveryDate={deliveryDate}
-        setDeliveryDate={setDeliveryDate}
-        deliveryTime={deliveryTime}
-        setDeliveryTime={setDeliveryTime}
-        deliveryInstructions={deliveryInstructions}
-        setDeliveryInstructions={setDeliveryInstructions}
-        cardMessage={cardMessage}
-        setCardMessage={setCardMessage}
-        setShowSuggestions={setShowSuggestions}
-      />
-
-      {/* 🔸 Product Table */}
-      <ProductsCard
-        customProducts={customProducts}
-        handleProductChange={handleProductChange}
-        handleAddCustomProduct={handleAddCustomProduct}
-        calculateRowTotal={calculateRowTotal}
-      />
 
       {/* 🔸 Payment Summary */}
       <PaymentCard
@@ -292,12 +320,56 @@ const [customerResults, setCustomerResults] = useState<any[]>([]);
   total={grandTotal}
   employee={employee} 
   setFormError={setFormError}
-  onConfirm={(method) => {
-    alert(`Payment confirmed with ${method}`);
+  onConfirm={async (payments) => {
+    if (!payments.length) {
+      setFormError("No payments were entered.");
+      return;
+    }
+  
+    const groupId = crypto.randomUUID();
+  
+    for (const order of orders) {
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customer,
+          recipient: {
+            firstName: order.recipientFirstName,
+            lastName: order.recipientLastName,
+            company: order.recipientCompany,
+            phone: order.recipientPhone,
+            address: order.recipientAddress,
+          },
+          orderType: order.orderType,
+          deliveryDate: order.deliveryDate,
+          deliveryTime: order.deliveryTime,
+          deliveryInstructions: order.deliveryInstructions,
+          cardMessage: order.cardMessage,
+          products: order.customProducts,
+          payments,
+          paymentMethod: payments.map((p) => p.method).join(" + "),
+          status: payments.some((p) =>
+            ["Pay in POS", "COD", "House Account", "Wire"].includes(p.method)
+          )
+            ? "unpaid"
+            : "paid",
+          groupId,
+        }),
+      });
+  
+      if (!res.ok) {
+        console.error("❌ Failed to save order");
+        setFormError("Failed to save order. Try again.");
+        return;
+      }
+    }
+  
     setShowPaymentPopup(false);
-    // Later: Save the order here
+    alert("✅ All orders saved successfully.");
   }}
 />
+
 
 
       {/* 🔸 Message Suggestions Popup */}

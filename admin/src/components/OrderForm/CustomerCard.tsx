@@ -2,6 +2,50 @@
 
 import React from "react";
 
+// Reusable types
+type Recipient = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  address1: string;
+  address2?: string;
+  city: string;
+  province: string;
+  postalCode: string;
+  phone?: string;
+  company?: string;
+};
+
+type RecipientAddress = {
+  address1: string;
+  address2?: string;
+  city: string;
+  province: string;
+  postalCode: string;
+};
+
+type OrderEntry = {
+  recipientFirstName: string;
+  recipientLastName: string;
+  recipientCompany: string;
+  recipientPhone: string;
+  recipientAddress: RecipientAddress;
+  orderType: "DELIVERY" | "PICKUP";
+  deliveryDate: string;
+  deliveryTime: string;
+  deliveryInstructions: string;
+  cardMessage: string;
+  customProducts: {
+    description: string;
+    category: string;
+    price: string;
+    qty: string;
+    tax: boolean;
+  }[];
+  shortcutQuery: string;
+  filteredShortcuts: any[];
+};
+
 type Props = {
   customer: {
     firstName: string;
@@ -10,47 +54,29 @@ type Props = {
     email: string;
   };
   setCustomer: (val: any) => void;
-
-  savedRecipients: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    address1: string;
-    address2?: string;
-    city: string;
-    province: string;
-    postalCode: string;
-    phone?: string;
-  }[];
+  orders: OrderEntry[];
+  setOrders: (val: OrderEntry[]) => void;
+  activeTab: number;
+  savedRecipients: Recipient[];
   clearSavedRecipients: () => void;
-  setRecipientFirstName: (val: string) => void;
-  setRecipientLastName: (val: string) => void;
-  setRecipientPhone: (val: string) => void;
-  setRecipientAddress: (val: {
-    address1: string;
-    address2?: string;
-    city: string;
-    province: string;
-    postalCode: string;
-  }) => void;
 };
 
 export default function CustomerCard({
-    customer,
-    setCustomer,
-    savedRecipients,
-    setRecipientFirstName,
-    setRecipientLastName,
-    setRecipientPhone,
-    setRecipientAddress,
-    clearSavedRecipients,
-  }: Props) {
-  
+  customer,
+  setCustomer,
+  savedRecipients,
+  clearSavedRecipients,
+  orders,
+  setOrders,
+  activeTab,
+}: Props) {
+    const [selectedRecipientId, setSelectedRecipientId] = React.useState<string>("");
+
+
   return (
     <div className="bg-card rounded-lg shadow p-4 space-y-4">
       <div className="flex justify-between items-center">
-      <h2 className="text-lg font-semibold">Customer Info</h2>
-
+        <h2 className="text-lg font-semibold">Customer Info</h2>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -104,52 +130,65 @@ export default function CustomerCard({
             <button
               className="text-sm text-red-600 hover:underline"
               onClick={() => {
-                setCustomer({ firstName: "", lastName: "", phone: "", email: "" });
-                clearSavedRecipients(); // ← now clears recipients too
+                setCustomer({
+                  firstName: "",
+                  lastName: "",
+                  phone: "",
+                  email: "",
+                });
               }}
-              
-              
             >
-
               Clear Customer Info
             </button>
           </div>
         </div>
-       
+
         <div className="mt-4">
-  <label className="block text-sm font-medium">Saved Recipients</label>
-  <select
-    className="select-primary mt-1"
-    onChange={(e) => {
-      const selected = savedRecipients.find((r) => r.id === e.target.value);
-      if (selected) {
-        setRecipientFirstName(selected.firstName);
-        setRecipientLastName(selected.lastName);
-        setRecipientPhone(selected.phone || "");
-        setRecipientAddress({
-          address1: selected.address1,
-          address2: selected.address2 || "",
-          city: selected.city,
-          province: selected.province,
-          postalCode: selected.postalCode,
-        });
-      }
-    }}
-    disabled={savedRecipients.length === 0}
-    defaultValue=""
-  >
-    <option value="" disabled>
-      {savedRecipients.length === 0 ? "No saved recipients" : "Select saved address"}
-    </option>
+          <label className="block text-sm font-medium">Saved Recipients</label>
+          <select
+            className="select-primary mt-1"
+            value={selectedRecipientId ?? ""}
 
-    {savedRecipients.map((r) => (
-      <option key={r.id} value={r.id}>
-        {r.firstName} {r.lastName} – {r.address1}
-      </option>
-    ))}
-  </select>
-</div>
 
+            onChange={(e) => {
+              const selected = savedRecipients.find(
+                (r) => r.id === e.target.value
+              );
+              if (!selected) return;
+
+              const updated = [...orders];
+              updated[activeTab].recipientFirstName = selected.firstName;
+              updated[activeTab].recipientLastName = selected.lastName;
+              updated[activeTab].recipientPhone = selected.phone || "";
+              updated[activeTab].recipientCompany = selected.company || "";
+              updated[activeTab].recipientAddress = {
+                address1: selected.address1,
+                address2: selected.address2 || "",
+                city: selected.city,
+                province: selected.province,
+                postalCode: selected.postalCode,
+              };
+
+              setOrders(updated);
+              setSelectedRecipientId("");
+
+            }}
+            disabled={savedRecipients.length === 0}
+            
+          >
+            <option value="" disabled>
+              {savedRecipients.length === 0
+                ? "No saved recipients"
+                : "Select saved address"}
+            </option>
+
+            {savedRecipients.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.firstName} {r.lastName} – {r.address1}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
     </div>
   );
