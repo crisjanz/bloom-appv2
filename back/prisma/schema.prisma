@@ -70,6 +70,7 @@ model Product {
   isActive                Boolean       @default(true)
   createdAt               DateTime      @default(now())
   updatedAt               DateTime      @updatedAt
+  images 		  String[] 	@default([])
 
   category          Category          @relation("ProductCategory", fields: [categoryId], references: [id])
   reportingCategory ReportingCategory @relation("ProductReportingCategory", fields: [reportingCategoryId], references: [id])
@@ -213,6 +214,7 @@ model Address {
   province   String
   postalCode String
   phone      String?
+  company   String?   @db.VarChar(255)  // Optional field
 
   customer   Customer? @relation("RecipientAddresses", fields: [customerId], references: [id])
   customerId String?
@@ -318,4 +320,25 @@ model MessageSuggestion {
   id      String   @id @default(cuid())
   label   String   // e.g. "Sympathy", "Birthday"
   message String
+}
+
+model PaymentSettings {
+  id              String   @id @default(cuid())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Stripe Settings
+  stripeMode      String   @default("terminal") // "manual" or "terminal"
+  stripePublicKey String
+  stripeSecretKey String
+  stripeTerminalId String?
+
+  // Square Settings
+  squareMode       String   @default("terminal") // "manual" or "terminal"
+  squareAppId      String
+  squareAccessToken String
+  squareLocationId  String
+  squareTerminalId  String?
+
+  @@map("payment_settings")
 }

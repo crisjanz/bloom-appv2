@@ -54,5 +54,24 @@ router.delete("/:id", async (req, res) => {
     }
   });
   
+// Update employee
+router.put("/:id", async (req, res) => {
+  const { id } = req.params;
+  const { name, email, type, phone } = req.body;
 
+  if (!name || !type) {
+    return res.status(400).json({ error: "Name and type are required" });
+  }
+
+  try {
+    const updated = await prisma.employee.update({
+      where: { id },
+      data: { name, email, type, phone },
+    });
+    res.json(updated);
+  } catch (err) {
+    console.error("Error updating employee:", err);
+    res.status(500).json({ error: "Failed to update employee" });
+  }
+});
 export default router;

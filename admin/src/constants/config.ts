@@ -1,0 +1,1 @@
+export const GOOGLE_MAPS_API_KEY = 'AIzaSyB550tfeabwT0zRGecbLdmoITNsYoP2AIg'; // Get from Google Cloud Console

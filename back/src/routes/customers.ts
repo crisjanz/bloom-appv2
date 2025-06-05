@@ -9,7 +9,7 @@ const router = express.Router();
 router.get("/", async (req, res) => {
   try {
     const q = req.query.q?.toString().trim();
-
+    console.log("🔍 Search query received:", q);
     const customers = await prisma.customer.findMany({
       where: q
         ? {
@@ -177,6 +177,78 @@ router.get("/:id/recipients", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch saved recipients" });
   }
 });
+
+
+
+
+// POST /api/customers/:id/recipients
+router.post("/:id/recipients", async (req, res) => {
+  const { id } = req.params;
+  const { firstName, lastName, phone, address1, address2, city, province, postalCode, company } = req.body;
+  
+  try {
+    // Check if customer exists
+    const customer = await prisma.customer.findUnique({
+      where: { id },
+    });
+    
+    if (!customer) {
+      return res.status(404).json({ error: "Customer not found" });
+    }
+    
+    // Check if a recipient with same first and last name already exists
+    const existingRecipient = await prisma.address.findFirst({
+      where: {
+        customerId: id,
+        firstName: firstName?.trim() || "",
+        lastName: lastName?.trim() || "",
+      },
+    });
+    
+    if (existingRecipient) {
+      // Update existing recipient
+      const updatedRecipient = await prisma.address.update({
+        where: { id: existingRecipient.id },
+        data: {
+          phone: phone?.trim() || null,
+          address1: address1?.trim() || "",
+          address2: address2?.trim() || null,
+          city: city?.trim() || "",
+          province: province?.trim() || "",
+          postalCode: postalCode?.trim() || "",
+          // Note: company field might not exist in your Address model
+          // If it doesn't, remove this line or add it to your schema
+        },
+      });
+      
+      console.log("✅ Updated existing recipient:", updatedRecipient.id);
+      return res.json(updatedRecipient);
+    }
+    
+    // Create new recipient if no match found
+    const newRecipient = await prisma.address.create({
+      data: {
+        firstName: firstName?.trim() || "",
+        lastName: lastName?.trim() || "",
+        phone: phone?.trim() || null,
+        address1: address1?.trim() || "",
+        address2: address2?.trim() || null,
+        city: city?.trim() || "",
+        province: province?.trim() || "",
+        postalCode: postalCode?.trim() || "",
+        customer: { connect: { id } },
+      },
+    });
+    
+    console.log("✅ New recipient saved:", newRecipient.id);
+    res.status(201).json(newRecipient);
+  } catch (err) {
+    console.error("Failed to save recipient:", (err as any)?.message || err);
+    res.status(500).json({ error: "Failed to save recipient" });
+  }
+});
+
+
 
 
 // POST /api/customers/:id/addresses

@@ -1,5 +1,5 @@
 console.log("🚀 Starting backend...");
-
+import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
 import { PrismaClient } from '@prisma/client';
@@ -14,7 +14,7 @@ import addressShortcutRoutes from "./routes/addressShortcuts";
 
 
 
-
+dotenv.config();
 
 
 const app = express();
@@ -38,7 +38,8 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'Backend is alive!' });
 });
 
-const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
+const PORT = Number(process.env.PORT) || 4000;
+
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Custom backend running on http://localhost:${PORT}`);
 });
