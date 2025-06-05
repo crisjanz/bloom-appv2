@@ -15,8 +15,8 @@ export default function NewProductPage() {
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState("ACTIVE");
   const [visibility, setVisibility] = useState("ONLINE");
-  const [categoryId, setCategoryId] = useState("");
-  const [reportingCategoryId, setReportingCategoryId] = useState("");
+  const [categoryId, setCategoryId] = useState("7b1211d1-4c72-4676-b24b-6c3450b18d4b");
+  const [reportingCategoryId, setReportingCategoryId] = useState("05630112-f898-477f-a7d0-e8f9f91c81a6");
   const [price, setPrice] = useState(0);
   const [priceTitle, setPriceTitle] = useState("");
   const [isTaxable, setIsTaxable] = useState(false);
@@ -30,6 +30,7 @@ export default function NewProductPage() {
   const [seoTitle, setSeoTitle] = useState("");
   const [seoDescription, setSeoDescription] = useState("");
   const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [slug, setSlug] = useState("");
 
   const handleChange = (field: string, value: any) => {
     switch (field) {
@@ -87,20 +88,29 @@ export default function NewProductPage() {
       case "seoDescription":
         setSeoDescription(value);
         break;
+      case "slug":
+        setSlug(value);
+        break;
     }
   };
 
   const handleSave = async () => {
     try {
+      // Validate required fields
+      if (!title) throw new Error("Title is required");
+      if (!categoryId) throw new Error("Category is required");
+      if (!reportingCategoryId) throw new Error("Reporting category is required");
+
+      // Generate slug from title if empty
+      const finalSlug = slug || title.toLowerCase().replace(/\s+/g, "-") || "product-slug";
+
       const formData = new FormData();
       formData.append("title", title);
-      formData.append("description", description);
+      formData.append("description", description || "No description provided");
       formData.append("status", status);
       formData.append("visibility", visibility);
       formData.append("categoryId", categoryId);
       formData.append("reportingCategoryId", reportingCategoryId);
-      formData.append("price", String(price));
-      formData.append("priceTitle", priceTitle);
       formData.append("isTaxable", String(isTaxable));
       formData.append("isActive", String(isActive));
       formData.append("isFeatured", String(isFeatured));
@@ -111,6 +121,7 @@ export default function NewProductPage() {
       formData.append("subscriptionAvailable", String(subscriptionAvailable));
       formData.append("seoTitle", seoTitle);
       formData.append("seoDescription", seoDescription);
+      formData.append("slug", finalSlug);
 
       imageFiles.forEach((file) => {
         formData.append("images", file);
@@ -121,11 +132,21 @@ export default function NewProductPage() {
         body: formData,
       });
 
-      if (!res.ok) throw new Error("Failed to save product");
+      if (!res.ok) {
+        const errorData = await res.json();
+        console.error("API error response:", errorData, {
+          status: res.status,
+          headers: Object.fromEntries(res.headers.entries()),
+        });
+        throw new Error(errorData.error || `HTTP error ${res.status}`);
+      }
+
+      const result = await res.json();
+      console.log("Product saved:", result);
       alert("✅ Product saved!");
-    } catch (error) {
-      console.error(error);
-      alert("❌ Failed to save product.");
+    } catch (error: any) {
+      console.error("Save error:", error);
+      alert(`❌ Failed to save product: ${error.message}`);
     }
   };
 
@@ -172,6 +193,7 @@ export default function NewProductPage() {
               isActive={isActive}
               isFeatured={isFeatured}
               inventory={inventory}
+              slug={slug}
               onChange={handleChange}
               onSave={handleSave}
             />

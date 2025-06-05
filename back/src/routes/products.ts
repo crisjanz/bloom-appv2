@@ -96,6 +96,12 @@ router.post('/', upload.array('images'), async (req, res) => {
   console.log('🧾 Incoming product body:', req.body);
   const files = (req as any).files as Express.Multer.File[];
   try {
+    // Validate required fields
+    if (!categoryId || !reportingCategoryId) {
+      console.error('Missing required fields:', { categoryId, reportingCategoryId });
+      return res.status(400).json({ error: 'Category and reporting category are required' });
+    }
+
     let imageUrls: string[] = [];
     if (files && files.length > 0) {
       for (const file of files) {
@@ -106,7 +112,7 @@ router.post('/', upload.array('images'), async (req, res) => {
             contentType: file.mimetype,
           });
         if (error) {
-          console.error('Upload error:', error);
+          console.error('Supabase upload error:', error);
           throw error;
         }
         const { data: publicUrlData } = supabase.storage
@@ -115,6 +121,18 @@ router.post('/', upload.array('images'), async (req, res) => {
         imageUrls.push(publicUrlData.publicUrl);
       }
     }
+
+    console.log('Attempting Prisma create with data:', {
+      name,
+      slug,
+      status,
+      visibility,
+      description,
+      categoryId,
+      reportingCategoryId,
+      imageUrls,
+    });
+
     const product = await prisma.product.create({
       data: {
         name,
@@ -130,10 +148,12 @@ router.post('/', upload.array('images'), async (req, res) => {
         reportingCategory: { connect: { id: reportingCategoryId } },
       },
     });
+
+    console.log('Product created:', product);
     res.status(201).json(product);
-  } catch (err) {
+  } catch (err: any) {
     console.error('Create product error:', err);
-    res.status(500).json({ error: 'Failed to create product' });
+    res.status(500).json({ error: err.message || 'Failed to create product' });
   }
 });
 
