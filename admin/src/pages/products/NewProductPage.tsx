@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 
@@ -31,6 +32,8 @@ export default function NewProductPage() {
   const [seoDescription, setSeoDescription] = useState("");
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [slug, setSlug] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const navigate = useNavigate();
 
   const handleChange = (field: string, value: any) => {
     switch (field) {
@@ -96,13 +99,17 @@ export default function NewProductPage() {
 
   const handleSave = async () => {
     try {
-      // Validate required fields
+      console.log("Starting save, isSaving:", isSaving);
+      setIsSaving(true);
+      console.log("After setIsSaving(true), isSaving:", isSaving);
+
       if (!title) throw new Error("Title is required");
       if (!categoryId) throw new Error("Category is required");
       if (!reportingCategoryId) throw new Error("Reporting category is required");
 
-      // Generate slug from title if empty
-      const finalSlug = slug || title.toLowerCase().replace(/\s+/g, "-") || "product-slug";
+      const baseSlug = slug || title.toLowerCase().replace(/\s+/g, "-") || "product-slug";
+      const timestamp = Date.now();
+      const finalSlug = `${baseSlug}-${timestamp}`;
 
       const formData = new FormData();
       formData.append("title", title);
@@ -122,6 +129,7 @@ export default function NewProductPage() {
       formData.append("seoTitle", seoTitle);
       formData.append("seoDescription", seoDescription);
       formData.append("slug", finalSlug);
+      formData.append("price", String(price));
 
       imageFiles.forEach((file) => {
         formData.append("images", file);
@@ -143,15 +151,20 @@ export default function NewProductPage() {
 
       const result = await res.json();
       console.log("Product saved:", result);
-      alert("✅ Product saved!");
+      setIsSaving(false);
+      console.log("After setIsSaving(false), isSaving:", isSaving);
+      console.log("Redirecting to /products/view/", result.id);
+      alert("✅ Product saved!"); // Keep for debugging
+      navigate(`/products/view/${result.id}`, { replace: true }); // Ensure redirect
     } catch (error: any) {
+      setIsSaving(false);
       console.error("Save error:", error);
       alert(`❌ Failed to save product: ${error.message}`);
     }
   };
 
   return (
-    <div className="bg-whiten dark:bg-boxdark min-h-screen">
+    <div className="bg-whiten dark:bg-boxdark min-h-screen relative">
       <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
         <PageMeta title="New Product" />
         <PageBreadcrumb pageTitle="New Product" />
@@ -204,6 +217,35 @@ export default function NewProductPage() {
             />
           </div>
         </div>
+
+        {/* Loading Modal */}
+        {isSaving && (
+          <div className="fixed inset-0 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-boxdark p-6 rounded-lg shadow-lg flex items-center gap-3">
+              <svg
+                className="animate-spin h-6 w-6 text-[#597485]"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+              </svg>
+              <span className="text-lg font-medium text-black dark:text-white">Saving...</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

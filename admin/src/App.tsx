@@ -26,8 +26,8 @@ import CategoriesPage from "./pages/products/CategoriesPage";
 import CustomersPage from "./pages/customers/CustomersPage";
 import CustomersNewPage from "./pages/customers/CustomersNewPage";
 import CustomersEditPage from "./pages/customers/CustomersEditPage";
+import ViewProductPage from "./pages/products/ViewProductPage";
 
-// ✅ Updated Settings structure
 import SettingsIndexPage from "./pages/settings";
 import BusinessPage from "./pages/settings/business";
 import PaymentsPage from "./pages/settings/payments";
@@ -46,7 +46,6 @@ export default function App() {
     <Router>
       <ScrollToTop />
       <Routes>
-
         {/* Public routes */}
         <Route path="/signin" element={<SignIn />} />
         <Route path="/signup" element={<SignUp />} />
@@ -70,14 +69,14 @@ export default function App() {
           <Route path="products" element={<ProductsPage />} />
           <Route path="products/new" element={<NewProductPage />} />
           <Route path="products/edit/:id" element={<NewProductPage />} />
+          <Route path="products/view/:id" element={<ViewProductPage />} /> {/* Fixed route */}
           <Route path="/orders/new" element={<TakeOrderPage />} />
           <Route path="products/categories" element={<CategoriesPage />} />
           <Route path="customers" element={<CustomersPage />} />
           <Route path="customers/new" element={<CustomersNewPage />} />
           <Route path="customers/:id" element={<CustomersEditPage />} />
 
-
-          {/* ✅ Settings pages */}
+          {/* Settings routes */}
           <Route path="settings" element={<SettingsIndexPage />} />
           <Route path="settings/business" element={<BusinessPage />} />
           <Route path="settings/payments" element={<PaymentsPage />} />
@@ -94,7 +93,6 @@ export default function App() {
 
         {/* Fallback route */}
         <Route path="*" element={<NotFound />} />
-
       </Routes>
     </Router>
   );
