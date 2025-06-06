@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import PageMeta from '../../components/common/PageMeta';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import ProductInfoCard from '../../components/products/cards/ProductInfoCard';
@@ -26,6 +26,10 @@ type Variant = {
 };
 
 export default function NewProductPage() {
+  const { id } = useParams(); // Get product ID from URL
+  const isEditMode = Boolean(id); // Check if we're editing
+  const navigate = useNavigate();
+
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [visibility, setVisibility] = useState('ONLINE');
@@ -42,15 +46,76 @@ export default function NewProductPage() {
   const [recipe, setRecipe] = useState('');
   const [availableFrom, setAvailableFrom] = useState('');
   const [availableTo, setAvailableTo] = useState('');
-  const [subscriptionAvailable, setSubscriptionAvailable] = useState(false);
   const [seoTitle, setSeoTitle] = useState('');
   const [seoDescription, setSeoDescription] = useState('');
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [slug, setSlug] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
+  const [availabilityType, setAvailabilityType] = useState('always');
+  const [holidayPreset, setHolidayPreset] = useState('');
+  const [isTemporarilyUnavailable, setIsTemporarilyUnavailable] = useState(false);
+  const [unavailableUntil, setUnavailableUntil] = useState('');
+  const [unavailableMessage, setUnavailableMessage] = useState('');
+  const [notAvailableFrom, setNotAvailableFrom] = useState('');
+  const [notAvailableUntil, setNotAvailableUntil] = useState('');
 
   const productSlug = slug || title.toLowerCase().replace(/\s+/g, '-') || 'product';
+
+  // Fetch product data in edit mode
+  useEffect(() => {
+    if (isEditMode && id) {
+      fetchProductData(id);
+    }
+  }, [id, isEditMode]);
+
+  const fetchProductData = async (productId: string) => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(`/api/products/${productId}`);
+      if (!response.ok) throw new Error('Failed to fetch product');
+      
+      const product = await response.json();
+      console.log('Fetched product data:', product);
+      
+      // Populate all the state fields
+      setTitle(product.name || '');
+      setDescription(product.description || '');
+      setVisibility(product.visibility || 'ONLINE');
+      setCategoryId(product.categoryId || '');
+      setReportingCategoryId(product.reportingCategoryId || '');
+      setPrice((product.variants?.[0]?.price || 0) / 100); // Convert from cents
+      setIsTaxable(product.isTaxable || false);
+      setIsActive(product.isActive || true);
+      setIsFeatured(product.showOnHomepage || false);
+      setInventory(product.variants?.[0]?.stockLevel || 0);
+      setRecipe(product.recipeNotes || '');
+      setSlug(product.slug || '');
+      setSeoTitle(product.seoTitle || '');
+      setSeoDescription(product.seoDescription || '');
+      
+      // Populate availability fields
+      setAvailabilityType(product.availabilityType || 'always');
+      setHolidayPreset(product.holidayPreset || '');
+      setAvailableFrom(product.availableFrom ? product.availableFrom.split('T')[0] : '');
+      setAvailableTo(product.availableTo ? product.availableTo.split('T')[0] : '');
+      setNotAvailableFrom(product.notAvailableFrom ? product.notAvailableFrom.split('T')[0] : '');
+      setNotAvailableUntil(product.notAvailableUntil ? product.notAvailableUntil.split('T')[0] : '');
+      setIsTemporarilyUnavailable(product.isTemporarilyUnavailable || false);
+      setUnavailableUntil(product.unavailableUntil ? product.unavailableUntil.split('T')[0] : '');
+      setUnavailableMessage(product.unavailableMessage || '');
+      
+      // TODO: Handle variants and option groups if needed
+      // setVariants(product.variants || []);
+      // setOptionGroups(product.optionGroups || []);
+      
+    } catch (error) {
+      console.error('Error fetching product:', error);
+      alert('Failed to load product data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleChange = (field: string, value: any) => {
     console.log(`NewProductPage: Updating ${field} to`, value, `type: ${typeof value}`);
@@ -97,9 +162,6 @@ export default function NewProductPage() {
       case 'availableTo':
         setAvailableTo(value);
         break;
-      case 'subscriptionAvailable':
-        setSubscriptionAvailable(value);
-        break;
       case 'seoTitle':
         setSeoTitle(value);
         break;
@@ -108,6 +170,27 @@ export default function NewProductPage() {
         break;
       case 'slug':
         setSlug(value);
+        break;
+      case 'availabilityType':
+        setAvailabilityType(value);
+        break;
+      case 'holidayPreset':
+        setHolidayPreset(value);
+        break;
+      case 'notAvailableFrom':
+        setNotAvailableFrom(value);
+        break;
+      case 'notAvailableUntil':
+        setNotAvailableUntil(value);
+        break;
+      case 'isTemporarilyUnavailable':
+        setIsTemporarilyUnavailable(value);
+        break;
+      case 'unavailableUntil':
+        setUnavailableUntil(value);
+        break;
+      case 'unavailableMessage':
+        setUnavailableMessage(value);
         break;
     }
   };
@@ -120,8 +203,7 @@ export default function NewProductPage() {
       if (!reportingCategoryId) throw new Error('Reporting category is required');
 
       const baseSlug = slug || title.toLowerCase().replace(/\s+/g, '-') || 'product-slug';
-      const timestamp = Date.now();
-      const finalSlug = `${baseSlug}-${timestamp}`;
+      const finalSlug = isEditMode ? baseSlug : `${baseSlug}-${Date.now()}`;
 
       const formData = new FormData();
       formData.append('title', title);
@@ -136,20 +218,29 @@ export default function NewProductPage() {
       formData.append('recipe', recipe);
       formData.append('availableFrom', availableFrom);
       formData.append('availableTo', availableTo);
-      formData.append('subscriptionAvailable', JSON.stringify(subscriptionAvailable));
       formData.append('seoTitle', seoTitle);
       formData.append('seoDescription', seoDescription);
       formData.append('slug', finalSlug);
       formData.append('price', String(price));
       formData.append('optionGroups', JSON.stringify(optionGroups));
       formData.append('variants', JSON.stringify(variants));
+      formData.append('availabilityType', availabilityType);
+      formData.append('holidayPreset', holidayPreset);
+      formData.append('notAvailableFrom', notAvailableFrom);
+      formData.append('notAvailableUntil', notAvailableUntil);
+      formData.append('isTemporarilyUnavailable', JSON.stringify(isTemporarilyUnavailable));
+      formData.append('unavailableUntil', unavailableUntil);
+      formData.append('unavailableMessage', unavailableMessage);
 
       imageFiles.forEach((file) => {
         formData.append('images', file);
       });
 
-      const res = await fetch('/api/products', {
-        method: 'POST',
+      const url = isEditMode ? `/api/products/${id}` : '/api/products';
+      const method = isEditMode ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
         body: formData,
       });
 
@@ -160,19 +251,54 @@ export default function NewProductPage() {
 
       const result = await res.json();
       setIsSaving(false);
-      alert('✅ Product saved!');
-      navigate(`/products/view/${result.id}`, { replace: true });
+      alert(isEditMode ? '✅ Product updated!' : '✅ Product saved!');
+      navigate(isEditMode ? `/products/view/${id}` : `/products/view/${result.id}`, { replace: true });
     } catch (error: any) {
       setIsSaving(false);
-      alert(`❌ Failed to save product: ${error.message}`);
+      alert(`❌ Failed to ${isEditMode ? 'update' : 'save'} product: ${error.message}`);
     }
   };
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="bg-whiten dark:bg-boxdark min-h-screen relative">
+        <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
+          <div className="flex items-center justify-center h-64">
+            <div className="flex items-center gap-3">
+              <svg
+                className="animate-spin h-6 w-6 text-[#597485]"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+              </svg>
+              <span className="text-lg font-medium text-black dark:text-white">Loading product...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-whiten dark:bg-boxdark min-h-screen relative">
       <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
-        <PageMeta title="New Product" />
-        <PageBreadcrumb pageName="New Product" />
+        <PageMeta title={isEditMode ? "Edit Product" : "New Product"} />
+        <PageBreadcrumb pageName={isEditMode ? "Edit Product" : "New Product"} />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
           <div className="lg:col-span-2 space-y-6">
@@ -199,9 +325,15 @@ export default function NewProductPage() {
               onChange={(val) => handleChange('recipe', val)}
             />
             <AvailabilityCard
+              availabilityType={availabilityType}
+              holidayPreset={holidayPreset}
               availableFrom={availableFrom}
               availableTo={availableTo}
-              subscriptionAvailable={subscriptionAvailable}
+              notAvailableFrom={notAvailableFrom}
+              notAvailableUntil={notAvailableUntil}
+              isTemporarilyUnavailable={isTemporarilyUnavailable}
+              unavailableUntil={unavailableUntil}
+              unavailableMessage={unavailableMessage}
               onChange={handleChange}
             />
           </div>
@@ -251,7 +383,9 @@ export default function NewProductPage() {
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                 ></path>
               </svg>
-              <span className="text-lg font-medium text-black dark:text-white">Saving...</span>
+              <span className="text-lg font-medium text-black dark:text-white">
+                {isEditMode ? 'Updating...' : 'Saving...'}
+              </span>
             </div>
           </div>
         )}

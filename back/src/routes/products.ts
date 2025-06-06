@@ -107,12 +107,21 @@ router.post('/', upload.array('images'), async (req, res) => {
     isFeatured,
     availableFrom,
     availableTo,
-    subscriptionAvailable,
+    // New availability fields
+    availabilityType,
+    holidayPreset,
+    notAvailableFrom,
+    notAvailableUntil,
+    isTemporarilyUnavailable,
+    unavailableUntil,
+    unavailableMessage,
     optionGroups: optionGroupsJson,
     variants: variantsJson,
   } = req.body;
+  
   const name = title;
   console.log('🧾 Incoming product body:', req.body);
+  
   try {
     if (!categoryId || !reportingCategoryId) {
       console.error('Missing required fields:', { categoryId, reportingCategoryId });
@@ -186,6 +195,13 @@ router.post('/', upload.array('images'), async (req, res) => {
       imageUrls,
       price: basePrice,
       inventory,
+      availabilityType,
+      holidayPreset,
+      notAvailableFrom,
+      notAvailableUntil,
+      isTemporarilyUnavailable,
+      unavailableUntil,
+      unavailableMessage,
       optionGroups,
       variants,
     });
@@ -203,7 +219,18 @@ router.post('/', upload.array('images'), async (req, res) => {
         inventoryMode: 'OWN',
         images: imageUrls,
         recipeNotes: recipe || null,
-        isSubscriptionAvailable: subscriptionAvailable ? JSON.parse(subscriptionAvailable) : false,
+        
+        // New availability fields
+     availabilityType: availabilityType || 'always',
+    holidayPreset: (holidayPreset && holidayPreset.trim() !== '') ? holidayPreset : null,
+    availableFrom: (availableFrom && availableFrom.trim() !== '') ? new Date(availableFrom) : null,
+    availableTo: (availableTo && availableTo.trim() !== '') ? new Date(availableTo) : null,
+    notAvailableFrom: (notAvailableFrom && notAvailableFrom.trim() !== '') ? new Date(notAvailableFrom) : null,
+    notAvailableUntil: (notAvailableUntil && notAvailableUntil.trim() !== '') ? new Date(notAvailableUntil) : null,
+    isTemporarilyUnavailable: isTemporarilyUnavailable ? JSON.parse(isTemporarilyUnavailable) : false,
+    unavailableUntil: (unavailableUntil && unavailableUntil.trim() !== '') ? new Date(unavailableUntil) : null,
+    unavailableMessage: (unavailableMessage && unavailableMessage.trim() !== '') ? unavailableMessage : null,
+   
         category: { connect: { id: categoryId } },
         reportingCategory: { connect: { id: reportingCategoryId } },
         variants: {
@@ -274,7 +301,21 @@ router.get('/:id', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
-  const { name, slug, visibility } = req.body;
+  const { 
+    name, 
+    slug, 
+    visibility,
+    availabilityType,
+    holidayPreset,
+    availableFrom,
+    availableTo,
+    notAvailableFrom,
+    notAvailableUntil,
+    isTemporarilyUnavailable,
+    unavailableUntil,
+    unavailableMessage
+  } = req.body;
+  
   try {
     const updated = await prisma.product.update({
       where: { id },
@@ -282,6 +323,15 @@ router.put('/:id', async (req, res) => {
         name,
         slug,
         visibility,
+        availabilityType,
+        holidayPreset: (holidayPreset && holidayPreset.trim() !== '') ? holidayPreset : null,
+        availableFrom: (availableFrom && availableFrom.trim() !== '') ? new Date(availableFrom) : null,
+        availableTo: (availableTo && availableTo.trim() !== '') ? new Date(availableTo) : null,
+        notAvailableFrom: (notAvailableFrom && notAvailableFrom.trim() !== '') ? new Date(notAvailableFrom) : null,
+        notAvailableUntil: (notAvailableUntil && notAvailableUntil.trim() !== '') ? new Date(notAvailableUntil) : null,
+        isTemporarilyUnavailable: isTemporarilyUnavailable ? JSON.parse(isTemporarilyUnavailable) : false,
+        unavailableUntil: (unavailableUntil && unavailableUntil.trim() !== '') ? new Date(unavailableUntil) : null,
+        unavailableMessage: (unavailableMessage && unavailableMessage.trim() !== '') ? unavailableMessage : null,
       },
     });
     res.json(updated);

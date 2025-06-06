@@ -132,12 +132,12 @@ const SettingsCard: FC<Props> = ({
       </div>
 
       <div className="mb-5.5">
-        <ToggleSwitch
-          label="Active"
-          name="isActive"
-          checked={isActive}
-          onChange={(value: boolean) => handleChange('isActive', value)}
-        />
+       <ToggleSwitch
+  label="Active"
+  name="isActive"
+  defaultChecked={isActive} // ✅ Changed from 'checked' to 'defaultChecked'
+  onChange={(value: boolean) => handleChange('isActive', value)}
+/>
       </div>
 
       <div className="mb-5.5">

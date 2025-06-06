@@ -65,12 +65,22 @@ model Product {
   inventoryMode           InventoryMode @default(OWN)
   visibility              Visibility    @default(BOTH)
   showOnHomepage          Boolean       @default(false)
-  isSubscriptionAvailable Boolean       @default(false)
   isActive                Boolean       @default(true)
   isTaxable               Boolean       @default(true)
   createdAt               DateTime      @default(now())
   updatedAt               DateTime      @updatedAt
   images                  String[]      @default([])
+
+  // New Availability Fields
+  availabilityType         String?       @default("always")
+  holidayPreset           String?
+  availableFrom           DateTime?
+  availableTo             DateTime?
+  notAvailableFrom        DateTime?
+  notAvailableUntil       DateTime?
+  isTemporarilyUnavailable Boolean      @default(false)
+  unavailableUntil        DateTime?
+  unavailableMessage      String?
 
   category          Category          @relation("ProductCategory", fields: [categoryId], references: [id])
   reportingCategory ReportingCategory @relation("ProductReportingCategory", fields: [reportingCategoryId], references: [id])
