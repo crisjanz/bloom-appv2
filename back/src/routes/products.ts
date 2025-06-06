@@ -11,6 +11,15 @@ const supabase = createClient(
 const upload = multer({ storage: multer.memoryStorage() });
 const router = Router();
 
+// Simple UUID generator for browser compatibility
+const generateUUID = () => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
 // Debug route to confirm router
 router.get('/ping', (req, res) => {
   console.log('Ping route hit');
@@ -109,6 +118,8 @@ router.post('/', upload.array('images'), async (req, res) => {
     subscriptionAvailable,
     seoTitle,
     seoDescription,
+    optionGroups: optionGroupsJson,
+    variants: variantsJson,
   } = req.body;
   const name = title;
   console.log('🧾 Incoming product body:', req.body);
@@ -144,6 +155,37 @@ router.post('/', upload.array('images'), async (req, res) => {
       }
     }
 
+    // Parse option groups and variants
+    const optionGroups = optionGroupsJson ? JSON.parse(optionGroupsJson) : [];
+    const variants = variantsJson ? JSON.parse(variantsJson) : [];
+    const basePrice = parseFloat(price || '0') * 100; // Convert to cents
+
+    // Create option groups and values
+    const optionGroupMap: { [name: string]: { id: string; values: { [label: string]: string } } } = {};
+    for (const group of optionGroups) {
+      const option = await prisma.productOption.create({
+        data: {
+          id: group.id,
+          name: group.name,
+          impactVariants: group.impactsVariants,
+          values: {
+            create: group.values.map((value: string, index: number) => ({
+              id: generateUUID(),
+              label: value,
+              sortOrder: index,
+            })),
+          },
+        },
+        include: { values: true },
+      });
+      optionGroupMap[group.name] = {
+        id: option.id,
+        values: Object.fromEntries(
+          option.values.map((v: { label: string; id: string }) => [v.label, v.id])
+        ),
+      };
+    }
+
     console.log('Attempting Prisma create with data:', {
       name,
       slug,
@@ -153,10 +195,13 @@ router.post('/', upload.array('images'), async (req, res) => {
       categoryId,
       reportingCategoryId,
       imageUrls,
-      price,
+      price: basePrice,
       inventory,
+      optionGroups,
+      variants,
     });
 
+    // Create product with variants
     const product = await prisma.product.create({
       data: {
         name,
@@ -174,14 +219,44 @@ router.post('/', upload.array('images'), async (req, res) => {
         category: { connect: { id: categoryId } },
         reportingCategory: { connect: { id: reportingCategoryId } },
         variants: {
-          create: {
-            name: 'Default',
-            sku: `${slug}-default`,
-            price: Math.round(parseFloat(price || '0') * 100), // Store price in cents
-            stockLevel: parseInt(inventory || '0'),
-            trackInventory: parseInt(inventory || '0') > 0,
-            isDefault: true,
-          },
+          create: variants.length > 0
+            ? variants.map((variant: any) => ({
+                id: variant.id,
+                name: variant.name,
+                sku: variant.sku || null, // Allow empty SKU
+                price: basePrice + (variant.priceDifference || 0), // Base price + difference
+                stockLevel: variant.stockLevel || 0,
+                trackInventory: variant.trackInventory || false,
+                isDefault: false,
+                options: {
+                  create: variant.name
+                    .split(' - ')
+                    .map((value: string) => {
+                      // Find the option group and value
+                      const group = optionGroups.find((g: any) =>
+                        g.values.includes(value)
+                      );
+                      if (!group) {
+                        throw new Error(`Option value ${value} not found in groups`);
+                      }
+                      const valueId = optionGroupMap[group.name].values[value];
+                      if (!valueId) {
+                        throw new Error(`Value ID for ${value} not found`);
+                      }
+                      return {
+                        optionValueId: valueId,
+                      };
+                    }),
+                },
+              }))
+            : [{
+                name: 'Default',
+                sku: `${slug}-default`,
+                price: basePrice,
+                stockLevel: parseInt(inventory || '0'),
+                trackInventory: parseInt(inventory || '0') > 0,
+                isDefault: true,
+              }],
         },
       },
     });

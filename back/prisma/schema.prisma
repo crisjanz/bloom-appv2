@@ -102,9 +102,10 @@ model ProductVariant {
 }
 
 model ProductOption {
-  id     String               @id @default(uuid())
-  name   String
-  values ProductOptionValue[]
+  id             String               @id @default(uuid())
+  name           String
+  impactVariants Boolean              @default(true)
+  values         ProductOptionValue[]
 }
 
 model ProductOptionValue {

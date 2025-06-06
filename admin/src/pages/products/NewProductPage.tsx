@@ -11,6 +11,22 @@ import AvailabilityCard from "../../components/products/cards/AvailabilityCard";
 import SettingsCard from "../../components/products/cards/SettingsCard";
 import SeoCard from "../../components/products/cards/SeoCard";
 
+type OptionGroup = {
+  id: string;
+  name: string;
+  values: string[];
+  impactsVariants: boolean;
+};
+
+type Variant = {
+  id: string;
+  name: string;
+  sku: string;
+  priceDifference: number;
+  stockLevel: number;
+  trackInventory: boolean;
+};
+
 export default function NewProductPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -24,9 +40,11 @@ export default function NewProductPage() {
   const [isActive, setIsActive] = useState(true);
   const [isFeatured, setIsFeatured] = useState(false);
   const [inventory, setInventory] = useState(0);
+  const [optionGroups, setOptionGroups] = useState<OptionGroup[]>([]);
+  const [variants, setVariants] = useState<Variant[]>([]);
   const [recipe, setRecipe] = useState("");
   const [availableFrom, setAvailableFrom] = useState("");
-  const [availableTo, setAvailableTo] = useState("");
+  const [availableTo, setAvailableTo] = useState(""); // Fixed: Changed setAvailableFrom to setAvailableTo
   const [subscriptionAvailable, setSubscriptionAvailable] = useState(false);
   const [seoTitle, setSeoTitle] = useState("");
   const [seoDescription, setSeoDescription] = useState("");
@@ -34,6 +52,8 @@ export default function NewProductPage() {
   const [slug, setSlug] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const navigate = useNavigate();
+
+  const productSlug = slug || title.toLowerCase().replace(/\s+/g, "-") || "product";
 
   const handleChange = (field: string, value: any) => {
     switch (field) {
@@ -99,10 +119,7 @@ export default function NewProductPage() {
 
   const handleSave = async () => {
     try {
-      console.log("Starting save, isSaving:", isSaving);
       setIsSaving(true);
-      console.log("After setIsSaving(true), isSaving:", isSaving);
-
       if (!title) throw new Error("Title is required");
       if (!categoryId) throw new Error("Category is required");
       if (!reportingCategoryId) throw new Error("Reporting category is required");
@@ -130,6 +147,8 @@ export default function NewProductPage() {
       formData.append("seoDescription", seoDescription);
       formData.append("slug", finalSlug);
       formData.append("price", String(price));
+      formData.append("optionGroups", JSON.stringify(optionGroups));
+      formData.append("variants", JSON.stringify(variants));
 
       imageFiles.forEach((file) => {
         formData.append("images", file);
@@ -142,23 +161,15 @@ export default function NewProductPage() {
 
       if (!res.ok) {
         const errorData = await res.json();
-        console.error("API error response:", errorData, {
-          status: res.status,
-          headers: Object.fromEntries(res.headers.entries()),
-        });
         throw new Error(errorData.error || `HTTP error ${res.status}`);
       }
 
       const result = await res.json();
-      console.log("Product saved:", result);
       setIsSaving(false);
-      console.log("After setIsSaving(false), isSaving:", isSaving);
-      console.log("Redirecting to /products/view/", result.id);
-      alert("✅ Product saved!"); // Keep for debugging
-      navigate(`/products/view/${result.id}`, { replace: true }); // Ensure redirect
+      alert("✅ Product saved!");
+      navigate(`/products/view/${result.id}`, { replace: true });
     } catch (error: any) {
       setIsSaving(false);
-      console.error("Save error:", error);
       alert(`❌ Failed to save product: ${error.message}`);
     }
   };
@@ -167,7 +178,7 @@ export default function NewProductPage() {
     <div className="bg-whiten dark:bg-boxdark min-h-screen relative">
       <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
         <PageMeta title="New Product" />
-        <PageBreadcrumb pageTitle="New Product" />
+        <PageBreadcrumb pageName="New Product" />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
           {/* Main Column */}
@@ -181,7 +192,13 @@ export default function NewProductPage() {
             <PricingCard
               price={price}
               priceTitle={priceTitle}
+              inventory={inventory}
+              productSlug={productSlug}
+              optionGroups={optionGroups}
+              variants={variants}
               onChange={handleChange}
+              onOptionGroupsChange={setOptionGroups}
+              onVariantsChange={setVariants}
             />
             <RecipeCard
               recipe={recipe}
