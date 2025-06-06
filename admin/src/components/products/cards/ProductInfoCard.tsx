@@ -8,9 +8,10 @@ type Props = {
   description: string;
   onChange: (field: "title" | "description", value: string) => void;
   onImagesChange: (files: File[]) => void;
+  setSlug: (slug: string) => void; // ✅ Added this prop
 };
 
-const ProductInfoCard: FC<Props> = ({ title, description, onChange, onImagesChange }) => {
+const ProductInfoCard: FC<Props> = ({ title, description, onChange, onImagesChange, setSlug }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
@@ -51,6 +52,15 @@ const handleRemoveFile = (index: number) => {
   onImagesChange(updatedFiles);
 };
 
+  // ✅ Added this function for slug generation
+  const handleTitleBlur = () => {
+    if (title && title.trim()) {
+      const generatedSlug = title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      console.log('Generating slug:', { title, generatedSlug });
+      setSlug(generatedSlug);
+    }
+  };
+
   return (
     <ComponentCard title="Product Info">
       <div>
@@ -60,6 +70,7 @@ const handleRemoveFile = (index: number) => {
             name="title"
             value={title}
             onChange={(e) => onChange("title", e.target.value)}
+            onBlur={handleTitleBlur} // ✅ Added this
             placeholder="e.g. Bright and Bold"
           />
         </div>

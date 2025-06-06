@@ -11,7 +11,6 @@ const supabase = createClient(
 const upload = multer({ storage: multer.memoryStorage() });
 const router = Router();
 
-// Simple UUID generator for browser compatibility
 const generateUUID = () => {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
@@ -20,19 +19,16 @@ const generateUUID = () => {
   });
 };
 
-// Debug route to confirm router
 router.get('/ping', (req, res) => {
   console.log('Ping route hit');
   res.json({ message: 'Pong' });
 });
 
-// Test route for Supabase bucket
 router.get('/test-supabase', async (req, res) => {
   try {
     console.log('Test-supabase route hit');
     console.log('Supabase URL:', process.env.SUPABASE_URL);
     console.log('Supabase Key:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'Set' : 'Missing');
-
     const { data, error } = await supabase.storage.from('product-images').list();
     if (error) {
       console.error('Supabase error:', error);
@@ -46,7 +42,6 @@ router.get('/test-supabase', async (req, res) => {
   }
 });
 
-// Search Endpoint
 router.get('/search', async (req, res) => {
   const { q } = req.query;
   if (!q) {
@@ -81,7 +76,6 @@ router.get('/search', async (req, res) => {
   }
 });
 
-// GET all products
 router.get('/', async (req, res) => {
   try {
     const products = await prisma.product.findMany({
@@ -97,12 +91,10 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST new product
 router.post('/', upload.array('images'), async (req, res) => {
   const {
     title,
     slug,
-    status,
     visibility,
     categoryId,
     reportingCategoryId,
@@ -116,16 +108,12 @@ router.post('/', upload.array('images'), async (req, res) => {
     availableFrom,
     availableTo,
     subscriptionAvailable,
-    seoTitle,
-    seoDescription,
     optionGroups: optionGroupsJson,
     variants: variantsJson,
   } = req.body;
   const name = title;
   console.log('🧾 Incoming product body:', req.body);
-  const files = (req as any).files as Express.Multer.File[];
   try {
-    // Validate required fields
     if (!categoryId || !reportingCategoryId) {
       console.error('Missing required fields:', { categoryId, reportingCategoryId });
       return res.status(400).json({ error: 'Category and reporting category are required' });
@@ -136,6 +124,7 @@ router.post('/', upload.array('images'), async (req, res) => {
     }
 
     let imageUrls: string[] = [];
+    const files = (req as any).files as Express.Multer.File[];
     if (files && files.length > 0) {
       for (const file of files) {
         const filePath = `products/${Date.now()}-${file.originalname}`;
@@ -155,12 +144,10 @@ router.post('/', upload.array('images'), async (req, res) => {
       }
     }
 
-    // Parse option groups and variants
     const optionGroups = optionGroupsJson ? JSON.parse(optionGroupsJson) : [];
     const variants = variantsJson ? JSON.parse(variantsJson) : [];
-    const basePrice = parseFloat(price || '0') * 100; // Convert to cents
+    const basePrice = parseFloat(price || '0') * 100;
 
-    // Create option groups and values
     const optionGroupMap: { [name: string]: { id: string; values: { [label: string]: string } } } = {};
     for (const group of optionGroups) {
       const option = await prisma.productOption.create({
@@ -189,11 +176,13 @@ router.post('/', upload.array('images'), async (req, res) => {
     console.log('Attempting Prisma create with data:', {
       name,
       slug,
-      status,
       visibility,
       description,
       categoryId,
       reportingCategoryId,
+      isTaxable: isTaxable ? JSON.parse(isTaxable) : true,
+      isActive: isActive ? JSON.parse(isActive) : true,
+      showOnHomepage: isFeatured ? (typeof isFeatured === 'string' ? JSON.parse(isFeatured) : isFeatured) : false,
       imageUrls,
       price: basePrice,
       inventory,
@@ -201,21 +190,20 @@ router.post('/', upload.array('images'), async (req, res) => {
       variants,
     });
 
-    // Create product with variants
     const product = await prisma.product.create({
       data: {
         name,
         slug,
-        status,
         visibility,
         description: description || 'Placeholder description',
-        isActive: isActive === 'true',
+        isActive: isActive ? JSON.parse(isActive) : true,
+        isTaxable: isTaxable ? JSON.parse(isTaxable) : true,
+        showOnHomepage: isFeatured ? JSON.parse(isFeatured) : false,
         productType: 'MAIN',
         inventoryMode: 'OWN',
         images: imageUrls,
         recipeNotes: recipe || null,
-        isSubscriptionAvailable: subscriptionAvailable === 'true',
-        showOnHomepage: isFeatured === 'true',
+        isSubscriptionAvailable: subscriptionAvailable ? JSON.parse(subscriptionAvailable) : false,
         category: { connect: { id: categoryId } },
         reportingCategory: { connect: { id: reportingCategoryId } },
         variants: {
@@ -223,8 +211,8 @@ router.post('/', upload.array('images'), async (req, res) => {
             ? variants.map((variant: any) => ({
                 id: variant.id,
                 name: variant.name,
-                sku: variant.sku || null, // Allow empty SKU
-                price: basePrice + (variant.priceDifference || 0), // Base price + difference
+                sku: variant.sku || null,
+                price: basePrice + (variant.priceDifference || 0),
                 stockLevel: variant.stockLevel || 0,
                 trackInventory: variant.trackInventory || false,
                 isDefault: false,
@@ -232,7 +220,6 @@ router.post('/', upload.array('images'), async (req, res) => {
                   create: variant.name
                     .split(' - ')
                     .map((value: string) => {
-                      // Find the option group and value
                       const group = optionGroups.find((g: any) =>
                         g.values.includes(value)
                       );
@@ -264,12 +251,11 @@ router.post('/', upload.array('images'), async (req, res) => {
     console.log('Product created:', product);
     res.status(201).json({ id: product.id });
   } catch (err: any) {
-    console.error('Create product error:', err);
+    console.error('Create product error:', err.message, err.stack);
     res.status(500).json({ error: err.message || 'Failed to create product' });
   }
 });
 
-// GET product by ID
 router.get('/:id', async (req, res) => {
   const { id } = req.params;
   try {
@@ -286,17 +272,15 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// UPDATE product by ID
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
-  const { name, slug, status, visibility } = req.body;
+  const { name, slug, visibility } = req.body;
   try {
     const updated = await prisma.product.update({
       where: { id },
       data: {
         name,
         slug,
-        status,
         visibility,
       },
     });

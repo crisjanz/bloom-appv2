@@ -1,12 +1,15 @@
-// src/components/products/cards/SettingsCard.tsx
-import { FC } from 'react';
+import { FC, useEffect, useState } from 'react';
 import InputField from '../../form/input/InputField';
 import SelectField from '../../form/Select';
 import ToggleSwitch from '../../form/switch/Switch';
 import ComponentCard from '../../common/ComponentCard';
 
+type Category = {
+  id: string;
+  name: string;
+};
+
 type Props = {
-  status: string;
   visibility: string;
   categoryId: string;
   reportingCategoryId: string;
@@ -15,11 +18,12 @@ type Props = {
   isFeatured: boolean;
   inventory: number;
   slug: string;
-  onChange: (field: string, value: any) => void;
+  title: string;
+  onChange: (field: string, value: string | boolean | number) => void;
   onSave: () => void;
 };
+
 const SettingsCard: FC<Props> = ({
-  status,
   visibility,
   categoryId,
   reportingCategoryId,
@@ -31,6 +35,37 @@ const SettingsCard: FC<Props> = ({
   onChange,
   onSave,
 }) => {
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [reportingCategories, setReportingCategories] = useState<Category[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [catRes, repCatRes] = await Promise.all([
+          fetch('/api/categories'),
+          fetch('/api/reportingcategories'),
+        ]);
+        if (!catRes.ok) throw new Error('Failed to fetch categories');
+        if (!repCatRes.ok) throw new Error('Failed to fetch reporting categories');
+        const catData = await catRes.json();
+        const repCatData = await repCatRes.json();
+        setCategories(Array.isArray(catData) ? catData : catData.categories || []);
+        setReportingCategories(Array.isArray(repCatData) ? repCatData : repCatData.reportingCategories || []);
+      } catch (err) {
+        console.error('Error fetching data:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  const handleChange = (field: string, value: string | boolean | number) => {
+    console.log(`SettingsCard: Updating ${field} to`, value, `type: ${typeof value}`);
+    onChange(field, value);
+  };
+
   return (
     <ComponentCard title="Settings">
       <div className="mb-6">
@@ -44,23 +79,11 @@ const SettingsCard: FC<Props> = ({
 
       <div className="mb-5.5">
         <SelectField
-          label="Status"
-          name="status"
-          value={status}
-          onChange={(e) => onChange('status', e.target.value)}
-          options={[
-            { label: 'Active', value: 'ACTIVE' },
-            { label: 'Inactive', value: 'INACTIVE' },
-          ]}
-        />
-      </div>
-
-      <div className="mb-5.5">
-        <SelectField
           label="Visibility"
           name="visibility"
           value={visibility}
-          onChange={(e) => onChange('visibility', e.target.value)}
+          onChange={(value) => handleChange('visibility', value)}
+          placeholder="Select visibility"
           options={[
             { label: 'Online', value: 'ONLINE' },
             { label: 'POS', value: 'POS' },
@@ -68,16 +91,19 @@ const SettingsCard: FC<Props> = ({
           ]}
         />
       </div>
+
       <div className="mb-5.5">
         <SelectField
           label="Category"
           name="categoryId"
           value={categoryId}
-          onChange={(e) => onChange('categoryId', e.target.value)}
-          options={[
-            { label: 'Select a category', value: '' },
-            // Load dynamically later
-          ]}
+          onChange={(value) => handleChange('categoryId', value)}
+          placeholder={isLoading ? 'Loading...' : 'Select a category'}
+          options={categories.map((cat) => ({
+            label: cat.name,
+            value: cat.id,
+          }))}
+          disabled={isLoading}
         />
       </div>
 
@@ -86,11 +112,13 @@ const SettingsCard: FC<Props> = ({
           label="Reporting Category"
           name="reportingCategoryId"
           value={reportingCategoryId}
-          onChange={(e) => onChange('reportingCategoryId', e.target.value)}
-          options={[
-            { label: 'Select a reporting category', value: '' },
-            // Load dynamically later
-          ]}
+          onChange={(value) => handleChange('reportingCategoryId', value)}
+          placeholder={isLoading ? 'Loading...' : 'Select a reporting category'}
+          options={reportingCategories.map((cat) => ({
+            label: cat.name,
+            value: cat.id,
+          }))}
+          disabled={isLoading}
         />
       </div>
 
@@ -99,7 +127,7 @@ const SettingsCard: FC<Props> = ({
           label="Taxable"
           name="isTaxable"
           checked={isTaxable}
-          onChange={(value) => onChange('isTaxable', value)}
+          onChange={(value: boolean) => handleChange('isTaxable', value)}
         />
       </div>
 
@@ -108,7 +136,7 @@ const SettingsCard: FC<Props> = ({
           label="Active"
           name="isActive"
           checked={isActive}
-          onChange={(value) => onChange('isActive', value)}
+          onChange={(value: boolean) => handleChange('isActive', value)}
         />
       </div>
 
@@ -117,7 +145,7 @@ const SettingsCard: FC<Props> = ({
           label="Show on Front Page"
           name="isFeatured"
           checked={isFeatured}
-          onChange={(value) => onChange('isFeatured', value)}
+          onChange={(value: boolean) => handleChange('isFeatured', value)}
         />
       </div>
 
@@ -126,7 +154,7 @@ const SettingsCard: FC<Props> = ({
           label="Slug"
           name="slug"
           value={slug}
-          onChange={(e) => onChange('slug', e.target.value)}
+          onChange={(e) => handleChange('slug', e.target.value)}
           placeholder="e.g. bright-and-bold"
         />
       </div>

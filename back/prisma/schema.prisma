@@ -57,7 +57,6 @@ model Product {
   id                      String        @id @default(uuid())
   name                    String
   slug                    String        @unique
-  status                  String        @default("DRAFT")
   description             String
   categoryId              String
   reportingCategoryId     String
@@ -68,9 +67,10 @@ model Product {
   showOnHomepage          Boolean       @default(false)
   isSubscriptionAvailable Boolean       @default(false)
   isActive                Boolean       @default(true)
+  isTaxable               Boolean       @default(true)
   createdAt               DateTime      @default(now())
   updatedAt               DateTime      @updatedAt
-  images 		  String[] 	@default([])
+  images                  String[]      @default([])
 
   category          Category          @relation("ProductCategory", fields: [categoryId], references: [id])
   reportingCategory ReportingCategory @relation("ProductReportingCategory", fields: [reportingCategoryId], references: [id])
@@ -242,7 +242,6 @@ model Order {
   employee     Employee? @relation("EmployeeOrders", fields: [employeeId], references: [id])
   employeeId   String?
 
-
   orderItems OrderItem[]
 
   cardMessage         String?
@@ -314,8 +313,6 @@ model Employee {
   isActive  Boolean       @default(true)
   orders    Order[]       @relation("EmployeeOrders")
 }
-
-
 
 model MessageSuggestion {
   id      String   @id @default(cuid())

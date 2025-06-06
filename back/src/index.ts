@@ -29,7 +29,7 @@ app.use("/api/shortcuts", addressShortcutRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/employees", employeeRoutes);
 app.use('/api/addresses', addressesRouter);
-app.use('/api/reporting-categories', reportingCategoriesRouter);
+app.use('/api/reportingcategories', reportingCategoriesRouter);
 app.use('/api/customers', customersRouter);
 app.use('/api/products', productsRouter);
 app.use('/api/categories', categoriesRouter);

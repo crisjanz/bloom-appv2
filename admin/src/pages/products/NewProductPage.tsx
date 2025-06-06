@@ -1,15 +1,13 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import PageMeta from "../../components/common/PageMeta";
-import PageBreadcrumb from "../../components/common/PageBreadCrumb";
-
-// Card components
-import ProductInfoCard from "../../components/products/cards/ProductInfoCard";
-import PricingCard from "../../components/products/cards/PricingCard";
-import RecipeCard from "../../components/products/cards/RecipeCard";
-import AvailabilityCard from "../../components/products/cards/AvailabilityCard";
-import SettingsCard from "../../components/products/cards/SettingsCard";
-import SeoCard from "../../components/products/cards/SeoCard";
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import PageMeta from '../../components/common/PageMeta';
+import PageBreadcrumb from '../../components/common/PageBreadCrumb';
+import ProductInfoCard from '../../components/products/cards/ProductInfoCard';
+import PricingCard from '../../components/products/cards/PricingCard';
+import RecipeCard from '../../components/products/cards/RecipeCard';
+import AvailabilityCard from '../../components/products/cards/AvailabilityCard';
+import SettingsCard from '../../components/products/cards/SettingsCard';
+import SeoCard from '../../components/products/cards/SeoCard';
 
 type OptionGroup = {
   id: string;
@@ -28,90 +26,87 @@ type Variant = {
 };
 
 export default function NewProductPage() {
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [status, setStatus] = useState("ACTIVE");
-  const [visibility, setVisibility] = useState("ONLINE");
-  const [categoryId, setCategoryId] = useState("7b1211d1-4c72-4676-b24b-6c3450b18d4b");
-  const [reportingCategoryId, setReportingCategoryId] = useState("05630112-f898-477f-a7d0-e8f9f91c81a6");
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [visibility, setVisibility] = useState('ONLINE');
+  const [categoryId, setCategoryId] = useState('');
+  const [reportingCategoryId, setReportingCategoryId] = useState('');
   const [price, setPrice] = useState(0);
-  const [priceTitle, setPriceTitle] = useState("");
+  const [priceTitle, setPriceTitle] = useState('');
   const [isTaxable, setIsTaxable] = useState(false);
   const [isActive, setIsActive] = useState(true);
   const [isFeatured, setIsFeatured] = useState(false);
   const [inventory, setInventory] = useState(0);
   const [optionGroups, setOptionGroups] = useState<OptionGroup[]>([]);
   const [variants, setVariants] = useState<Variant[]>([]);
-  const [recipe, setRecipe] = useState("");
-  const [availableFrom, setAvailableFrom] = useState("");
-  const [availableTo, setAvailableTo] = useState(""); // Fixed: Changed setAvailableFrom to setAvailableTo
+  const [recipe, setRecipe] = useState('');
+  const [availableFrom, setAvailableFrom] = useState('');
+  const [availableTo, setAvailableTo] = useState('');
   const [subscriptionAvailable, setSubscriptionAvailable] = useState(false);
-  const [seoTitle, setSeoTitle] = useState("");
-  const [seoDescription, setSeoDescription] = useState("");
+  const [seoTitle, setSeoTitle] = useState('');
+  const [seoDescription, setSeoDescription] = useState('');
   const [imageFiles, setImageFiles] = useState<File[]>([]);
-  const [slug, setSlug] = useState("");
+  const [slug, setSlug] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const navigate = useNavigate();
 
-  const productSlug = slug || title.toLowerCase().replace(/\s+/g, "-") || "product";
+  const productSlug = slug || title.toLowerCase().replace(/\s+/g, '-') || 'product';
 
   const handleChange = (field: string, value: any) => {
+    console.log(`NewProductPage: Updating ${field} to`, value, `type: ${typeof value}`);
     switch (field) {
-      case "title":
+      case 'title':
         setTitle(value);
         break;
-      case "description":
+      case 'description':
         setDescription(value);
         break;
-      case "status":
-        setStatus(value);
-        break;
-      case "visibility":
+      case 'visibility':
         setVisibility(value);
         break;
-      case "categoryId":
+      case 'categoryId':
         setCategoryId(value);
         break;
-      case "reportingCategoryId":
+      case 'reportingCategoryId':
         setReportingCategoryId(value);
         break;
-      case "price":
+      case 'price':
         setPrice(value);
         break;
-      case "priceTitle":
+      case 'priceTitle':
         setPriceTitle(value);
         break;
-      case "isTaxable":
+      case 'isTaxable':
         setIsTaxable(value);
         break;
-      case "isActive":
+      case 'isActive':
         setIsActive(value);
         break;
-      case "isFeatured":
+      case 'isFeatured':
         setIsFeatured(value);
         break;
-      case "inventory":
+      case 'inventory':
         setInventory(value);
         break;
-      case "recipe":
+      case 'recipe':
         setRecipe(value);
         break;
-      case "availableFrom":
+      case 'availableFrom':
         setAvailableFrom(value);
         break;
-      case "availableTo":
+      case 'availableTo':
         setAvailableTo(value);
         break;
-      case "subscriptionAvailable":
+      case 'subscriptionAvailable':
         setSubscriptionAvailable(value);
         break;
-      case "seoTitle":
+      case 'seoTitle':
         setSeoTitle(value);
         break;
-      case "seoDescription":
+      case 'seoDescription':
         setSeoDescription(value);
         break;
-      case "slug":
+      case 'slug':
         setSlug(value);
         break;
     }
@@ -120,42 +115,41 @@ export default function NewProductPage() {
   const handleSave = async () => {
     try {
       setIsSaving(true);
-      if (!title) throw new Error("Title is required");
-      if (!categoryId) throw new Error("Category is required");
-      if (!reportingCategoryId) throw new Error("Reporting category is required");
+      if (!title) throw new Error('Title is required');
+      if (!categoryId) throw new Error('Category is required');
+      if (!reportingCategoryId) throw new Error('Reporting category is required');
 
-      const baseSlug = slug || title.toLowerCase().replace(/\s+/g, "-") || "product-slug";
+      const baseSlug = slug || title.toLowerCase().replace(/\s+/g, '-') || 'product-slug';
       const timestamp = Date.now();
       const finalSlug = `${baseSlug}-${timestamp}`;
 
       const formData = new FormData();
-      formData.append("title", title);
-      formData.append("description", description || "No description provided");
-      formData.append("status", status);
-      formData.append("visibility", visibility);
-      formData.append("categoryId", categoryId);
-      formData.append("reportingCategoryId", reportingCategoryId);
-      formData.append("isTaxable", String(isTaxable));
-      formData.append("isActive", String(isActive));
-      formData.append("isFeatured", String(isFeatured));
-      formData.append("inventory", String(inventory));
-      formData.append("recipe", recipe);
-      formData.append("availableFrom", availableFrom);
-      formData.append("availableTo", availableTo);
-      formData.append("subscriptionAvailable", String(subscriptionAvailable));
-      formData.append("seoTitle", seoTitle);
-      formData.append("seoDescription", seoDescription);
-      formData.append("slug", finalSlug);
-      formData.append("price", String(price));
-      formData.append("optionGroups", JSON.stringify(optionGroups));
-      formData.append("variants", JSON.stringify(variants));
+      formData.append('title', title);
+      formData.append('description', description || 'No description provided');
+      formData.append('visibility', visibility);
+      formData.append('categoryId', categoryId);
+      formData.append('reportingCategoryId', reportingCategoryId);
+      formData.append('isTaxable', JSON.stringify(isTaxable));
+      formData.append('isActive', JSON.stringify(isActive));
+      formData.append('isFeatured', JSON.stringify(isFeatured));
+      formData.append('inventory', String(inventory));
+      formData.append('recipe', recipe);
+      formData.append('availableFrom', availableFrom);
+      formData.append('availableTo', availableTo);
+      formData.append('subscriptionAvailable', JSON.stringify(subscriptionAvailable));
+      formData.append('seoTitle', seoTitle);
+      formData.append('seoDescription', seoDescription);
+      formData.append('slug', finalSlug);
+      formData.append('price', String(price));
+      formData.append('optionGroups', JSON.stringify(optionGroups));
+      formData.append('variants', JSON.stringify(variants));
 
       imageFiles.forEach((file) => {
-        formData.append("images", file);
+        formData.append('images', file);
       });
 
-      const res = await fetch("/api/products", {
-        method: "POST",
+      const res = await fetch('/api/products', {
+        method: 'POST',
         body: formData,
       });
 
@@ -166,7 +160,7 @@ export default function NewProductPage() {
 
       const result = await res.json();
       setIsSaving(false);
-      alert("✅ Product saved!");
+      alert('✅ Product saved!');
       navigate(`/products/view/${result.id}`, { replace: true });
     } catch (error: any) {
       setIsSaving(false);
@@ -181,13 +175,13 @@ export default function NewProductPage() {
         <PageBreadcrumb pageName="New Product" />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-          {/* Main Column */}
           <div className="lg:col-span-2 space-y-6">
             <ProductInfoCard
               title={title}
               description={description}
               onChange={handleChange}
               onImagesChange={setImageFiles}
+              setSlug={setSlug}
             />
             <PricingCard
               price={price}
@@ -202,7 +196,7 @@ export default function NewProductPage() {
             />
             <RecipeCard
               recipe={recipe}
-              onChange={(val) => handleChange("recipe", val)}
+              onChange={(val) => handleChange('recipe', val)}
             />
             <AvailabilityCard
               availableFrom={availableFrom}
@@ -212,10 +206,8 @@ export default function NewProductPage() {
             />
           </div>
 
-          {/* Sidebar Column */}
           <div className="space-y-6">
             <SettingsCard
-              status={status}
               visibility={visibility}
               categoryId={categoryId}
               reportingCategoryId={reportingCategoryId}
@@ -224,6 +216,7 @@ export default function NewProductPage() {
               isFeatured={isFeatured}
               inventory={inventory}
               slug={slug}
+              title={title}
               onChange={handleChange}
               onSave={handleSave}
             />
@@ -235,7 +228,6 @@ export default function NewProductPage() {
           </div>
         </div>
 
-        {/* Loading Modal */}
         {isSaving && (
           <div className="fixed inset-0 flex items-center justify-center z-50">
             <div className="bg-white dark:bg-boxdark p-6 rounded-lg shadow-lg flex items-center gap-3">
