@@ -107,7 +107,6 @@ router.post('/', upload.array('images'), async (req, res) => {
     isFeatured,
     availableFrom,
     availableTo,
-    // New availability fields
     availabilityType,
     holidayPreset,
     notAvailableFrom,
@@ -120,7 +119,6 @@ router.post('/', upload.array('images'), async (req, res) => {
   } = req.body;
   
   const name = title;
-  console.log('🧾 Incoming product body:', req.body);
   
   try {
     if (!categoryId || !reportingCategoryId) {
@@ -182,55 +180,30 @@ router.post('/', upload.array('images'), async (req, res) => {
       };
     }
 
-    console.log('Attempting Prisma create with data:', {
-      name,
-      slug,
-      visibility,
-      description,
-      categoryId,
-      reportingCategoryId,
-      isTaxable: isTaxable ? JSON.parse(isTaxable) : true,
-      isActive: isActive ? JSON.parse(isActive) : true,
-      showOnHomepage: isFeatured ? (typeof isFeatured === 'string' ? JSON.parse(isFeatured) : isFeatured) : false,
-      imageUrls,
-      price: basePrice,
-      inventory,
-      availabilityType,
-      holidayPreset,
-      notAvailableFrom,
-      notAvailableUntil,
-      isTemporarilyUnavailable,
-      unavailableUntil,
-      unavailableMessage,
-      optionGroups,
-      variants,
-    });
-
     const product = await prisma.product.create({
       data: {
         name,
         slug,
         visibility,
         description: description || 'Placeholder description',
-        isActive: isActive ? JSON.parse(isActive) : true,
-        isTaxable: isTaxable ? JSON.parse(isTaxable) : true,
-        showOnHomepage: isFeatured ? JSON.parse(isFeatured) : false,
+        isActive: typeof isActive === 'string' ? JSON.parse(isActive) : (isActive !== undefined ? isActive : true),
+        isTaxable: typeof isTaxable === 'string' ? JSON.parse(isTaxable) : (isTaxable !== undefined ? isTaxable : true),
+        showOnHomepage: typeof isFeatured === 'string' ? JSON.parse(isFeatured) : (isFeatured !== undefined ? isFeatured : false),
         productType: 'MAIN',
         inventoryMode: 'OWN',
         images: imageUrls,
         recipeNotes: recipe || null,
         
-        // New availability fields
-     availabilityType: availabilityType || 'always',
-    holidayPreset: (holidayPreset && holidayPreset.trim() !== '') ? holidayPreset : null,
-    availableFrom: (availableFrom && availableFrom.trim() !== '') ? new Date(availableFrom) : null,
-    availableTo: (availableTo && availableTo.trim() !== '') ? new Date(availableTo) : null,
-    notAvailableFrom: (notAvailableFrom && notAvailableFrom.trim() !== '') ? new Date(notAvailableFrom) : null,
-    notAvailableUntil: (notAvailableUntil && notAvailableUntil.trim() !== '') ? new Date(notAvailableUntil) : null,
-    isTemporarilyUnavailable: isTemporarilyUnavailable ? JSON.parse(isTemporarilyUnavailable) : false,
-    unavailableUntil: (unavailableUntil && unavailableUntil.trim() !== '') ? new Date(unavailableUntil) : null,
-    unavailableMessage: (unavailableMessage && unavailableMessage.trim() !== '') ? unavailableMessage : null,
-   
+        availabilityType: availabilityType || 'always',
+        holidayPreset: (holidayPreset && holidayPreset.trim() !== '') ? holidayPreset : null,
+        availableFrom: (availableFrom && availableFrom.trim() !== '') ? new Date(availableFrom) : null,
+        availableTo: (availableTo && availableTo.trim() !== '') ? new Date(availableTo) : null,
+        notAvailableFrom: (notAvailableFrom && notAvailableFrom.trim() !== '') ? new Date(notAvailableFrom) : null,
+        notAvailableUntil: (notAvailableUntil && notAvailableUntil.trim() !== '') ? new Date(notAvailableUntil) : null,
+        isTemporarilyUnavailable: typeof isTemporarilyUnavailable === 'string' ? JSON.parse(isTemporarilyUnavailable) : (isTemporarilyUnavailable !== undefined ? isTemporarilyUnavailable : false),
+        unavailableUntil: (unavailableUntil && unavailableUntil.trim() !== '') ? new Date(unavailableUntil) : null,
+        unavailableMessage: (unavailableMessage && unavailableMessage.trim() !== '') ? unavailableMessage : null,
+        
         category: { connect: { id: categoryId } },
         reportingCategory: { connect: { id: reportingCategoryId } },
         variants: {
@@ -275,7 +248,6 @@ router.post('/', upload.array('images'), async (req, res) => {
       },
     });
 
-    console.log('Product created:', product);
     res.status(201).json({ id: product.id });
   } catch (err: any) {
     console.error('Create product error:', err.message, err.stack);
@@ -299,12 +271,22 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', upload.array('images'), async (req, res) => {
   const { id } = req.params;
-  const { 
-    name, 
-    slug, 
+  const {
+    title,
+    name,
+    slug,
     visibility,
+    description,
+    categoryId,
+    reportingCategoryId,
+    isTaxable,
+    isActive,
+    isFeatured,
+    inventory,
+    recipe,
+    price,
     availabilityType,
     holidayPreset,
     availableFrom,
@@ -313,31 +295,88 @@ router.put('/:id', async (req, res) => {
     notAvailableUntil,
     isTemporarilyUnavailable,
     unavailableUntil,
-    unavailableMessage
+    unavailableMessage,
+    seoTitle,
+    seoDescription
   } = req.body;
   
   try {
+    const productName = name || title;
+    const basePrice = parseFloat(price || '0') * 100;
+
+    // Handle image uploads for updates (if any new images)
+    let imageUrls: string[] = [];
+    const files = (req as any).files as Express.Multer.File[];
+    if (files && files.length > 0) {
+      for (const file of files) {
+        const filePath = `products/${Date.now()}-${file.originalname}`;
+        const { error } = await supabase.storage
+          .from('product-images')
+          .upload(filePath, file.buffer, {
+            contentType: file.mimetype,
+          });
+        if (error) {
+          console.error('Supabase upload error:', error);
+          throw error;
+        }
+        const { data: publicUrlData } = supabase.storage
+          .from('product-images')
+          .getPublicUrl(filePath);
+        imageUrls.push(publicUrlData.publicUrl);
+      }
+    }
+
+    const updateData: any = {
+      name: productName,
+      slug,
+      visibility,
+      description,
+      categoryId,
+      reportingCategoryId,
+      isActive: typeof isActive === 'string' ? JSON.parse(isActive) : (isActive !== undefined ? isActive : true),
+      isTaxable: typeof isTaxable === 'string' ? JSON.parse(isTaxable) : (isTaxable !== undefined ? isTaxable : true),
+      showOnHomepage: typeof isFeatured === 'string' ? JSON.parse(isFeatured) : (isFeatured !== undefined ? isFeatured : false),
+      recipeNotes: recipe || null,
+      
+      availabilityType: availabilityType || 'always',
+      holidayPreset: (holidayPreset && holidayPreset.trim() !== '') ? holidayPreset : null,
+      availableFrom: (availableFrom && availableFrom.trim() !== '') ? new Date(availableFrom) : null,
+      availableTo: (availableTo && availableTo.trim() !== '') ? new Date(availableTo) : null,
+      notAvailableFrom: (notAvailableFrom && notAvailableFrom.trim() !== '') ? new Date(notAvailableFrom) : null,
+      notAvailableUntil: (notAvailableUntil && notAvailableUntil.trim() !== '') ? new Date(notAvailableUntil) : null,
+      isTemporarilyUnavailable: typeof isTemporarilyUnavailable === 'string' ? JSON.parse(isTemporarilyUnavailable) : (isTemporarilyUnavailable !== undefined ? isTemporarilyUnavailable : false),
+      unavailableUntil: (unavailableUntil && unavailableUntil.trim() !== '') ? new Date(unavailableUntil) : null,
+      unavailableMessage: (unavailableMessage && unavailableMessage.trim() !== '') ? unavailableMessage : null,
+    };
+
+    // Only update images if new ones were uploaded
+    if (imageUrls.length > 0) {
+      updateData.images = imageUrls;
+    }
+
     const updated = await prisma.product.update({
       where: { id },
-      data: {
-        name,
-        slug,
-        visibility,
-        availabilityType,
-        holidayPreset: (holidayPreset && holidayPreset.trim() !== '') ? holidayPreset : null,
-        availableFrom: (availableFrom && availableFrom.trim() !== '') ? new Date(availableFrom) : null,
-        availableTo: (availableTo && availableTo.trim() !== '') ? new Date(availableTo) : null,
-        notAvailableFrom: (notAvailableFrom && notAvailableFrom.trim() !== '') ? new Date(notAvailableFrom) : null,
-        notAvailableUntil: (notAvailableUntil && notAvailableUntil.trim() !== '') ? new Date(notAvailableUntil) : null,
-        isTemporarilyUnavailable: isTemporarilyUnavailable ? JSON.parse(isTemporarilyUnavailable) : false,
-        unavailableUntil: (unavailableUntil && unavailableUntil.trim() !== '') ? new Date(unavailableUntil) : null,
-        unavailableMessage: (unavailableMessage && unavailableMessage.trim() !== '') ? unavailableMessage : null,
-      },
+      data: updateData,
     });
+
+    // Update the default variant price if provided - fixed the TypeScript error
+    if (price) {
+      await prisma.productVariant.updateMany({
+        where: { 
+          productId: id,
+          isDefault: true 
+        },
+        data: {
+          price: basePrice,
+          stockLevel: inventory ? parseInt(inventory) : undefined,
+        },
+      });
+    }
+
     res.json(updated);
-  } catch (err) {
+  } catch (err: any) {
     console.error('Error updating product:', err);
-    res.status(500).json({ error: 'Failed to update product' });
+    res.status(500).json({ error: 'Failed to update product', details: err.message });
   }
 });
 

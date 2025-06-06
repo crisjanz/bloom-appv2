@@ -207,6 +207,7 @@ export default function NewProductPage() {
 
       const formData = new FormData();
       formData.append('title', title);
+      formData.append('name', title);
       formData.append('description', description || 'No description provided');
       formData.append('visibility', visibility);
       formData.append('categoryId', categoryId);
@@ -232,32 +233,45 @@ export default function NewProductPage() {
       formData.append('unavailableUntil', unavailableUntil);
       formData.append('unavailableMessage', unavailableMessage);
 
-      imageFiles.forEach((file) => {
-        formData.append('images', file);
-      });
+   imageFiles.forEach((file) => {
+      formData.append('images', file);
+    });
 
-      const url = isEditMode ? `/api/products/${id}` : '/api/products';
-      const method = isEditMode ? 'PUT' : 'POST';
+    const url = isEditMode ? `/api/products/${id}` : '/api/products';
+    const method = isEditMode ? 'PUT' : 'POST';
 
-      const res = await fetch(url, {
-        method,
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || `HTTP error ${res.status}`);
-      }
-
-      const result = await res.json();
-      setIsSaving(false);
-      alert(isEditMode ? '✅ Product updated!' : '✅ Product saved!');
-      navigate(isEditMode ? `/products/view/${id}` : `/products/view/${result.id}`, { replace: true });
-    } catch (error: any) {
-      setIsSaving(false);
-      alert(`❌ Failed to ${isEditMode ? 'update' : 'save'} product: ${error.message}`);
+    console.log('🚀 Making request to:', url, 'with method:', method);
+    console.log('🚀 FormData contents:');
+    for (let [key, value] of formData.entries()) {
+      console.log(`  ${key}:`, value);
     }
-  };
+
+    const res = await fetch(url, {
+      method,
+      body: formData,
+    });
+
+    console.log('🚀 Response status:', res.status);
+    console.log('🚀 Response ok:', res.ok);
+
+    if (!res.ok) {
+      const errorData = await res.json();
+      console.error('🚀 Error response:', errorData);
+      throw new Error(errorData.error || `HTTP error ${res.status}`);
+    }
+
+    const result = await res.json();
+    console.log('🚀 Success response:', result);
+    
+    setIsSaving(false);
+    alert(isEditMode ? '✅ Product updated!' : '✅ Product saved!');
+    navigate(isEditMode ? `/products/view/${id}` : `/products/view/${result.id}`, { replace: true });
+  } catch (error: any) {
+    console.error('🚀 Full error:', error);
+    setIsSaving(false);
+    alert(`❌ Failed to ${isEditMode ? 'update' : 'save'} product: ${error.message}`);
+  }
+};
 
   // Show loading state
   if (isLoading) {
