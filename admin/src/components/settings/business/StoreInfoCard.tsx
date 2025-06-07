@@ -1,11 +1,21 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ComponentCardCollapsible from "../../common/ComponentCardCollapsible";
 import InputField from "../../form/input/InputField";
+import PhoneInput from "../../form/group-input/PhoneInput";
+import Label from "../../form/Label";
 import AddressAutocomplete from "../../form/AddressAutocomplete";
 import Button from "../../ui/button/Button";
-import { STORE_CONFIG } from "../../../constants/config";
+
+// Same countries array as CustomerInfoCard
+const countries = [
+  { code: "CA", label: "+1" },
+  { code: "US", label: "+1" },
+  { code: "GB", label: "+44" },
+  { code: "AU", label: "+61" },
+];
 
 interface StoreInfo {
+  id?: string;
   storeName: string;
   phone: string;
   email: string;
@@ -16,13 +26,57 @@ interface StoreInfo {
   country: string;
   taxId: string;
   currency: string;
-  logoUrl?: string;
 }
 
 const StoreInfoCard = () => {
-  // Initialize with config values
-  const [formData, setFormData] = useState<StoreInfo>(STORE_CONFIG);
-  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState<StoreInfo>({
+    storeName: "",
+    phone: "",
+    email: "",
+    address: "",
+    city: "",
+    state: "",
+    zipCode: "",
+    country: "CA",
+    taxId: "",
+    currency: "CAD",
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Load store settings on mount
+  useEffect(() => {
+    loadStoreSettings();
+  }, []);
+
+  const loadStoreSettings = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/settings/store-info');
+      if (response.ok) {
+        const data = await response.json();
+        // Ensure all values are strings, not undefined
+        setFormData({
+          storeName: data.storeName || "",
+          phone: data.phone || "",
+          email: data.email || "",
+          address: data.address || "",
+          city: data.city || "",
+          state: data.state || "",
+          zipCode: data.zipCode || "",
+          country: data.country || "CA",
+          taxId: data.taxId || "",
+          currency: data.currency || "CAD",
+        });
+      } else {
+        console.error('Failed to load store settings');
+      }
+    } catch (error) {
+      console.error('Failed to load store settings:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleInputChange = (field: keyof StoreInfo, value: string) => {
     setFormData(prev => ({
@@ -32,22 +86,40 @@ const StoreInfoCard = () => {
   };
 
   const handleAddressSelect = (addressData: any) => {
+    console.log('Address data received:', addressData);
+    
     setFormData(prev => ({
       ...prev,
-      address: addressData.address,
-      city: addressData.city,
-      state: addressData.state,
-      zipCode: addressData.zipCode,
+      address: addressData.address1 || addressData.street_number + ' ' + addressData.route || addressData.formatted_address || '',
+      city: addressData.city || '',
+      state: addressData.province || addressData.state || '',
+      zipCode: addressData.postalCode || addressData.zipCode || '',
       country: addressData.country || "CA"
     }));
   };
 
-  const handleSave = () => {
-    // For now, just show the values that need to be updated in config.ts
-    console.log('Update config.ts with these values:');
-    console.log(JSON.stringify(formData, null, 2));
-    alert('Values logged to console. Update src/constants/config.ts manually with these values.');
-    setIsEditing(false);
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const response = await fetch('/api/settings/store-info', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        console.log('Store settings saved successfully');
+        await loadStoreSettings();
+      } else {
+        console.error('Failed to save store settings');
+      }
+    } catch (error) {
+      console.error('Error saving store settings:', error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const currencyOptions = [
@@ -57,195 +129,154 @@ const StoreInfoCard = () => {
     { value: "GBP", label: "GBP - British Pound" },
   ];
 
+  if (isLoading) {
+    return (
+      <ComponentCardCollapsible title="Store Info" desc="Basic store information and settings">
+        <div className="animate-pulse">Loading store settings...</div>
+      </ComponentCardCollapsible>
+    );
+  }
+
   return (
     <ComponentCardCollapsible 
       title="Store Info" 
       desc="Basic store information and settings"
       defaultOpen={false}
     >
-      <div className="space-y-6">
-        {!isEditing ? (
-          // Display Mode
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Store Name
-                </label>
-                <p className="text-gray-900 dark:text-white">{formData.storeName}</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Phone
-                </label>
-                <p className="text-gray-900 dark:text-white">{formData.phone}</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Email
-                </label>
-                <p className="text-gray-900 dark:text-white">{formData.email}</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Currency
-                </label>
-                <p className="text-gray-900 dark:text-white">{formData.currency}</p>
-              </div>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Address
-              </label>
-              <p className="text-gray-900 dark:text-white">
-                {formData.address}, {formData.city}, {formData.state} {formData.zipCode}, {formData.country}
-              </p>
-            </div>
-            
-            {formData.taxId && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Tax ID
-                </label>
-                <p className="text-gray-900 dark:text-white">{formData.taxId}</p>
-              </div>
-            )}
+      <form onSubmit={(e) => { e.preventDefault(); handleSave(); }} className="space-y-6">
+        <div>
+          <Label htmlFor="storeName">Store Name</Label>
+          <InputField
+            type="text"
+            id="storeName"
+            value={formData.storeName}
+            onChange={(e) => handleInputChange('storeName', e.target.value)}
+            placeholder="Bloom Flower Shop"
+            required
+          />
+        </div>
 
-            <div className="flex justify-end">
-              <Button
-                onClick={() => setIsEditing(true)}
-                className="bg-primary hover:bg-primary/90 text-white px-4 py-2"
-              >
-                Edit Store Info
-              </Button>
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="phone">Phone Number</Label>
+            <PhoneInput
+              type="tel"
+              id="phone"
+              value={formData.phone}
+              onChange={(cleanedPhone) => handleInputChange('phone', cleanedPhone || "")}
+              countries={countries}
+              selectPosition="none"
+              placeholder="(250) 555-1234"
+            />
           </div>
-        ) : (
-          // Edit Mode
-          <form onSubmit={(e) => { e.preventDefault(); handleSave(); }} className="space-y-6">
+          <div>
+            <Label htmlFor="email">Email Address</Label>
             <InputField
-              label="Store Name"
-              type="text"
-              value={formData.storeName}
-              onChange={(e) => handleInputChange('storeName', e.target.value)}
-              placeholder="Bloom Flower Shop"
+              type="email"
+              id="email"
+              value={formData.email}
+              onChange={(e) => handleInputChange('email', e.target.value)}
+              placeholder="info@bloomflowers.com"
               required
             />
+          </div>
+        </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <InputField
-                label="Phone Number"
-                type="tel"
-                value={formData.phone}
-                onChange={(e) => handleInputChange('phone', e.target.value)}
-                placeholder="(250) 555-1234"
-                required
-              />
-              <InputField
-                label="Email Address"
-                type="email"
-                value={formData.email}
-                onChange={(e) => handleInputChange('email', e.target.value)}
-                placeholder="info@bloomflowers.com"
-                required
-              />
-            </div>
+<div>
+  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+    Store Address
+  </label>
+  <AddressAutocomplete
+    onAddressSelect={handleAddressSelect}
+    onChange={(value) => handleInputChange('address', value)}
+    value={formData.address} // This line was missing!
+    defaultValue={formData.address}
+    placeholder="Enter store address"
+  />
+</div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Store Address
-              </label>
-              <AddressAutocomplete
-                onAddressSelect={handleAddressSelect}
-                defaultValue={formData.address}
-                placeholder="Enter store address"
-              />
-            </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div>
+            <Label htmlFor="city">City</Label>
+            <InputField
+              type="text"
+              id="city"
+              value={formData.city}
+              onChange={(e) => handleInputChange('city', e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="state">State/Province</Label>
+            <InputField
+              type="text"
+              id="state"
+              value={formData.state}
+              onChange={(e) => handleInputChange('state', e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="zipCode">ZIP/Postal Code</Label>
+            <InputField
+              type="text"
+              id="zipCode"
+              value={formData.zipCode}
+              onChange={(e) => handleInputChange('zipCode', e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="country">Country</Label>
+            <InputField
+              type="text"
+              id="country"
+              value={formData.country}
+              onChange={(e) => handleInputChange('country', e.target.value)}
+              required
+            />
+          </div>
+        </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <InputField
-                label="City"
-                type="text"
-                value={formData.city}
-                onChange={(e) => handleInputChange('city', e.target.value)}
-                placeholder="City"
-                required
-              />
-              <InputField
-                label="State/Province"
-                type="text"
-                value={formData.state}
-                onChange={(e) => handleInputChange('state', e.target.value)}
-                placeholder="State"
-                required
-              />
-              <InputField
-                label="ZIP/Postal Code"
-                type="text"
-                value={formData.zipCode}
-                onChange={(e) => handleInputChange('zipCode', e.target.value)}
-                placeholder="V2L 1A1"
-                required
-              />
-              <InputField
-                label="Country"
-                type="text"
-                value={formData.country}
-                onChange={(e) => handleInputChange('country', e.target.value)}
-                placeholder="CA"
-                required
-              />
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="taxId">Tax ID or Business Number</Label>
+            <InputField
+              type="text"
+              id="taxId"
+              value={formData.taxId}
+              onChange={(e) => handleInputChange('taxId', e.target.value)}
+              placeholder="123456789BC0001"
+            />
+          </div>
+          <div>
+            <Label htmlFor="currency">Currency</Label>
+            <select
+              id="currency"
+              value={formData.currency}
+              onChange={(e) => handleInputChange('currency', e.target.value)}
+              className="w-full rounded-lg border border-stroke bg-transparent py-3 px-5 text-black outline-none transition focus:border-primary active:border-primary disabled:cursor-default disabled:bg-white disabled:border-gray-200 dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
+              required
+            >
+              {currencyOptions.map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <InputField
-                label="Tax ID / Business Number"
-                type="text"
-                value={formData.taxId}
-                onChange={(e) => handleInputChange('taxId', e.target.value)}
-                placeholder="123456789BC0001"
-              />
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Currency
-                </label>
-                <select
-                  value={formData.currency}
-                  onChange={(e) => handleInputChange('currency', e.target.value)}
-                  className="w-full rounded-lg border border-stroke bg-transparent py-3 px-5 text-black outline-none transition focus:border-primary active:border-primary disabled:cursor-default disabled:bg-white disabled:border-gray-200 dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
-                  required
-                >
-                  {currencyOptions.map(option => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3">
-              <Button
-                type="button"
-                onClick={() => {
-                  setFormData(STORE_CONFIG); // Reset to original
-                  setIsEditing(false);
-                }}
-                className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                className="bg-primary hover:bg-primary/90 text-white px-4 py-2"
-              >
-                Save Changes
-              </Button>
-            </div>
-          </form>
-        )}
-      </div>
+        <div className="flex justify-end">
+          <Button
+            type="submit"
+            disabled={isSaving}
+            className="bg-primary hover:bg-primary/90 text-white px-6 py-2"
+          >
+            {isSaving ? 'Saving...' : 'Save Store Info'}
+          </Button>
+        </div>
+      </form>
     </ComponentCardCollapsible>
   );
 };

@@ -11,6 +11,7 @@ import addressesRouter from './routes/addresses';
 import employeeRoutes from "./routes/employees";
 import messageRoutes from "./routes/messages";
 import addressShortcutRoutes from "./routes/addressShortcuts";
+import { getStoreInfo, saveStoreInfo } from './routes/settings/store-info';
 
 
 
@@ -33,6 +34,8 @@ app.use('/api/reportingcategories', reportingCategoriesRouter);
 app.use('/api/customers', customersRouter);
 app.use('/api/products', productsRouter);
 app.use('/api/categories', categoriesRouter);
+app.get('/api/settings/store-info', getStoreInfo);
+app.post('/api/settings/store-info', saveStoreInfo);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'Backend is alive!' });
