@@ -1,4 +1,13 @@
 import { useEffect, useState } from "react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "../../components/ui/table";
+import InputField from "../../components/form/input/InputField";
+import { Link } from "react-router-dom";
 
 type Customer = {
   id: string;
@@ -9,69 +18,32 @@ type Customer = {
   notes?: string;
 };
 
-
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [newCustomer, setNewCustomer] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    phone: "",
-    notes: "",
-  });
-  
+  const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     fetch("/api/customers")
       .then((res) => res.json())
-      .then(setCustomers)
+      .then((data) => {
+        setCustomers(data);
+        setFilteredCustomers(data);
+      })
       .catch(() => alert("Failed to load customers"));
   }, []);
 
-
-
-  const handleAdd = async () => {
-    const res = await fetch("/api/customers", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(newCustomer),
-    });
-
-    if (!res.ok) return alert("Failed to add customer");
-
-    const created = await res.json();
-    setCustomers((prev) => [...prev, created]);
-    setNewCustomer({ name: "", email: "", phone: "", notes: "" });
-  };
-
-  const handleUpdate = async (id: string, field: keyof Customer, value: string) => {
-    const updated = customers.map((c) => (c.id === id ? { ...c, [field]: value } : c));
-    setCustomers(updated);
-
-    const customer = updated.find((c) => c.id === id);
-    if (!customer) return;
-
-    const res = await fetch(`/api/customers/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(customer),
-    });
-
-    if (!res.ok) alert("Failed to save");
-  };
-
-  const handleDelete = async (id: string) => {
-    const res = await fetch(`/api/customers/${id}`, { method: "DELETE" });
-    if (!res.ok) return alert("Delete failed");
-
-    setCustomers((prev) => prev.filter((c) => c.id !== id));
-  };
-
+  useEffect(() => {
+    const filtered = customers.filter((customer) =>
+      `${customer.firstName} ${customer.lastName} ${customer.email || ""}`
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase())
+    );
+    setFilteredCustomers(filtered);
+  }, [searchTerm, customers]);
 
   return (
-
-
- <div className="p-4">
+    <div className="p-4">
       <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
         {/* Custom Header */}
         <div className="flex justify-between items-center px-6 py-5">
@@ -79,95 +51,91 @@ export default function CustomersPage() {
             <h3 className="text-base font-medium text-gray-800 dark:text-white/90">
               Customers
             </h3>
-          
           </div>
- 
         </div>
 
         {/* Card Body - Starts Here */}
-        <div
-          className={`p-4 border-t border-gray-100 dark:border-gray-800 sm:p-6`}
-        >
+        <div className="p-4 border-t border-gray-100 dark:border-gray-800 sm:p-6">
           
-     <table className="w-full table-auto border">
-        <thead>
-          <tr className="bg-gray-100">
-          <th className="p-2 text-left">First</th>
-<th className="p-2 text-left">Last</th>
+          {/* Search Box */}
+          <div className="mb-6">
+            <InputField
+              label="Search Customers"
+              placeholder="Search by name or email..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="focus:border-[#597485] focus:ring-[#597485]/20"
+            />
+          </div>
 
-            <th className="p-2 text-left">Email</th>
-            <th className="p-2 text-left">Phone</th>
-            <th className="p-2 text-left">Notes</th>
-            <th className="p-2"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {customers.map((c) => (
-            <tr key={c.id} className="border-t">
-              <td className="p-2">
-  <input
-    className="w-full border p-1"
-    value={c.firstName}
-    onChange={(e) => handleUpdate(c.id, "firstName", e.target.value)}
-  />
-</td>
-<td className="p-2">
-  <input
-    className="w-full border p-1"
-    value={c.lastName}
-    onChange={(e) => handleUpdate(c.id, "lastName", e.target.value)}
-  />
-</td>
+          {/* TailAdmin Table Container */}
+          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
+            <div className="max-w-full overflow-x-auto">
+              <Table>
+                {/* Table Header */}
+                <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
+                  <TableRow>
+                    <TableCell
+                      isHeader
+                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                    >
+                      Customer Name
+                    </TableCell>
+                    <TableCell
+                      isHeader
+                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                    >
+                      Email
+                    </TableCell>
+                    <TableCell
+                      isHeader
+                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                    >
+                      Actions
+                    </TableCell>
+                  </TableRow>
+                </TableHeader>
 
-              <td className="p-2">
-                <input
-                  className="w-full border p-1"
-                  value={c.email || ""}
-                  onChange={(e) => handleUpdate(c.id, "email", e.target.value)}
-                />
-              </td>
-              <td className="p-2">
-                <input
-                  className="w-full border p-1"
-                  value={c.phone || ""}
-                  onChange={(e) => handleUpdate(c.id, "phone", e.target.value)}
-                />
-              </td>
-              <td className="p-2">
-                <input
-                  className="w-full border p-1"
-                  value={c.notes || ""}
-                  onChange={(e) => handleUpdate(c.id, "notes", e.target.value)}
-                />
-              </td>
-              <td className="p-2 text-right">
-  <a
-    href={`/customers/${c.id}`}
-    className="text-sm text-blue-600 hover:underline"
-  >
-    Edit
-  </a>
-</td>
+                {/* Table Body */}
+                <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
+                  {filteredCustomers.map((c) => (
+                    <TableRow key={c.id}>
+                      <TableCell className="px-5 py-4 sm:px-6 text-start">
+                        <span className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
+                          {c.firstName} {c.lastName}
+                        </span>
+                      </TableCell>
+                      <TableCell className="px-5 py-4 sm:px-6 text-start">
+                        <span className="text-gray-500 text-theme-sm dark:text-gray-400">
+                          {c.email || "No email"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="px-5 py-4 sm:px-6 text-start">
+                        <Link
+                          to={`/customers/${c.id}`}
+                          className="text-sm font-medium text-[#597485] hover:text-[#4e6575] hover:underline"
+                        >
+                          Edit
+                        </Link>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
 
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-
+          {/* Empty State */}
+          {filteredCustomers.length === 0 && searchTerm && (
+            <div className="text-center py-8">
+              <p className="text-gray-500 dark:text-gray-400">
+                No customers found matching "{searchTerm}"
+              </p>
+            </div>
+          )}
 
         </div>
       </div>
     </div>
   );
-};
-
-
-
-
-
-
-
-
-
-
+}

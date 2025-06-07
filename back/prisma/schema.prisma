@@ -215,6 +215,7 @@ model Customer {
   updatedAt DateTime @updatedAt
 }
 
+// 🌍 Updated Address model for international support
 model Address {
   id         String  @id @default(cuid())
   firstName  String
@@ -222,10 +223,11 @@ model Address {
   address1   String
   address2   String?
   city       String
-  province   String
-  postalCode String
+  province   String  // Now supports state/province/region worldwide
+  postalCode String  // Now supports postal codes/zip codes worldwide
+  country    String  @default("CA") // ISO country code (CA, US, GB, etc.)
   phone      String?
-  company   String?   @db.VarChar(255)  // Optional field
+  company    String? @db.VarChar(255)
 
   customer   Customer? @relation("RecipientAddresses", fields: [customerId], references: [id])
   customerId String?
@@ -233,6 +235,12 @@ model Address {
   homeOf            Customer? @relation("HomeAddress")
   ordersAsRecipient Order[]   @relation("OrderRecipient")
   ordersAsPickup    Order[]   @relation("PickupPerson")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt  // Add @default(now()) here
+
+  @@index([country])
+  @@index([customerId])
 }
 
 model Order {
@@ -302,16 +310,24 @@ model Coupon {
   orders Order[]
 }
 
+// 🌍 Updated AddressShortcut for international support
 model AddressShortcut {
-  type ShortcutType
+  type         ShortcutType
   id           String   @id @default(cuid())
   label        String
   address1     String
   address2     String?
   city         String
-  province     String
-  postalCode   String
+  province     String   // Now supports state/province/region worldwide
+  postalCode   String   // Now supports postal codes/zip codes worldwide
+  country      String   @default("CA") // ISO country code
   phoneNumbers String[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt  // Add @default(now()) here
+
+  @@index([country])
+  @@index([type])
 }
 
 model Employee {

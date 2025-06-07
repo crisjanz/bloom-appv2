@@ -1,11 +1,12 @@
-// src/components/orders/OrderDetailsCard.tsx
-import React, { useState, useEffect, useRef } from "react";
+// src/components/orders/RecipientCard.tsx
+import React, { useState, useEffect } from "react";
 import ComponentCard from "../common/ComponentCard";
 import InputField from "../form/input/InputField";
 import Select from "../form/Select";
 import Label from "../form/Label";
-import { LoadScript, Autocomplete } from '@react-google-maps/api';
 import PhoneInput from "../form/group-input/PhoneInput";
+import AddressAutocomplete from "../form/AddressAutocomplete";
+
 
 
 type Props = {
@@ -29,11 +30,7 @@ type Props = {
   customerId?: string;
   onRecipientSaved?: () => void;
   onDeliveryFeeCalculated?: (fee: number) => void;
-
 };
-
-const libraries: ("places")[] = ["places"];
-const GOOGLE_MAPS_API_KEY = "AIzaSyB550tfeabwT0zRGecbLdmoITNsYoP2AIg";
 
 export default function RecipientCard({
   orderType,
@@ -59,7 +56,6 @@ export default function RecipientCard({
 }: Props) {
   const [allShortcuts, setAllShortcuts] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
-  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
 
   // Load address shortcuts
   useEffect(() => {
@@ -83,45 +79,25 @@ export default function RecipientCard({
     setFilteredShortcuts(matches);
   }, [shortcutQuery, allShortcuts]);
 
-useEffect(() => {
-  if (orderType === "DELIVERY" && 
-      recipientAddress.address1 && 
-      recipientAddress.city && 
-      recipientAddress.province) {
-    const debounceTimer = setTimeout(() => {
-      calculateDeliveryFee(
-        recipientAddress.address1, 
-        recipientAddress.city, 
-        recipientAddress.postalCode
-      );
-    }, 1000); // Debounce for 1 second
-    
-    return () => clearTimeout(debounceTimer);
-  }
-}, [recipientAddress, orderType]);
-
-
-
- const cleanPhoneNumber = (value: string) => {
-   if (value.startsWith('+')) {
-     return '+' + value.slice(1).replace(/\D/g, '');
-   }
-   return value.replace(/\D/g, '');
- };
-
- const formatPhoneNumber = (value: string) => {
-   if (value.startsWith('+')) return value; // Keep international numbers unformatted
-   const cleaned = value.replace(/\D/g, '');
-   const match = cleaned.match(/^(\d{0,3})(\d{0,3})(\d{0,4})$/);
-   if (match) {
-     return match[1] ? `(${match[1]})${match[2] ? ' ' + match[2] : ''}${match[3] ? '-' + match[3] : ''}` : '';
-   }
-   return value;
- };
-
-
-
-
+  // Calculate delivery fee when address changes
+  useEffect(() => {
+    if (orderType === "DELIVERY" && 
+        recipientAddress.address1 && 
+        recipientAddress.city && 
+        recipientAddress.province) {
+      const debounceTimer = setTimeout(() => {
+        calculateDeliveryFee(
+          recipientAddress.address1, 
+          recipientAddress.city, 
+          recipientAddress.postalCode,
+          recipientAddress.province,
+          onDeliveryFeeCalculated
+        );
+      }, 1000); // Debounce for 1 second
+      
+      return () => clearTimeout(debounceTimer);
+    }
+  }, [recipientAddress, orderType, onDeliveryFeeCalculated]);
 
   const clearRecipientInfo = () => {
     setRecipientFirstName("");
@@ -142,13 +118,13 @@ useEffect(() => {
   const handleSaveRecipient = async () => {
     setIsSaving(true);
     try {
-const response = await fetch(`/api/customers/${customerId}/recipients`, {
+      const response = await fetch(`/api/customers/${customerId}/recipients`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           firstName: recipientFirstName.trim(),
           lastName: recipientLastName.trim(),
-          phone: cleanPhoneNumber(recipientPhone).trim(),
+          phone: recipientPhone.trim(), // Phone is already cleaned by PhoneInput
           address1: recipientAddress.address1.trim(),
           address2: recipientAddress.address2?.trim() || null,
           city: recipientAddress.city.trim(),
@@ -168,14 +144,13 @@ const response = await fetch(`/api/customers/${customerId}/recipients`, {
       alert("Recipient saved successfully!");
       if (onRecipientSaved) onRecipientSaved();
       
-    } catch (error) {
+    } catch (error: any) {
       console.error("Full error details:", {
         error,
         customerId,
         recipientData: {
           firstName: recipientFirstName,
           lastName: recipientLastName,
-          // Include all other fields...
         }
       });
       alert(`Error: ${error.message}\n\nCheck console for details`);
@@ -184,126 +159,15 @@ const response = await fetch(`/api/customers/${customerId}/recipients`, {
     }
   };
 
-  const calculateDeliveryFee = async (address: string, city: string, postalCode: string) => {
-  if (!address || !city) return;
-  
-  try {
-    // Store address (Prince George BC default)
-    const storeLocation = "Prince George, BC, Canada";
-    const destinationAddress = `${address}, ${city}, ${recipientAddress.province || "BC"}, ${postalCode}`;
-    
- 
-    
-    service.getDistanceMatrix(
-      {
-        origins: [storeLocation],
-        destinations: [destinationAddress],
-        travelMode: google.maps.TravelMode.DRIVING,
-        unitSystem: google.maps.UnitSystem.METRIC,
-        avoidHighways: false,
-        avoidTolls: false,
-      },
-      (response, status) => {
-        if (status === 'OK' && response) {
-          const distance = response.rows[0]?.elements[0]?.distance;
-          if (distance) {
-            const km = distance.value / 1000; // Convert meters to km
-            
-            // Calculate fee based on distance
-            let fee = 0;
-            if (km <= 5) {
-              fee = 5;
-            } else if (km <= 10) {
-              fee = 10;
-            } else if (km <= 20) {
-              fee = 15;
-            } else if (km <= 30) {
-              fee = 20;
-            } else {
-              fee = 25; // Max fee or calculate per km
-            }
-            
-            if (onDeliveryFeeCalculated) {
-              onDeliveryFeeCalculated(fee);
-            }
-          }
-        }
-      }
-    );
-  } catch (error) {
-    console.error("Error calculating delivery fee:", error);
-  }
-};
-
-const handlePlaceSelect = () => {
-  if (autocompleteRef.current) {
-    const place = autocompleteRef.current.getPlace();
-    if (place && place.address_components) {
-      let address1 = "";
-      let city = "";
-      let province = "";
-      let postalCode = "";
-      let country = "";
-
-      place.address_components.forEach((component) => {
-        const types = component.types;
-        if (types.includes("street_number")) {
-          address1 = component.long_name + " ";
-        }
-        if (types.includes("route")) {
-          address1 += component.long_name;
-        }
-        if (types.includes("locality")) {
-          city = component.long_name;
-        }
-        if (types.includes("administrative_area_level_1")) {
-          province = component.short_name;
-        }
-        if (types.includes("postal_code")) {
-          postalCode = component.long_name;
-        }
-        if (types.includes("country")) {
-          country = component.short_name;
-        }
-      });
-
-      setRecipientAddress({
-        ...recipientAddress,
-        address1,
-        city,
-        province,
-        postalCode,
-      });
-      
-      // Calculate delivery fee if it's a delivery order
-      if (orderType === "DELIVERY") {
-        calculateDeliveryFee(address1, city, postalCode);
-      }
-    }
-  }
-};
-
-// Define bounds for Prince George, BC
-const princeGeorgeBounds = {
-  north: 54.0000, // Northern boundary of Prince George
-  south: 53.8000, // Southern boundary
-  east: -122.6000, // Eastern boundary
-  west: -122.9000, // Western boundary
-};
-
   const countries = [
     { code: "CA", label: "+1" },
     { code: "US", label: "+1" },
     { code: "GB", label: "+44" },
     { code: "AU", label: "+61" },
   ];
-  const handlePhoneNumberChange = (phoneNumber: string) => {
-    console.log("Updated phone number:", phoneNumber);
-  };
 
-return (
-  <LoadScript googleMapsApiKey={GOOGLE_MAPS_API_KEY} libraries={libraries}>
-    <ComponentCard title={orderType === "PICKUP" ? "Pickup Person Information" : "Recipient Information"}>
+  return (
+      <ComponentCard title={orderType === "PICKUP" ? "Pickup Person Information" : "Recipient Information"}>
         {/* Top Row: Saved Recipients, Address Shortcuts, Order Type */}
         <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-end">
           {/* Saved Recipients Dropdown */}
@@ -448,13 +312,12 @@ return (
             <PhoneInput
               type="tel"
               id="phone"
-              value={formatPhoneNumber(recipientPhone)}
-              onChange={(raw) => setRecipientPhone(cleanPhoneNumber(raw))}
+              value={recipientPhone}
+              onChange={(cleanedPhone) => setRecipientPhone(cleanedPhone)}
               countries={countries}
-              selectPosition="none"/>
+              selectPosition="none"
+            />
           </div>
-
-
 
           {orderType === "DELIVERY" && (
             <div className="w-full xl:w-1/2">
@@ -471,30 +334,34 @@ return (
         </div>
 
         {/* Address Fields (only for delivery) */}
-{orderType === "DELIVERY" && (
-        <div className="space-y-4.5">
-          <div className="flex flex-col gap-6 xl:flex-row">
-            <div className="w-full xl:w-1/2">
-              <Label htmlFor="address1">Address Line 1</Label>
-              <Autocomplete
-  onLoad={(autocomplete) => (autocompleteRef.current = autocomplete)}
-  onPlaceChanged={handlePlaceSelect}
-  bounds={princeGeorgeBounds} // Bias toward Prince George
-  options={{ 
-    strictBounds: false, // Allow results outside bounds
-    componentRestrictions: { country: [] } // Allow all countries
-  }}
->
-                <InputField
-                  type="text"
+        {orderType === "DELIVERY" && (
+          <div className="space-y-4.5">
+            <div className="flex flex-col gap-6 xl:flex-row">
+              <div className="w-full xl:w-1/2">
+                <Label htmlFor="address1">Address Line 1</Label>
+                <AddressAutocomplete
                   id="address1"
-                  placeholder="Enter street address"
                   value={recipientAddress.address1}
-                  onChange={(e) =>
-                    setRecipientAddress({ ...recipientAddress, address1: e.target.value })
-                  }
+                  onChange={(value) => setRecipientAddress({ ...recipientAddress, address1: value })}
+                  onAddressSelect={(parsedAddress) => {
+                    setRecipientAddress({
+                      ...recipientAddress,
+                      ...parsedAddress,
+                    });
+                    
+                    // Calculate delivery fee automatically
+                    if (orderType === "DELIVERY") {
+                      calculateDeliveryFee(
+                        parsedAddress.address1, 
+                        parsedAddress.city, 
+                        parsedAddress.postalCode,
+                        parsedAddress.province,
+                        onDeliveryFeeCalculated
+                      );
+                    }
+                  }}
+                  placeholder="Enter street address"
                 />
-              </Autocomplete>
               </div>
 
               <div className="w-full xl:w-1/2">
@@ -577,7 +444,7 @@ return (
               disabled={isSaving}
               className="text-sm text-[#597485] hover:underline disabled:opacity-50"
             >
-{isSaving ? "Saving..." : "Save Recipient"}
+              {isSaving ? "Saving..." : "Save Recipient"}
             </button>
           )}
           
@@ -590,6 +457,6 @@ return (
           </button>
         </div>
       </ComponentCard>
-    </LoadScript>
+  
   );
 }

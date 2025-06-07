@@ -3,7 +3,7 @@ import { FC } from "react";
 import ComponentCard from "../common/ComponentCard";
 import InputField from "../form/input/InputField";
 import Label from "../form/Label";
-import Button from "../ui/button/Button"; // Assuming TailAdmin Button component
+import Button from "../ui/button/Button";
 import PhoneInput from "../form/group-input/PhoneInput";
 
 type Props = {
@@ -47,16 +47,12 @@ const CustomerCard: FC<Props> = ({
     clearSavedRecipients();
   };
 
-
   const countries = [
     { code: "CA", label: "+1" },
     { code: "US", label: "+1" },
     { code: "GB", label: "+44" },
     { code: "AU", label: "+61" },
   ];
-  const handlePhoneNumberChange = (phoneNumber: string) => {
-    console.log("Updated phone number:", phoneNumber);
-  };
 
   return (
     <ComponentCard title="Customer Information">
@@ -143,15 +139,18 @@ const CustomerCard: FC<Props> = ({
           />
         </div>
 
-     <div>
-          <Label>Phone Number</Label>
-<PhoneInput
-  value={customer.phone}
-  onChange={(raw) => setCustomer({ ...customer, phone: raw })}
-  countries={countries}
-  selectPosition="none"
-/>
-               </div>
+        <div>
+          <Label htmlFor="phone">Phone Number</Label>
+          <PhoneInput
+            type="tel"
+            id="phone"
+            value={customer.phone || ""}
+            onChange={(cleanedPhone) => setCustomer({ ...customer, phone: cleanedPhone })}
+            countries={countries}
+            selectPosition="none"
+            placeholder="(555) 000-0000"
+          />
+        </div>
 
         <div>
           <Label htmlFor="email">Email Address</Label>
@@ -177,13 +176,12 @@ const CustomerCard: FC<Props> = ({
 
       {/* Clear Button */}
       <div className="flex justify-end mt-6">
-        <Button
+        <button
           onClick={clearCustomerInfo}
-          className="flex justify-center rounded-lg border border-stroke py-2 px-6 font-medium text-black hover:shadow-1 dark:border-strokedark dark:text-white"
-          style={{ backgroundColor: '#597485', color: 'white' }}
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#597485] px-4 py-2 text-sm font-medium text-white hover:bg-[#4e6575]"
         >
           Clear Customer Info
-        </Button>
+        </button>
       </div>
     </ComponentCard>
   );
