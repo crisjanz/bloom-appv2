@@ -10,73 +10,15 @@ import PaymentCard from "../../components/orders/PaymentCard";
 import PaymentModal from "../../components/orders/PaymentModal";
 import { usePaymentCalculations } from "../../hooks/usePaymentCalculations";
 import { useCustomerSearch } from "../../hooks/useCustomerSearch";
-
-type OrderEntry = {
-  recipientFirstName: string;
-  recipientLastName: string;
-  recipientCompany: string;
-  recipientPhone: string;
-  recipientAddress: {
-    address1: string;
-    address2: string;
-    city: string;
-    province: string;
-    postalCode: string;
-    country?: string;
-  };
-  orderType: "DELIVERY" | "PICKUP";
-  deliveryDate: string;
-  deliveryTime: string;
-  deliveryInstructions: string;
-  cardMessage: string;
-  customProducts: {
-    description: string;
-    category: string;
-    price: string;
-    qty: string;
-    tax: boolean;
-  }[];
-  shortcutQuery: string;
-  filteredShortcuts: any[];
-};
+import { useOrderState } from '../../hooks/useOrderState';
 
 export default function TakeOrderPage() {
   // 🔹 Employee State
-  const [employee, setEmployee] = useState("");
-  const [employeeList, setEmployeeList] = useState<
-    { id: string; name: string; type: string }[]
-  >([]);
+ // 🔹 Employee State
+const [employee, setEmployee] = useState("");
+const [employeeList, setEmployeeList] = useState<{ id: string; name: string; type: string }[]>([]);
   const [formError, setFormError] = useState<string | null>(null);
   const [orderSource, setOrderSource] = useState<"phone" | "walkin">("phone");
-
-  // 🔹 Multi-Order State
-  const [orders, setOrders] = useState<OrderEntry[]>([
-    {
-      recipientFirstName: "",
-      recipientLastName: "",
-      recipientCompany: "",
-      recipientPhone: "",
-      recipientAddress: {
-        address1: "",
-        address2: "",
-        city: "",
-        province: "",
-        postalCode: "",
-        country: "CA",
-      },
-      orderType: "DELIVERY",
-      deliveryDate: "",
-      deliveryTime: "",
-      deliveryInstructions: "",
-      cardMessage: "",
-      customProducts: [
-        { description: "", category: "", price: "", qty: "1", tax: true },
-      ],
-      shortcutQuery: "",
-      filteredShortcuts: [],
-    },
-  ]);
-  const [activeTab, setActiveTab] = useState(0);
 
   const cleanPhoneNumber = (value: string) => {
     if (value.startsWith("+")) {
@@ -90,7 +32,9 @@ export default function TakeOrderPage() {
   const [selectedSuggestion, setSelectedSuggestion] = useState("");
   const [messageSuggestions, setMessageSuggestions] = useState<any[]>([]);
 
+  // 🔥 Custom Hooks
   const customerState = useCustomerSearch();
+  const orderState = useOrderState();
 
   // 🔹 Payment State
   const [couponCode, setCouponCode] = useState("");
@@ -102,7 +46,7 @@ export default function TakeOrderPage() {
   const [sendEmailReceipt, setSendEmailReceipt] = useState(false);
 
   const { itemTotal, subtotal, gst, pst, grandTotal } = usePaymentCalculations(
-    orders,
+    orderState.orders,
     deliveryCharge,
     discount,
     discountType
@@ -140,7 +84,7 @@ export default function TakeOrderPage() {
           setOrderSource={setOrderSource}
           formData={{
             customer: customerState.customer,
-            orders,
+            orders: orderState.orders,
             deliveryCharge,
             discount,
             discountType,
@@ -151,10 +95,10 @@ export default function TakeOrderPage() {
           }}
           onSaveDraft={(draftData) => {
             if (draftData.customer) {
-              customerState.setCustomer(draftData.customer); // ✅ Fixed
+              customerState.setCustomer(draftData.customer);
             }
             if (draftData.orders) {
-              setOrders(draftData.orders);
+              orderState.setOrders(draftData.orders);
             }
             if (draftData.deliveryCharge !== undefined) {
               setDeliveryCharge(draftData.deliveryCharge);
@@ -191,28 +135,27 @@ export default function TakeOrderPage() {
           savedRecipients={customerState.savedRecipients}
           setSavedRecipients={customerState.setSavedRecipients}
           clearSavedRecipients={customerState.clearSavedRecipients}
-          orders={orders}
-          setOrders={setOrders}
-          activeTab={activeTab}
+          orders={orderState.orders}
+          setOrders={orderState.setOrders}
+          activeTab={orderState.activeTab}
           setCustomerId={customerState.setCustomerId}
         />
 
         {/* Multi-Order Tabs */}
         <MultiOrderTabs
-          orders={orders}
-          setOrders={setOrders}
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
+          orders={orderState.orders}
+          setOrders={orderState.setOrders}
+          activeTab={orderState.activeTab}
+          setActiveTab={orderState.setActiveTab}
           setShowSuggestions={setShowSuggestions}
           setCardMessage={setSelectedSuggestion}
-          savedRecipients={customerState.savedRecipients} // ✅ Fixed
-          customerId={customerState.customerId} // ✅ Fixed
+          savedRecipients={customerState.savedRecipients}
+          customerId={customerState.customerId}
           onRecipientSaved={() => {
             if (customerState.customerId) {
-              // ✅ Fixed
-              fetch(`/api/customers/${customerState.customerId}/recipients`) // ✅ Fixed
+              fetch(`/api/customers/${customerState.customerId}/recipients`)
                 .then((res) => res.json())
-                .then((data) => customerState.setSavedRecipients(data || [])) // ✅ Fixed
+                .then((data) => customerState.setSavedRecipients(data || []))
                 .catch((err) =>
                   console.error("Failed to refresh recipients:", err)
                 );
@@ -259,7 +202,7 @@ export default function TakeOrderPage() {
           const groupId = crypto.randomUUID();
 
           try {
-            for (const order of orders) {
+            for (const order of orderState.orders) {
               const res = await fetch("/api/orders", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -322,7 +265,7 @@ export default function TakeOrderPage() {
                         city: order.recipientAddress.city,
                         province: order.recipientAddress.province,
                         postalCode: order.recipientAddress.postalCode,
-                        country: order.recipientAddress.country || "CA", // 🆕 Add country support
+                        country: order.recipientAddress.country || "CA",
                         company: order.recipientCompany,
                       }),
                     }
@@ -339,41 +282,9 @@ export default function TakeOrderPage() {
 
             // Reset form to initial state
             customerState.resetCustomer();
-            setOrders([
-              {
-                recipientFirstName: "",
-                recipientLastName: "",
-                recipientCompany: "",
-                recipientPhone: "",
-                recipientAddress: {
-                  address1: "",
-                  address2: "",
-                  city: "",
-                  province: "",
-                  postalCode: "",
-                  country: "CA",
-                },
-                orderType: "DELIVERY",
-                deliveryDate: "",
-                deliveryTime: "",
-                deliveryInstructions: "",
-                cardMessage: "",
-                customProducts: [
-                  {
-                    description: "",
-                    category: "",
-                    price: "",
-                    qty: "1",
-                    tax: true,
-                  },
-                ],
-                shortcutQuery: "",
-                filteredShortcuts: [],
-              },
-            ]);
+            orderState.resetOrders();
             setCouponCode("");
             setDiscount(0);
-            setActiveTab(0);
           } catch (error) {
             console.error("Error saving orders:", error);
             setFormError("An error occurred while saving orders.");
@@ -390,9 +301,9 @@ export default function TakeOrderPage() {
         setSelected={setSelectedSuggestion}
         customerId={customerState.customerId}
         onSubmit={() => {
-          const updated = [...orders];
-          updated[activeTab].cardMessage = selectedSuggestion;
-          setOrders(updated);
+          const updated = [...orderState.orders];
+          updated[orderState.activeTab].cardMessage = selectedSuggestion;
+          orderState.setOrders(updated);
           setShowSuggestions(false);
         }}
       />

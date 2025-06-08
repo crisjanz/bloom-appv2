@@ -12,7 +12,16 @@ import employeeRoutes from "./routes/employees";
 import messageRoutes from "./routes/messages";
 import addressShortcutRoutes from "./routes/addressShortcuts";
 import { getStoreInfo, saveStoreInfo } from './routes/settings/store-info';
-
+import { getBusinessHours, saveBusinessHours } from './routes/settings/business-hours';
+import { getDeliveryExceptions, saveDeliveryExceptions } from './routes/settings/delivery-exceptions';
+import { 
+  getHolidays, 
+  createHoliday, 
+  updateHoliday, 
+  deleteHoliday, 
+  getUpcomingHolidays, 
+  getActiveHoliday 
+} from './routes/settings/holidays';
 
 
 dotenv.config();
@@ -36,6 +45,16 @@ app.use('/api/products', productsRouter);
 app.use('/api/categories', categoriesRouter);
 app.get('/api/settings/store-info', getStoreInfo);
 app.post('/api/settings/store-info', saveStoreInfo);
+app.get('/api/settings/business-hours', getBusinessHours);
+app.post('/api/settings/business-hours', saveBusinessHours);
+app.get('/api/settings/delivery-exceptions', getDeliveryExceptions);
+app.post('/api/settings/delivery-exceptions', saveDeliveryExceptions);
+app.get('/api/settings/holidays', getHolidays);
+app.post('/api/settings/holidays', createHoliday);
+app.put('/api/settings/holidays/:id', updateHoliday);
+app.delete('/api/settings/holidays/:id', deleteHoliday);
+app.get('/api/settings/holidays/upcoming', getUpcomingHolidays);
+app.get('/api/settings/holidays/active/:date', getActiveHoliday);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'Backend is alive!' });

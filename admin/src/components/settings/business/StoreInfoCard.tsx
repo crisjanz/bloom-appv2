@@ -5,6 +5,7 @@ import PhoneInput from "../../form/group-input/PhoneInput";
 import Label from "../../form/Label";
 import AddressAutocomplete from "../../form/AddressAutocomplete";
 import Button from "../../ui/button/Button";
+import Select from "../../form/Select"; 
 
 // Same countries array as CustomerInfoCard
 const countries = [
@@ -249,22 +250,16 @@ const StoreInfoCard = () => {
               placeholder="123456789BC0001"
             />
           </div>
-          <div>
-            <Label htmlFor="currency">Currency</Label>
-            <select
-              id="currency"
-              value={formData.currency}
-              onChange={(e) => handleInputChange('currency', e.target.value)}
-              className="w-full rounded-lg border border-stroke bg-transparent py-3 px-5 text-black outline-none transition focus:border-primary active:border-primary disabled:cursor-default disabled:bg-white disabled:border-gray-200 dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
-              required
-            >
-              {currencyOptions.map(option => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
+<div>
+  <Label htmlFor="currency">Currency</Label>
+  <Select
+    options={currencyOptions}
+    placeholder="Select Currency"
+    value={formData.currency}
+    onChange={(value) => handleInputChange('currency', value)}
+    className="dark:bg-dark-900"
+  />
+</div>
         </div>
 
         <div className="flex justify-end">

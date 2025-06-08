@@ -385,3 +385,73 @@ model StoreSettings {
 
   @@map("store_settings")
 }
+
+model BusinessHoursSettings {
+  id        String   @id @default(cuid())
+  timezone  String   @default("America/Vancouver")
+  
+  mondayOpen     String?
+  mondayClose    String?
+  mondayEnabled  Boolean @default(true)
+  
+  tuesdayOpen    String?
+  tuesdayClose   String?
+  tuesdayEnabled Boolean @default(true)
+  
+  wednesdayOpen    String?
+  wednesdayClose   String?
+  wednesdayEnabled Boolean @default(true)
+  
+  thursdayOpen    String?
+  thursdayClose   String?
+  thursdayEnabled Boolean @default(true)
+  
+  fridayOpen     String?
+  fridayClose    String?
+  fridayEnabled  Boolean @default(true)
+  
+  saturdayOpen    String?
+  saturdayClose   String?
+  saturdayEnabled Boolean @default(true)
+  
+  sundayOpen     String?
+  sundayClose    String?
+  sundayEnabled  Boolean @default(true)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("business_hours_settings")
+}
+
+model DeliveryExceptions {
+  id         String   @id @default(cuid())
+  exceptions Json[]   // Array of {date, noDelivery, noPickup} objects
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("delivery_exceptions")
+}
+
+model Holiday {
+  id          String   @id @default(cuid())
+  name        String   // "Christmas Day", "Mother's Day", "Vacation"
+  startDate   String   // "2024-12-25" 
+  endDate     String   // "2024-12-25" (same for single day, different for ranges)
+  isOpen      Boolean  @default(false) // false = closed, true = special hours
+  
+  // Special hours (only used if isOpen = true)
+  openTime    String?  // "10:00"
+  closeTime   String?  // "15:00"
+  
+  // Metadata
+  isRecurring Boolean  @default(false) // For future: annual holidays
+  color       String   @default("red") // "red", "green", "blue" for calendar display
+  notes       String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("holidays")
+}
