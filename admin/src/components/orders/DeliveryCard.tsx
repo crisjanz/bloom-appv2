@@ -4,8 +4,7 @@ import ComponentCard from "../common/ComponentCard";
 import InputField from "../form/input/InputField";
 import TextArea from "../form/input/TextArea";
 import Label from "../form/Label";
-import Select from "../form/Select";
-import DatePicker from "../form/date-picker.tsx";
+import DeliveryDatePicker from "../form/DeliveryDatePicker"; // ✅ New component
 
 type Props = {
   deliveryDate: string;
@@ -30,9 +29,6 @@ export default function DeliveryCard({
   setCardMessage,
   setShowSuggestions,
 }: Props) {
-  // Get today's date in YYYY-MM-DD format for min date
-  const today = new Date().toISOString().split('T')[0];
-
   return (
     <ComponentCard title="Delivery Details & Message">
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
@@ -41,23 +37,24 @@ export default function DeliveryCard({
           {/* Date and Time Row */}
           <div className="flex flex-col gap-4 sm:flex-row">
             <div className="w-full sm:w-1/2">
-             
-          <DatePicker
-            id="date-picker"
-            label="Delivery Date"
-            placeholder="Select a date"
-            onChange={(e) => setDeliveryDate(e.target.value)}
-          />
+              <DeliveryDatePicker
+                id="delivery-date-picker"
+                label="Delivery Date"
+                placeholder="Select a date"
+                value={deliveryDate}
+                onChange={(date) => setDeliveryDate(date)}
+              />
             </div>
 
             <div className="relative">
               <Label>Delivery Time (optional)</Label>
-               <InputField
-              type="time"
-              id="tm"
-              name="tm"
-              onChange={(value) => setDeliveryTime(value)}
-            />
+              <InputField
+                type="time"
+                id="tm"
+                name="tm"
+                value={deliveryTime}
+                onChange={(e) => setDeliveryTime(e.target.value)}
+              />
             </div>
           </div>
 
@@ -122,7 +119,6 @@ export default function DeliveryCard({
           )}
         </div>
       </div>
-
     </ComponentCard>
   );
 }

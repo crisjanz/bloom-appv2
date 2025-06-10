@@ -455,3 +455,68 @@ model Holiday {
 
   @@map("holidays")
 }
+
+model DeliveryZone {
+  id          String   @id @default(cuid())
+  name        String   // "Downtown", "Suburbs", "Zone 1", etc.
+  minDistance Float    // Minimum distance in km
+  maxDistance Float?   // Maximum distance in km (null = unlimited)
+  fee         Float    // Delivery fee for this zone
+  enabled     Boolean  @default(true)
+  sortOrder   Int      @default(0) // For ordering zones
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("delivery_zones")
+}
+
+model DeliverySettings {
+  id                  String   @id @default(cuid())
+  // Store Location
+  storeAddress        String   // Full address for distance calculations
+  storePostalCode     String?  // Postal code as fallback
+  storeLatitude       Float?   // For precise distance calculations
+  storeLongitude      Float?   
+  
+  // Delivery Options
+  deliveryMode        String   @default("DISTANCE") // "DISTANCE", "POSTAL_CODE", "REGION"
+  freeDeliveryMinimum Float?   // Free delivery over $X
+  maxDeliveryRadius   Float?   // Maximum delivery distance in km
+  enabled             Boolean  @default(true)
+  
+  // Future features
+  businessHoursOnly   Boolean  @default(true)
+  advanceOrderHours   Int      @default(2) // Minimum hours for advance orders
+  
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@map("delivery_settings")
+}
+
+// Future: For postal code zones
+model DeliveryPostalZone {
+  id         String   @id @default(cuid())
+  name       String   // "Downtown Vancouver", "Richmond", etc.
+  postalCodes String[] // Array of postal code prefixes: ["V6B", "V6C", "V6E"]
+  fee        Float
+  enabled    Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("delivery_postal_zones")
+}
+
+// Future: For region-based zones  
+model DeliveryRegionZone {
+  id        String   @id @default(cuid())
+  name      String   // "Vancouver", "Burnaby", "Richmond"
+  cities    String[] // Array of city names
+  provinces String[] // Array of province codes
+  fee       Float
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("delivery_region_zones")
+}

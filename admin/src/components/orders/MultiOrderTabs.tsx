@@ -7,10 +7,11 @@ import ProductsCard from "./ProductsCard";
 
 type Address = {
   address1: string;
-  address2: string;
+  address2?: string;
   city: string;
   province: string;
   postalCode: string;
+  country?: string;
 };
 
 type OrderEntry = {
@@ -24,6 +25,8 @@ type OrderEntry = {
   deliveryTime: string;
   deliveryInstructions: string;
   cardMessage: string;
+  deliveryFee: number; // ✅ Add this to match the hook
+  isDeliveryFeeManuallyEdited: boolean;
   customProducts: {
     description: string;
     category: string;
@@ -43,9 +46,10 @@ type Props = {
   setShowSuggestions: (val: boolean) => void;
   setCardMessage: (val: string) => void;
   savedRecipients?: any[];
-  customerId?: string | null; // Add this
-  onRecipientSaved?: () => void; // Add this for refreshing saved recipients
-  onDeliveryFeeCalculated?: (fee: number) => void;
+  customerId?: string | null;
+  onRecipientSaved?: () => void;
+  updateOrderDeliveryFee: (orderIndex: number, fee: number) => void; // ✅ Add this
+  updateOrderManualEditFlag: (orderIndex: number, isManual: boolean) => void;
 };
 
 export default function MultiOrderTabs({
@@ -56,9 +60,10 @@ export default function MultiOrderTabs({
   setShowSuggestions,
   setCardMessage,
   savedRecipients = [],
-  customerId, // Add this
-  onRecipientSaved, // Add this
-  onDeliveryFeeCalculated,
+  customerId,
+  onRecipientSaved,
+  updateOrderDeliveryFee,
+  updateOrderManualEditFlag,
 }: Props) {
   const maxTabs = 5;
 
@@ -75,12 +80,15 @@ export default function MultiOrderTabs({
         city: "",
         province: "",
         postalCode: "",
+        country: "", 
       },
       orderType: "DELIVERY",
       deliveryDate: "",
       deliveryTime: "",
       deliveryInstructions: "",
       cardMessage: "",
+      deliveryFee: 0, // ✅ Add this
+      isDeliveryFeeManuallyEdited: false,
       customProducts: [
         {
           description: "",
@@ -125,6 +133,15 @@ export default function MultiOrderTabs({
   };
 
   const order = orders[activeTab];
+  if (!order) {
+  return (
+    <ComponentCard>
+      <div className="p-4 text-center">
+        <div className="text-gray-500">Loading order...</div>
+      </div>
+    </ComponentCard>
+  );
+}
 
   return (
     <ComponentCard>
@@ -134,33 +151,33 @@ export default function MultiOrderTabs({
           {orders.map((_, i) => (
             <div key={i} className="relative">
               <button
-                onClick={() => setActiveTab(i)}
-                className={`relative inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 border-2 ${
-                  i === activeTab
-                    ? "border-[#597485] text-white shadow-sm"
-                    : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-                }`}
-                style={i === activeTab ? { backgroundColor: '#597485', color: '#ffffff !important' } : {}}
-              >
-                <span className="mr-2">Order #{i + 1}</span>
-                {orders.length > 1 && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleRemoveTab(i);
-                    }}
-                    className={`flex h-5 w-5 items-center justify-center rounded-full text-sm transition-colors ${
-                      i === activeTab
-                        ? "hover:bg-white/20"
-                        : "hover:bg-red-100 text-red-500 dark:hover:bg-red-900/20"
-                    }`}
-                    style={i === activeTab ? { color: '#ffffff' } : {}}
-                    title="Remove this order"
-                  >
-                    ×
-                  </button>
-                )}
-              </button>
+  onClick={() => setActiveTab(i)}
+  className={`relative inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 border-2 ${
+    i === activeTab
+      ? "border-[#597485] text-white shadow-sm"
+      : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+  }`}
+  style={i === activeTab ? { backgroundColor: '#597485', color: '#ffffff !important' } : {}}
+>
+  <span className="mr-2">Order #{i + 1}</span>
+  {orders.length > 1 && (
+    <div  // ✅ Change to div with onClick
+      onClick={(e) => {
+        e.stopPropagation();
+        handleRemoveTab(i);
+      }}
+      className={`flex h-5 w-5 items-center justify-center rounded-full text-sm transition-colors cursor-pointer ${
+        i === activeTab
+          ? "hover:bg-white/20"
+          : "hover:bg-red-100 text-red-500 dark:hover:bg-red-900/20"
+      }`}
+      style={i === activeTab ? { color: '#ffffff' } : {}}
+      title="Remove this order"
+    >
+      ×
+    </div>
+  )}
+</button>
             </div>
           ))}
 
@@ -232,7 +249,11 @@ export default function MultiOrderTabs({
           savedRecipients={savedRecipients}
           customerId={customerId}
           onRecipientSaved={onRecipientSaved}
-          onDeliveryFeeCalculated={onDeliveryFeeCalculated}
+          currentDeliveryFee={order.deliveryFee} 
+          isManuallyEdited={order.isDeliveryFeeManuallyEdited} // ✅ Add this
+          onManualEditChange={(isManual) => updateOrderManualEditFlag(activeTab, isManual)} 
+          activeTab={activeTab}
+          onDeliveryFeeCalculated={(fee) => updateOrderDeliveryFee(activeTab, fee)} // ✅ Direct call!
         />
 
         <DeliveryCard
@@ -250,35 +271,35 @@ export default function MultiOrderTabs({
           setShowSuggestions={setShowSuggestions}
         />
 
-<ProductsCard
-  customProducts={order.customProducts}
-  handleProductChange={(index, field, value) => {
-    // Handle the special removeAt case
-    if (field === "removeAt") {
-      const updated = [...order.customProducts];
-      updated.splice(value, 1);
-      updateProducts(activeTab, updated);
-    } else {
-      const updated = [...order.customProducts];
-      updated[index][field] = value;
-      updateProducts(activeTab, updated);
-    }
-  }}
-  handleAddCustomProduct={() => {
-    const updated = [...order.customProducts, {
-      description: "",
-      category: "",
-      price: "",
-      qty: "1",
-      tax: true,
-    }];
-    updateProducts(activeTab, updated);
-  }}
-  calculateRowTotal={(price, qty) => {
-    const total = parseFloat(price || "0") * parseInt(qty || "0");
-    return total.toFixed(2);
-  }}
-/>
+        <ProductsCard
+          customProducts={order.customProducts}
+          handleProductChange={(index, field, value) => {
+            // Handle the special removeAt case
+            if (field === "removeAt") {
+              const updated = [...order.customProducts];
+              updated.splice(value, 1);
+              updateProducts(activeTab, updated);
+            } else {
+              const updated = [...order.customProducts];
+              updated[index][field] = value;
+              updateProducts(activeTab, updated);
+            }
+          }}
+          handleAddCustomProduct={() => {
+            const updated = [...order.customProducts, {
+              description: "",
+              category: "",
+              price: "",
+              qty: "1",
+              tax: true,
+            }];
+            updateProducts(activeTab, updated);
+          }}
+          calculateRowTotal={(price, qty) => {
+            const total = parseFloat(price || "0") * parseInt(qty || "0");
+            return total.toFixed(2);
+          }}
+        />
       </div>
     </ComponentCard>
   );

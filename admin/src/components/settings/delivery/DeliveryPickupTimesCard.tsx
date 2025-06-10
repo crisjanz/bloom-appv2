@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import ComponentCardCollapsible from "../../common/ComponentCardCollapsible";
 import Button from "../../ui/button/Button";
-import { TimeIcon, CalenderIcon, TruckIcon, SettingsIcon } from "../../../icons";
+import { TimeIcon, CalenderIcon, TruckIcon, SettingsIcon, CloseIcon, CheckLineIcon } from "../../../icons";
 
 interface BusinessHours {
   [key: string]: {
@@ -18,9 +18,22 @@ interface DeliveryException {
   reason?: string;
 }
 
+interface Holiday {
+  id?: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  isOpen: boolean;
+  openTime?: string;
+  closeTime?: string;
+  color: string;
+  notes?: string;
+}
+
 const DeliveryPickupTimesCard = () => {
   const [exceptions, setExceptions] = useState<DeliveryException[]>([]);
   const [businessHours, setBusinessHours] = useState<BusinessHours>({});
+  const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -32,9 +45,10 @@ const DeliveryPickupTimesCard = () => {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [businessHoursRes, exceptionsRes] = await Promise.all([
+      const [businessHoursRes, exceptionsRes, holidaysRes] = await Promise.all([
         fetch('/api/settings/business-hours'),
-        fetch('/api/settings/delivery-exceptions')
+        fetch('/api/settings/delivery-exceptions'),
+        fetch('/api/settings/holidays')
       ]);
 
       if (businessHoursRes.ok) {
@@ -63,6 +77,11 @@ const DeliveryPickupTimesCard = () => {
         } else {
           setExceptions(exceptionsData.exceptions || []);
         }
+      }
+
+      if (holidaysRes.ok) {
+        const holidaysData = await holidaysRes.json();
+        setHolidays(holidaysData.holidays || []);
       }
     } catch (error) {
       console.error('Failed to load data:', error);
@@ -125,11 +144,34 @@ const DeliveryPickupTimesCard = () => {
     return days;
   };
 
+  // Check if a date falls within any holiday period
+  const getHolidayForDate = (dateString: string): Holiday | null => {
+    return holidays.find(holiday => {
+      return dateString >= holiday.startDate && dateString <= holiday.endDate;
+    }) || null;
+  };
+
+  // Get upcoming holidays (next 30 days)
+  const getUpcomingHolidays = () => {
+    const today = new Date();
+    const thirtyDaysFromNow = new Date(today.getTime() + (30 * 24 * 60 * 60 * 1000));
+    
+    return holidays.filter(holiday => {
+      const holidayStart = new Date(holiday.startDate + 'T00:00:00');
+      return holidayStart >= today && holidayStart <= thirtyDaysFromNow;
+    }).sort((a, b) => a.startDate.localeCompare(b.startDate));
+  };
+
   const calendarDays = generateCalendarDays();
   const today = new Date().toISOString().split('T')[0];
+  const upcomingHolidays = getUpcomingHolidays();
 
   const toggleDate = (dateString: string) => {
     if (dateString < today) return;
+
+    // Don't allow manual exceptions on holiday dates
+    const holiday = getHolidayForDate(dateString);
+    if (holiday) return;
 
     setExceptions(prev => {
       const existing = prev.find(ex => ex.date === dateString);
@@ -168,6 +210,21 @@ const DeliveryPickupTimesCard = () => {
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1));
   };
 
+  const formatDateRange = (startDate: string, endDate: string) => {
+    const start = new Date(startDate + 'T00:00:00');
+    const end = new Date(endDate + 'T00:00:00');
+    
+    if (startDate === endDate) {
+      return start.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric',
+        year: start.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
+      });
+    } else {
+      return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    }
+  };
+
   if (isLoading) {
     return (
       <ComponentCardCollapsible title="Delivery & Pickup Times" desc="Delivery schedule and closure exceptions">
@@ -187,37 +244,37 @@ const DeliveryPickupTimesCard = () => {
         {/* LEFT COLUMN - Business Hours Reference */}
         <div>
           <div className="flex items-center gap-2 mb-4">
-            <TimeIcon className="w-5 h-5 text-primary" />
-            <h3 className="text-lg font-medium text-gray-800 dark:text-white">
+            <TimeIcon className="w-5 h-5" style={{ color: '#597485' }} />
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
               Delivery Schedule
             </h3>
           </div>
           
           {/* Regular Business Hours */}
-          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-4">
+          <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-4">
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
               Delivery & pickup follow your business hours:
             </p>
             <div className="space-y-2">
               {Object.entries(businessHours).map(([day, hours]) => (
-                <div key={day} className="flex justify-between items-center py-1">
+                <div key={day} className="flex justify-between items-center py-1.5 border-b border-gray-100 dark:border-gray-800 last:border-b-0">
                   <span className="font-medium text-gray-700 dark:text-gray-300 capitalize">
                     {day}
                   </span>
-                  <span className="text-gray-600 dark:text-gray-400">
+                  <span className="text-gray-600 dark:text-gray-400 text-sm">
                     {hours.enabled ? (
                       `${formatTime(hours.open)} - ${formatTime(hours.close)}`
                     ) : (
-                      <span className="text-red-500">Closed</span>
+                      <span className="text-gray-500">Closed</span>
                     )}
                   </span>
                 </div>
               ))}
             </div>
-            <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
+            <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
               <div className="flex items-center gap-2">
-                <SettingsIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                <p className="text-xs text-blue-700 dark:text-blue-300">
+                <SettingsIcon className="w-4 h-4 text-gray-500" />
+                <p className="text-xs text-gray-600 dark:text-gray-400">
                   To change delivery hours, update Business Hours settings
                 </p>
               </div>
@@ -225,37 +282,51 @@ const DeliveryPickupTimesCard = () => {
           </div>
 
           {/* Holiday Hours */}
-          <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-4">
+          <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
             <div className="flex items-center gap-2 mb-3">
-              <CalenderIcon className="w-5 h-5 text-orange-600" />
-              <p className="text-sm font-medium text-orange-700 dark:text-orange-300">
+              <CalenderIcon className="w-5 h-5" style={{ color: '#597485' }} />
+              <p className="text-sm font-medium text-gray-900 dark:text-white">
                 Upcoming Holiday Hours:
               </p>
             </div>
             
-            <div className="space-y-2">
-              <div className="flex justify-between items-center py-1">
-                <span className="text-sm text-orange-700 dark:text-orange-300">
-                  Christmas Day (Dec 25)
-                </span>
-                <span className="text-sm text-red-500 font-medium">
-                  Closed
-                </span>
+            {upcomingHolidays.length > 0 ? (
+              <div className="space-y-2">
+                {upcomingHolidays.map(holiday => (
+                  <div key={holiday.id} className="flex justify-between items-center py-1.5 border-b border-gray-100 dark:border-gray-800 last:border-b-0">
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      {holiday.name} ({formatDateRange(holiday.startDate, holiday.endDate)})
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {holiday.isOpen ? (
+                        <>
+                          <CheckLineIcon className="w-3 h-3 text-gray-500" />
+                          <span className="text-sm text-gray-600 dark:text-gray-400">
+                            {formatTime(holiday.openTime || '')} - {formatTime(holiday.closeTime || '')}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <CloseIcon className="w-3 h-3 text-gray-500" />
+                          <span className="text-sm text-gray-500">
+                            Closed
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div className="flex justify-between items-center py-1">
-                <span className="text-sm text-orange-700 dark:text-orange-300">
-                  New Year's Day (Jan 1)
-                </span>
-                <span className="text-sm text-red-500 font-medium">
-                  Closed
-                </span>
-              </div>
-            </div>
+            ) : (
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                No upcoming holidays configured
+              </p>
+            )}
             
-            <div className="mt-3 p-2 bg-orange-100 dark:bg-orange-800/30 rounded border border-orange-200 dark:border-orange-700">
+            <div className="mt-3 p-2 bg-gray-50 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
               <div className="flex items-center gap-2">
-                <SettingsIcon className="w-4 h-4 text-orange-600 dark:text-orange-400" />
-                <p className="text-xs text-orange-700 dark:text-orange-300">
+                <SettingsIcon className="w-4 h-4 text-gray-500" />
+                <p className="text-xs text-gray-600 dark:text-gray-400">
                   Manage holiday hours in Holidays settings
                 </p>
               </div>
@@ -266,57 +337,65 @@ const DeliveryPickupTimesCard = () => {
         {/* RIGHT COLUMN - Delivery Exceptions */}
         <div>
           <div className="flex items-center gap-2 mb-4">
-            <TruckIcon className="w-5 h-5 text-primary" />
-            <h3 className="text-lg font-medium text-gray-800 dark:text-white">
+            <TruckIcon className="w-5 h-5" style={{ color: '#597485' }} />
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
               Delivery & Pickup Exceptions
             </h3>
           </div>
           <div className="space-y-4">
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Click dates to cycle through restriction modes:
+              Click dates to cycle through restriction modes. Holiday dates are automatically applied.
             </p>
 
             {/* Legend */}
-            <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 bg-red-500 rounded"></div>
-                <span>No Delivery + Pickup</span>
+            <div className="grid grid-cols-2 gap-4 text-xs">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 border-2 border-gray-400 rounded"></div>
+                  <span className="text-gray-600 dark:text-gray-400">No Delivery + Pickup</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 border border-gray-400 bg-gray-200 dark:bg-gray-600 rounded"></div>
+                  <span className="text-gray-600 dark:text-gray-400">No Delivery</span>
+                </div>
               </div>
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 bg-yellow-500 rounded"></div>
-                <span>No Delivery</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 bg-blue-500 rounded"></div>
-                <span>No Pickup</span>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-gray-300 dark:bg-gray-600 rounded"></div>
+                  <span className="text-gray-600 dark:text-gray-400">No Pickup</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 border-l-2 bg-gray-100 dark:bg-gray-700 rounded" style={{ borderLeftColor: '#597485' }}></div>
+                  <span className="text-gray-600 dark:text-gray-400">Holiday</span>
+                </div>
               </div>
             </div>
 
             {/* Calendar */}
-            <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+            <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
               {/* Calendar Header */}
-              <div className="flex justify-between items-center mb-3">
+              <div className="flex justify-between items-center mb-4">
                 <button
                   onClick={previousMonth}
-                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-600 dark:text-gray-400"
                 >
                   ←
                 </button>
-                <h4 className="font-medium text-gray-800 dark:text-white text-sm">
+                <h4 className="font-medium text-gray-900 dark:text-white">
                   {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
                 </h4>
                 <button
                   onClick={nextMonth}
-                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-600 dark:text-gray-400"
                 >
                   →
                 </button>
               </div>
 
-              {/* Calendar Grid - Fixed keys */}
+              {/* Calendar Grid */}
               <div className="grid grid-cols-7 gap-1 mb-2">
                 {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
-                  <div key={`day-header-${index}`} className="p-1 text-center text-xs font-medium text-gray-500 dark:text-gray-400">
+                  <div key={`day-header-${index}`} className="p-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">
                     {day}
                   </div>
                 ))}
@@ -332,42 +411,58 @@ const DeliveryPickupTimesCard = () => {
                   const isCurrentMonth = day.getMonth() === currentMonth.getMonth();
                   const isPast = dateString < today;
                   const isToday = dateString === today;
-                  const isBusinessClosed = businessDay && !businessDay.enabled;
+                  const holiday = getHolidayForDate(dateString);
                   const exception = getExceptionStatus(dateString);
                   
-                  let buttonClass = 'p-1.5 text-xs rounded transition-colors aspect-square ';
+                  let buttonClass = 'p-2 text-xs rounded transition-all aspect-square flex items-center justify-center border ';
                   let buttonTitle = '';
+                  let isClickable = isCurrentMonth && !isPast;
                   
                   if (!isCurrentMonth) {
-                    buttonClass += 'text-gray-300 dark:text-gray-600';
+                    buttonClass += 'text-gray-300 dark:text-gray-600 border-transparent';
+                    isClickable = false;
                   } else if (isPast) {
-                    buttonClass += 'text-gray-300 dark:text-gray-600 cursor-not-allowed';
-                  } else if (isBusinessClosed) {
-                    buttonClass += 'bg-gray-400 text-white cursor-not-allowed';
-                    buttonTitle = 'Business closed';
+                    buttonClass += 'text-gray-300 dark:text-gray-600 border-transparent cursor-not-allowed';
+                    isClickable = false;
+                  } else if (holiday) {
+                    // Holiday takes precedence over everything
+                    if (holiday.isOpen) {
+                      buttonClass += 'border-l-2 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white font-medium';
+                      buttonClass += ' border-l-[#597485] border-t-gray-200 border-r-gray-200 border-b-gray-200 dark:border-t-gray-600 dark:border-r-gray-600 dark:border-b-gray-600';
+                      buttonTitle = `${holiday.name} - Open ${formatTime(holiday.openTime || '')} - ${formatTime(holiday.closeTime || '')}`;
+                    } else {
+                      buttonClass += 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 font-medium border-gray-300 dark:border-gray-600';
+                      buttonTitle = `${holiday.name} - Closed`;
+                    }
+                    isClickable = false;
                   } else if (exception) {
+                    // Manual exceptions
                     if (exception.noDelivery && exception.noPickup) {
-                      buttonClass += 'bg-red-500 text-white font-medium';
+                      buttonClass += 'border-2 border-gray-400 dark:border-gray-500 text-gray-700 dark:text-gray-300 font-medium';
                       buttonTitle = 'No delivery + pickup';
                     } else if (exception.noDelivery) {
-                      buttonClass += 'bg-yellow-500 text-white font-medium';
+                      buttonClass += 'border border-gray-400 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 font-medium';
                       buttonTitle = 'No delivery';
                     } else if (exception.noPickup) {
-                      buttonClass += 'bg-blue-500 text-white font-medium';
+                      buttonClass += 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 font-medium border-gray-300 dark:border-gray-600';
                       buttonTitle = 'No pickup';
                     }
+                  } else if (businessDay && !businessDay.enabled) {
+                    // Business closed (but can be overridden with manual exceptions)
+                    buttonClass += 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700';
+                    buttonTitle = 'Business closed - click to allow delivery/pickup';
                   } else if (isToday) {
-                    buttonClass += 'bg-yellow-100 dark:bg-yellow-900/30 font-medium';
+                    buttonClass += 'bg-gray-100 dark:bg-gray-800 font-medium text-gray-900 dark:text-white border-gray-300 dark:border-gray-600';
                     buttonTitle = 'Today';
                   } else {
-                    buttonClass += 'hover:bg-gray-100 dark:hover:bg-gray-700';
+                    buttonClass += 'hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700';
                   }
                   
                   return (
                     <button
                       key={`calendar-day-${index}`}
-                      onClick={() => !isPast && isCurrentMonth && !isBusinessClosed && toggleDate(dateString)}
-                      disabled={isPast || !isCurrentMonth || isBusinessClosed}
+                      onClick={() => isClickable && toggleDate(dateString)}
+                      disabled={!isClickable}
                       className={buttonClass}
                       title={buttonTitle}
                     >
@@ -378,29 +473,36 @@ const DeliveryPickupTimesCard = () => {
               </div>
             </div>
 
-            {/* Current Exceptions Display - Simplified with colored badges */}
+            {/* Current Exceptions Display */}
             {exceptions.length > 0 && (
-              <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Current Exceptions:
+              <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                <p className="text-sm font-medium text-gray-900 dark:text-white mb-3">
+                  Manual Exceptions:
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {exceptions.map(exception => {
-                    let badgeClass = "inline-flex items-center gap-1 px-2 py-1 rounded text-xs ";
+                    let badgeClass = "inline-flex items-center gap-2 px-3 py-1.5 rounded border text-sm ";
+                    let statusIcon = null;
+                    
                     if (exception.noDelivery && exception.noPickup) {
-                      badgeClass += "bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-200";
+                      badgeClass += "border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300";
+                      statusIcon = <span className="w-2 h-2 border-2 border-gray-400 rounded-full"></span>;
                     } else if (exception.noDelivery) {
-                      badgeClass += "bg-yellow-100 dark:bg-yellow-800 text-yellow-700 dark:text-yellow-200";
+                      badgeClass += "border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300";
+                      statusIcon = <span className="w-2 h-2 border border-gray-400 bg-gray-300 rounded-full"></span>;
                     } else if (exception.noPickup) {
-                      badgeClass += "bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-200";
+                      badgeClass += "border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300";
+                      statusIcon = <span className="w-2 h-2 bg-gray-400 rounded-full"></span>;
                     }
                     
                     return (
                       <span key={exception.date} className={badgeClass}>
+                        {statusIcon}
                         {new Date(exception.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                         <button
-                          onClick={() => toggleDate(exception.date)}
-                          className="hover:bg-opacity-20 hover:bg-black rounded px-1"
+                          onClick={() => setExceptions(prev => prev.filter(ex => ex.date !== exception.date))}
+                          className="hover:bg-gray-200 dark:hover:bg-gray-600 rounded p-0.5 text-gray-500"
+                          title="Remove exception"
                         >
                           ×
                         </button>
@@ -410,27 +512,28 @@ const DeliveryPickupTimesCard = () => {
                 </div>
               </div>
             )}
-                  {/* Save Button Row */}
-      <div className="mt-8 flex justify-between">
-        <Button
-          onClick={clearAllExceptions}
-          disabled={exceptions.length === 0}
-          className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 text-sm"
-        >
-          Clear All
-        </Button>
-        <Button
-          onClick={handleSave}
-          disabled={isSaving}
-          className="bg-primary hover:bg-primary/90 text-white px-6 py-2"
-        >
-          {isSaving ? 'Saving...' : 'Save Exceptions'}
-        </Button>
-      </div>
+
+            {/* Save Button Row */}
+            <div className="flex justify-between pt-4">
+              <Button
+                onClick={clearAllExceptions}
+                disabled={exceptions.length === 0}
+                className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 text-sm"
+              >
+                Clear All
+              </Button>
+              <Button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="px-6 py-2"
+                style={{ backgroundColor: '#597485' }}
+              >
+                {isSaving ? 'Saving...' : 'Save Exceptions'}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
-
     </ComponentCardCollapsible>
   );
 };

@@ -6,6 +6,7 @@ import Select from "../form/Select";
 import Label from "../form/Label";
 import PhoneInput from "../form/group-input/PhoneInput";
 import AddressAutocomplete from "../form/AddressAutocomplete";
+import { calculateDeliveryFee } from "../../utils/deliveryCalculations";
 
 
 
@@ -30,6 +31,10 @@ type Props = {
   customerId?: string;
   onRecipientSaved?: () => void;
   onDeliveryFeeCalculated?: (fee: number) => void;
+  currentDeliveryFee?: number;
+  isManuallyEdited?: boolean;
+  onManualEditChange?: (isManual: boolean) => void;
+  activeTab?: number;
 };
 
 export default function RecipientCard({
@@ -53,9 +58,14 @@ export default function RecipientCard({
   customerId,
   onRecipientSaved,
   onDeliveryFeeCalculated,
+  currentDeliveryFee = 0,
+  isManuallyEdited = false,
+  onManualEditChange,
+  activeTab = 0,
 }: Props) {
   const [allShortcuts, setAllShortcuts] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+
 
   // Load address shortcuts
   useEffect(() => {
@@ -65,6 +75,32 @@ export default function RecipientCard({
       .catch((err) => console.error("Failed to load shortcuts:", err));
   }, []);
 
+  // Add this useEffect in RecipientCard.tsx after your existing useEffects
+useEffect(() => {
+}, [recipientAddress]);
+
+// Add this useEffect after your existing ones
+  useEffect(() => {
+    if (orderType === "DELIVERY" && 
+        recipientAddress.address1 && 
+        recipientAddress.city && 
+        recipientAddress.province && 
+        onDeliveryFeeCalculated &&
+        !isManuallyEdited) { 
+      const debounceTimer = setTimeout(() => {
+        calculateDeliveryFee(
+          recipientAddress.address1,
+          recipientAddress.city,
+          recipientAddress.postalCode,
+          recipientAddress.province,
+          onDeliveryFeeCalculated
+        );
+      }, 1000);
+
+    
+    return () => clearTimeout(debounceTimer);
+  }
+  }, [recipientAddress, orderType, onDeliveryFeeCalculated, isManuallyEdited]);
   // Filter shortcuts based on query
   useEffect(() => {
     if (!shortcutQuery.trim()) {
@@ -79,25 +115,7 @@ export default function RecipientCard({
     setFilteredShortcuts(matches);
   }, [shortcutQuery, allShortcuts]);
 
-  // Calculate delivery fee when address changes
-  useEffect(() => {
-    if (orderType === "DELIVERY" && 
-        recipientAddress.address1 && 
-        recipientAddress.city && 
-        recipientAddress.province) {
-      const debounceTimer = setTimeout(() => {
-        calculateDeliveryFee(
-          recipientAddress.address1, 
-          recipientAddress.city, 
-          recipientAddress.postalCode,
-          recipientAddress.province,
-          onDeliveryFeeCalculated
-        );
-      }, 1000); // Debounce for 1 second
-      
-      return () => clearTimeout(debounceTimer);
-    }
-  }, [recipientAddress, orderType, onDeliveryFeeCalculated]);
+
 
   const clearRecipientInfo = () => {
     setRecipientFirstName("");
@@ -343,23 +361,29 @@ export default function RecipientCard({
                   id="address1"
                   value={recipientAddress.address1}
                   onChange={(value) => setRecipientAddress({ ...recipientAddress, address1: value })}
-                  onAddressSelect={(parsedAddress) => {
-                    setRecipientAddress({
-                      ...recipientAddress,
-                      ...parsedAddress,
-                    });
-                    
-                    // Calculate delivery fee automatically
-                    if (orderType === "DELIVERY") {
-                      calculateDeliveryFee(
-                        parsedAddress.address1, 
-                        parsedAddress.city, 
-                        parsedAddress.postalCode,
-                        parsedAddress.province,
-                        onDeliveryFeeCalculated
-                      );
-                    }
-                  }}
+onAddressSelect={(parsedAddress) => {
+  
+  const newAddress = {
+    ...recipientAddress,
+    ...parsedAddress,
+  };
+  
+  setRecipientAddress(newAddress);
+  
+  // Add delivery calculation for autocomplete selections
+  if (orderType === "DELIVERY" && onDeliveryFeeCalculated && !isManuallyEdited) { // ✅ Add check
+    setTimeout(() => {
+      calculateDeliveryFee(
+        parsedAddress.address1,
+        parsedAddress.city,
+        parsedAddress.postalCode,
+        parsedAddress.province,
+        onDeliveryFeeCalculated
+      );
+    }, 100);
+  }
+}}
+
                   placeholder="Enter street address"
                 />
               </div>
@@ -434,6 +458,58 @@ export default function RecipientCard({
           </div>
         )}
 
+  {/* Editable Delivery Fee */}
+  {orderType === "DELIVERY" && (
+    <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-800 rounded border sm:w-full lg:w-1/2">
+      <div className="flex justify-between items-center">
+        <Label htmlFor={`deliveryFee-${activeTab}`} className="mb-0 text-sm text-gray-600 dark:text-gray-400">
+          Delivery Fee for this order:
+        </Label>
+        <div className="w-24">
+          <InputField
+            type="number"
+            id={`deliveryFee-${activeTab}`}
+            value={currentDeliveryFee.toString()}
+            onChange={(e) => {
+              const newFee = parseFloat(e.target.value) || 0;
+              onManualEditChange?.(true);
+              onDeliveryFeeCalculated?.(newFee);
+            }}
+            className="text-right text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            min="0"
+            step="0.01"
+          />
+        </div>
+      </div>
+      <div className="flex justify-between items-center mt-2">
+        <div className="text-xs text-gray-500">
+          {isManuallyEdited ? "✏️ Manually adjusted" : "🤖 Auto-calculated"}
+        </div>
+        {isManuallyEdited && (
+          <button
+            type="button"
+            onClick={() => {
+              onManualEditChange?.(false); 
+              if (recipientAddress.address1 && recipientAddress.city) {
+                calculateDeliveryFee(
+                  recipientAddress.address1,
+                  recipientAddress.city,
+                  recipientAddress.postalCode,
+                  recipientAddress.province,
+                  onDeliveryFeeCalculated
+                );
+              }
+            }}
+            className="text-xs text-[#597485] hover:underline"
+          >
+            Recalculate
+          </button>
+        )}
+      </div>
+    </div>
+  )}
+
+
         {/* Clear Button and Save Recipient */}
         <div className="flex justify-between items-center mt-6">
           {/* Save Recipient Button - only show for delivery orders with customer selected */}
@@ -447,6 +523,7 @@ export default function RecipientCard({
               {isSaving ? "Saving..." : "Save Recipient"}
             </button>
           )}
+          
           
           <button
             type="button"

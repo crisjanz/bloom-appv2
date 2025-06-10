@@ -1,7 +1,7 @@
 import React, { useRef } from "react";
 import { Autocomplete } from '@react-google-maps/api';
 import InputField from "./input/InputField";
-import { parseGooglePlace, princeGeorgeBounds, ParsedAddress } from "../utils/googlePlaces";
+import { parseGooglePlace, princeGeorgeBounds, ParsedAddress } from "../../utils/googlePlaces";
 
 interface AddressAutocompleteProps {
   value: string;
@@ -26,20 +26,24 @@ export default function AddressAutocomplete({
 }: AddressAutocompleteProps) {
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
 
-  const handlePlaceSelect = () => {
-    if (autocompleteRef.current) {
-      const place = autocompleteRef.current.getPlace();
-      if (place && place.address_components) {
-        const parsedAddress = parseGooglePlace(place);
-        
-        // Call the parent callback with all address components
-        onAddressSelect(parsedAddress);
-        
-        // Set only the street address (address1) in the input field, not the full formatted address
-        onChange(parsedAddress.address1);
-      }
+// In AddressAutocomplete.tsx, update the handlePlaceSelect function:
+const handlePlaceSelect = () => {
+  
+  if (autocompleteRef.current) {
+    const place = autocompleteRef.current.getPlace();
+    
+    if (place && place.address_components) {
+      const parsedAddress = parseGooglePlace(place);
+      
+      // Call the parent callback with all address components
+      onAddressSelect(parsedAddress);
+      
+
+    } else {
     }
-  };
+  } else {
+  }
+};
 
   return (
     <div className="w-full">

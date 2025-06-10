@@ -18,6 +18,8 @@ type OrderEntry = {
   deliveryTime: string;
   deliveryInstructions: string;
   cardMessage: string;
+  deliveryFee: number;
+  isDeliveryFeeManuallyEdited: boolean;
   customProducts: {
     description: string;
     category: string;
@@ -47,6 +49,8 @@ const createEmptyOrder = (): OrderEntry => ({
   deliveryTime: "",
   deliveryInstructions: "",
   cardMessage: "",
+  deliveryFee: 0,
+  isDeliveryFeeManuallyEdited: false,
   customProducts: [
     { description: "", category: "", price: "", qty: "1", tax: true },
   ],
@@ -84,6 +88,22 @@ export const useOrderState = () => {
     setOrders(updated);
   };
 
+  const updateOrderDeliveryFee = (orderIndex: number, fee: number) => {
+    const updated = [...orders];
+    updated[orderIndex].deliveryFee = fee;
+    setOrders(updated);
+  };
+
+  const updateOrderManualEditFlag = (orderIndex: number, isManual: boolean) => {
+    const updated = [...orders];
+    updated[orderIndex].isDeliveryFeeManuallyEdited = isManual;
+    setOrders(updated);
+  };
+
+  const getTotalDeliveryFee = () => {
+    return orders.reduce((sum, order) => sum + order.deliveryFee, 0);
+  };
+
   const resetOrders = () => {
     setOrders([createEmptyOrder()]);
     setActiveTab(0);
@@ -97,6 +117,9 @@ export const useOrderState = () => {
     addOrder,
     removeOrder,
     updateOrder,
+    updateOrderDeliveryFee,
+    updateOrderManualEditFlag,
+    getTotalDeliveryFee,
     resetOrders,
   };
 };

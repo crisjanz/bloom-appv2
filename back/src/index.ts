@@ -14,6 +14,7 @@ import addressShortcutRoutes from "./routes/addressShortcuts";
 import { getStoreInfo, saveStoreInfo } from './routes/settings/store-info';
 import { getBusinessHours, saveBusinessHours } from './routes/settings/business-hours';
 import { getDeliveryExceptions, saveDeliveryExceptions } from './routes/settings/delivery-exceptions';
+import { getDeliveryCharges, saveDeliveryCharges } from './routes/settings/delivery-charges';
 import { 
   getHolidays, 
   createHoliday, 
@@ -55,6 +56,8 @@ app.put('/api/settings/holidays/:id', updateHoliday);
 app.delete('/api/settings/holidays/:id', deleteHoliday);
 app.get('/api/settings/holidays/upcoming', getUpcomingHolidays);
 app.get('/api/settings/holidays/active/:date', getActiveHoliday);
+app.get('/api/settings/delivery-charges', getDeliveryCharges);
+app.post('/api/settings/delivery-charges', saveDeliveryCharges);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'Backend is alive!' });
