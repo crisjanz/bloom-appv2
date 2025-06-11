@@ -61,26 +61,90 @@ const PaymentSection: React.FC<Props> = ({
   const [sendEmailReceipt, setSendEmailReceipt] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Gift card state - store card numbers for activation AFTER order save
+  // Gift card state
   const [showGiftCardActivation, setShowGiftCardActivation] = useState(false);
   const [giftCardNumbers, setGiftCardNumbers] = useState<any[]>([]);
+  const [pendingGiftCardRedemptions, setPendingGiftCardRedemptions] = useState<any[]>([]); // Store cards to redeem later
 
   // Check if current order has gift cards
   const currentOrder = orderState.orders[orderState.activeTab];
   const hasGiftCards = currentOrder ? orderContainsGiftCards(currentOrder.customProducts) : false;
 
-  // Handle payment trigger - get gift card numbers first if needed
+  // ✅ Calculate amount after gift cards
+  const amountAfterGiftCards = Math.max(0, grandTotal - giftCardDiscount);
+
+  // ✅ NEW: Validation function for required fields
+  const validateOrdersBeforePayment = (): string | null => {
+    // Check customer
+    if (!customerState.customer) {
+      return "Please select a customer before processing payment.";
+    }
+
+    // Check employee
+    if (!employee) {
+      return "Please select an employee before processing payment.";
+    }
+
+    // Check each order
+    for (let i = 0; i < orderState.orders.length; i++) {
+      const order = orderState.orders[i];
+      
+      // Check recipient info for delivery
+      if (order.orderType === 'DELIVERY') {
+        if (!order.recipientFirstName || !order.recipientLastName) {
+          return `Order ${i + 1}: Recipient name is required for delivery.`;
+        }
+        if (!order.recipientAddress.address1 || !order.recipientAddress.city || !order.recipientAddress.province) {
+          return `Order ${i + 1}: Complete delivery address is required.`;
+        }
+        if (!order.deliveryDate) {
+          return `Order ${i + 1}: Delivery date is required.`;
+        }
+      }
+
+      // Check pickup person info for pickup
+      if (order.orderType === 'PICKUP') {
+        if (!order.recipientFirstName || !order.recipientLastName) {
+          return `Order ${i + 1}: Pickup person name is required.`;
+        }
+      }
+
+      // Check products
+      const validProducts = order.customProducts.filter(p => 
+        p.description && p.price && parseFloat(p.price) > 0
+      );
+      if (validProducts.length === 0) {
+        return `Order ${i + 1}: At least one product with valid price is required.`;
+      }
+    }
+
+    return null; // All valid
+  };
+
+  // Handle payment trigger
   const handleTriggerPayment = () => {
+    // ✅ Validate before proceeding
+    const validationError = validateOrdersBeforePayment();
+    if (validationError) {
+      setFormError(validationError);
+      return;
+    }
+    
+    setFormError(null);
+    
     if (hasGiftCards && giftCardNumbers.length === 0) {
       // Show gift card activation modal to GET CARD NUMBERS (not activate yet)
       setShowGiftCardActivation(true);
-    } else {
-      // Proceed to normal payment
+    } else if (amountAfterGiftCards > 0) {
+      // Need payment for remaining amount
       setShowPaymentPopup(true);
+    } else {
+      // ✅ Full amount covered by gift cards - process order directly
+      handlePaymentConfirm([]);
     }
   };
 
-  // Handle gift card numbers collection and price override
+  // Handle gift card numbers collection
   const handleGiftCardNumbersCollected = (cardData: any[]) => {
     setGiftCardNumbers(cardData);
     setShowGiftCardActivation(false);
@@ -101,7 +165,6 @@ const PaymentSection: React.FC<Props> = ({
       
       // Update product prices
       updatedOrders[currentOrderIndex].customProducts = updatedOrders[currentOrderIndex].customProducts.map((product, index) => {
-        // Generate the same stable ID that was used in the original summary
         const stableId = `item-${index}-${product.description?.slice(0, 10) || 'gc'}`;
         
         if (cardsByItemId[stableId]) {
@@ -121,60 +184,100 @@ const PaymentSection: React.FC<Props> = ({
       orderState.setOrders(updatedOrders);
     }
     
-    // Proceed to payment
-    setShowPaymentPopup(true);
+    // ✅ After collecting gift card numbers, check if we need payment
+    if (amountAfterGiftCards > 0) {
+      setShowPaymentPopup(true);
+    } else {
+      // Full amount covered - process order directly
+      handlePaymentConfirm([]);
+    }
   };
 
+  // ✅ UPDATED: Handle payment confirmation
   const handlePaymentConfirm = async (payments: any[]) => {
-    if (!payments.length) {
+    // Allow empty payments if fully paid by gift cards
+    if (!payments.length && amountAfterGiftCards > 0) {
       setFormError("No payments were entered.");
       return;
     }
 
-    const groupId = generateId();
-
     try {
-      // STEP 1: Save orders FIRST (before activating gift cards)
-      for (const order of orderState.orders) {
-        const res = await fetch("/api/orders", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            customer: customerState.customer,
-            recipient: {
-              firstName: order.recipientFirstName,
-              lastName: order.recipientLastName,
-              company: order.recipientCompany,
-              phone: cleanPhoneNumber(order.recipientPhone),
-              address: order.recipientAddress,
-            },
-            orderType: order.orderType,
-            deliveryDate: order.deliveryDate,
-            deliveryTime: order.deliveryTime,
-            deliveryInstructions: order.deliveryInstructions,
-            cardMessage: order.cardMessage,
-            products: order.customProducts,
-            payments,
-            paymentMethod: payments.map((p) => p.method).join(" + "),
-            status: payments.some((p) =>
-              ["Pay in POS", "COD", "House Account", "Wire"].includes(p.method)
-            )
-              ? "unpaid"
-              : "paid",
-            groupId,
-            employeeId: employee,
-            orderSource: orderSource,
-            deliveryCharge: order.deliveryFee,
-          }),
-        });
-
-        if (!res.ok) {
-          console.error("❌ Failed to save order");
-          setFormError("Failed to save order. Try again.");
-          return; // Exit here - gift cards NOT activated if order fails
+      // Prepare order data
+      const orderData = {
+        customerId: customerState.customerId,
+        orders: orderState.orders,
+        paymentConfirmed: true,
+        payments: payments.length > 0 ? payments : [{
+          method: 'GIFT_CARD',
+          amount: giftCardDiscount,
+          details: { fullyPaidByGiftCard: true }
+        }],
+        employee,
+        orderSource,
+        subscribe,
+        sendEmailReceipt,
+        couponCode,
+        discounts: {
+          manual: manualDiscount,
+          manualType: manualDiscountType,
+          coupon: couponDiscount,
+          giftCard: giftCardDiscount
         }
+      };
 
-        // Auto-save recipient
+      // STEP 1: Create the order FIRST
+      console.log('📦 Creating order...', orderData);
+      const response = await fetch('/api/orders/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderData)
+      });
+
+      const result = await response.json();
+      
+      if (!result.success) {
+        setFormError(result.error || 'Failed to create orders');
+        return;
+      }
+
+      console.log('✅ Orders created successfully:', result.orders);
+
+      // STEP 2: Now process all gift card operations AFTER order is saved
+      
+      // 2a. Activate purchased gift cards
+      if (giftCardNumbers.length > 0) {
+        console.log('🎁 Activating purchased gift cards...');
+        
+        const { activateGiftCard } = await import('../../../services/giftCardService');
+        
+        for (const cardData of giftCardNumbers) {
+          try {
+            const result = await activateGiftCard(cardData.cardNumber, cardData.amount);
+            console.log('✅ Activated card:', cardData.cardNumber);
+          } catch (error: any) {
+            console.error('❌ Failed to activate card:', cardData.cardNumber, error);
+          }
+        }
+      }
+
+      // 2b. Redeem gift cards used for payment
+      if (pendingGiftCardRedemptions.length > 0) {
+        console.log('💳 Redeeming gift cards used for payment...');
+        
+        const { redeemGiftCard } = await import('../../../services/giftCardService');
+        
+        for (const redemption of pendingGiftCardRedemptions) {
+          try {
+            await redeemGiftCard(redemption.cardNumber, redemption.amount);
+            console.log('✅ Redeemed card:', redemption.cardNumber, 'for $', redemption.amount);
+          } catch (error: any) {
+            console.error('❌ Failed to redeem card:', redemption.cardNumber, error);
+          }
+        }
+      }
+
+      // Auto-save recipients
+      for (const order of orderState.orders) {
         if (
           order.orderType === "DELIVERY" &&
           customerState.customerId &&
@@ -204,48 +307,35 @@ const PaymentSection: React.FC<Props> = ({
         }
       }
 
-      // STEP 2: Only activate gift cards AFTER successful order saving
-      let activatedGiftCards: any[] = [];
-      
-      if (giftCardNumbers.length > 0) {
-        console.log('🎁 Activating gift cards after successful order save...');
-        
-        const { activateGiftCard } = await import('../../../services/giftCardService');
-        
-        for (const cardData of giftCardNumbers) {
-          try {
-            const result = await activateGiftCard(cardData.cardNumber, cardData.amount);
-            activatedGiftCards.push({
-              cardNumber: cardData.cardNumber,
-              amount: cardData.amount,
-              result
-            });
-            console.log('✅ Activated card:', cardData.cardNumber);
-          } catch (error: any) {
-            console.error('❌ Failed to activate card:', cardData.cardNumber, error);
-            // At this point, order is already saved, so just log the error
-            // Could implement rollback logic here if needed
-          }
-        }
-        
-        console.log('🎉 Gift card activation complete!');
-      }
-
-      // Success! Reset everything
+      // Success!
       setShowPaymentPopup(false);
-      alert("✅ All orders saved successfully.");
+      alert("✅ All orders created successfully!");
       
       // Reset all state
       setCouponCode("");
       setGiftCardNumbers([]);
+      setPendingGiftCardRedemptions([]);
+      setFormError(null);
       
       // Call parent reset
       onOrderComplete();
       
     } catch (error) {
-      console.error("Error saving orders:", error);
-      setFormError("An error occurred while saving orders.");
-      // Gift cards are NOT activated if we reach this error
+      console.error("Error creating orders:", error);
+      setFormError("An error occurred while creating orders.");
+    }
+  };
+
+  // ✅ Updated handler for gift card changes
+  const handleGiftCardChange = (amount: number, cardData?: any) => {
+    setGiftCardDiscount(amount);
+    
+    // Store redemption data for later use (after order creation)
+    if (cardData && Array.isArray(cardData)) {
+      setPendingGiftCardRedemptions(cardData);
+      console.log('💳 Pending gift card redemptions:', cardData);
+    } else if (amount === 0) {
+      setPendingGiftCardRedemptions([]);
     }
   };
 
@@ -270,11 +360,23 @@ const PaymentSection: React.FC<Props> = ({
         setSendEmailReceipt={setSendEmailReceipt}
         onTriggerPayment={handleTriggerPayment}
         onCouponDiscountChange={setCouponDiscount}
-        onGiftCardChange={setGiftCardDiscount}
+        onGiftCardChange={handleGiftCardChange}
         customerId={customerState.customerId}
         source="WEBSITE"
         hasGiftCards={hasGiftCards}
       />
+
+      {/* ✅ Display validation errors */}
+      {formError && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg dark:bg-red-900/20 dark:border-red-800">
+          <div className="flex items-center">
+            <svg className="w-5 h-5 text-red-600 dark:text-red-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            </svg>
+            <span className="text-red-800 dark:text-red-200 text-sm font-medium">{formError}</span>
+          </div>
+        </div>
+      )}
 
       {/* Gift Card Numbers Collection Modal */}
       <GiftCardActivationModal
@@ -284,15 +386,16 @@ const PaymentSection: React.FC<Props> = ({
         onActivationComplete={handleGiftCardNumbersCollected}
       />
 
-      {/* Payment Modal */}
-      <PaymentModal
-        open={showPaymentPopup}
-        onClose={() => setShowPaymentPopup(false)}
-        total={grandTotal}
-        employee={employee}
-        setFormError={setFormError}
-        onConfirm={handlePaymentConfirm}
-      />
+      {/* Payment Modal - only show if payment needed */}
+<PaymentModal
+  open={showPaymentPopup}
+  onClose={() => setShowPaymentPopup(false)}
+total={grandTotal}
+  giftCardDiscount={giftCardDiscount}
+  employee={employee}
+  setFormError={setFormError}
+  onConfirm={handlePaymentConfirm}
+/>
     </>
   );
 };

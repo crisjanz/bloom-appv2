@@ -1,3 +1,4 @@
+// src/hooks/usePaymentCalculations.ts
 import { useMemo } from 'react';
 
 type OrderEntry = {
@@ -16,6 +17,7 @@ export const usePaymentCalculations = (
   discount: number,
   discountType: '$' | '%'
 ) => {
+  // Calculate base item total
   const itemTotal = useMemo(() => {
     return orders.reduce((total, order) => {
       const subtotal = order.customProducts.reduce((sum, item) => {
@@ -25,15 +27,7 @@ export const usePaymentCalculations = (
     }, 0);
   }, [orders]);
 
-  const calculateDiscountAmount = useMemo(() => {
-    return discountType === "%" ? itemTotal * (discount / 100) : discount;
-  }, [discount, discountType, itemTotal]);
-
-  const subtotal = useMemo(() => {
-    return itemTotal + deliveryCharge - calculateDiscountAmount;
-  }, [itemTotal, deliveryCharge, calculateDiscountAmount]);
-
-  // 🔥 NEW: Only tax items that have tax=true
+  // Calculate taxable amount (only items with tax=true)
   const taxableAmount = useMemo(() => {
     return orders.reduce((total, order) => {
       const taxableSubtotal = order.customProducts.reduce((sum, item) => {
@@ -46,22 +40,41 @@ export const usePaymentCalculations = (
     }, 0);
   }, [orders]);
 
+  // Since we're now passing in the total discount amount in dollars, we don't need to convert
+  const calculateDiscountAmount = useMemo(() => {
+    return discount; // Already in dollars from TakeOrderPage
+  }, [discount]);
+
+  // Subtotal after discount but before tax
+  const subtotalBeforeTax = useMemo(() => {
+    return Math.max(0, itemTotal + deliveryCharge - calculateDiscountAmount);
+  }, [itemTotal, deliveryCharge, calculateDiscountAmount]);
+
   // Apply discount proportionally to taxable amount
   const discountOnTaxable = useMemo(() => {
-    if (itemTotal === 0) return 0;
-    return calculateDiscountAmount * (taxableAmount / itemTotal);
-  }, [calculateDiscountAmount, taxableAmount, itemTotal]);
+    if (itemTotal + deliveryCharge === 0) return 0;
+    // Proportion of discount that applies to taxable items
+    const taxableProportion = taxableAmount / (itemTotal + deliveryCharge);
+    return calculateDiscountAmount * taxableProportion;
+  }, [calculateDiscountAmount, taxableAmount, itemTotal, deliveryCharge]);
 
-  const adjustedTaxableAmount = taxableAmount - discountOnTaxable;
+  // Taxable amount after discount
+  const adjustedTaxableAmount = useMemo(() => {
+    return Math.max(0, taxableAmount - discountOnTaxable);
+  }, [taxableAmount, discountOnTaxable]);
   
-  // 🔥 FIXED: Tax only applies to taxable items
+  // Calculate taxes on the discounted taxable amount
   const gst = useMemo(() => adjustedTaxableAmount * 0.05, [adjustedTaxableAmount]);
   const pst = useMemo(() => adjustedTaxableAmount * 0.07, [adjustedTaxableAmount]);
-  const grandTotal = useMemo(() => subtotal + gst + pst, [subtotal, gst, pst]);
+  
+  // Grand total includes everything
+  const grandTotal = useMemo(() => {
+    return Math.max(0, subtotalBeforeTax + gst + pst);
+  }, [subtotalBeforeTax, gst, pst]);
 
   return {
     itemTotal,
-    subtotal,
+    subtotal: subtotalBeforeTax,
     gst,
     pst,
     grandTotal,

@@ -13,6 +13,7 @@ import messageRoutes from "./routes/messages";
 import addressShortcutRoutes from "./routes/addressShortcuts";
 import couponsRouter from './routes/coupons';
 import giftCardsRouter from './routes/gift-cards';
+import ordersRouter from './routes/orders';
 import { getStoreInfo, saveStoreInfo } from './routes/settings/store-info';
 import { getBusinessHours, saveBusinessHours } from './routes/settings/business-hours';
 import { getDeliveryExceptions, saveDeliveryExceptions } from './routes/settings/delivery-exceptions';
@@ -58,7 +59,7 @@ app.get('/api/settings/holidays/active/:date', getActiveHoliday);
 app.get('/api/settings/delivery-charges', getDeliveryCharges);
 app.post('/api/settings/delivery-charges', saveDeliveryCharges);
 app.use('/api/gift-cards', giftCardsRouter);
-
+app.use('/api/orders', ordersRouter);
 app.get('/api/health', (req, res) => {
   res.json({ status: 'Backend is alive!' });
 });

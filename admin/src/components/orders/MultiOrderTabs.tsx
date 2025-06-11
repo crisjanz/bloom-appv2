@@ -70,25 +70,6 @@ export default function MultiOrderTabs({
 }: Props) {
   const maxTabs = 5;
 
-// Then add this useEffect (you can remove it later):
-useEffect(() => {
-  const currentOrder = orders[activeTab];
-  if (currentOrder?.customProducts && currentOrder.customProducts.length > 0) {
-    // ✅ ADD THIS DEBUG LINE:
-    console.log('Custom products structure:', currentOrder.customProducts);
-    
-    const hasGiftCards = orderContainsGiftCards(currentOrder.customProducts);
-    console.log('Order contains gift cards:', hasGiftCards);
-    
-    currentOrder.customProducts.forEach(item => {
-      console.log('Checking item:', item); // ✅ ADD THIS TOO
-      if (isGiftCardProduct(item)) {
-        const info = getGiftCardInfo(item);
-        console.log('Gift card found:', item.description, info);
-      }
-    });
-  }
-}, [orders, activeTab]);
 
   const handleAddTab = () => {
     if (orders.length >= maxTabs) return;

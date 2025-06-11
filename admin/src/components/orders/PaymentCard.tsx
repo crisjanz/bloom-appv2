@@ -6,7 +6,7 @@ import Select from "../form/Select";
 import Label from "../form/Label";
 import Checkbox from "../form/input/Checkbox";
 import CouponInput from "./payment/CouponInput";
-import GiftCardInput from "./payment/GiftCardInput";
+import GiftCardModal from "./payment/GiftCardModal";
 import { useCouponValidation } from "../../hooks/useCouponValidation";
 import type { CouponSource } from "../../types/coupon";
 
@@ -33,8 +33,9 @@ type Props = {
   categoryIds?: string[];
   source?: CouponSource;
   onCouponDiscountChange?: (amount: number) => void;
-  onGiftCardChange?: (amount: number) => void;
+  onGiftCardChange?: (amount: number, redemptionData?: any) => void;
   hasGiftCards?: boolean;
+  giftCardDiscount?: number;
 };
 
 export default function PaymentCard({
@@ -62,9 +63,14 @@ export default function PaymentCard({
   onCouponDiscountChange,
   onGiftCardChange,
   hasGiftCards = false,
+  giftCardDiscount = 0,
 }: Props) {
 
-  // ✅ MOVE COUPON STATE HERE (from CouponInput)
+  // Gift card state
+  const [showGiftCardModal, setShowGiftCardModal] = useState(false);
+  const [appliedGiftCards, setAppliedGiftCards] = useState<any[]>([]);
+
+  // Coupon state
   const {
     validateCoupon,
     clearValidation,
@@ -77,7 +83,10 @@ export default function PaymentCard({
   const [couponSuccess, setCouponSuccess] = useState<string>('');
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
 
-  // ✅ COUPON HANDLERS (moved from CouponInput)
+  // Calculate amount after gift cards
+  const amountAfterGiftCards = Math.max(0, grandTotal - giftCardDiscount);
+
+  // Coupon handlers
   const handleCouponValidation = async (code: string) => {
     if (!code.trim()) {
       clearValidation();
@@ -119,6 +128,34 @@ export default function PaymentCard({
     onCouponDiscountChange?.(0);
   };
 
+  const handleAddGiftCard = (cardData: { cardNumber: string; amount: number; balance: number }) => {
+    const updatedCards = [...appliedGiftCards, cardData];
+    setAppliedGiftCards(updatedCards);
+    
+    const totalDiscount = updatedCards.reduce((sum, card) => sum + card.amount, 0);
+    
+    onGiftCardChange?.(totalDiscount, updatedCards.map(card => ({
+      cardNumber: card.cardNumber,
+      amount: card.amount
+    })));
+  };
+
+  const handleRemoveGiftCard = (index: number) => {
+    const updatedCards = appliedGiftCards.filter((_, i) => i !== index);
+    setAppliedGiftCards(updatedCards);
+    
+    const totalDiscount = updatedCards.reduce((sum, card) => sum + card.amount, 0);
+    
+    if (updatedCards.length === 0) {
+      onGiftCardChange?.(0, []);
+    } else {
+      onGiftCardChange?.(totalDiscount, updatedCards.map(card => ({
+        cardNumber: card.cardNumber,
+        amount: card.amount
+      })));
+    }
+  };
+
   // Clear validation when coupon code changes
   useEffect(() => {
     if (!couponCode) {
@@ -158,69 +195,116 @@ export default function PaymentCard({
               </div>
             </div>
 
-            {/* Manual Discount Row */}
-            <div className="flex justify-between items-center py-2">
-              <div className="flex items-center gap-3">
-                <Label>Manual Discount:</Label>
-                <div className="flex items-center gap-2">
-                  <div className="w-20">
-                    <InputField
-                      type="number"
-                      value={discount.toString()}
-                      onChange={(e) => setDiscount(Number(e.target.value) || 0)}
-                      className="text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      min="0"
-                    />
-                  </div>
-                  <div className="w-16">
-                    <Select
-                      options={[
-                        { value: "$", label: "$" },
-                        { value: "%", label: "%" },
-                      ]}
-                      value={discountType}
-                      onChange={(value) => setDiscountType(value as "$" | "%")}
-                    />
-                  </div>
-                </div>
-              </div>
-              <span className="text-black font-medium">
-                -{discountType === "%" ? `${discount}%` : `$${discount.toFixed(2)}`}
-              </span>
-            </div>
-
-            {/* ✅ APPLIED COUPON ROW - BACK ON LEFT SIDE */}
-            {isValid && couponSuccess && appliedCoupon && (
-              <div className="flex justify-between items-center py-2 bg-green-50 dark:bg-green-900/20 px-3 rounded-md border border-green-200 dark:border-green-800">
-                <div className="flex items-center gap-2">
-                  <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                  <div>
-                    <span className="text-sm font-medium text-green-800 dark:text-green-200">
-                      Coupon: {appliedCoupon.code}
-                    </span>
-                    <div className="text-xs text-green-600 dark:text-green-400">
-                      {appliedCoupon.name}
+            {/* Discounts Section */}
+            <div className="border-t border-stroke pt-3 dark:border-strokedark">
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Discounts</h4>
+              
+              {/* Manual Discount */}
+              <div className="flex justify-between items-center py-2">
+                <div className="flex items-center gap-3">
+                  <Label>Manual Discount:</Label>
+                  <div className="flex items-center gap-2">
+                    <div className="w-20">
+                      <InputField
+                        type="number"
+                        value={discount.toString()}
+                        onChange={(e) => setDiscount(Number(e.target.value) || 0)}
+                        className="text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        min="0"
+                      />
+                    </div>
+                    <div className="w-16">
+                      <Select
+                        options={[
+                          { value: "$", label: "$" },
+                          { value: "%", label: "%" },
+                        ]}
+                        value={discountType}
+                        onChange={(value) => setDiscountType(value as "$" | "%")}
+                      />
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-green-800 dark:text-green-200">
-                    -${discountAmount.toFixed(2)}
-                  </span>
-                  <button
-                    onClick={handleRemoveCoupon}
-                    className="ml-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200"
-                    title="Remove coupon"
-                  >
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-                </div>
+                <span className="text-black font-medium">
+                  -${discountType === "%" 
+                    ? ((itemTotal + deliveryCharge) * discount / 100).toFixed(2)
+                    : discount.toFixed(2)
+                  }
+                </span>
               </div>
-            )}
+
+              {/* Applied Coupon */}
+              {isValid && couponSuccess && appliedCoupon && (
+                <div className="flex justify-between items-center py-2 bg-green-50 dark:bg-green-900/20 px-3 rounded-md border border-green-200 dark:border-green-800">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    <div>
+                      <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                        Coupon: {appliedCoupon.code}
+                      </span>
+                      <div className="text-xs text-green-600 dark:text-green-400">
+                        {appliedCoupon.name}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-green-800 dark:text-green-200">
+                      -${discountAmount.toFixed(2)}
+                    </span>
+                    <button
+                      onClick={handleRemoveCoupon}
+                      className="ml-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200"
+                      title="Remove coupon"
+                    >
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Applied Gift Cards */}
+              {appliedGiftCards.map((card, index) => (
+                <div key={index} className="flex justify-between items-center py-2 bg-blue-50 dark:bg-blue-900/20 px-3 rounded-md border border-blue-200 dark:border-blue-800 mt-2">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4zm14 5H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM2 8h16V6H2v2zm2 3a1 1 0 011-1h1a1 1 0 010 2H5a1 1 0 01-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <div>
+                      <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                        Gift Card: {card.cardNumber}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-blue-800 dark:text-blue-200">
+                      -${card.amount.toFixed(2)}
+                    </span>
+                    <button
+                      onClick={() => handleRemoveGiftCard(index)}
+                      className="ml-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200"
+                      title="Remove gift card"
+                    >
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {/* Add Gift Card Button */}
+              <button
+                type="button"
+                onClick={() => setShowGiftCardModal(true)}
+                className="mt-3 text-sm text-[#597485] hover:text-[#597485]/80 font-medium"
+              >
+                + Add Gift Card
+              </button>
+            </div>
 
             {/* Tax Section */}
             <div className="border-t border-stroke pt-3 dark:border-strokedark">
@@ -250,14 +334,14 @@ export default function PaymentCard({
           {/* Total Display */}
           <div className="rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 p-8 text-center dark:border-gray-600 dark:bg-gray-800">
             <div className="text-3xl font-bold text-black dark:text-white">
-              {grandTotal > 0 ? `$${grandTotal.toFixed(2)}` : "$0.00"}
+              ${amountAfterGiftCards.toFixed(2)}
             </div>
             <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
               Total Amount Due
             </div>
           </div>
 
-          {/* ✅ SIMPLIFIED COUPON INPUT - just input and messages */}
+          {/* Coupon Input */}
           <CouponInput
             couponCode={couponCode}
             setCouponCode={setCouponCode}
@@ -266,12 +350,6 @@ export default function PaymentCard({
             couponError={couponError}
             couponSuccess={couponSuccess}
             isValid={isValid}
-          />
-
-          {/* Gift Card Input Component */}
-          <GiftCardInput
-            onGiftCardChange={onGiftCardChange}
-            grandTotal={grandTotal}
           />
 
           {/* Options */}
@@ -294,26 +372,34 @@ export default function PaymentCard({
           </div>
 
           {/* Payment Button */}
-<button
-  type="button"
-  onClick={onTriggerPayment}
-  disabled={grandTotal <= 0}
-  className="w-full inline-flex items-center justify-center rounded-md py-4 px-6 text-center text-lg font-medium text-white hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-50 transition-all"
-  style={{ backgroundColor: '#597485' }}
->
-  <svg className="mr-3 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-  </svg>
-  {/* ✅ UPDATED: Different text based on gift cards */}
-  {hasGiftCards 
-    ? "Activate Gift Cards & Process Payment"
-    : grandTotal > 0 
-      ? `Process Payment - $${grandTotal.toFixed(2)}` 
-      : "No Payment Required"
-  }
-</button>
+          <button
+            type="button"
+            onClick={onTriggerPayment}
+            disabled={grandTotal <= 0}
+            className="w-full inline-flex items-center justify-center rounded-md py-4 px-6 text-center text-lg font-medium text-white hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-50 transition-all"
+            style={{ backgroundColor: '#597485' }}
+          >
+            <svg className="mr-3 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            {hasGiftCards 
+              ? "Activate Gift Cards & Process Payment"
+              : amountAfterGiftCards > 0 
+                ? `Process Payment - $${amountAfterGiftCards.toFixed(2)}` 
+                : "Complete Order - No Payment Required"
+            }
+          </button>
         </div>
       </div>
+
+      {/* Gift Card Modal */}
+      <GiftCardModal
+        open={showGiftCardModal}
+        onClose={() => setShowGiftCardModal(false)}
+        onAddGiftCard={handleAddGiftCard}
+        grandTotal={grandTotal}
+        appliedGiftCards={appliedGiftCards}
+      />
     </ComponentCard>
   );
 }

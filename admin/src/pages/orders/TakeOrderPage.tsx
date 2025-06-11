@@ -22,7 +22,6 @@ export default function TakeOrderPage() {
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [manualDiscount, setManualDiscount] = useState(0);
   const [manualDiscountType, setManualDiscountType] = useState<"$" | "%">("$");
-
   const [giftCardDiscount, setGiftCardDiscount] = useState(0);
 
   const cleanPhoneNumber = (value: string) => {
@@ -44,18 +43,30 @@ export default function TakeOrderPage() {
   // ✅ Get total delivery fee from all orders
   const totalDeliveryFee = orderState.getTotalDeliveryFee();
 
-  // ✅ UPDATED: Calculate total discount and use it
+  // ✅ FIX: Helper function to calculate items total properly
+  const calculateItemsTotal = () => {
+    return orderState.orders.reduce((sum, order) => {
+      return sum + order.customProducts.reduce((pSum, p) => {
+        const price = parseFloat(p.price) || 0;
+        const qty = parseInt(p.qty) || 0;
+        return pSum + (price * qty);
+      }, 0);
+    }, 0);
+  };
+
+  // ✅ FIX: Calculate manual discount amount with proper parsing
+  const itemsTotal = calculateItemsTotal();
   const manualDiscountAmount = manualDiscountType === "%" 
-    ? (orderState.orders.reduce((sum, order) => sum + order.customProducts.reduce((pSum, p) => pSum + p.price * p.quantity, 0), 0) + totalDeliveryFee) * manualDiscount / 100
+    ? (itemsTotal + totalDeliveryFee) * manualDiscount / 100
     : manualDiscount;
   
-const totalDiscount = manualDiscountAmount + couponDiscount + giftCardDiscount;
+  const totalDiscount = manualDiscountAmount + couponDiscount + giftCardDiscount;
 
   const { itemTotal, subtotal, gst, pst, grandTotal } = usePaymentCalculations(
     orderState.orders,
     totalDeliveryFee,
-    totalDiscount, // ✅ Use combined discount
-    "$" // ✅ Always $ since we calculate the amount above
+    totalDiscount,
+    "$" // Always $ since we calculate the amount above
   );
 
   // 🔧 Effects
@@ -92,8 +103,8 @@ const totalDiscount = manualDiscountAmount + couponDiscount + giftCardDiscount;
             customer: customerState.customer,
             orders: orderState.orders,
             deliveryCharge: totalDeliveryFee,
-            discount: manualDiscount, // ✅ Use manual discount
-            discountType: manualDiscountType, // ✅ Use manual discount type
+            discount: manualDiscount,
+            discountType: manualDiscountType,
             couponCode: "",
             subscribe: false,
             sendEmailReceipt: false,
@@ -153,7 +164,7 @@ const totalDiscount = manualDiscountAmount + couponDiscount + giftCardDiscount;
           updateOrderManualEditFlag={orderState.updateOrderManualEditFlag}
         />
 
-        {/* Payment Summary - ✅ UPDATED with new props */}
+        {/* Payment Summary */}
         <PaymentSection
           customerState={customerState}
           orderState={orderState}
@@ -165,17 +176,17 @@ const totalDiscount = manualDiscountAmount + couponDiscount + giftCardDiscount;
           employee={employee}
           orderSource={orderSource}
           cleanPhoneNumber={cleanPhoneNumber}
-          // ✅ ADD THESE NEW PROPS:
           couponDiscount={couponDiscount}
           setCouponDiscount={setCouponDiscount}
           manualDiscount={manualDiscount}
           setManualDiscount={setManualDiscount}
           manualDiscountType={manualDiscountType}
           setManualDiscountType={setManualDiscountType}
+          giftCardDiscount={giftCardDiscount}
+          setGiftCardDiscount={setGiftCardDiscount}
           onOrderComplete={() => {
             customerState.resetCustomer();
             orderState.resetOrders();
-            // ✅ RESET DISCOUNTS:
             setCouponDiscount(0);
             setManualDiscount(0);
             setManualDiscountType("$");
