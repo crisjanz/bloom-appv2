@@ -1,10 +1,14 @@
 // src/components/orders/PaymentCard.tsx
-import React from "react";
+import React, { useState, useEffect } from "react";
 import ComponentCard from "../common/ComponentCard";
 import InputField from "../form/input/InputField";
 import Select from "../form/Select";
 import Label from "../form/Label";
 import Checkbox from "../form/input/Checkbox";
+import CouponInput from "./payment/CouponInput";
+import GiftCardInput from "./payment/GiftCardInput";
+import { useCouponValidation } from "../../hooks/useCouponValidation";
+import type { CouponSource } from "../../types/coupon";
 
 type Props = {
   deliveryCharge: number;
@@ -24,6 +28,13 @@ type Props = {
   sendEmailReceipt: boolean;
   setSendEmailReceipt: (val: boolean) => void;
   onTriggerPayment: () => void;
+  customerId?: string;
+  productIds?: string[];
+  categoryIds?: string[];
+  source?: CouponSource;
+  onCouponDiscountChange?: (amount: number) => void;
+  onGiftCardChange?: (amount: number) => void;
+  hasGiftCards?: boolean;
 };
 
 export default function PaymentCard({
@@ -44,25 +55,84 @@ export default function PaymentCard({
   sendEmailReceipt,
   setSendEmailReceipt,
   onTriggerPayment,
+  customerId,
+  productIds = [],
+  categoryIds = [],
+  source = 'WEBSITE',
+  onCouponDiscountChange,
+  onGiftCardChange,
+  hasGiftCards = false,
 }: Props) {
-  const handleCouponBlur = () => {
-    const code = couponCode.trim().toUpperCase();
-    if (code === "SAVE10") {
-      setDiscount(10);
-      setDiscountType("%");
-    } else if (code === "WELCOME20") {
-      setDiscount(20);
-      setDiscountType("$");
-    } else if (code !== "") {
-      // Invalid coupon
-      setDiscount(0);
-      alert("Invalid coupon code");
+
+  // ✅ MOVE COUPON STATE HERE (from CouponInput)
+  const {
+    validateCoupon,
+    clearValidation,
+    isValidating,
+    isValid,
+    discountAmount,
+  } = useCouponValidation();
+
+  const [couponError, setCouponError] = useState<string>('');
+  const [couponSuccess, setCouponSuccess] = useState<string>('');
+  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
+
+  // ✅ COUPON HANDLERS (moved from CouponInput)
+  const handleCouponValidation = async (code: string) => {
+    if (!code.trim()) {
+      clearValidation();
+      setCouponError('');
+      setCouponSuccess('');
+      setAppliedCoupon(null);
+      onCouponDiscountChange?.(0);
+      return;
+    }
+
+    const orderTotal = itemTotal + deliveryCharge;
+
+    const result = await validateCoupon(code, orderTotal, {
+      customerId,
+      productIds,
+      categoryIds,
+      source
+    });
+
+    if (result?.valid) {
+      setCouponError('');
+      setCouponSuccess(`Coupon applied: ${result.discountType === '%' ? `${result.coupon?.value}% off` : `$${result.discountAmount?.toFixed(2)} off`}`);
+      setAppliedCoupon(result.coupon);
+      onCouponDiscountChange?.(result.discountAmount || 0);
+    } else {
+      setCouponError(result?.error || 'Invalid coupon code');
+      setCouponSuccess('');
+      setAppliedCoupon(null);
+      onCouponDiscountChange?.(0);
     }
   };
+
+  const handleRemoveCoupon = () => {
+    setCouponCode('');
+    clearValidation();
+    setCouponError('');
+    setCouponSuccess('');
+    setAppliedCoupon(null);
+    onCouponDiscountChange?.(0);
+  };
+
+  // Clear validation when coupon code changes
+  useEffect(() => {
+    if (!couponCode) {
+      clearValidation();
+      setCouponError('');
+      setCouponSuccess('');
+      setAppliedCoupon(null);
+    }
+  }, [couponCode, clearValidation]);
 
   return (
     <ComponentCard title="Order Summary & Payment">
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+        
         {/* LEFT: Order Totals */}
         <div className="space-y-4">
           <h3 className="font-medium text-black dark:text-white mb-4">Order Breakdown</h3>
@@ -88,9 +158,10 @@ export default function PaymentCard({
               </div>
             </div>
 
+            {/* Manual Discount Row */}
             <div className="flex justify-between items-center py-2">
               <div className="flex items-center gap-3">
-                <Label>Discount:</Label>
+                <Label>Manual Discount:</Label>
                 <div className="flex items-center gap-2">
                   <div className="w-20">
                     <InputField
@@ -113,11 +184,45 @@ export default function PaymentCard({
                   </div>
                 </div>
               </div>
-              <span className="text-red-600 font-medium">
+              <span className="text-black font-medium">
                 -{discountType === "%" ? `${discount}%` : `$${discount.toFixed(2)}`}
               </span>
             </div>
 
+            {/* ✅ APPLIED COUPON ROW - BACK ON LEFT SIDE */}
+            {isValid && couponSuccess && appliedCoupon && (
+              <div className="flex justify-between items-center py-2 bg-green-50 dark:bg-green-900/20 px-3 rounded-md border border-green-200 dark:border-green-800">
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <div>
+                    <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                      Coupon: {appliedCoupon.code}
+                    </span>
+                    <div className="text-xs text-green-600 dark:text-green-400">
+                      {appliedCoupon.name}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-green-800 dark:text-green-200">
+                    -${discountAmount.toFixed(2)}
+                  </span>
+                  <button
+                    onClick={handleRemoveCoupon}
+                    className="ml-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200"
+                    title="Remove coupon"
+                  >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Tax Section */}
             <div className="border-t border-stroke pt-3 dark:border-strokedark">
               <div className="flex justify-between items-center py-1">
                 <span className="text-gray-600 dark:text-gray-400">GST (5%):</span>
@@ -130,6 +235,7 @@ export default function PaymentCard({
               </div>
             </div>
 
+            {/* Grand Total */}
             <div className="border-t border-stroke pt-3 dark:border-strokedark">
               <div className="flex justify-between items-center">
                 <span className="text-lg font-semibold text-black dark:text-white">Grand Total:</span>
@@ -151,23 +257,22 @@ export default function PaymentCard({
             </div>
           </div>
 
-          {/* Coupon Code */}
-          <div>
-            <Label htmlFor="couponCode">Coupon / Gift Card Code</Label>
-            <InputField
-              type="text"
-              id="couponCode"
-              placeholder="Enter coupon code (e.g., SAVE10)"
-              value={couponCode}
-              onChange={(e) => setCouponCode(e.target.value)}
-              onBlur={handleCouponBlur}
-            />
-            {couponCode && discount > 0 && (
-              <div className="mt-2 text-sm text-green-600 dark:text-green-400">
-                ✓ Coupon applied: {discountType === "%" ? `${discount}% off` : `$${discount} off`}
-              </div>
-            )}
-          </div>
+          {/* ✅ SIMPLIFIED COUPON INPUT - just input and messages */}
+          <CouponInput
+            couponCode={couponCode}
+            setCouponCode={setCouponCode}
+            onCouponValidation={handleCouponValidation}
+            isValidating={isValidating}
+            couponError={couponError}
+            couponSuccess={couponSuccess}
+            isValid={isValid}
+          />
+
+          {/* Gift Card Input Component */}
+          <GiftCardInput
+            onGiftCardChange={onGiftCardChange}
+            grandTotal={grandTotal}
+          />
 
           {/* Options */}
           <div className="space-y-4">
@@ -189,53 +294,24 @@ export default function PaymentCard({
           </div>
 
           {/* Payment Button */}
-          <button
-            type="button"
-            onClick={onTriggerPayment}
-            disabled={grandTotal <= 0}
-            className="w-full inline-flex items-center justify-center rounded-md py-4 px-6 text-center text-lg font-medium text-white hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-50 transition-all"
-            style={{ backgroundColor: '#597485' }}
-          >
-            <svg
-              className="mr-3 h-5 w-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
-              />
-            </svg>
-            {grandTotal > 0 ? `Process Payment - $${grandTotal.toFixed(2)}` : "No Payment Required"}
-          </button>
-
-          {/* Quick Payment Options */}
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                setCouponCode("SAVE10");
-                handleCouponBlur();
-              }}
-              className="inline-flex items-center justify-center rounded border border-stroke py-2 px-3 text-center text-sm font-medium text-black hover:bg-gray-2 dark:border-strokedark dark:text-white dark:hover:bg-meta-4"
-            >
-              Apply SAVE10
-            </button>
-            
-            <button
-              type="button"
-              onClick={() => {
-                setDiscount(0);
-                setCouponCode("");
-              }}
-              className="inline-flex items-center justify-center rounded border border-stroke py-2 px-3 text-center text-sm font-medium text-red-600 hover:bg-red-50 dark:border-strokedark dark:hover:bg-red-900/20"
-            >
-              Clear Discount
-            </button>
-          </div>
+<button
+  type="button"
+  onClick={onTriggerPayment}
+  disabled={grandTotal <= 0}
+  className="w-full inline-flex items-center justify-center rounded-md py-4 px-6 text-center text-lg font-medium text-white hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-50 transition-all"
+  style={{ backgroundColor: '#597485' }}
+>
+  <svg className="mr-3 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+  </svg>
+  {/* ✅ UPDATED: Different text based on gift cards */}
+  {hasGiftCards 
+    ? "Activate Gift Cards & Process Payment"
+    : grandTotal > 0 
+      ? `Process Payment - $${grandTotal.toFixed(2)}` 
+      : "No Payment Required"
+  }
+</button>
         </div>
       </div>
     </ComponentCard>

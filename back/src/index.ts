@@ -11,6 +11,8 @@ import addressesRouter from './routes/addresses';
 import employeeRoutes from "./routes/employees";
 import messageRoutes from "./routes/messages";
 import addressShortcutRoutes from "./routes/addressShortcuts";
+import couponsRouter from './routes/coupons';
+import giftCardsRouter from './routes/gift-cards';
 import { getStoreInfo, saveStoreInfo } from './routes/settings/store-info';
 import { getBusinessHours, saveBusinessHours } from './routes/settings/business-hours';
 import { getDeliveryExceptions, saveDeliveryExceptions } from './routes/settings/delivery-exceptions';
@@ -24,18 +26,15 @@ import {
   getActiveHoliday 
 } from './routes/settings/holidays';
 
-
 dotenv.config();
-
 
 const app = express();
 const prisma = new PrismaClient();
 
-
 app.use(cors());
 app.use(express.json()); 
 
-
+app.use('/api/coupons', couponsRouter); // ADD THIS LINE
 app.use("/api/shortcuts", addressShortcutRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/employees", employeeRoutes);
@@ -58,6 +57,7 @@ app.get('/api/settings/holidays/upcoming', getUpcomingHolidays);
 app.get('/api/settings/holidays/active/:date', getActiveHoliday);
 app.get('/api/settings/delivery-charges', getDeliveryCharges);
 app.post('/api/settings/delivery-charges', saveDeliveryCharges);
+app.use('/api/gift-cards', giftCardsRouter);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'Backend is alive!' });

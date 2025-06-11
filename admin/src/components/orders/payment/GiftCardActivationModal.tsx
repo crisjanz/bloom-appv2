@@ -1,0 +1,207 @@
+import React, { useState } from "react";
+import InputField from "../../form/input/InputField";
+import Label from "../../form/Label";
+import Button from "../../ui/button/Button";
+import { getGiftCardSummary, validateGiftCardAmount } from "../../../utils/giftCardHelpers";
+import { activateGiftCard } from "../../../services/giftCardService";
+
+type Props = {
+  open: boolean;
+  onClose: () => void;
+  orderItems: any[];
+  onActivationComplete: (activatedCards: any[]) => void;
+};
+
+const GiftCardActivationModal: React.FC<Props> = ({
+  open,
+  onClose,
+  orderItems,
+  onActivationComplete
+}) => {
+  const [cardNumbers, setCardNumbers] = useState<{ [key: string]: string }>({});
+  const [customAmounts, setCustomAmounts] = useState<{ [key: string]: number }>({});
+  const [activating, setActivating] = useState(false);
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+
+const giftCardSummary = getGiftCardSummary(orderItems);
+
+  const handleCardNumberChange = (itemId: string, value: string) => {
+    setCardNumbers(prev => ({ ...prev, [itemId]: value.toUpperCase() }));
+    setErrors(prev => ({ ...prev, [itemId]: '' }));
+  };
+
+  const handleCustomAmountChange = (itemId: string, value: number) => {
+    setCustomAmounts(prev => ({ ...prev, [itemId]: value }));
+    const validation = validateGiftCardAmount(value);
+    setErrors(prev => ({ 
+      ...prev, 
+      [`${itemId}_amount`]: validation.valid ? '' : validation.error || ''
+    }));
+  };
+
+// In GiftCardActivationModal.tsx - modify the handleActivateAll function
+const handleActivateAll = async () => {
+  setActivating(true);
+  const newErrors: { [key: string]: string } = {};
+  const cardDataForActivation: any[] = []; // ✅ Changed: collect data instead of activating
+
+  try {
+    for (const item of giftCardSummary) {
+      const cardNumber = cardNumbers[item.id];
+      
+      if (!cardNumber?.trim()) {
+        newErrors[item.id] = 'Card number is required';
+        continue;
+      }
+
+      const amount = item.giftCardInfo.isCustomAmount 
+        ? customAmounts[item.id] 
+        : item.giftCardInfo.value!;
+
+      if (item.giftCardInfo.isCustomAmount) {
+        const validation = validateGiftCardAmount(amount);
+        if (!validation.valid) {
+          newErrors[`${item.id}_amount`] = validation.error!;
+          continue;
+        }
+      }
+
+      // ✅ Changed: Collect card data for each quantity (don't activate yet)
+      for (let i = 0; i < item.quantity; i++) {
+        cardDataForActivation.push({
+          cardNumber,
+          amount,
+          itemId: item.id, // ✅ Add item ID for price override
+          originalProduct: item.product // ✅ Add original product reference
+        });
+      }
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+    } else {
+      // ✅ Pass card data (not activated cards) to parent
+      onActivationComplete(cardDataForActivation);
+    }
+  } catch (error) {
+    console.error('Validation error:', error);
+  } finally {
+    setActivating(false);
+  }
+};
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-boxdark rounded-lg shadow-lg w-full max-w-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-2">
+          <h2 className="text-lg font-semibold text-black dark:text-white">
+            Activate Gift Cards
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-xl font-bold text-black dark:text-white hover:text-gray-600 dark:hover:text-gray-400"
+            title="Close"
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Gift Cards List */}
+        <div className="space-y-6">
+          {giftCardSummary.map((item) => (
+            <div
+              key={item.id}
+              className="border border-stroke rounded-lg p-4 dark:border-strokedark"
+            >
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h3 className="font-medium text-black dark:text-white">
+                    {item.displayName}
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Quantity: {item.quantity}
+                  </p>
+                </div>
+                {!item.giftCardInfo.isCustomAmount && (
+                  <div className="text-lg font-semibold text-[#597485]">
+                    ${item.giftCardInfo.value}
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Card Number */}
+                <div>
+                  <Label htmlFor={`card-${item.id}`}>Gift Card Number</Label>
+                  <input
+                    id={`card-${item.id}`}
+                    type="text"
+                    placeholder="GC-XXXX-XXXX-XXXX"
+                    value={cardNumbers[item.id] || ''}
+                    onChange={(e) => handleCardNumberChange(item.id, e.target.value)}
+                    className={`w-full p-2 border rounded-md ${errors[item.id] ? 'border-red-500' : 'border-gray-300'} dark:bg-gray-700 dark:border-gray-600 dark:text-white`}
+                  />
+                  {errors[item.id] && (
+                    <p className="mt-1 text-sm text-red-600">{errors[item.id]}</p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    💡 Scan or enter from physical card
+                  </p>
+                </div>
+
+                {/* Custom Amount (if needed) */}
+                {item.giftCardInfo.isCustomAmount && (
+                  <div>
+                    <Label htmlFor={`amount-${item.id}`}>
+                      Amount ($25 - $300)
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">$</span>
+                      <input
+                        id={`amount-${item.id}`}
+                        type="number"
+                        min="25"
+                        max="300"
+                        step="1"
+                        placeholder="25"
+                        className={`w-full pl-8 p-2 border rounded-md ${errors[`${item.id}_amount`] ? 'border-red-500' : 'border-gray-300'} dark:bg-gray-700 dark:border-gray-600 dark:text-white`}
+                        value={customAmounts[item.id] || ''}
+                        onChange={(e) => handleCustomAmountChange(item.id, parseFloat(e.target.value) || 0)}
+                      />
+                    </div>
+                    {errors[`${item.id}_amount`] && (
+                      <p className="mt-1 text-sm text-red-600">{errors[`${item.id}_amount`]}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Actions */}
+        <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-stroke dark:border-strokedark">
+          <button
+            onClick={onClose}
+            disabled={activating}
+            className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleActivateAll}
+            disabled={activating}
+            className="px-4 py-2 bg-[#597485] text-white rounded-md hover:bg-[#597485]/90 disabled:opacity-50"
+          >
+            {activating ? 'Activating...' : 'Activate All Cards'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default GiftCardActivationModal;

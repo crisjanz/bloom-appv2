@@ -6,6 +6,8 @@ import Select from "../form/Select";
 import Label from "../form/Label";
 import Checkbox from "../form/input/Checkbox";
 
+
+
 type Product = {
   description: string;
   category: string;
@@ -31,6 +33,8 @@ export default function ProductsCard({
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+
+
   
   // Fetch categories on mount
   useEffect(() => {
@@ -145,14 +149,14 @@ export default function ProductsCard({
                     if (emptyIndex >= 0) {
                       handleProductChange(emptyIndex, "description", product.name);
                       handleProductChange(emptyIndex, "category", product.categoryId);
-                      handleProductChange(emptyIndex, "price", product.defaultPrice || "0");
+    		      handleProductChange(emptyIndex, "price", (product.defaultPrice / 100).toFixed(2));
                     } else {
                       handleAddCustomProduct();
                       setTimeout(() => {
                         const newIndex = customProducts.length;
                         handleProductChange(newIndex, "description", product.name);
                         handleProductChange(newIndex, "category", product.categoryId);
-                        handleProductChange(newIndex, "price", product.defaultPrice || "0");
+      handleProductChange(newIndex, "price", (product.defaultPrice / 100).toFixed(2));
                       }, 100);
                     }
                     setSearchQuery("");
@@ -162,7 +166,7 @@ export default function ProductsCard({
                 >
                   <div className="font-medium text-black dark:text-white">{product.name}</div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">
-                    ${product.defaultPrice || "0.00"} • {product.categoryName}
+  ${(product.defaultPrice / 100).toFixed(2)} • {product.categoryName}
                   </div>
                 </div>
               ))}

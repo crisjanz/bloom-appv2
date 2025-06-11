@@ -6,7 +6,7 @@ import CustomerCard from "../../components/orders/CustomerCard";
 import MessageSuggestions from "../../components/orders/MessageSuggestions";
 import MultiOrderTabs from "../../components/orders/MultiOrderTabs";
 import OrderDetailsCard from "../../components/orders/OrderDetailsCard";
-import PaymentSection from "../../components/orders/sections/PaymentSection";
+import PaymentSection from "../../components/orders/payment/PaymentSection";
 import { usePaymentCalculations } from "../../hooks/usePaymentCalculations";
 import { useCustomerSearch } from "../../hooks/useCustomerSearch";
 import { useOrderState } from '../../hooks/useOrderState';
@@ -18,8 +18,12 @@ export default function TakeOrderPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [orderSource, setOrderSource] = useState<"phone" | "walkin">("phone");
   
-  // ❌ Remove this - delivery fee now lives in order state
-  // const [deliveryCharge, setDeliveryCharge] = useState(0);
+  // 🔹 ADD THESE: Discount state
+  const [couponDiscount, setCouponDiscount] = useState(0);
+  const [manualDiscount, setManualDiscount] = useState(0);
+  const [manualDiscountType, setManualDiscountType] = useState<"$" | "%">("$");
+
+  const [giftCardDiscount, setGiftCardDiscount] = useState(0);
 
   const cleanPhoneNumber = (value: string) => {
     if (value.startsWith("+")) {
@@ -27,11 +31,6 @@ export default function TakeOrderPage() {
     }
     return value.replace(/\D/g, "");
   };
-
-  // ❌ Remove this - no longer needed
-  // const handleDeliveryFeeCalculated = (fee: number) => {
-  //   setDeliveryCharge(fee);
-  // };
 
   // 🔹 Message Suggestions
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -45,11 +44,18 @@ export default function TakeOrderPage() {
   // ✅ Get total delivery fee from all orders
   const totalDeliveryFee = orderState.getTotalDeliveryFee();
 
+  // ✅ UPDATED: Calculate total discount and use it
+  const manualDiscountAmount = manualDiscountType === "%" 
+    ? (orderState.orders.reduce((sum, order) => sum + order.customProducts.reduce((pSum, p) => pSum + p.price * p.quantity, 0), 0) + totalDeliveryFee) * manualDiscount / 100
+    : manualDiscount;
+  
+const totalDiscount = manualDiscountAmount + couponDiscount + giftCardDiscount;
+
   const { itemTotal, subtotal, gst, pst, grandTotal } = usePaymentCalculations(
     orderState.orders,
-    totalDeliveryFee, // ✅ Use calculated total
-    0,  // default discount
-    "$" // default discount type
+    totalDeliveryFee,
+    totalDiscount, // ✅ Use combined discount
+    "$" // ✅ Always $ since we calculate the amount above
   );
 
   // 🔧 Effects
@@ -85,9 +91,9 @@ export default function TakeOrderPage() {
           formData={{
             customer: customerState.customer,
             orders: orderState.orders,
-            deliveryCharge: totalDeliveryFee, // ✅ Use total
-            discount: 0,
-            discountType: "$",
+            deliveryCharge: totalDeliveryFee,
+            discount: manualDiscount, // ✅ Use manual discount
+            discountType: manualDiscountType, // ✅ Use manual discount type
             couponCode: "",
             subscribe: false,
             sendEmailReceipt: false,
@@ -147,7 +153,7 @@ export default function TakeOrderPage() {
           updateOrderManualEditFlag={orderState.updateOrderManualEditFlag}
         />
 
-        {/* Payment Summary */}
+        {/* Payment Summary - ✅ UPDATED with new props */}
         <PaymentSection
           customerState={customerState}
           orderState={orderState}
@@ -155,14 +161,25 @@ export default function TakeOrderPage() {
           gst={gst}
           pst={pst}
           grandTotal={grandTotal}
-          totalDeliveryFee={totalDeliveryFee} // ✅ Just pass the total
+          totalDeliveryFee={totalDeliveryFee}
           employee={employee}
           orderSource={orderSource}
           cleanPhoneNumber={cleanPhoneNumber}
+          // ✅ ADD THESE NEW PROPS:
+          couponDiscount={couponDiscount}
+          setCouponDiscount={setCouponDiscount}
+          manualDiscount={manualDiscount}
+          setManualDiscount={setManualDiscount}
+          manualDiscountType={manualDiscountType}
+          setManualDiscountType={setManualDiscountType}
           onOrderComplete={() => {
             customerState.resetCustomer();
             orderState.resetOrders();
-            // ❌ Remove: setDeliveryCharge(0); - not needed anymore
+            // ✅ RESET DISCOUNTS:
+            setCouponDiscount(0);
+            setManualDiscount(0);
+            setManualDiscountType("$");
+            setGiftCardDiscount(0);
           }}
         />
       </div>

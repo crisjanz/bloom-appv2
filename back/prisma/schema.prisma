@@ -298,16 +298,55 @@ model OrderItem {
   rowTotal   Int
 }
 
+// UPDATED COMPREHENSIVE COUPON SYSTEM
 model Coupon {
   id              String    @id @default(uuid())
   code            String    @unique
-  description     String?
-  discountPercent Float
-  active          Boolean   @default(true)
+  name            String    // "Spring Sale 20% Off", "Welcome Discount"
+  description     String?   // Optional description for admin reference
+  discountType    String    // "PERCENTAGE", "FIXED_AMOUNT", "FREE_SHIPPING"
+  value           Float     // 20 (for 20% or $20)
+  
+  // Usage limits
+  usageLimit      Int?      // Max total uses (null = unlimited)
+  usageCount      Int       @default(0) // Current usage count
+  perCustomerLimit Int?     // Max uses per customer
+  
+  // Date restrictions
   startDate       DateTime?
   endDate         DateTime?
+  
+  // Order requirements
+  minimumOrder    Float?    // Minimum order amount
+  
+  // Product/Category restrictions
+  applicableProducts String[] @default([]) // Product IDs (empty = all products)
+  applicableCategories String[] @default([]) // Category IDs
+  
+  // Channel restrictions
+  posOnly         Boolean   @default(false) // POS-only coupons
+  webOnly         Boolean   @default(false) // Website-only coupons
+  
+  // Status
+  enabled         Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  orders          Order[]
+  usages          CouponUsage[]
+}
 
-  orders Order[]
+model CouponUsage {
+  id        String   @id @default(uuid())
+  couponId  String
+  customerId String?  // Track per-customer usage
+  orderId   String?  // Link to actual orders
+  employeeId String? // Who applied it (POS context)
+  source    String   // "POS", "WEBSITE"
+  usedAt    DateTime @default(now())
+  
+  coupon    Coupon   @relation(fields: [couponId], references: [id])
 }
 
 // 🌍 Updated AddressShortcut for international support
@@ -519,4 +558,45 @@ model DeliveryRegionZone {
   updatedAt DateTime @updatedAt
 
   @@map("delivery_region_zones")
+}
+
+// Add these to your schema.prisma
+
+model GiftCard {
+  id              String    @id @default(uuid())
+  cardNumber      String    @unique // "GC-X7K9-M3R8"
+  type            String    // "PHYSICAL", "DIGITAL"
+  
+  // Balance tracking
+  initialValue    Float     @default(0)
+  currentBalance  Float     @default(0)
+  
+  // Card details
+  purchasedBy     String?   // Customer who bought it
+  recipientEmail  String?   // For digital cards
+  recipientName   String?
+  message         String?   // Gift message
+  
+  // Status
+  status          String    @default("INACTIVE") // "INACTIVE", "ACTIVE", "USED", "EXPIRED", "CANCELLED"
+  expirationDate  DateTime?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  transactions    GiftCardTransaction[]
+}
+
+model GiftCardTransaction {
+  id          String    @id @default(uuid())
+  giftCardId  String
+  orderId     String?   // When used for purchase
+  type        String    // "PURCHASE", "REDEMPTION", "REFUND", "ACTIVATION"
+  amount      Float     // Positive for purchase/refund, negative for redemption
+  balanceAfter Float    // Remaining balance after transaction
+  notes       String?
+  employeeId  String?   // Who processed the transaction
+  createdAt   DateTime  @default(now())
+  
+  giftCard    GiftCard  @relation(fields: [giftCardId], references: [id])
 }
