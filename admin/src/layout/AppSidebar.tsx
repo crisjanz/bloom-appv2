@@ -21,7 +21,6 @@ import {
 import { useSidebar } from "../context/SidebarContext";
 import SidebarWidget from "./SidebarWidget";
 
-
 type NavItem = {
   name: string;
   icon: React.ReactNode;
@@ -50,6 +49,14 @@ const navItems: NavItem[] = [
       { name: "New Product", path: "/products/new", pro: false, icon: <PageIcon /> },
       { name: "Categories", path: "/products/categories", pro: false, icon: <GridIcon /> },
 
+    ],
+},
+  {
+    icon: <ListIcon />, // You might want to use a different icon here
+    name: "Orders",
+    subItems: [
+      { name: "All Orders", path: "/orders", pro: false, icon: <ListIcon /> },
+      { name: "Take Order", path: "/orders/new", pro: false, icon: <PageIcon /> },
     ],
   },
     {
@@ -130,9 +137,8 @@ const othersItems: NavItem[] = [
   },
 ];
 
-
 const AppSidebar: React.FC = () => {
-  const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
+  const { isExpanded, isMobileOpen, isHovered, setIsHovered, toggleMobileSidebar } = useSidebar();
   const location = useLocation();
 
   const [openSubmenu, setOpenSubmenu] = useState<{
@@ -144,11 +150,17 @@ const AppSidebar: React.FC = () => {
   );
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  // const isActive = (path: string) => location.pathname === path;
   const isActive = useCallback(
     (path: string) => location.pathname === path,
     [location.pathname]
   );
+
+  // Close mobile sidebar when location changes
+  useEffect(() => {
+    if (isMobileOpen) {
+      toggleMobileSidebar();
+    }
+  }, [location.pathname]); // Only depend on location.pathname
 
   useEffect(() => {
     let submenuMatched = false;
@@ -276,34 +288,34 @@ const AppSidebar: React.FC = () => {
               }}
             >
               <ul className="mt-2 space-y-1 ml-9">
-  {nav.subItems.map((subItem) => (
-    <li key={subItem.name}>
-      <Link
-        to={subItem.path}
-        className={`menu-dropdown-item ${
-          isActive(subItem.path)
-            ? "menu-dropdown-item-active"
-            : "menu-dropdown-item-inactive"
-        } flex items-center gap-2`}
-      >
-        {subItem.icon && (
-          <span className="w-4 h-4 flex-shrink-0">
-            {subItem.icon}
-          </span>
-        )}
-        {subItem.name}
-        <span className="flex items-center gap-1 ml-auto">
-          {subItem.new && (
-            <span className="menu-dropdown-badge">new</span>
-          )}
-          {subItem.pro && (
-            <span className="menu-dropdown-badge">pro</span>
-          )}
-        </span>
-      </Link>
-    </li>
-  ))}
-</ul>
+                {nav.subItems.map((subItem) => (
+                  <li key={subItem.name}>
+                    <Link
+                      to={subItem.path}
+                      className={`menu-dropdown-item ${
+                        isActive(subItem.path)
+                          ? "menu-dropdown-item-active"
+                          : "menu-dropdown-item-inactive"
+                      } flex items-center gap-2`}
+                    >
+                      {subItem.icon && (
+                        <span className="w-4 h-4 flex-shrink-0">
+                          {subItem.icon}
+                        </span>
+                      )}
+                      {subItem.name}
+                      <span className="flex items-center gap-1 ml-auto">
+                        {subItem.new && (
+                          <span className="menu-dropdown-badge">new</span>
+                        )}
+                        {subItem.pro && (
+                          <span className="menu-dropdown-badge">pro</span>
+                        )}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
         </li>

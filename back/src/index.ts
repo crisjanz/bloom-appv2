@@ -13,7 +13,7 @@ import messageRoutes from "./routes/messages";
 import addressShortcutRoutes from "./routes/addressShortcuts";
 import couponsRouter from './routes/coupons';
 import giftCardsRouter from './routes/gift-cards';
-import ordersRouter from './routes/orders';
+import ordersRouter from './routes/orders/index';
 import { getStoreInfo, saveStoreInfo } from './routes/settings/store-info';
 import { getBusinessHours, saveBusinessHours } from './routes/settings/business-hours';
 import { getDeliveryExceptions, saveDeliveryExceptions } from './routes/settings/delivery-exceptions';

@@ -33,9 +33,11 @@ enum OrderType {
 enum OrderStatus {
   DRAFT
   PAID
-  CANCELLED
-  SCHEDULED
+  IN_DESIGN
+  READY
   COMPLETED
+  REJECTED
+  CANCELLED
 }
 
 enum EmployeeType {
@@ -245,8 +247,10 @@ model Address {
 
 model Order {
   id     String      @id @default(cuid())
+  orderNumber Int         @unique @default(autoincrement())
   type   OrderType
   status OrderStatus @default(DRAFT)
+  images String[] @default([])
 
   customer   Customer @relation(fields: [customerId], references: [id])
   customerId String

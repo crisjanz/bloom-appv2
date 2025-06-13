@@ -27,7 +27,8 @@ import CategoriesPage from "./pages/products/CategoriesPage";
 import CustomersPage from "./pages/customers/CustomersPage";
 import CustomerFormPage from "./pages/customers/CustomerFormPage";
 import ViewProductPage from "./pages/products/ViewProductPage";
-
+import OrdersListPage from "./pages/orders/OrdersListPage"; 
+import OrderEditPage from "./pages/orders/OrderEditPage";
 import SettingsIndexPage from "./pages/settings";
 import BusinessPage from "./pages/settings/business";
 import PaymentsPage from "./pages/settings/payments";
@@ -72,7 +73,11 @@ export default function App() {
             <Route path="products/edit/:id" element={<NewProductPage />} />
             <Route path="products/view/:id" element={<ViewProductPage />} />
             <Route path="/orders/new" element={<TakeOrderPage />} />
+	    <Route path="orders" element={<OrdersListPage />} />
+	    <Route path="orders/:id/edit" element={<OrderEditPage />} /> 
+	    <Route path="orders/:id" element={<OrderEditPage />} />
             <Route path="products/categories" element={<CategoriesPage />} />
+
             
             {/* Customer routes */}
             <Route path="customers" element={<CustomersPage />} />

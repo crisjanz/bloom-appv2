@@ -65,8 +65,12 @@ export default function PaymentCard({
   hasGiftCards = false,
   giftCardDiscount = 0,
 }: Props) {
+
+  // Gift card state
   const [showGiftCardModal, setShowGiftCardModal] = useState(false);
   const [appliedGiftCards, setAppliedGiftCards] = useState<any[]>([]);
+
+  // Coupon state
   const {
     validateCoupon,
     clearValidation,
@@ -74,11 +78,15 @@ export default function PaymentCard({
     isValid,
     discountAmount,
   } = useCouponValidation();
+
   const [couponError, setCouponError] = useState<string>('');
   const [couponSuccess, setCouponSuccess] = useState<string>('');
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
+
+  // Calculate amount after gift cards
   const amountAfterGiftCards = Math.max(0, grandTotal - giftCardDiscount);
 
+  // Coupon handlers
   const handleCouponValidation = async (code: string) => {
     if (!code.trim()) {
       clearValidation();
@@ -88,13 +96,16 @@ export default function PaymentCard({
       onCouponDiscountChange?.(0);
       return;
     }
+
     const orderTotal = itemTotal + deliveryCharge;
+
     const result = await validateCoupon(code, orderTotal, {
       customerId,
       productIds,
       categoryIds,
       source
     });
+
     if (result?.valid) {
       setCouponError('');
       setCouponSuccess(`Coupon applied: ${result.discountType === '%' ? `${result.coupon?.value}% off` : `$${result.discountAmount?.toFixed(2)} off`}`);
@@ -120,7 +131,9 @@ export default function PaymentCard({
   const handleAddGiftCard = (cardData: { cardNumber: string; amount: number; balance: number }) => {
     const updatedCards = [...appliedGiftCards, cardData];
     setAppliedGiftCards(updatedCards);
+    
     const totalDiscount = updatedCards.reduce((sum, card) => sum + card.amount, 0);
+    
     onGiftCardChange?.(totalDiscount, updatedCards.map(card => ({
       cardNumber: card.cardNumber,
       amount: card.amount
@@ -130,7 +143,9 @@ export default function PaymentCard({
   const handleRemoveGiftCard = (index: number) => {
     const updatedCards = appliedGiftCards.filter((_, i) => i !== index);
     setAppliedGiftCards(updatedCards);
+    
     const totalDiscount = updatedCards.reduce((sum, card) => sum + card.amount, 0);
+    
     if (updatedCards.length === 0) {
       onGiftCardChange?.(0, []);
     } else {
@@ -141,6 +156,7 @@ export default function PaymentCard({
     }
   };
 
+  // Clear validation when coupon code changes
   useEffect(() => {
     if (!couponCode) {
       clearValidation();
@@ -153,13 +169,17 @@ export default function PaymentCard({
   return (
     <ComponentCard title="Order Summary & Payment">
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+        
+        {/* LEFT: Order Totals */}
         <div className="space-y-4">
           <h3 className="font-medium text-black dark:text-white mb-4">Order Breakdown</h3>
+          
           <div className="space-y-3">
             <div className="flex justify-between items-center py-2">
               <span className="text-gray-600 dark:text-gray-400">Items Total:</span>
               <span className="font-medium text-black dark:text-white">${itemTotal.toFixed(2)}</span>
             </div>
+
             <div className="flex justify-between items-center py-2">
               <Label htmlFor="deliveryCharge">Delivery Charge:</Label>
               <div className="w-24">
@@ -174,8 +194,12 @@ export default function PaymentCard({
                 />
               </div>
             </div>
+
+            {/* Discounts Section */}
             <div className="border-t border-stroke pt-3 dark:border-strokedark">
               <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Discounts</h4>
+              
+              {/* Manual Discount */}
               <div className="flex justify-between items-center py-2">
                 <div className="flex items-center gap-3">
                   <Label>Manual Discount:</Label>
@@ -208,6 +232,8 @@ export default function PaymentCard({
                   }
                 </span>
               </div>
+
+              {/* Applied Coupon */}
               {isValid && couponSuccess && appliedCoupon && (
                 <div className="flex justify-between items-center py-2 bg-green-50 dark:bg-green-900/20 px-3 rounded-md border border-green-200 dark:border-green-800">
                   <div className="flex items-center gap-2">
@@ -239,6 +265,8 @@ export default function PaymentCard({
                   </div>
                 </div>
               )}
+
+              {/* Applied Gift Cards */}
               {appliedGiftCards.map((card, index) => (
                 <div key={index} className="flex justify-between items-center py-2 bg-blue-50 dark:bg-blue-900/20 px-3 rounded-md border border-blue-200 dark:border-blue-800 mt-2">
                   <div className="flex items-center gap-2">
@@ -260,13 +288,15 @@ export default function PaymentCard({
                       className="ml-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200"
                       title="Remove gift card"
                     >
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 20">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
                       </svg>
                     </button>
                   </div>
                 </div>
               ))}
+
+              {/* Add Gift Card Button */}
               <button
                 type="button"
                 onClick={() => setShowGiftCardModal(true)}
@@ -275,16 +305,21 @@ export default function PaymentCard({
                 + Add Gift Card
               </button>
             </div>
+
+            {/* Tax Section */}
             <div className="border-t border-stroke pt-3 dark:border-strokedark">
               <div className="flex justify-between items-center py-1">
                 <span className="text-gray-600 dark:text-gray-400">GST (5%):</span>
                 <span className="text-black dark:text-white">${gst.toFixed(2)}</span>
               </div>
+              
               <div className="flex justify-between items-center py-1">
                 <span className="text-gray-600 dark:text-gray-400">PST (7%):</span>
                 <span className="text-black dark:text-white">${pst.toFixed(2)}</span>
               </div>
             </div>
+
+            {/* Grand Total */}
             <div className="border-t border-stroke pt-3 dark:border-strokedark">
               <div className="flex justify-between items-center">
                 <span className="text-lg font-semibold text-black dark:text-white">Grand Total:</span>
@@ -293,7 +328,10 @@ export default function PaymentCard({
             </div>
           </div>
         </div>
+
+        {/* RIGHT: Payment Section */}
         <div className="space-y-6">
+          {/* Total Display */}
           <div className="rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 p-8 text-center dark:border-gray-600 dark:bg-gray-800">
             <div className="text-3xl font-bold text-black dark:text-white">
               ${amountAfterGiftCards.toFixed(2)}
@@ -302,6 +340,8 @@ export default function PaymentCard({
               Total Amount Due
             </div>
           </div>
+
+          {/* Coupon Input */}
           <CouponInput
             couponCode={couponCode}
             setCouponCode={setCouponCode}
@@ -311,6 +351,8 @@ export default function PaymentCard({
             couponSuccess={couponSuccess}
             isValid={isValid}
           />
+
+          {/* Options */}
           <div className="space-y-4">
             <div className="space-y-3">
               <Checkbox
@@ -319,6 +361,7 @@ export default function PaymentCard({
                 label="Subscribe to newsletter for special offers"
                 className="checked:bg-[#597485] checked:border-[#597485]"
               />
+
               <Checkbox
                 checked={sendEmailReceipt}
                 onChange={(checked) => setSendEmailReceipt(checked)}
@@ -327,9 +370,12 @@ export default function PaymentCard({
               />
             </div>
           </div>
+
+          {/* Payment Button */}
           <button
             type="button"
             onClick={onTriggerPayment}
+            disabled={grandTotal <= 0}
             className="w-full inline-flex items-center justify-center rounded-md py-4 px-6 text-center text-lg font-medium text-white hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-50 transition-all"
             style={{ backgroundColor: '#597485' }}
           >
@@ -337,7 +383,7 @@ export default function PaymentCard({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
             </svg>
             {hasGiftCards 
-              ? "Activate Gift Cards & Complete Order"
+              ? "Activate Gift Cards & Process Payment"
               : amountAfterGiftCards > 0 
                 ? `Process Payment - $${amountAfterGiftCards.toFixed(2)}` 
                 : "Complete Order"
@@ -345,6 +391,8 @@ export default function PaymentCard({
           </button>
         </div>
       </div>
+
+      {/* Gift Card Modal */}
       <GiftCardModal
         open={showGiftCardModal}
         onClose={() => setShowGiftCardModal(false)}

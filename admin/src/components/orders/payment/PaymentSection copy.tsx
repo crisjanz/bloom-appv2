@@ -1,9 +1,9 @@
 // src/components/orders/payment/PaymentSection.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import PaymentCard from '../PaymentCard';
 import PaymentModal from '../PaymentModal';
 import GiftCardActivationModal from './GiftCardActivationModal';
-import { orderContainsGiftCards } from '../../../utils/giftCardHelpers';
+import { orderContainsGiftCards, getGiftCardSummary } from '../../../utils/giftCardHelpers';
 
 // Helper function to replace crypto.randomUUID
 const generateId = () => {
@@ -22,6 +22,7 @@ type Props = {
   cleanPhoneNumber: (value: string) => string;
   onOrderComplete: () => void;
   totalDeliveryFee: number;
+  // Discount props
   couponDiscount: number;
   setCouponDiscount: (val: number) => void;
   manualDiscount: number;
@@ -53,28 +54,42 @@ const PaymentSection: React.FC<Props> = ({
   giftCardDiscount,
   setGiftCardDiscount,
 }) => {
+  // Local state for payment form
   const [couponCode, setCouponCode] = useState("");
   const [subscribe, setSubscribe] = useState(false);
   const [showPaymentPopup, setShowPaymentPopup] = useState(false);
   const [sendEmailReceipt, setSendEmailReceipt] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Gift card state
   const [showGiftCardActivation, setShowGiftCardActivation] = useState(false);
   const [giftCardNumbers, setGiftCardNumbers] = useState<any[]>([]);
-  const [pendingGiftCardRedemptions, setPendingGiftCardRedemptions] = useState<any[]>([]);
+  const [pendingGiftCardRedemptions, setPendingGiftCardRedemptions] = useState<any[]>([]); // Store cards to redeem later
 
+  // Check if current order has gift cards
   const currentOrder = orderState.orders[orderState.activeTab];
   const hasGiftCards = currentOrder ? orderContainsGiftCards(currentOrder.customProducts) : false;
+
+  // ✅ Calculate amount after gift cards
   const amountAfterGiftCards = Math.max(0, grandTotal - giftCardDiscount);
 
+  // ✅ NEW: Validation function for required fields
   const validateOrdersBeforePayment = (): string | null => {
+    // Check customer
     if (!customerState.customer) {
       return "Please select a customer before processing payment.";
     }
+
+    // Check employee
     if (!employee) {
       return "Please select an employee before processing payment.";
     }
+
+    // Check each order
     for (let i = 0; i < orderState.orders.length; i++) {
       const order = orderState.orders[i];
+      
+      // Check recipient info for delivery
       if (order.orderType === 'DELIVERY') {
         if (!order.recipientFirstName || !order.recipientLastName) {
           return `Order ${i + 1}: Recipient name is required for delivery.`;
@@ -86,11 +101,15 @@ const PaymentSection: React.FC<Props> = ({
           return `Order ${i + 1}: Delivery date is required.`;
         }
       }
+
+      // Check pickup person info for pickup
       if (order.orderType === 'PICKUP') {
         if (!order.recipientFirstName || !order.recipientLastName) {
           return `Order ${i + 1}: Pickup person name is required.`;
         }
       }
+
+      // Check products
       const validProducts = order.customProducts.filter(p => 
         p.description && p.price && parseFloat(p.price) > 0
       );
@@ -98,10 +117,13 @@ const PaymentSection: React.FC<Props> = ({
         return `Order ${i + 1}: At least one product with valid price is required.`;
       }
     }
-    return null;
+
+    return null; // All valid
   };
 
+  // Handle payment trigger
   const handleTriggerPayment = () => {
+    // ✅ Validate before proceeding
     const validationError = validateOrdersBeforePayment();
     if (validationError) {
       setFormError(validationError);
@@ -111,28 +133,37 @@ const PaymentSection: React.FC<Props> = ({
     setFormError(null);
     
     if (hasGiftCards && giftCardNumbers.length === 0) {
+      // Show gift card activation modal to GET CARD NUMBERS (not activate yet)
       setShowGiftCardActivation(true);
-    } else {
+    } else if (amountAfterGiftCards > 0) {
+      // Need payment for remaining amount
       setShowPaymentPopup(true);
+    } else {
+      // ✅ Full amount covered by gift cards - process order directly
+      handlePaymentConfirm([]);
     }
   };
 
+  // Handle gift card numbers collection
   const handleGiftCardNumbersCollected = (cardData: any[]) => {
     setGiftCardNumbers(cardData);
     setShowGiftCardActivation(false);
     
     console.log('🎁 Gift card data collected:', cardData);
     
+    // Override product prices with gift card amounts
     if (cardData.length > 0) {
       const updatedOrders = [...orderState.orders];
       const currentOrderIndex = orderState.activeTab;
       
+      // Group card data by itemId
       const cardsByItemId = cardData.reduce((acc, card) => {
         if (!acc[card.itemId]) acc[card.itemId] = [];
         acc[card.itemId].push(card);
         return acc;
       }, {});
       
+      // Update product prices
       updatedOrders[currentOrderIndex].customProducts = updatedOrders[currentOrderIndex].customProducts.map((product, index) => {
         const stableId = `item-${index}-${product.description?.slice(0, 10) || 'gc'}`;
         
@@ -149,19 +180,29 @@ const PaymentSection: React.FC<Props> = ({
         return product;
       });
       
+      // Update the orders state
       orderState.setOrders(updatedOrders);
     }
     
-    // Rely on user clicking "Complete Order" to trigger PaymentModal
+    // ✅ After collecting gift card numbers, check if we need payment
+    if (amountAfterGiftCards > 0) {
+      setShowPaymentPopup(true);
+    } else {
+      // Full amount covered - process order directly
+      handlePaymentConfirm([]);
+    }
   };
 
+  // ✅ UPDATED: Handle payment confirmation
   const handlePaymentConfirm = async (payments: any[]) => {
+    // Allow empty payments if fully paid by gift cards
     if (!payments.length && amountAfterGiftCards > 0) {
       setFormError("No payments were entered.");
       return;
     }
 
     try {
+      // Prepare order data
       const orderData = {
         customerId: customerState.customerId,
         orders: orderState.orders,
@@ -169,7 +210,7 @@ const PaymentSection: React.FC<Props> = ({
         payments: payments.length > 0 ? payments : [{
           method: 'GIFT_CARD',
           amount: giftCardDiscount,
-          details: {}
+          details: { fullyPaidByGiftCard: true }
         }],
         employee,
         orderSource,
@@ -184,6 +225,7 @@ const PaymentSection: React.FC<Props> = ({
         }
       };
 
+      // STEP 1: Create the order FIRST
       console.log('📦 Creating order...', orderData);
       const response = await fetch('/api/orders/create', {
         method: 'POST',
@@ -192,6 +234,7 @@ const PaymentSection: React.FC<Props> = ({
       });
 
       const result = await response.json();
+      
       if (!result.success) {
         setFormError(result.error || 'Failed to create orders');
         return;
@@ -199,32 +242,41 @@ const PaymentSection: React.FC<Props> = ({
 
       console.log('✅ Orders created successfully:', result.orders);
 
+      // STEP 2: Now process all gift card operations AFTER order is saved
+      
+      // 2a. Activate purchased gift cards
       if (giftCardNumbers.length > 0) {
-        console.log('🎁 Activating gift cards...');
+        console.log('🎁 Activating purchased gift cards...');
+        
         const { activateGiftCard } = await import('../../../services/giftCardService');
-        for (const { cardNumber, amount } of giftCardNumbers) {
+        
+        for (const cardData of giftCardNumbers) {
           try {
-            await activateGiftCard(cardNumber, amount);
-            console.log('✅ Activated card:', cardNumber);
+            const result = await activateGiftCard(cardData.cardNumber, cardData.amount);
+            console.log('✅ Activated card:', cardData.cardNumber);
           } catch (error: any) {
-            console.error('❌ Failed to activate card:', cardNumber);
+            console.error('❌ Failed to activate card:', cardData.cardNumber, error);
           }
         }
       }
 
+      // 2b. Redeem gift cards used for payment
       if (pendingGiftCardRedemptions.length > 0) {
-        console.log('💳 Redeeming gift cards...');
+        console.log('💳 Redeeming gift cards used for payment...');
+        
         const { redeemGiftCard } = await import('../../../services/giftCardService');
-        for (const { cardNumber, amount } of pendingGiftCardRedemptions) {
+        
+        for (const redemption of pendingGiftCardRedemptions) {
           try {
-            await redeemGiftCard(cardNumber, amount);
-            console.log('✅ Redeemed card:', cardNumber, 'for $', amount);
+            await redeemGiftCard(redemption.cardNumber, redemption.amount);
+            console.log('✅ Redeemed card:', redemption.cardNumber, 'for $', redemption.amount);
           } catch (error: any) {
-            console.error('❌ Failed to redeem card:', cardNumber);
+            console.error('❌ Failed to redeem card:', redemption.cardNumber, error);
           }
         }
       }
 
+      // Auto-save recipients
       for (const order of orderState.orders) {
         if (
           order.orderType === "DELIVERY" &&
@@ -255,12 +307,17 @@ const PaymentSection: React.FC<Props> = ({
         }
       }
 
+      // Success!
       setShowPaymentPopup(false);
       alert("✅ All orders created successfully!");
+      
+      // Reset all state
       setCouponCode("");
       setGiftCardNumbers([]);
       setPendingGiftCardRedemptions([]);
       setFormError(null);
+      
+      // Call parent reset
       onOrderComplete();
       
     } catch (error) {
@@ -269,8 +326,11 @@ const PaymentSection: React.FC<Props> = ({
     }
   };
 
+  // ✅ Updated handler for gift card changes
   const handleGiftCardChange = (amount: number, cardData?: any) => {
     setGiftCardDiscount(amount);
+    
+    // Store redemption data for later use (after order creation)
     if (cardData && Array.isArray(cardData)) {
       setPendingGiftCardRedemptions(cardData);
       console.log('💳 Pending gift card redemptions:', cardData);
@@ -305,6 +365,8 @@ const PaymentSection: React.FC<Props> = ({
         source="WEBSITE"
         hasGiftCards={hasGiftCards}
       />
+
+      {/* ✅ Display validation errors */}
       {formError && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg dark:bg-red-900/20 dark:border-red-800">
           <div className="flex items-center">
@@ -315,21 +377,25 @@ const PaymentSection: React.FC<Props> = ({
           </div>
         </div>
       )}
+
+      {/* Gift Card Numbers Collection Modal */}
       <GiftCardActivationModal
         open={showGiftCardActivation}
         onClose={() => setShowGiftCardActivation(false)}
         orderItems={currentOrder?.customProducts || []}
         onActivationComplete={handleGiftCardNumbersCollected}
       />
-      <PaymentModal
-        open={showPaymentPopup}
-        onClose={() => setShowPaymentPopup(false)}
-        total={grandTotal}
-        giftCardDiscount={giftCardDiscount}
-        employee={employee}
-        setFormError={setFormError}
-        onConfirm={handlePaymentConfirm}
-      />
+
+      {/* Payment Modal - only show if payment needed */}
+<PaymentModal
+  open={showPaymentPopup}
+  onClose={() => setShowPaymentPopup(false)}
+total={grandTotal}
+  giftCardDiscount={giftCardDiscount}
+  employee={employee}
+  setFormError={setFormError}
+  onConfirm={handlePaymentConfirm}
+/>
     </>
   );
 };

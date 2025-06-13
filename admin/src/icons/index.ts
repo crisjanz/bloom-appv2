@@ -20,6 +20,7 @@ import { ReactComponent as BoxIconLine } from "./box-line.svg?react";
 import { ReactComponent as ShootingStarIcon } from "./shooting-star.svg?react";
 import { ReactComponent as DollarLineIcon } from "./dollar-line.svg?react";
 import { ReactComponent as TrashBinIcon } from "./trash.svg?react";
+import { ReactComponent as TrashIcon } from "./trash.svg?react";
 import { ReactComponent as AngleUpIcon } from "./angle-up.svg?react";
 import { ReactComponent as AngleDownIcon } from "./angle-down.svg?react";
 import { ReactComponent as PencilIcon } from "./pencil.svg?react";
@@ -55,10 +56,20 @@ import { ReactComponent as ErrorHexaIcon } from "./info-hexa.svg?react";
 import { ReactComponent as SettingsIcon } from "./settings.svg?react";
 import { ReactComponent as TruckIcon } from "./truck.svg?react";
 import { ReactComponent as LinkIcon } from "./link.svg?react";
-
+import { ReactComponent as CreditCardIcon } from "./creditcard.svg?react";
+import { ReactComponent as SaveIcon } from "./save.svg?react";
+import { ReactComponent as XIcon } from "./x.svg?react";
+import { ReactComponent as CalendarIcon } from "./calender-line.svg?react";
+import { ReactComponent as PhotoIcon } from "./image.svg?react";
 
 
 export {
+TrashIcon,
+PhotoIcon,
+CalendarIcon,
+XIcon,
+SaveIcon,
+CreditCardIcon,
   LinkIcon,
   TruckIcon,
   SettingsIcon,
