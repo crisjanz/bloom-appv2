@@ -5,9 +5,10 @@ import TakeOrderPage from '../../pages/orders/TakeOrderPage';
 type Props = {
   onComplete: (orderData: any) => void;
   onCancel: () => void;
+  selectedCustomer?: any;
 };
 
-const TakeOrderOverlay: React.FC<Props> = ({ onComplete, onCancel }) => {
+const TakeOrderOverlay: React.FC<Props> = ({ onComplete, onCancel, selectedCustomer }) => {
   return (
     <div className="h-full bg-gray-50 dark:bg-gray-900 flex flex-col">
       {/* Header */}
@@ -26,6 +27,7 @@ const TakeOrderOverlay: React.FC<Props> = ({ onComplete, onCancel }) => {
           isOverlay={true}
           onComplete={onComplete}
           onCancel={onCancel}
+          initialCustomer={selectedCustomer}
         />
       </div>
     </div>

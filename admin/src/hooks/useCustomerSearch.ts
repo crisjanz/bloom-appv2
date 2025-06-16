@@ -8,19 +8,43 @@ type Customer = {
   notes: string;
 };
 
-export const useCustomerSearch = () => {
-  const [customer, setCustomer] = useState<Customer>({
-    firstName: "",
-    lastName: "",
-    phone: "",
-    email: "",
-    notes: "",
+export const useCustomerSearch = (initialCustomer?: any) => {
+  const [customer, setCustomer] = useState<Customer>(() => {
+    if (initialCustomer) {
+      return {
+        firstName: initialCustomer.firstName || "",
+        lastName: initialCustomer.lastName || "",
+        phone: initialCustomer.phone || "",
+        email: initialCustomer.email || "",
+        notes: initialCustomer.notes || "",
+      };
+    }
+    return {
+      firstName: "",
+      lastName: "",
+      phone: "",
+      email: "",
+      notes: "",
+    };
   });
 
   const [customerQuery, setCustomerQuery] = useState("");
   const [customerResults, setCustomerResults] = useState<any[]>([]);
-  const [customerId, setCustomerId] = useState<string | null>(null);
+  const [customerId, setCustomerId] = useState<string | null>(initialCustomer?.id || null);
   const [savedRecipients, setSavedRecipients] = useState<any[]>([]);
+
+  // Load recipients when customer is initialized
+  useEffect(() => {
+    if (initialCustomer?.id) {
+      fetch(`/api/customers/${initialCustomer.id}/recipients`)
+        .then((res) => res.json())
+        .then((data) => setSavedRecipients(data || []))
+        .catch((err) => {
+          console.error("Failed to load recipients for initial customer:", err);
+          setSavedRecipients([]);
+        });
+    }
+  }, [initialCustomer?.id]);
 
   // Search customers when query changes
   useEffect(() => {

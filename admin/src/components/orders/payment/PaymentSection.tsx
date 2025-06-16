@@ -233,22 +233,48 @@ const PaymentSection: React.FC<Props> = ({
           order.recipientAddress.address1
         ) {
           try {
-            await fetch(`/api/customers/${customerState.customerId}/recipients`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                firstName: order.recipientFirstName,
-                lastName: order.recipientLastName,
-                phone: cleanPhoneNumber(order.recipientPhone),
-                address1: order.recipientAddress.address1,
-                address2: order.recipientAddress.address2,
-                city: order.recipientAddress.city,
-                province: order.recipientAddress.province,
-                postalCode: order.recipientAddress.postalCode,
-                country: order.recipientAddress.country || "CA",
-                company: order.recipientCompany,
-              }),
-            });
+            // First, get existing recipients to check for duplicates
+            const existingResponse = await fetch(`/api/customers/${customerState.customerId}/recipients`);
+            const existingRecipients = existingResponse.ok ? await existingResponse.json() : [];
+            
+            // Check if recipient already exists (match by name and address)
+            const existingRecipient = existingRecipients.find((r: any) => 
+              r.firstName?.toLowerCase() === order.recipientFirstName?.toLowerCase() &&
+              r.lastName?.toLowerCase() === order.recipientLastName?.toLowerCase() &&
+              r.address1?.toLowerCase() === order.recipientAddress.address1?.toLowerCase() &&
+              r.city?.toLowerCase() === order.recipientAddress.city?.toLowerCase()
+            );
+            
+            const recipientData = {
+              firstName: order.recipientFirstName,
+              lastName: order.recipientLastName,
+              phone: cleanPhoneNumber(order.recipientPhone),
+              address1: order.recipientAddress.address1,
+              address2: order.recipientAddress.address2,
+              city: order.recipientAddress.city,
+              province: order.recipientAddress.province,
+              postalCode: order.recipientAddress.postalCode,
+              country: order.recipientAddress.country || "CA",
+              company: order.recipientCompany,
+            };
+            
+            if (existingRecipient) {
+              // Update existing recipient
+              await fetch(`/api/customers/${customerState.customerId}/recipients/${existingRecipient.id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(recipientData),
+              });
+              console.log("✅ Updated existing recipient:", existingRecipient.id);
+            } else {
+              // Create new recipient
+              await fetch(`/api/customers/${customerState.customerId}/recipients`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(recipientData),
+              });
+              console.log("✅ Created new recipient");
+            }
           } catch (error) {
             console.error("Failed to auto-save recipient:", error);
           }

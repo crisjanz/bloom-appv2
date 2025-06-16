@@ -221,6 +221,7 @@ const totalDiscountAmount = appliedDiscounts.reduce((sum, discount) => sum + dis
             <TakeOrderOverlay
               onComplete={handleDeliveryOrderComplete}
               onCancel={handleDeliveryOrderCancel}
+              selectedCustomer={selectedCustomer}
             />
           ) : (
             <POSGrid 

@@ -15,12 +15,14 @@ type Props = {
   isOverlay?: boolean;
   onComplete?: (orderData: any) => void;
   onCancel?: () => void;
+  initialCustomer?: any;
 };
 
 export default function TakeOrderPage({ 
   isOverlay = false, 
   onComplete, 
-  onCancel 
+  onCancel,
+  initialCustomer
 }: Props) {
   // 🔹 Employee State
   const [employee, setEmployee] = useState("");
@@ -47,7 +49,7 @@ export default function TakeOrderPage({
   const [messageSuggestions, setMessageSuggestions] = useState<any[]>([]);
 
   // 🔥 Custom Hooks
-  const customerState = useCustomerSearch();
+  const customerState = useCustomerSearch(initialCustomer);
   const orderState = useOrderState();
 
   // ✅ Get total delivery fee from all orders
