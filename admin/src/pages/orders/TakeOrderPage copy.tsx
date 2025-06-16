@@ -11,24 +11,14 @@ import { usePaymentCalculations } from "../../hooks/usePaymentCalculations";
 import { useCustomerSearch } from "../../hooks/useCustomerSearch";
 import { useOrderState } from '../../hooks/useOrderState';
 
-type Props = {
-  isOverlay?: boolean;
-  onComplete?: (orderData: any) => void;
-  onCancel?: () => void;
-};
-
-export default function TakeOrderPage({ 
-  isOverlay = false, 
-  onComplete, 
-  onCancel 
-}: Props) {
+export default function TakeOrderPage() {
   // 🔹 Employee State
   const [employee, setEmployee] = useState("");
   const [employeeList, setEmployeeList] = useState<{ id: string; name: string; type: string }[]>([]);
   const [formError, setFormError] = useState<string | null>(null);
   const [orderSource, setOrderSource] = useState<"phone" | "walkin">("phone");
   
-  // 🔹 Discount state
+  // 🔹 ADD THESE: Discount state
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [manualDiscount, setManualDiscount] = useState(0);
   const [manualDiscountType, setManualDiscountType] = useState<"$" | "%">("$");
@@ -53,7 +43,7 @@ export default function TakeOrderPage({
   // ✅ Get total delivery fee from all orders
   const totalDeliveryFee = orderState.getTotalDeliveryFee();
 
-  // ✅ Helper function to calculate items total properly
+  // ✅ FIX: Helper function to calculate items total properly
   const calculateItemsTotal = () => {
     return orderState.orders.reduce((sum, order) => {
       return sum + order.customProducts.reduce((pSum, p) => {
@@ -64,7 +54,7 @@ export default function TakeOrderPage({
     }, 0);
   };
 
-  // ✅ Calculate manual discount amount with proper parsing
+  // ✅ FIX: Calculate manual discount amount with proper parsing
   const itemsTotal = calculateItemsTotal();
   const manualDiscountAmount = manualDiscountType === "%" 
     ? (itemsTotal + totalDeliveryFee) * manualDiscount / 100
@@ -96,49 +86,10 @@ export default function TakeOrderPage({
       );
   }, []);
 
-  // Handle order completion - different behavior for POS overlay vs standalone page
-  const handleOrderComplete = () => {
-    if (isOverlay && onComplete) {
-      // POS overlay mode - return order data to POS
-      const orderData = {
-        type: 'delivery_order',
-        customer: customerState.customer,
-        orders: orderState.orders,
-        totals: {
-          itemTotal,
-          deliveryFee: totalDeliveryFee,
-          discount: totalDiscount,
-          gst,
-          pst,
-          grandTotal
-        },
-        employee,
-        orderSource: isOverlay ? 'pos' : orderSource,
-        description: `${orderState.orders[0]?.deliveryType === 'pickup' ? 'Pickup' : 'Delivery'} Order - ${customerState.customer.firstName} ${customerState.customer.lastName}`,
-        displayName: `${orderState.orders[0]?.deliveryType === 'pickup' ? 'Pickup' : 'Delivery'} Order`,
-        total: grandTotal
-      };
-      
-      onComplete(orderData);
-    } else {
-      // Standalone page mode - normal order completion
-      customerState.resetCustomer();
-      orderState.resetOrders();
-      setCouponDiscount(0);
-      setManualDiscount(0);
-      setManualDiscountType("$");
-      setGiftCardDiscount(0);
-    }
-  };
-
   return (
-    <div className={isOverlay ? "" : "mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10"}>
-      {!isOverlay && (
-        <>
-          <PageMeta title="Take Order" />
-          <PageBreadcrumb pageTitle="Take Order" />
-        </>
-      )}
+    <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
+      <PageMeta title="Take Order" />
+      <PageBreadcrumb pageTitle="Take Order" />
 
       <div className="space-y-6">
         {/* Employee Selection */}
@@ -146,7 +97,7 @@ export default function TakeOrderPage({
           employee={employee}
           setEmployee={setEmployee}
           employeeList={employeeList}
-          orderSource={isOverlay ? 'pos' : orderSource}
+          orderSource={orderSource}
           setOrderSource={setOrderSource}
           formData={{
             customer: customerState.customer,
@@ -157,7 +108,7 @@ export default function TakeOrderPage({
             couponCode: "",
             subscribe: false,
             sendEmailReceipt: false,
-            orderSource: isOverlay ? 'pos' : orderSource,
+            orderSource,
           }}
           onSaveDraft={(draftData) => {
             if (draftData.customer) {
@@ -166,7 +117,7 @@ export default function TakeOrderPage({
             if (draftData.orders) {
               orderState.setOrders(draftData.orders);
             }
-            if (draftData.orderSource && !isOverlay) {
+            if (draftData.orderSource) {
               setOrderSource(draftData.orderSource);
             }
           }}
@@ -223,7 +174,7 @@ export default function TakeOrderPage({
           grandTotal={grandTotal}
           totalDeliveryFee={totalDeliveryFee}
           employee={employee}
-          orderSource={isOverlay ? 'pos' : orderSource}
+          orderSource={orderSource}
           cleanPhoneNumber={cleanPhoneNumber}
           couponDiscount={couponDiscount}
           setCouponDiscount={setCouponDiscount}
@@ -233,7 +184,14 @@ export default function TakeOrderPage({
           setManualDiscountType={setManualDiscountType}
           giftCardDiscount={giftCardDiscount}
           setGiftCardDiscount={setGiftCardDiscount}
-          onOrderComplete={handleOrderComplete}
+          onOrderComplete={() => {
+            customerState.resetCustomer();
+            orderState.resetOrders();
+            setCouponDiscount(0);
+            setManualDiscount(0);
+            setManualDiscountType("$");
+            setGiftCardDiscount(0);
+          }}
         />
       </div>
 

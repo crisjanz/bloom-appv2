@@ -604,3 +604,12 @@ model GiftCardTransaction {
   
   giftCard    GiftCard  @relation(fields: [giftCardId], references: [id])
 }
+
+model POSSettings {
+  id        String   @id @default(cuid())
+  tabs      Json     // Store tab configuration as JSON
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("pos_settings")
+}

@@ -778,3 +778,73 @@ span.flatpickr-weekday,
 .simplebar-scrollbar.simplebar-visible:before {
   @apply opacity-100;
 }
+
+/* Add to your index.css or main CSS file */
+.auto-fit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 24px; /* 1/4 inch at 96 DPI */
+}
+
+@media (min-width: 1024px) {
+  .auto-fit-grid {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+}
+
+@media (min-width: 1280px) {
+  .auto-fit-grid {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+}
+
+/* Update your index.css with Safari-specific fixes */
+@utility pos-scrollbar {
+ /* Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(89, 116, 133, 0.3) transparent;
+
+  /* Webkit - Always visible but minimal */
+  &::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.0);
+    border-radius: 2px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: rgba(89, 116, 133, 0.4);
+    border-radius: 2px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: rgba(89, 116, 133, 0.6);
+  }
+
+  &::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-button {
+    display: none;
+  }
+}
+
+/* Dark mode support */
+.dark .pos-scrollbar::-webkit-scrollbar-track,
+.dark .ios-style-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dark .pos-scrollbar::-webkit-scrollbar-thumb,
+.dark .ios-style-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.dark .pos-scrollbar::-webkit-scrollbar-thumb:hover,
+.dark .ios-style-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}

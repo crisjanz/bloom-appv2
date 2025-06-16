@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import GoogleMapsProvider from "./components/form/GoogleMapsProvider"; // Add this import
+import GoogleMapsProvider from "./components/form/GoogleMapsProvider";
 
 import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
@@ -36,21 +36,27 @@ import DeliveryPage from "./pages/settings/delivery";
 import NotificationsPage from "./pages/settings/notifications";
 import OrdersPage from "./pages/settings/orders";
 import DiscountsPage from "./pages/settings/discounts";
-import POSPage from "./pages/settings/pos";
+import POSSettingsPage from "./pages/settings/pos";
 import PrintPage from "./pages/settings/print";
 import EventsPage from "./pages/settings/events";
 import WebsitePage from "./pages/settings/website";
 import MiscPage from "./pages/settings/misc";
+import POSPage from "./pages/pos/POSPage"; 
+import FullscreenPOS from "./pages/pos/FullscreenPOS";
 
 export default function App() {
   return (
-    <GoogleMapsProvider> {/* Wrap the entire app */}
+    <GoogleMapsProvider>
       <Router>
         <ScrollToTop />
         <Routes>
           {/* Public routes */}
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
+
+          {/* POS route - OUTSIDE AppLayout for fullscreen */}
+          <Route path="/pos" element={<POSPage />} />
+	  <Route path="/pos/fullscreen" element={<FullscreenPOS />} />
 
           {/* Main dashboard layout */}
           <Route path="/" element={<AppLayout />}>
@@ -68,16 +74,19 @@ export default function App() {
             <Route path="videos" element={<Videos />} />
             <Route path="line-chart" element={<LineChart />} />
             <Route path="bar-chart" element={<BarChart />} />
+            
+            {/* Product routes */}
             <Route path="products" element={<ProductsPage />} />
             <Route path="products/new" element={<NewProductPage />} />
             <Route path="products/edit/:id" element={<NewProductPage />} />
             <Route path="products/view/:id" element={<ViewProductPage />} />
-            <Route path="/orders/new" element={<TakeOrderPage />} />
-	    <Route path="orders" element={<OrdersListPage />} />
-	    <Route path="orders/:id/edit" element={<OrderEditPage />} /> 
-	    <Route path="orders/:id" element={<OrderEditPage />} />
             <Route path="products/categories" element={<CategoriesPage />} />
-
+            
+            {/* Order routes */}
+            <Route path="orders/new" element={<TakeOrderPage />} />
+            <Route path="orders" element={<OrdersListPage />} />
+            <Route path="orders/:id/edit" element={<OrderEditPage />} /> 
+            <Route path="orders/:id" element={<OrderEditPage />} />
             
             {/* Customer routes */}
             <Route path="customers" element={<CustomersPage />} />
@@ -92,7 +101,7 @@ export default function App() {
             <Route path="settings/notifications" element={<NotificationsPage />} />
             <Route path="settings/orders" element={<OrdersPage />} />
             <Route path="settings/discounts" element={<DiscountsPage />} />
-            <Route path="settings/pos" element={<POSPage />} />
+            <Route path="settings/pos" element={<POSSettingsPage />} />
             <Route path="settings/print" element={<PrintPage />} />
             <Route path="settings/events" element={<EventsPage />} />
             <Route path="settings/website" element={<WebsitePage />} />

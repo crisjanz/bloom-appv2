@@ -34,6 +34,11 @@ const navItems: NavItem[] = [
     icon: <ListIcon />,
     path: "/orders/new",
   },
+    {
+    name: "POS Terminal",
+    icon: <GridIcon />,
+    path: "/pos/fullscreen",
+  },
   {
     icon: <GridIcon />,
     name: "Dashboard",
