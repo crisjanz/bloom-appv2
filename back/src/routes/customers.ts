@@ -296,6 +296,34 @@ router.post('/:id/addresses', async (req, res) => {
   }
 });
 
+// GET /api/customers/:id/messages - get customer's previous card messages
+router.get("/:id/messages", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Get unique card messages from customer's previous orders
+    const orders = await prisma.order.findMany({
+      where: { 
+        customerId: id,
+        cardMessage: { not: null }
+      },
+      select: { cardMessage: true },
+      distinct: ['cardMessage'],
+      orderBy: { createdAt: 'desc' },
+      take: 10 // Limit to last 10 unique messages
+    });
+
+    const messages = orders
+      .map(order => order.cardMessage)
+      .filter(message => message && message.trim().length > 0);
+
+    res.json(messages);
+  } catch (err) {
+    console.error("Failed to fetch customer messages:", err);
+    res.status(500).json({ error: "Failed to load customer messages" });
+  }
+});
+
 // GET customer by ID (with addresses) - MUST BE LAST!
 router.get("/:id", async (req, res) => {
   const { id } = req.params;
