@@ -230,11 +230,46 @@ const PaymentSection: React.FC<Props> = ({
 
         console.log('✅ Draft orders created successfully:', result.drafts);
 
-        // Create transfer data for POS using draft orders (which have real order numbers)
+        // Calculate individual order totals for POS
+        const ordersWithIndividualTotals = result.drafts.map((draftOrder, index) => {
+          const originalOrder = ordersWithRecipientIds[index];
+          
+          // Calculate this order's item total
+          const orderItemTotal = originalOrder.customProducts.reduce((sum, product) => {
+            return sum + (parseFloat(product.price) || 0) * (parseInt(product.qty) || 0);
+          }, 0);
+          
+          // Each order gets its own delivery fee
+          const orderDeliveryFee = originalOrder.deliveryFee || 0;
+          
+          // For now, distribute discounts proportionally (could be improved)
+          const totalItemsValue = itemTotal;
+          const orderDiscountRatio = totalItemsValue > 0 ? orderItemTotal / totalItemsValue : 0;
+          const orderDiscount = (manualDiscount + couponDiscount + giftCardDiscount) * orderDiscountRatio;
+          
+          // Calculate order subtotal and taxes
+          const orderSubtotal = orderItemTotal + orderDeliveryFee - orderDiscount;
+          const orderGst = orderSubtotal * 0.05; // 5% GST
+          const orderPst = orderSubtotal * 0.07; // 7% PST (adjust based on province)
+          const orderGrandTotal = orderSubtotal + orderGst + orderPst;
+          
+          return {
+            ...draftOrder,
+            individualTotal: orderGrandTotal,
+            itemTotal: orderItemTotal,
+            deliveryFee: orderDeliveryFee,
+            discount: orderDiscount,
+            gst: orderGst,
+            pst: orderPst,
+            subtotal: orderSubtotal
+          };
+        });
+
+        // Create transfer data for POS using draft orders with individual totals
         const transferData = {
           type: 'pos_transfer',
           customer: customerState.customer,
-          orders: result.drafts, // Use draft orders with real order numbers
+          orders: ordersWithIndividualTotals, // Use orders with individual totals
           draftIds: result.drafts.map(d => d.id), // Store draft IDs for later
           totals: {
             itemTotal,
@@ -299,6 +334,68 @@ const PaymentSection: React.FC<Props> = ({
       }
 
       console.log('✅ Orders created successfully:', result.orders);
+
+      // 💰 Create PT-XXXX payment transaction for all non-POS payments
+      if (payments.length > 0 || giftCardDiscount > 0) {
+        try {
+          console.log('💳 Creating PT-XXXX payment transaction...');
+          
+          // Map payment methods to PT transaction format
+          const paymentMethods = [];
+          
+          // Add regular payment methods
+          for (const payment of payments) {
+            const mappedMethod = mapTakeOrderPaymentToAPI(payment);
+            if (mappedMethod) {
+              paymentMethods.push(mappedMethod);
+            }
+          }
+          
+          // Add gift card payment if present
+          if (giftCardDiscount > 0 && !payments.some(p => p.method === 'gift_card')) {
+            paymentMethods.push({
+              type: 'GIFT_CARD',
+              provider: 'INTERNAL',
+              amount: giftCardDiscount
+            });
+          }
+
+          if (paymentMethods.length > 0) {
+            const employeeId = employee; // Should be employee ID, not name
+            const transactionResponse = await fetch('/api/payment-transactions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                customerId: customerState.customerId,
+                employeeId: employeeId,
+                channel: 'PHONE',
+                totalAmount: grandTotal,
+                taxAmount: gst + pst,
+                tipAmount: 0,
+                notes: `Phone order from ${customerState.customerName || 'customer'}`,
+                paymentMethods: paymentMethods,
+                orderIds: result.orders.map((order: any) => order.id)
+              }),
+            });
+
+            if (transactionResponse.ok) {
+              const transaction = await transactionResponse.json();
+              console.log('✅ PT transaction created:', transaction.transactionNumber);
+              
+              // You could store the transaction number for display/receipt purposes
+              orderData.transactionNumber = transaction.transactionNumber;
+            } else {
+              const error = await transactionResponse.json();
+              console.error('❌ Failed to create PT transaction:', error);
+              // Continue with order completion even if PT transaction fails
+              setFormError(`Orders created but payment tracking failed: ${error.error}`);
+            }
+          }
+        } catch (error) {
+          console.error('❌ PT transaction creation failed:', error);
+          // Continue with order completion even if PT transaction fails
+        }
+      }
 
       if (giftCardNumbers.length > 0) {
         console.log('🎁 Activating gift cards...');
@@ -459,6 +556,70 @@ const PaymentSection: React.FC<Props> = ({
       />
     </>
   );
+};
+
+// Helper function to map TakeOrder payment methods to PT transaction API format
+const mapTakeOrderPaymentToAPI = (payment: any) => {
+  const baseMethod = {
+    type: mapPaymentMethodType(payment.method),
+    provider: getPaymentProvider(payment.method),
+    amount: payment.amount
+  };
+
+  // Add method-specific data based on payment type
+  switch (payment.method) {
+    case 'credit':
+    case 'debit':
+      return {
+        ...baseMethod,
+        providerTransactionId: payment.metadata?.transactionId,
+        cardLast4: payment.metadata?.cardLast4,
+        cardBrand: payment.metadata?.cardBrand
+      };
+    case 'gift_card':
+      return {
+        ...baseMethod,
+        giftCardNumber: payment.metadata?.cardNumber
+      };
+    case 'check':
+      return {
+        ...baseMethod,
+        checkNumber: payment.metadata?.checkNumber
+      };
+    case 'cod':
+    case 'cash':
+    case 'wire':
+    case 'house_account':
+      return baseMethod;
+    default:
+      return baseMethod;
+  }
+};
+
+// Helper function to map payment method names to API enum values
+const mapPaymentMethodType = (method: string): string => {
+  const methodMap: Record<string, string> = {
+    'cash': 'CASH',
+    'credit': 'CARD',
+    'debit': 'CARD',
+    'gift_card': 'GIFT_CARD',
+    'store_credit': 'STORE_CREDIT',
+    'check': 'CHECK',
+    'cod': 'COD',
+    'wire': 'CHECK', // Wire transfers treated as checks for now
+    'house_account': 'STORE_CREDIT' // House account treated as store credit
+  };
+  
+  return methodMap[method] || 'CASH';
+};
+
+// Helper function to determine payment provider based on method and channel
+const getPaymentProvider = (method: string): string => {
+  // TakeOrder (phone) channel uses Square for card payments, internal for everything else
+  if (method === 'credit' || method === 'debit') {
+    return 'SQUARE'; // Phone orders use Square for card payments
+  }
+  return 'INTERNAL'; // Cash, gift cards, checks, COD, house accounts use internal processing
 };
 
 export default PaymentSection;

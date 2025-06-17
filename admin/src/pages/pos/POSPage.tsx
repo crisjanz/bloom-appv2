@@ -153,7 +153,9 @@ const handleRemoveCoupon = () => {
       
       if (order.orderNumber) {
         // This is from database with real order number (draft or completed)
-        orderTotal = order.paymentAmount ? order.paymentAmount / 100 : orderData.totals?.grandTotal || 0;
+        // Use individual order total if available, otherwise fall back to proportional calculation
+        orderTotal = order.individualTotal || 
+                    (order.paymentAmount ? order.paymentAmount / 100 : orderData.totals?.grandTotal || 0);
         orderNumber = order.orderNumber;
         orderId = order.id;
         console.log(`✅ Using database order #${orderNumber} with total $${orderTotal}`);
@@ -224,21 +226,22 @@ const handleRemoveCoupon = () => {
     setShowPaymentController(true);
   };
 
-  const handlePaymentComplete = () => {
-    console.log('💳 Payment completed successfully!');
-    
-    // TODO: Create PaymentTransaction record
-    // TODO: Update order statuses from DRAFT to PAID
-    
-    // Clear cart, discounts, and reset state
-    setCartItems([]);
-    setSelectedCustomer(null);
-    setShowPaymentController(false);
-    setAppliedDiscounts([]);
-    setGiftCardDiscount(0);
-    setCouponDiscount(0);
-    
-    console.log('✅ POS reset to empty state');
+  const handlePaymentComplete = (transactionData) => {
+    if (transactionData) {
+      console.log('💳 Payment completed successfully!', transactionData);
+      // PaymentController will show OrderCompletionSummary
+      // Don't reset anything yet - wait for "New Order" button
+    } else {
+      console.log('🔄 New Order - Resetting POS state');
+      // This is called when user clicks "New Order" in OrderCompletionSummary
+      setCartItems([]);
+      setSelectedCustomer(null);
+      setShowPaymentController(false);
+      setAppliedDiscounts([]);
+      setGiftCardDiscount(0);
+      setCouponDiscount({amount: 0});
+      console.log('✅ POS reset to empty state');
+    }
   };
 
   const handlePaymentCancel = () => {

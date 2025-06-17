@@ -1,4 +1,4 @@
-// components/pos/payment/PaymentController.tsx - Complete working version
+// components/pos/payment/PaymentController.tsx - Complete working version with PT-XXXX integration
 import { FC, useState } from "react";
 import PaymentMethodGrid from "./PaymentMethodGrid";
 import SplitPaymentView from "./SplitPaymentView";
@@ -9,9 +9,10 @@ import CardPaymentModal from "./CardPaymentModal";
 type PaymentView = 'methods' | 'split' | 'completion';
 
 type CompletionData = {
-  transactionId: string;
+  transactionNumber: string; // PT-XXXX number from backend
+  transactionId: string;     // Database ID for the transaction
   totalAmount: number;
-  paymentMethods: Array<{ method: string; amount: number }>;
+  paymentMethods: Array<{ method: string; amount: number; details?: any }>;
   completedOrders: Array<{
     id: string;
     type: 'delivery' | 'pos';
@@ -24,10 +25,15 @@ type Props = {
   open: boolean;
   total: number;
   cartItems?: any[];
+  customer?: any; // Customer object with id, firstName, lastName, etc.
   customerName?: string;
-  onComplete: () => void;
+  orderIds?: string[]; // Array of order IDs being paid for
+  employeeId?: string; // Current employee processing payment
+  taxAmount?: number;
+  tipAmount?: number;
+  onComplete: (transactionData?: any) => void;
   onCancel: () => void;
-  // Discount props - ADD THESE BACK
+  // Discount props
   appliedDiscounts?: Array<{type: string, amount: number, description: string}>;
   onDiscountsChange?: (discounts: Array<{type: string, amount: number, description: string}>) => void;
   onGiftCardChange?: (amount: number) => void;
@@ -38,10 +44,14 @@ const PaymentController: FC<Props> = ({
   open, 
   total, 
   cartItems = [], 
+  customer,
   customerName,
+  orderIds = [],
+  employeeId,
+  taxAmount = 0,
+  tipAmount = 0,
   onComplete, 
   onCancel,
-  // ADD THESE BACK
   appliedDiscounts = [],
   onDiscountsChange,
   onGiftCardChange,
@@ -50,6 +60,10 @@ const PaymentController: FC<Props> = ({
   const [currentView, setCurrentView] = useState<PaymentView>('methods');
   const [completionData, setCompletionData] = useState<CompletionData | null>(null);
   
+  // Payment processing state
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
+  
   // Coupon state
   const [couponCode, setCouponCode] = useState('');
   const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
@@ -57,7 +71,7 @@ const PaymentController: FC<Props> = ({
   const [couponSuccess, setCouponSuccess] = useState('');
   const [isCouponValid, setIsCouponValid] = useState(false);
   
-  // Modal states for popups - KEEP THESE
+  // Modal states for popups
   const [showCashModal, setShowCashModal] = useState(false);
   const [showCardModal, setShowCardModal] = useState(false);
 
@@ -165,36 +179,145 @@ const PaymentController: FC<Props> = ({
     }
   };
 
+  // Create PT-XXXX transaction via API
+  const createPaymentTransaction = async (paymentMethods: Array<{ method: string; amount: number; details?: any }>) => {
+    setIsProcessingPayment(true);
+    setPaymentError('');
+
+    // Handle guest customers by creating or using a default guest customer
+    let customerId = customer?.id;
+    
+    if (!customerId) {
+      console.log('No customer provided, creating/using guest customer...');
+      try {
+        // Create or get a default guest customer
+        const guestResponse = await fetch('/api/customers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            firstName: 'Walk-in',
+            lastName: 'Customer',
+            email: null,
+            phone: null
+          })
+        });
+        
+        if (guestResponse.ok) {
+          const guestCustomer = await guestResponse.json();
+          customerId = guestCustomer.id;
+          console.log('Guest customer created/retrieved:', customerId);
+        } else {
+          throw new Error('Failed to create guest customer');
+        }
+      } catch (error) {
+        console.error('Failed to create guest customer:', error);
+        setPaymentError('Failed to process payment: Customer setup failed');
+        setIsProcessingPayment(false);
+        return;
+      }
+    }
+
+    try {
+      // Map payment methods to API format
+      const apiPaymentMethods = paymentMethods.map(pm => {
+        const baseMethod = {
+          type: mapPaymentMethodType(pm.method),
+          provider: getPaymentProvider(pm.method),
+          amount: pm.amount
+        };
+
+        // Add method-specific data
+        if (pm.method === 'credit' || pm.method === 'debit') {
+          return {
+            ...baseMethod,
+            providerTransactionId: pm.details?.transactionId,
+            cardLast4: pm.details?.cardLast4,
+            cardBrand: pm.details?.cardBrand
+          };
+        } else if (pm.method === 'gift_card') {
+          return {
+            ...baseMethod,
+            giftCardNumber: pm.details?.cardNumber
+          };
+        } else if (pm.method === 'check') {
+          return {
+            ...baseMethod,
+            checkNumber: pm.details?.checkNumber
+          };
+        }
+
+        return baseMethod;
+      });
+
+      const response = await fetch('/api/payment-transactions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          customerId: customerId,
+          employeeId: employeeId,
+          channel: 'POS',
+          totalAmount: total,
+          taxAmount: taxAmount,
+          tipAmount: tipAmount,
+          notes: `POS transaction for ${customerName || customer?.firstName + ' ' + customer?.lastName || 'Walk-in Customer'}`,
+          paymentMethods: apiPaymentMethods,
+          orderIds: orderIds
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to process payment');
+      }
+
+      const transaction = await response.json();
+      
+      const completion: CompletionData = {
+        transactionNumber: transaction.transactionNumber,
+        transactionId: transaction.id,
+        totalAmount: total,
+        paymentMethods: paymentMethods,
+        completedOrders: transformCartToOrders(cartItems, customerName),
+      };
+
+      setCompletionData(completion);
+      setCurrentView('completion');
+      setShowCashModal(false);
+      setShowCardModal(false);
+
+      // Call onComplete with transaction data
+      onComplete({
+        transactionNumber: transaction.transactionNumber,
+        transactionId: transaction.id,
+        totalAmount: total,
+        customerId: customerId,
+        orderIds: orderIds
+      });
+
+    } catch (error) {
+      console.error('Payment processing failed:', error);
+      setPaymentError(error instanceof Error ? error.message : 'Payment processing failed');
+    } finally {
+      setIsProcessingPayment(false);
+    }
+  };
+
   // Handle single payment completion (cash/card)
   const handleSinglePaymentComplete = (method: string, paymentData?: any) => {
-    const transactionId = generateTransactionId();
+    const paymentMethods = [{ 
+      method, 
+      amount: total,
+      details: paymentData 
+    }];
     
-    const completion: CompletionData = {
-      transactionId,
-      totalAmount: total,
-      paymentMethods: [{ method, amount: total }],
-      completedOrders: transformCartToOrders(cartItems, customerName),
-    };
-
-    setCompletionData(completion);
-    setCurrentView('completion');
-    setShowCashModal(false);
-    setShowCardModal(false);
+    createPaymentTransaction(paymentMethods);
   };
 
   // Handle split payment completion
-  const handleSplitPaymentComplete = (paymentMethods: Array<{ method: string; amount: number }>) => {
-    const transactionId = generateTransactionId();
-    
-    const completion: CompletionData = {
-      transactionId,
-      totalAmount: total,
-      paymentMethods,
-      completedOrders: transformCartToOrders(cartItems, customerName),
-    };
-
-    setCompletionData(completion);
-    setCurrentView('completion');
+  const handleSplitPaymentComplete = (paymentMethods: Array<{ method: string; amount: number; details?: any }>) => {
+    createPaymentTransaction(paymentMethods);
   };
 
   // Handle new order
@@ -230,6 +353,28 @@ const PaymentController: FC<Props> = ({
           Total: <span className="text-2xl font-bold text-[#597485]">${total.toFixed(2)}</span>
         </p>
 
+        {paymentError && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+            <p className="text-red-600 text-sm font-medium">Payment Error</p>
+            <p className="text-red-500 text-sm">{paymentError}</p>
+            <button
+              onClick={() => setPaymentError('')}
+              className="text-red-600 hover:text-red-700 text-sm underline mt-1"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {isProcessingPayment && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+            <div className="flex items-center justify-center space-x-2">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#597485]"></div>
+              <p className="text-[#597485] font-medium">Processing Payment...</p>
+            </div>
+          </div>
+        )}
+
         <PaymentMethodGrid
           selectedMethod=""
           onSelect={handleMethodSelect}
@@ -245,6 +390,7 @@ const PaymentController: FC<Props> = ({
           onManualDiscount={handleManualDiscount}
           appliedDiscounts={appliedDiscounts}
           onCouponAdd={handleCouponAdd}
+          disabled={isProcessingPayment}
         />
 
         {/* Cash Payment Modal */}
@@ -281,12 +427,13 @@ const PaymentController: FC<Props> = ({
     return (
       <OrderCompletionSummary
         transactionId={completionData.transactionId}
+        transactionNumber={completionData.transactionNumber}
         totalAmount={completionData.totalAmount}
         paymentMethods={completionData.paymentMethods}
         completedOrders={completionData.completedOrders}
-        onEmailReceipt={() => console.log('Email receipt')}
-        onPrintReceipt={() => console.log('Print receipt')}
-        onProcessRefund={() => console.log('Process refund')}
+        onEmailReceipt={() => console.log('Email receipt for', completionData.transactionNumber)}
+        onPrintReceipt={() => console.log('Print receipt for', completionData.transactionNumber)}
+        onProcessRefund={() => console.log('Process refund for', completionData.transactionNumber)}
         onNewOrder={handleNewOrder}
       />
     );
@@ -295,11 +442,27 @@ const PaymentController: FC<Props> = ({
   return null;
 };
 
-// Helper functions
-const generateTransactionId = (): string => {
-  const timestamp = Date.now();
-  const id = (timestamp % 99999).toString().padStart(5, '0');
-  return `PT-${id}`;
+// Helper functions for payment method mapping
+const mapPaymentMethodType = (method: string): string => {
+  const methodMap: Record<string, string> = {
+    'cash': 'CASH',
+    'credit': 'CARD',
+    'debit': 'CARD', 
+    'gift_card': 'GIFT_CARD',
+    'store_credit': 'STORE_CREDIT',
+    'check': 'CHECK',
+    'cod': 'COD'
+  };
+  
+  return methodMap[method] || 'CASH';
+};
+
+const getPaymentProvider = (method: string): string => {
+  // Channel-specific provider selection based on your design
+  if (method === 'credit' || method === 'debit') {
+    return 'SQUARE'; // POS uses Square for card payments
+  }
+  return 'INTERNAL'; // Cash, gift cards, checks use internal processing
 };
 
 const transformCartToOrders = (cartItems: any[], customerName?: string) => {

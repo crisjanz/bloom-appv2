@@ -75,12 +75,8 @@ export default function RecipientCard({
       .catch((err) => console.error("Failed to load shortcuts:", err));
   }, []);
 
-  // Add this useEffect in RecipientCard.tsx after your existing useEffects
-useEffect(() => {
-}, [recipientAddress]);
 
-// Add this useEffect after your existing ones
-  useEffect(() => {
+useEffect(() => {
     if (orderType === "DELIVERY" && 
         recipientAddress.address1 && 
         recipientAddress.city && 
@@ -362,27 +358,26 @@ useEffect(() => {
                   value={recipientAddress.address1}
                   onChange={(value) => setRecipientAddress({ ...recipientAddress, address1: value })}
 onAddressSelect={(parsedAddress) => {
-  
-  const newAddress = {
-    ...recipientAddress,
-    ...parsedAddress,
-  };
-  
-  setRecipientAddress(newAddress);
-  
-  // Add delivery calculation for autocomplete selections
-  if (orderType === "DELIVERY" && onDeliveryFeeCalculated && !isManuallyEdited) { // ✅ Add check
-    setTimeout(() => {
-      calculateDeliveryFee(
-        parsedAddress.address1,
-        parsedAddress.city,
-        parsedAddress.postalCode,
-        parsedAddress.province,
-        onDeliveryFeeCalculated
-      );
-    }, 100);
-  }
-}}
+                    const newAddress = {
+                      ...recipientAddress,
+                      ...parsedAddress,
+                    };
+                    
+                    setRecipientAddress(newAddress);
+                    
+                    // Add delivery calculation for autocomplete selections
+                    if (orderType === "DELIVERY" && onDeliveryFeeCalculated && !isManuallyEdited) {
+                      setTimeout(() => {
+                        calculateDeliveryFee(
+                          parsedAddress.address1,
+                          parsedAddress.city,
+                          parsedAddress.postalCode,
+                          parsedAddress.province,
+                          onDeliveryFeeCalculated
+                        );
+                      }, 100);
+                    }
+                  }}
 
                   placeholder="Enter street address"
                 />

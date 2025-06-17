@@ -256,8 +256,10 @@ export default function TakeOrderPage({
         customerId={customerState.customerId}
         onSubmit={() => {
           const updated = [...orderState.orders];
-          updated[orderState.activeTab].cardMessage = selectedSuggestion;
-          orderState.setOrders(updated);
+          if (updated[orderState.activeTab]) {
+            updated[orderState.activeTab].cardMessage = selectedSuggestion;
+            orderState.setOrders(updated);
+          }
           setShowSuggestions(false);
         }}
       />

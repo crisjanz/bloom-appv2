@@ -61,6 +61,7 @@ const createEmptyOrder = (): OrderEntry => ({
 export const useOrderState = () => {
   const [orders, setOrders] = useState<OrderEntry[]>([createEmptyOrder()]);
   const [activeTab, setActiveTab] = useState(0);
+  
 
   const addOrder = () => {
     setOrders([...orders, createEmptyOrder()]);
@@ -89,6 +90,12 @@ export const useOrderState = () => {
   };
 
   const updateOrderDeliveryFee = (orderIndex: number, fee: number) => {
+    // Guard against invalid order index
+    if (orderIndex < 0 || orderIndex >= orders.length) {
+      console.warn('updateOrderDeliveryFee: Invalid orderIndex', orderIndex, 'orders length:', orders.length);
+      return;
+    }
+    
     const updated = [...orders];
     updated[orderIndex].deliveryFee = fee;
     setOrders(updated);

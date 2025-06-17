@@ -1,6 +1,5 @@
 // src/components/orders/MultiOrderTabs.tsx
-import React from "react";
-import { useEffect } from "react";
+import React, { useEffect } from "react";
 import ComponentCard from "../common/ComponentCard";
 import RecipientCard from "./RecipientCard";
 import DeliveryCard from "./DeliveryCard";
@@ -68,6 +67,7 @@ export default function MultiOrderTabs({
   updateOrderDeliveryFee,
   updateOrderManualEditFlag,
 }: Props) {
+  
   const maxTabs = 5;
 
 
@@ -140,14 +140,15 @@ export default function MultiOrderTabs({
 
   const order = orders[activeTab];
   if (!order) {
-  return (
-    <ComponentCard>
-      <div className="p-4 text-center">
-        <div className="text-gray-500">Loading order...</div>
-      </div>
-    </ComponentCard>
-  );
-}
+    return (
+      <ComponentCard>
+        <div className="p-4 text-center">
+          <div className="text-gray-500">Loading order...</div>
+        </div>
+      </ComponentCard>
+    );
+  }
+
 
   return (
     <ComponentCard>
@@ -275,6 +276,7 @@ export default function MultiOrderTabs({
             setCardMessage(val);
           }}
           setShowSuggestions={setShowSuggestions}
+          activeTab={activeTab}
         />
 
         <ProductsCard

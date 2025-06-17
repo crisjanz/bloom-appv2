@@ -16,6 +16,7 @@ type Props = {
   cardMessage: string;
   setCardMessage: (val: string) => void;
   setShowSuggestions: (val: boolean) => void;
+  activeTab?: number; // Add activeTab for unique IDs
 };
 
 export default function DeliveryCard({
@@ -28,6 +29,7 @@ export default function DeliveryCard({
   cardMessage,
   setCardMessage,
   setShowSuggestions,
+  activeTab = 0,
 }: Props) {
   return (
     <ComponentCard title="Delivery Details & Message">
@@ -38,7 +40,8 @@ export default function DeliveryCard({
           <div className="flex flex-col gap-4 sm:flex-row">
             <div className="w-full sm:w-1/2">
               <DeliveryDatePicker
-                id="delivery-date-picker"
+                key={`delivery-date-${activeTab}`}
+                id={`delivery-date-picker-${activeTab}`}
                 label="Delivery Date"
                 placeholder="Select a date"
                 value={deliveryDate}

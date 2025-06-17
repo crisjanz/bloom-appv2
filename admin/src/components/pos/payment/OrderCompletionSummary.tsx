@@ -22,6 +22,7 @@ type CompletedOrder = {
 
 type Props = {
   transactionId: string;
+  transactionNumber?: string; // PT-XXXX number
   totalAmount: number;
   paymentMethods: PaymentMethod[];
   completedOrders: CompletedOrder[];
@@ -33,6 +34,7 @@ type Props = {
 
 const OrderCompletionSummary: FC<Props> = ({
   transactionId,
+  transactionNumber,
   totalAmount,
   paymentMethods,
   completedOrders,
@@ -63,7 +65,7 @@ const OrderCompletionSummary: FC<Props> = ({
           Transaction Complete!
         </h1>
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          ID: <span className="font-mono font-semibold text-[#597485]">{transactionId}</span>
+          Transaction: <span className="font-mono font-semibold text-[#597485]">{transactionNumber || transactionId}</span>
         </p>
       </div>
 
