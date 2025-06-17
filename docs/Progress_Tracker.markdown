@@ -29,6 +29,12 @@ Todos are grouped by feature and sorted by priority within each group. Partially
 - [x] **Develop delivery order overlay in POS** (Completed 2025-06-17)
 - [ ] Complete Customer Creation in POS (Status to be confirmed).
 - [ ] Implement Order History display for selected customers (Status to be confirmed).
+- [ ] **Improve recipient selection workflow** (New requirement from real-world use)
+  - Add "Create duplicate recipient with new name" option when selecting existing recipients
+  - Use case: Delivery to same address but different person (e.g., dentist office, different patient)
+  - Current options: Update existing recipient OR create new recipient from scratch
+  - Needed: Third option to duplicate address but change recipient name
+  - Status: Needs design and implementation
 
 ### Medium Priority
 - [ ] Enhance mobile responsiveness for tablet touch optimization (Phase 6).

@@ -169,3 +169,13 @@ Bloom is a comprehensive flower shop management system designed to digitize and 
   - Customer satisfaction: Streamlined ordering.
   - Staff efficiency: Reduced manual errors.
   - Revenue growth: Increased online/subscription sales.
+
+## Real-World Improvement Opportunities
+Based on actual shop usage and comparison with FloraNext:
+
+### Recipient Selection Enhancement (High Priority)
+- **Current Issue**: When selecting existing recipient, only two options: "Update existing" or "Create new from scratch"
+- **Real-World Need**: Third option to "Duplicate recipient with new name" 
+- **Use Case**: Deliveries to same address but different recipients (e.g., dentist office → different patient names)
+- **Business Impact**: Saves time, reduces errors, improves customer service efficiency
+- **Implementation**: Add duplicate option to recipient selection workflow with pre-filled address fields
