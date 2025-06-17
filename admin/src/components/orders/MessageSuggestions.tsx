@@ -34,8 +34,24 @@ export default function MessageSuggestions({
       // Fetch customer's previously used messages
       setIsLoading(true);
       fetch(`/api/customers/${customerId}/messages`)
-        .then((res) => res.json())
-        .then((data) => setCustomerMessages(data || []))
+        .then((res) => {
+          console.log('Customer messages response status:', res.status);
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+          }
+          return res.text().then(text => {
+            try {
+              return JSON.parse(text);
+            } catch (e) {
+              console.error('Invalid JSON response:', text);
+              throw new Error('Invalid JSON response from server');
+            }
+          });
+        })
+        .then((data) => {
+          console.log('Customer messages loaded:', data);
+          setCustomerMessages(data || []);
+        })
         .catch((err) => console.error("Failed to load customer messages:", err))
         .finally(() => setIsLoading(false));
     }
@@ -98,7 +114,9 @@ export default function MessageSuggestions({
 
           {/* Suggested Messages by Category */}
           {categories.map((category) => {
-            const categoryMessages = suggestions.filter((msg) => msg.label === category);
+            const categoryMessages = suggestions
+              .filter((msg) => msg.label === category)
+              .filter((msg) => !customerMessages.includes(msg.message)); // Filter out duplicates
             if (categoryMessages.length === 0) return null;
 
             return (
