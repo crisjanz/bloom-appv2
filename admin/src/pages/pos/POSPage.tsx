@@ -14,6 +14,7 @@ export default function POSPage() {
   const [showPaymentController, setShowPaymentController] = useState(false);
   const [showDeliveryOrder, setShowDeliveryOrder] = useState(false);
 
+
   // Discount state
   const [appliedDiscounts, setAppliedDiscounts] = useState([]);
   const [giftCardDiscount, setGiftCardDiscount] = useState(0);
@@ -77,10 +78,122 @@ const handleRemoveCoupon = () => {
     setShowDeliveryOrder(true);
   };
 
-  const handleDeliveryOrderComplete = () => {
-    console.log('✅ Delivery order completed');
+  const handleDeliveryOrderComplete = (orderData) => {
+    console.log('✅ Delivery order completed', orderData);
+    
+    // Handle POS transfer (draft + direct transfer)
+    if (orderData.type === 'pos_transfer') {
+      console.log('🔄 Processing POS transfer with draft data');
+      
+      // Set customer if provided
+      if (orderData.customer) {
+        setSelectedCustomer({
+          id: orderData.customer.id || null,
+          name: `${orderData.customer.firstName} ${orderData.customer.lastName}`.trim(),
+          email: orderData.customer.email,
+          phone: orderData.customer.phone,
+          firstName: orderData.customer.firstName,
+          lastName: orderData.customer.lastName
+        });
+      }
+
+      // Convert and add items to cart (like product grid)
+      const cartItemsToAdd = convertOrdersToCartItems(orderData);
+      setCartItems(prev => [...prev, ...cartItemsToAdd]);
+      
+      console.log(`✅ Added ${cartItemsToAdd.length} draft orders to POS cart`);
+      setShowDeliveryOrder(false);
+      return;
+    }
+    
+    // Convert TakeOrder data to POS cart items
+    if (orderData && orderData.orders) {
+      const cartItemsToAdd = convertOrdersToCartItems(orderData);
+      
+      // Add all items to cart
+      cartItemsToAdd.forEach(item => {
+        setCartItems(prevItems => {
+          const existingItem = prevItems.find(existing => existing.id === item.id);
+          
+          if (existingItem) {
+            // Increase quantity if item already exists
+            return prevItems.map(existing => 
+              existing.id === item.id 
+                ? { ...existing, quantity: existing.quantity + item.quantity }
+                : existing
+            );
+          } else {
+            // Add new item
+            return [...prevItems, item];
+          }
+        });
+      });
+      
+      console.log(`🛒 Added ${cartItemsToAdd.length} items to POS cart`);
+    }
+    
     setShowDeliveryOrder(false);
-    // TODO: Add the delivery order as a line item to cart
+  };
+
+  // Helper function to convert TakeOrder data to POS cart items
+  const convertOrdersToCartItems = (orderData) => {
+    const cartItems = [];
+    
+    console.log('🔍 Converting orders to cart items:', orderData.orders);
+    
+    orderData.orders.forEach((order, orderIndex) => {
+      console.log(`🔍 Processing order ${orderIndex}:`, order);
+      console.log(`🔍 Order keys:`, Object.keys(order));
+      console.log(`🔍 Order number field:`, order.orderNumber, order.id, order.number);
+      
+      // Handle different order structures (from TakeOrder vs from Database)
+      let orderTotal = 0;
+      let orderNumber = orderIndex + 1;
+      let orderId = order.id;
+      
+      if (order.orderNumber) {
+        // This is from database with real order number (draft or completed)
+        orderTotal = order.paymentAmount ? order.paymentAmount / 100 : orderData.totals?.grandTotal || 0;
+        orderNumber = order.orderNumber;
+        orderId = order.id;
+        console.log(`✅ Using database order #${orderNumber} with total $${orderTotal}`);
+      } else if (order.customProducts && Array.isArray(order.customProducts)) {
+        // This is the original TakeOrder structure
+        const productsTotal = order.customProducts.reduce((sum, product) => {
+          const price = parseFloat(product.price) || 0;
+          const qty = parseInt(product.qty) || 1;
+          return sum + (price * qty);
+        }, 0);
+        orderTotal = productsTotal + (order.deliveryFee || 0);
+        orderNumber = orderIndex + 1; // Fallback for non-database orders
+        console.log(`📝 Using TakeOrder structure with total $${orderTotal}`);
+      } else {
+        // Fallback
+        orderTotal = order.grandTotal || order.totalAmount || order.total || 0;
+        orderNumber = orderIndex + 1;
+        orderId = order.id;
+        console.log(`⚠️ Using fallback structure with total $${orderTotal}`);
+      }
+      
+      console.log(`💰 Order ${orderIndex} total: $${orderTotal}, number: ${orderNumber}`);
+      
+      // Create single consolidated item for the entire order
+      const orderItem = {
+        id: `order-${orderId || orderIndex}-${Date.now()}`,
+        name: `Order #${orderNumber}`,
+        category: 'TakeOrder',
+        price: orderTotal,
+        quantity: 1,
+        isCustom: true,
+        tax: false,
+        draftOrderId: orderId // Store the order ID for updating payment status later
+      };
+      
+      cartItems.push(orderItem);
+    });
+    
+    console.log('✅ Converted cart items:', cartItems);
+    return cartItems;
   };
 
   const handleDeliveryOrderCancel = () => {

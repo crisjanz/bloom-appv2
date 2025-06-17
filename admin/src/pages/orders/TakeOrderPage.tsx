@@ -99,9 +99,16 @@ export default function TakeOrderPage({
   }, []);
 
   // Handle order completion - different behavior for POS overlay vs standalone page
-  const handleOrderComplete = () => {
+  const handleOrderComplete = (transferData?: any) => {
     if (isOverlay && onComplete) {
-      // POS overlay mode - return order data to POS
+      // If transferData is provided (from "Send to POS"), use it directly
+      if (transferData) {
+        console.log('🔄 Passing POS transfer data:', transferData);
+        onComplete(transferData);
+        return;
+      }
+      
+      // Otherwise, regular POS overlay mode - return order data to POS
       const orderData = {
         type: 'delivery_order',
         customer: customerState.customer,

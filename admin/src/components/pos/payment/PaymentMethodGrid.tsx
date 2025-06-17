@@ -1,22 +1,9 @@
-// components/pos/payment/PaymentMethodGrid.tsx - Remove discount display from payment section
+// components/pos/payment/PaymentMethodGrid.tsx - Using centralized payment methods config
 import { FC, useState, useEffect } from "react";
-import {
-  DollarLineIcon,
-  CreditCardIcon,
-  BoltIcon,
-  TruckIcon,
-} from "../../../icons";
+import { getPaymentMethods } from "../../../utils/paymentMethods";
 import GiftCardInput from "../../orders/payment/GiftCardInput";
 import CouponInput from "../../orders/payment/CouponInput";
 import DiscountModal from "./DiscountModal";
-
-type PaymentMethod = {
-  id: string;
-  label: string;
-  icon: JSX.Element;
-  enabled: boolean;
-  isCustom?: boolean;
-};
 
 type Props = {
   selectedMethod: string;
@@ -53,63 +40,11 @@ const PaymentMethodGrid: FC<Props> = ({
   appliedDiscounts = [],
   onCouponAdd
 }) => {
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([
-    {
-      id: "cash",
-      label: "Cash",
-      icon: <DollarLineIcon className="w-6 h-6 text-green-600" />,
-      enabled: true
-    },
-    {
-      id: "credit",
-      label: "Credit Card",
-      icon: <CreditCardIcon className="w-6 h-6 text-purple-600" />,
-      enabled: true
-    },
-    {
-      id: "split",
-      label: "Split Payment",
-      icon: <BoltIcon className="w-6 h-6 text-red-500" />,
-      enabled: true
-    },
-    {
-      id: "cod",
-      label: "COD",
-      icon: <TruckIcon className="w-6 h-6 text-orange-600" />,
-      enabled: true
-    },
-    {
-      id: "house_account",
-      label: "House Account",
-      icon: <CreditCardIcon className="w-6 h-6 text-blue-600" />,
-      enabled: true
-    },
-    {
-      id: "paypal",
-      label: "PayPal",
-      icon: <CreditCardIcon className="w-6 h-6 text-indigo-600" />,
-      enabled: true
-    },
-    {
-      id: "offline",
-      label: "Offline Payment",
-      icon: <DollarLineIcon className="w-6 h-6 text-gray-600" />,
-      enabled: true
-    }
-  ]);
-
-  const [customMethods, setCustomMethods] = useState<PaymentMethod[]>([]);
+  // Get POS payment methods from centralized config
+  const posPaymentMethods = getPaymentMethods('pos');
   const [showDiscountModal, setShowDiscountModal] = useState(false);
   const [showGiftCardModal, setShowGiftCardModal] = useState(false);
   const [showCouponModal, setShowCouponModal] = useState(false);
-
-  // Load custom payment methods from settings
-  useEffect(() => {
-    // TODO: Fetch from settings API
-    // fetch('/api/settings/payment-methods')
-    //   .then(res => res.json())
-    //   .then(data => setCustomMethods(data.custom || []));
-  }, []);
 
   return (
     <div className="space-y-6">
@@ -118,9 +53,7 @@ const PaymentMethodGrid: FC<Props> = ({
       <div>
         <h3 className="text-lg font-semibold text-black dark:text-white mb-4">Payment Method</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[...paymentMethods, ...customMethods]
-            .filter(method => method.enabled)
-            .map((method) => {
+          {posPaymentMethods.map((method) => {
               const isSelected = selectedMethod === method.id;
 
               return (

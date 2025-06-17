@@ -269,18 +269,11 @@ const handleCustomerSelect = (selectedCustomer: any) => {
                         <h4 className="font-semibold text-black dark:text-white text-sm mb-1">
                           {item.name}
                         </h4>
-                        <div className="flex gap-2">
-                          {item.isCustom && (
-                            <span className="text-xs bg-orange-100 dark:bg-orange-900 text-orange-600 dark:text-orange-400 px-2 py-1 rounded-full">
-                              Custom
-                            </span>
-                          )}
-                          {item.customPrice !== undefined && (
-                            <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-full">
-                              Custom Price
-                            </span>
-                          )}
-                        </div>
+                        {item.category === 'TakeOrder' && (
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Transferred from TakeOrder
+                          </div>
+                        )}
                       </div>
                       
                       <button

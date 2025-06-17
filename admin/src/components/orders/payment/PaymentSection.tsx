@@ -1,7 +1,7 @@
 // src/components/orders/payment/PaymentSection.tsx
 import React, { useState } from 'react';
 import PaymentCard from '../PaymentCard';
-import PaymentModal from '../PaymentModal';
+import TakeOrderPaymentModal from './TakeOrderPaymentModal';
 import GiftCardActivationModal from './GiftCardActivationModal';
 import { orderContainsGiftCards } from '../../../utils/giftCardHelpers';
 
@@ -18,9 +18,9 @@ type Props = {
   pst: number;
   grandTotal: number;
   employee: string;
-  orderSource: "phone" | "walkin";
+  orderSource: "phone" | "walkin" | "pos";
   cleanPhoneNumber: (value: string) => string;
-  onOrderComplete: () => void;
+  onOrderComplete: (transferData?: any) => void;
   totalDeliveryFee: number;
   couponDiscount: number;
   setCouponDiscount: (val: number) => void;
@@ -61,6 +61,7 @@ const PaymentSection: React.FC<Props> = ({
   const [showGiftCardActivation, setShowGiftCardActivation] = useState(false);
   const [giftCardNumbers, setGiftCardNumbers] = useState<any[]>([]);
   const [pendingGiftCardRedemptions, setPendingGiftCardRedemptions] = useState<any[]>([]);
+  const [isProcessingPOSTransfer, setIsProcessingPOSTransfer] = useState(false);
 
   const currentOrder = orderState.orders[orderState.activeTab];
   const hasGiftCards = currentOrder ? orderContainsGiftCards(currentOrder.customProducts) : false;
@@ -159,6 +160,106 @@ const PaymentSection: React.FC<Props> = ({
     if (!payments.length && amountAfterGiftCards > 0) {
       setFormError("No payments were entered.");
       return;
+    }
+
+    // Check if this is a "Send to POS" payment
+    const posTransferPayment = payments.find(p => p.method === 'send_to_pos');
+    
+    if (posTransferPayment) {
+      // Prevent multiple submissions
+      if (isProcessingPOSTransfer) {
+        console.log('⏳ POS transfer already in progress...');
+        return;
+      }
+      
+      setIsProcessingPOSTransfer(true);
+      
+      // Handle Send to POS - save as draft and transfer directly
+      console.log('📤 Saving as draft and transferring to POS...');
+      
+      try {
+        // First, create/update recipients using customer API
+        const ordersWithRecipientIds = await Promise.all(
+          orderState.orders.map(async (order) => {
+            if (order.orderType === 'DELIVERY') {
+              // Use customer recipient API to create/update recipient
+              const recipientResponse = await fetch(`/api/customers/${customerState.customerId}/recipients`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  firstName: order.recipientFirstName,
+                  lastName: order.recipientLastName,
+                  phone: cleanPhoneNumber(order.recipientPhone),
+                  address1: order.recipientAddress.address1,
+                  address2: order.recipientAddress.address2,
+                  city: order.recipientAddress.city,
+                  province: order.recipientAddress.province,
+                  postalCode: order.recipientAddress.postalCode,
+                  country: order.recipientAddress.country || "CA",
+                  company: order.recipientCompany,
+                })
+              });
+              
+              const recipient = await recipientResponse.json();
+              return { ...order, recipientId: recipient.id };
+            }
+            return order;
+          })
+        );
+
+        // Create DRAFT orders (data safety) using draft API
+        const draftOrderData = {
+          customerId: customerState.customerId,
+          orders: ordersWithRecipientIds,
+        };
+
+        console.log('📦 Creating draft orders...', draftOrderData);
+        const response = await fetch('/api/orders/save-draft', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(draftOrderData)
+        });
+
+        const result = await response.json();
+        if (!result.success) {
+          console.error('❌ Draft creation failed:', result);
+          setFormError(result.error || 'Failed to create draft orders');
+          setIsProcessingPOSTransfer(false);
+          return;
+        }
+
+        console.log('✅ Draft orders created successfully:', result.drafts);
+
+        // Create transfer data for POS using draft orders (which have real order numbers)
+        const transferData = {
+          type: 'pos_transfer',
+          customer: customerState.customer,
+          orders: result.drafts, // Use draft orders with real order numbers
+          draftIds: result.drafts.map(d => d.id), // Store draft IDs for later
+          totals: {
+            itemTotal,
+            deliveryFee: totalDeliveryFee,
+            discount: manualDiscount + couponDiscount + giftCardDiscount,
+            gst,
+            pst,
+            grandTotal
+          },
+          employee,
+          orderSource: 'takeorder_to_pos'
+        };
+
+        // Use existing callback mechanism with transfer data!
+        console.log('✅ Transferring to POS via callback...');
+        setShowPaymentPopup(false);
+        onOrderComplete(transferData); // Pass transfer data directly to TakeOrderPage
+        return;
+
+      } catch (error) {
+        console.error("Error creating draft orders:", error);
+        setFormError("Failed to create draft orders for POS transfer.");
+        setIsProcessingPOSTransfer(false);
+        return;
+      }
     }
 
     try {
@@ -347,7 +448,7 @@ const PaymentSection: React.FC<Props> = ({
         orderItems={currentOrder?.customProducts || []}
         onActivationComplete={handleGiftCardNumbersCollected}
       />
-      <PaymentModal
+      <TakeOrderPaymentModal
         open={showPaymentPopup}
         onClose={() => setShowPaymentPopup(false)}
         total={grandTotal}

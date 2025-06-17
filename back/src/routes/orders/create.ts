@@ -28,26 +28,12 @@ router.post('/create', async (req, res) => {
     for (const orderData of orders) {
       console.log('Creating order for:', orderData.orderType);
       
-      // Create recipient address if delivery
-      let recipientId = null;
-      if (orderData.orderType === 'DELIVERY') {
-        const recipient = await prisma.address.create({
-          data: {
-            firstName: orderData.recipientFirstName,
-            lastName: orderData.recipientLastName,
-            company: orderData.recipientCompany || '',
-            phone: orderData.recipientPhone,
-            address1: orderData.recipientAddress.address1,
-            address2: orderData.recipientAddress.address2 || '',
-            city: orderData.recipientAddress.city,
-            province: orderData.recipientAddress.province,
-            postalCode: orderData.recipientAddress.postalCode,
-            country: orderData.recipientAddress.country || 'CA',
-            customerId: customerId, // Link to customer
-          }
-        });
-        recipientId = recipient.id;
-        console.log('Recipient address created:', recipient.id);
+      // Use existing recipient ID if provided, otherwise skip recipient creation
+      // Recipients should be created/managed through the customer API, not here
+      let recipientId = orderData.recipientId || null;
+      
+      if (orderData.orderType === 'DELIVERY' && !recipientId) {
+        console.warn('⚠️ Delivery order created without recipientId - recipient should be managed via customer API');
       }
 
       // Calculate totals

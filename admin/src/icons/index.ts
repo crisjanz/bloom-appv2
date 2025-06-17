@@ -23,21 +23,23 @@ import { ReactComponent as TrashBinIcon } from "./trash.svg?react";
 import { ReactComponent as TrashIcon } from "./trash.svg?react";
 import { ReactComponent as AngleUpIcon } from "./angle-up.svg?react";
 import { ReactComponent as AngleDownIcon } from "./angle-down.svg?react";
+// Removed empty angle icons that were causing SVG parser errors
 import { ReactComponent as PencilIcon } from "./pencil.svg?react";
 import { ReactComponent as CheckLineIcon } from "./check-line.svg?react";
 import { ReactComponent as CloseLineIcon } from "./close-line.svg?react";
 import { ReactComponent as ChevronDownIcon } from "./chevron-down.svg?react";
 import { ReactComponent as ChevronUpIcon } from "./chevron-up.svg?react";
+import { ReactComponent as ChevronLeftIcon } from "./chevron-left.svg?react";
 import { ReactComponent as PaperPlaneIcon } from "./paper-plane.svg?react";
 import { ReactComponent as LockIcon } from "./lock.svg?react";
 import { ReactComponent as EnvelopeIcon } from "./envelope.svg?react";
 import { ReactComponent as UserIcon } from "./user-line.svg?react";
 import { ReactComponent as CalenderIcon } from "./calender-line.svg?react";
+import { ReactComponent as CalendarIcon } from "./calendar.svg?react";
 import { ReactComponent as EyeIcon } from "./eye.svg?react";
 import { ReactComponent as EyeCloseIcon } from "./eye-close.svg?react";
 import { ReactComponent as TimeIcon } from "./time.svg?react";
 import { ReactComponent as CopyIcon } from "./copy.svg?react";
-import { ReactComponent as ChevronLeftIcon } from "./chevron-left.svg?react";
 import { ReactComponent as UserCircleIcon } from "./user-circle.svg?react";
 import { ReactComponent as TaskIcon } from "./task-icon.svg?react";
 import { ReactComponent as ListIcon } from "./list.svg?react";
@@ -59,61 +61,59 @@ import { ReactComponent as LinkIcon } from "./link.svg?react";
 import { ReactComponent as CreditCardIcon } from "./creditcard.svg?react";
 import { ReactComponent as SaveIcon } from "./save.svg?react";
 import { ReactComponent as XIcon } from "./x.svg?react";
-import { ReactComponent as CalendarIcon } from "./calender-line.svg?react";
 import { ReactComponent as PhotoIcon } from "./image.svg?react";
+
+// Essential payment-related icons only 
+import { ReactComponent as DollarSignIcon } from "./dollar-sign.svg?react";
+import { ReactComponent as HomeIcon } from "./home.svg?react";
+import { ReactComponent as GlobeIcon } from "./globe.svg?react";
+import { ReactComponent as PhoneIcon } from "./phone.svg?react";
+import { ReactComponent as SlashIcon } from "./slash.svg?react";
 
 
 export {
-TrashIcon,
-PhotoIcon,
-CalendarIcon,
-XIcon,
-SaveIcon,
-CreditCardIcon,
-  LinkIcon,
-  TruckIcon,
-  SettingsIcon,
-  ErrorHexaIcon,
-  AlertHexaIcon,
-  MoreDotIcon,
-  DownloadIcon,
-  FileIcon,
-  GridIcon,
-  AudioIcon,
-  VideoIcon,
-  BoltIcon,
+  // Core icons
   PlusIcon,
-  BoxIcon,
   CloseIcon,
+  BoxIcon,
   CheckCircleIcon,
   AlertIcon,
   InfoIcon,
   ErrorIcon,
+  BoltIcon,
   ArrowUpIcon,
-  FolderIcon,
   ArrowDownIcon,
   ArrowRightIcon,
+  FolderIcon,
+  VideoIcon,
+  AudioIcon,
+  GridIcon,
+  FileIcon,
+  DownloadIcon,
   GroupIcon,
   BoxIconLine,
   ShootingStarIcon,
   DollarLineIcon,
   TrashBinIcon,
+  TrashIcon,
   AngleUpIcon,
   AngleDownIcon,
   PencilIcon,
   CheckLineIcon,
   CloseLineIcon,
   ChevronDownIcon,
+  ChevronUpIcon,
+  ChevronLeftIcon,
   PaperPlaneIcon,
-  EnvelopeIcon,
   LockIcon,
+  EnvelopeIcon,
   UserIcon,
   CalenderIcon,
+  CalendarIcon,
   EyeIcon,
   EyeCloseIcon,
   TimeIcon,
   CopyIcon,
-  ChevronLeftIcon,
   UserCircleIcon,
   TaskIcon,
   ListIcon,
@@ -125,6 +125,22 @@ CreditCardIcon,
   DocsIcon,
   MailIcon,
   HorizontaLDots,
-  ChevronUpIcon,
   ChatIcon,
+  MoreDotIcon,
+  AlertHexaIcon,
+  ErrorHexaIcon,
+  SettingsIcon,
+  TruckIcon,
+  LinkIcon,
+  CreditCardIcon,
+  SaveIcon,
+  XIcon,
+  PhotoIcon,
+  
+  // Additional payment icons
+  DollarSignIcon,
+  HomeIcon,
+  GlobeIcon,
+  PhoneIcon,
+  SlashIcon,
 };
