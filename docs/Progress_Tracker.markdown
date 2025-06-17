@@ -13,6 +13,13 @@ Todos are grouped by feature and sorted by priority within each group. Partially
   - Replaced complex session storage with direct callback mechanism
   - Orders transfer without page reload or fullscreen exit
   - Maintains real database order numbers in POS cart
+  - **Fixed multi-order datepicker isolation** (Completed 2025-06-17)
+    - Each order maintains its own delivery date using React key prop
+    - Prevents date sharing between order tabs
+  - **Fixed POS individual order totals** (Completed 2025-06-17)
+    - POS now receives correct individual order totals instead of combined total
+    - Proportional discount distribution across multiple orders
+    - Eliminates duplicate total display in POS cart
 - [x] Build PaymentMethodGrid for card-based payment selection (Phase 3).
 - [x] Implement CashPaymentModal with change calculation (Phase 3).
 - [/] Create CardPaymentModal with terminal integration and manual entry (Card is functional, needs to be connected to provider)
@@ -58,6 +65,11 @@ Todos are grouped by feature and sorted by priority within each group. Partially
   - [x] Integrated PT-XXXX system with TakeOrder payment methods
   - [x] Updated order status workflow (DRAFT → PAID) when PT transaction completes
   - [x] Added PT transaction display to order views and receipts
+  - [x] **Customer message history system** (Completed 2025-06-17)
+    - Created /api/customers/:id/messages endpoint
+    - Retrieves customer's previous card messages from order history
+    - Displays last 10 unique messages in suggestion dropdown
+    - Improves user experience with personalized message options
 - [ ] **Integration testing with POS/TakeOrder components**
   - [ ] Test PT-XXXX system with actual POS payment flow
   - [ ] Test PT-XXXX system with TakeOrder payment flow
@@ -181,6 +193,11 @@ Todos are grouped by feature and sorted by priority within each group. Partially
 - [/] Complete OrdersListPage.tsx with order history/search (Partially complete, needs filters).
 - [ ] Implement order status workflow (DRAFT → PAID → SCHEDULED → COMPLETED).
 - [x] Develop order editing for existing orders.
+- [x] **Multi-order system improvements** (Completed 2025-06-17)
+  - [x] Fixed delivery fee calculation per order instead of global
+  - [x] Enhanced order state management with proper React hooks
+  - [x] Improved debugging and error handling
+  - [x] Cleaned up console logging and development artifacts
 - [ ] Create order cancellation with refund processing.
 - [ ] Create Partial Refund processiing in OrderPage.
 - [ ] Extract useMessageSuggestions and useEmployeeData hooks.
