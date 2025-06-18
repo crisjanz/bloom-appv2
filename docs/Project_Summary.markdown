@@ -92,7 +92,20 @@ Bloom is a comprehensive flower shop management system designed to digitize and 
   - POS Configuration (tab management, grid size, color themes).
 - **Planned**: 38 remaining cards (e.g., Tax, Coupons, Notifications, Print).
 
-### 4. Customer Website (Planned)
+### 4. Gift Card System
+- **Complete Purchase/Activation Workflow**:
+  - **Physical Cards**: Enter preprinted card numbers, activate with customer details.
+  - **Digital Cards**: System-generated card numbers (GC-XXXX-XXXX format), email delivery.
+  - **Recipient Management**: Separate recipient details from purchaser for gift giving.
+  - **Print Functionality**: Professional gift card layout for immediate handoff.
+  - **Integration**: Works in both POS and TakeOrder with PT-XXXX transaction system.
+  - **Tax Compliance**: Respects product isTaxable flags (gift cards non-taxable).
+- **Management Interface**:
+  - Dedicated GiftCardsPage with search, filtering, and transaction history.
+  - Card status tracking (INACTIVE → ACTIVE → USED/EXPIRED).
+  - Balance management and deactivation capabilities.
+
+### 5. Customer Website (Planned)
 - **E-commerce**:
   - Product catalog with search, categories, and smart product pages (delivery date picker, card messages, upsells).
   - Shopping cart with delivery scheduling and checkout.
@@ -102,11 +115,11 @@ Bloom is a comprehensive flower shop management system designed to digitize and 
 - **Subscriptions**:
   - Weekly/monthly plans with auto-billing (Stripe/Square).
   - Customer portal for managing subscriptions.
-- **Gift Certificates**:
-  - Digital cards ($25, $50, $100, custom up to $500).
-  - Email delivery and online/POS redemption.
+- **Online Gift Card Integration**:
+  - Website purchase of digital gift cards with email delivery.
+  - Online redemption interface for customers.
 
-### 5. Delivery & Logistics
+### 6. Delivery & Logistics
 - **Features**:
   - Zone-based pricing with Google Maps integration.
   - Address shortcuts for common venues.
@@ -120,17 +133,17 @@ Bloom is a comprehensive flower shop management system designed to digitize and 
   - Delivery date picker with holiday restrictions.
   - Recipient management with duplicate prevention via customer API integration.
 
-### 6. Printing & Hardware
+### 7. Printing & Hardware
 - **Printers**: Receipt (front POS), ticket (networked, polling-based), document (shared network).
 - **Hardware**: Dual computers (front POS, back office), Stripe/Square terminals, local print servers.
 - **Planned**: Local print server, receipt/ticket printing, offline sync.
 
-### 7. Communication
+### 8. Communication
 - **Customer Notifications**: SMS (order confirmations, delivery updates), email receipts, subscription alerts.
 - **Business Notifications**: Owner alerts (new orders, low inventory), staff assignments.
 - **Planned**: Twilio/Nexmo SMS integration, automated email system.
 
-### 8. Error Handling & Monitoring
+### 9. Error Handling & Monitoring
 - **Connection Monitoring**: Status indicator (Green/Amber/Red), periodic health checks.
 - **Error Notifications**: Toast messages for network/validation errors, detailed logging.
 - **Offline Capabilities**: Local storage, transaction queuing, read-only mode.
@@ -159,6 +172,16 @@ Bloom is a comprehensive flower shop management system designed to digitize and 
 - **Technology**: Mobile apps, AI for demand forecasting, advanced analytics, third-party integrations (QuickBooks, Mailchimp).
 - **Market**: Multi-location support, franchise model, white-label solutions, B2B marketplace.
 - **Café Integration**: Café-specific POS, ticket number system, department reporting.
+
+## Common Issues & Solutions
+
+### Modal Z-Index Problems
+**Issue**: Modals don't cover the dashboard header (header stays white/visible while modal background is dark)
+**Root Cause**: AppHeader has `z-99999` while most modals use `z-50`
+**Solution**: Update modal z-index to `z-[100000]` or higher
+**Files to Check**:
+- Header: `/admin/src/layout/AppHeader.tsx` (line 44, `z-99999`)
+- Modal components: Look for `fixed inset-0` divs with low z-index values
 
 ## Success Metrics
 - **Technical**:

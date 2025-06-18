@@ -20,6 +20,9 @@ const GiftCardActivationModal: React.FC<Props> = ({
 }) => {
   const [cardNumbers, setCardNumbers] = useState<{ [key: string]: string }>({});
   const [customAmounts, setCustomAmounts] = useState<{ [key: string]: number }>({});
+  const [cardTypes, setCardTypes] = useState<{ [key: string]: 'PHYSICAL' | 'DIGITAL' }>({});
+  const [recipientEmails, setRecipientEmails] = useState<{ [key: string]: string }>({});
+  const [recipientNames, setRecipientNames] = useState<{ [key: string]: string }>({});
   const [activating, setActivating] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
@@ -39,6 +42,24 @@ const giftCardSummary = getGiftCardSummary(orderItems);
     }));
   };
 
+  const handleCardTypeChange = (itemId: string, type: 'PHYSICAL' | 'DIGITAL') => {
+    setCardTypes(prev => ({ ...prev, [itemId]: type }));
+    // Clear card number when switching to digital
+    if (type === 'DIGITAL') {
+      setCardNumbers(prev => ({ ...prev, [itemId]: '' }));
+    }
+    setErrors(prev => ({ ...prev, [itemId]: '', [`${itemId}_email`]: '' }));
+  };
+
+  const handleRecipientEmailChange = (itemId: string, value: string) => {
+    setRecipientEmails(prev => ({ ...prev, [itemId]: value }));
+    setErrors(prev => ({ ...prev, [`${itemId}_email`]: '' }));
+  };
+
+  const handleRecipientNameChange = (itemId: string, value: string) => {
+    setRecipientNames(prev => ({ ...prev, [itemId]: value }));
+  };
+
 // In GiftCardActivationModal.tsx - modify the handleActivateAll function
 const handleActivateAll = async () => {
   setActivating(true);
@@ -47,11 +68,28 @@ const handleActivateAll = async () => {
 
   try {
     for (const item of giftCardSummary) {
+      const cardType = cardTypes[item.id] || 'PHYSICAL';
       const cardNumber = cardNumbers[item.id];
+      const recipientEmail = recipientEmails[item.id];
+      const recipientName = recipientNames[item.id];
       
-      if (!cardNumber?.trim()) {
-        newErrors[item.id] = 'Card number is required';
-        continue;
+      // Validation based on card type
+      if (cardType === 'PHYSICAL') {
+        if (!cardNumber?.trim()) {
+          newErrors[item.id] = 'Card number is required for physical cards';
+          continue;
+        }
+      } else if (cardType === 'DIGITAL') {
+        if (!recipientEmail?.trim()) {
+          newErrors[`${item.id}_email`] = 'Recipient email is required for digital cards';
+          continue;
+        }
+        // Basic email validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(recipientEmail)) {
+          newErrors[`${item.id}_email`] = 'Please enter a valid email address';
+          continue;
+        }
       }
 
       const amount = item.giftCardInfo.isCustomAmount 
@@ -69,8 +107,11 @@ const handleActivateAll = async () => {
       // ✅ Changed: Collect card data for each quantity (don't activate yet)
       for (let i = 0; i < item.quantity; i++) {
         cardDataForActivation.push({
-          cardNumber,
+          cardNumber: cardType === 'PHYSICAL' ? cardNumber : undefined, // Only for physical cards
           amount,
+          type: cardType,
+          recipientEmail: cardType === 'DIGITAL' ? recipientEmail : undefined,
+          recipientName: recipientName || undefined,
           itemId: item.id, // ✅ Add item ID for price override
           originalProduct: item.product // ✅ Add original product reference
         });
@@ -132,25 +173,93 @@ const handleActivateAll = async () => {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Card Number */}
-                <div>
-                  <Label htmlFor={`card-${item.id}`}>Gift Card Number</Label>
-                  <input
-                    id={`card-${item.id}`}
-                    type="text"
-                    placeholder="GC-XXXX-XXXX-XXXX"
-                    value={cardNumbers[item.id] || ''}
-                    onChange={(e) => handleCardNumberChange(item.id, e.target.value)}
-                    className={`w-full p-2 border rounded-md ${errors[item.id] ? 'border-red-500' : 'border-gray-300'} dark:bg-gray-700 dark:border-gray-600 dark:text-white`}
-                  />
-                  {errors[item.id] && (
-                    <p className="mt-1 text-sm text-red-600">{errors[item.id]}</p>
-                  )}
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    💡 Scan or enter from physical card
-                  </p>
+              {/* Card Type Selection */}
+              <div className="mb-4">
+                <Label>Card Type</Label>
+                <div className="flex gap-4 mt-2">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name={`cardType-${item.id}`}
+                      value="PHYSICAL"
+                      checked={(cardTypes[item.id] || 'PHYSICAL') === 'PHYSICAL'}
+                      onChange={() => handleCardTypeChange(item.id, 'PHYSICAL')}
+                      className="mr-2"
+                    />
+                    🎴 Physical Card (preprinted)
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name={`cardType-${item.id}`}
+                      value="DIGITAL"
+                      checked={cardTypes[item.id] === 'DIGITAL'}
+                      onChange={() => handleCardTypeChange(item.id, 'DIGITAL')}
+                      className="mr-2"
+                    />
+                    📱 Digital Card (email delivery)
+                  </label>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Physical Card Number (only for physical cards) */}
+                {(cardTypes[item.id] || 'PHYSICAL') === 'PHYSICAL' && (
+                  <div>
+                    <Label htmlFor={`card-${item.id}`}>Physical Card Number</Label>
+                    <input
+                      id={`card-${item.id}`}
+                      type="text"
+                      placeholder="GC-XXXX-XXXX-XXXX"
+                      value={cardNumbers[item.id] || ''}
+                      onChange={(e) => handleCardNumberChange(item.id, e.target.value)}
+                      className={`w-full p-2 border rounded-md ${errors[item.id] ? 'border-red-500' : 'border-gray-300'} dark:bg-gray-700 dark:border-gray-600 dark:text-white`}
+                    />
+                    {errors[item.id] && (
+                      <p className="mt-1 text-sm text-red-600">{errors[item.id]}</p>
+                    )}
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      💡 Scan or enter from physical card
+                    </p>
+                  </div>
+                )}
+
+                {/* Digital Card Fields (only for digital cards) */}
+                {cardTypes[item.id] === 'DIGITAL' && (
+                  <>
+                    <div>
+                      <Label htmlFor={`email-${item.id}`}>Recipient Email *</Label>
+                      <input
+                        id={`email-${item.id}`}
+                        type="email"
+                        placeholder="recipient@example.com"
+                        value={recipientEmails[item.id] || ''}
+                        onChange={(e) => handleRecipientEmailChange(item.id, e.target.value)}
+                        className={`w-full p-2 border rounded-md ${errors[`${item.id}_email`] ? 'border-red-500' : 'border-gray-300'} dark:bg-gray-700 dark:border-gray-600 dark:text-white`}
+                      />
+                      {errors[`${item.id}_email`] && (
+                        <p className="mt-1 text-sm text-red-600">{errors[`${item.id}_email`]}</p>
+                      )}
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        📧 Gift card will be emailed to this address
+                      </p>
+                    </div>
+                    <div>
+                      <Label htmlFor={`name-${item.id}`}>Recipient Name (optional)</Label>
+                      <input
+                        id={`name-${item.id}`}
+                        type="text"
+                        placeholder="John Smith"
+                        value={recipientNames[item.id] || ''}
+                        onChange={(e) => handleRecipientNameChange(item.id, e.target.value)}
+                        className="w-full p-2 border rounded-md border-gray-300 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      />
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        👤 Optional: Name for personalization
+                      </p>
+                    </div>
+                  </>
+                )}
 
                 {/* Custom Amount (if needed) */}
                 {item.giftCardInfo.isCustomAmount && (
@@ -196,7 +305,7 @@ const handleActivateAll = async () => {
             disabled={activating}
             className="px-4 py-2 bg-[#597485] text-white rounded-md hover:bg-[#597485]/90 disabled:opacity-50"
           >
-            {activating ? 'Activating...' : 'Activate All Cards'}
+{activating ? 'Processing...' : 'Create Gift Cards'}
           </button>
         </div>
       </div>

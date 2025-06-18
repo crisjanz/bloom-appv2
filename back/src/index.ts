@@ -14,6 +14,7 @@ import addressShortcutRoutes from "./routes/addressShortcuts";
 import couponsRouter from './routes/coupons';
 import giftCardsRouter from './routes/gift-cards';
 import ordersRouter from './routes/orders/index';
+import paymentTransactionsRouter from './routes/payment-transactions';
 import { getPOSTabs, savePOSTabs } from './routes/settings/pos-tabs';
 import { getStoreInfo, saveStoreInfo } from './routes/settings/store-info';
 import { getBusinessHours, saveBusinessHours } from './routes/settings/business-hours';
@@ -27,6 +28,7 @@ import {
   getUpcomingHolidays, 
   getActiveHoliday 
 } from './routes/settings/holidays';
+import taxRatesRouter from './routes/settings/tax-rates';
 
 dotenv.config();
 
@@ -61,8 +63,10 @@ app.get('/api/settings/delivery-charges', getDeliveryCharges);
 app.post('/api/settings/delivery-charges', saveDeliveryCharges);
 app.use('/api/gift-cards', giftCardsRouter);
 app.use('/api/orders', ordersRouter);
+app.use('/api/payment-transactions', paymentTransactionsRouter);
 app.get('/api/settings/pos-tabs', getPOSTabs);
 app.post('/api/settings/pos-tabs', savePOSTabs);
+app.use('/api/settings/tax-rates', taxRatesRouter);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'Backend is alive!' });

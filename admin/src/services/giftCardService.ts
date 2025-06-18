@@ -65,6 +65,38 @@ export const activateGiftCard = async (
   }
 };
 
+export const purchaseGiftCards = async (
+  cards: Array<{
+    cardNumber?: string;
+    amount: number;
+    type: 'PHYSICAL' | 'DIGITAL';
+    recipientEmail?: string;
+    recipientName?: string;
+    message?: string;
+  }>,
+  purchasedBy?: string,
+  employeeId?: string,
+  orderId?: string
+) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/purchase`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cards, purchasedBy, employeeId, orderId })
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to purchase gift cards');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error purchasing gift cards:', error);
+    throw error;
+  }
+};
+
 export const fetchGiftCards = async () => {
   try {
     const response = await fetch(`${API_BASE_URL}`);

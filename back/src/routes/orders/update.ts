@@ -205,10 +205,9 @@ if (updateData.orderItems || updateData.recalculateTotal) {
   const subtotal = currentOrderItems.reduce((sum, item) => sum + item.rowTotal, 0);
   const currentDeliveryFee = orderUpdateData.deliveryFee !== undefined ? orderUpdateData.deliveryFee : currentOrder.deliveryFee;
   const currentDiscount = orderUpdateData.discount !== undefined ? orderUpdateData.discount : currentOrder.discount;
-  const currentGst = orderUpdateData.gst !== undefined ? orderUpdateData.gst : currentOrder.gst;
-  const currentPst = orderUpdateData.pst !== undefined ? orderUpdateData.pst : currentOrder.pst;
+  const currentTotalTax = orderUpdateData.totalTax !== undefined ? orderUpdateData.totalTax : currentOrder.totalTax;
   
-  orderUpdateData.paymentAmount = subtotal + currentDeliveryFee - currentDiscount + currentGst + currentPst;
+  orderUpdateData.paymentAmount = subtotal + currentDeliveryFee - currentDiscount + currentTotalTax;
   console.log('Recalculated payment amount:', orderUpdateData.paymentAmount);
 }
 

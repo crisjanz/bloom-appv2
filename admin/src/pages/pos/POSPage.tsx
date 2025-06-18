@@ -6,10 +6,14 @@ import POSCart from '../../components/pos/POSCart';
 import CustomItemModal from '../../components/pos/CustomItemModal';
 import PaymentController from '../../components/pos/payment/PaymentController';
 import TakeOrderOverlay from '../../components/pos/TakeOrderOverlay';
+import { useTaxRates } from '../../hooks/useTaxRates';
 
 export default function POSPage() {
   const [showCustomItemModal, setShowCustomItemModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
+  
+  // Get centralized tax rates
+  const { calculateItemTax } = useTaxRates();
   const [cartItems, setCartItems] = useState([]);
   const [showPaymentController, setShowPaymentController] = useState(false);
   const [showDeliveryOrder, setShowDeliveryOrder] = useState(false);
@@ -49,7 +53,8 @@ const [couponDiscount, setCouponDiscount] = useState<{amount: number, name?: str
         const newItem = {
           ...product, 
           quantity: 1,
-          price: getPrice()
+          price: getPrice(),
+          isTaxable: product.isTaxable ?? true // Include taxability from product data
         };
         
         console.log('🎯 New cart item:', newItem);
@@ -301,17 +306,26 @@ const handleRemoveCoupon = () => {
   // Calculate total discount amount
 const totalDiscountAmount = appliedDiscounts.reduce((sum, discount) => sum + discount.amount, 0) + giftCardDiscount + couponDiscount.amount;
   
-  // Apply discounts before tax
+  // Apply discounts proportionally and calculate tax per item
   const discountedSubtotal = Math.max(0, subtotal - totalDiscountAmount);
-  const tax = discountedSubtotal * 0.12;
-  const calculatedTotal = discountedSubtotal + tax;
+  const discountRatio = subtotal > 0 ? discountedSubtotal / subtotal : 0;
+  
+  // Calculate tax using individual items with their taxability
+  const itemsWithAdjustedPrices = cartItems.map(item => ({
+    ...item,
+    price: (item.customPrice ?? item.price) * discountRatio,
+    isTaxable: item.isTaxable ?? true // Default to taxable if not specified
+  }));
+  
+  const taxCalculation = calculateItemTax(itemsWithAdjustedPrices);
+  const calculatedTotal = discountedSubtotal + taxCalculation.totalAmount;
 
   console.log('📊 Current cart state:', cartItems);
   console.log('💰 Pricing breakdown:', {
     subtotal: subtotal.toFixed(2),
     totalDiscounts: totalDiscountAmount.toFixed(2),
     discountedSubtotal: discountedSubtotal.toFixed(2),
-    tax: tax.toFixed(2),
+    tax: taxCalculation.totalAmount.toFixed(2),
     total: calculatedTotal.toFixed(2)
   });
 

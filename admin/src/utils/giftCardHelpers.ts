@@ -8,17 +8,25 @@ export interface GiftCardProductInfo {
   maxAmount?: number;
 }
 
-// ✅ UPDATED: Check if a product is a gift card (works with both SKU and description)
+// ✅ UPDATED: Check if a product is a gift card (works with SKU, name, and description)
 export const isGiftCardProduct = (product: any): boolean => {
-  // Check both sku (from search results) and description (from custom products)
+  // Check sku first
   const sku = product?.sku;
-  const description = product?.description;
-  
   if (sku && sku.startsWith('GC-')) {
     return true;
   }
   
-  // Check if description contains gift card patterns
+  // Check product name (common case for POS products)
+  const name = product?.name;
+  if (name) {
+    const lowerName = name.toLowerCase();
+    if (lowerName.includes('gift card')) {
+      return true;
+    }
+  }
+  
+  // Check description (fallback)
+  const description = product?.description;
   if (description) {
     const lowerDesc = description.toLowerCase();
     return lowerDesc.includes('gift card') && 
@@ -29,13 +37,14 @@ export const isGiftCardProduct = (product: any): boolean => {
   return false;
 };
 
-// ✅ UPDATED: Get gift card information from product (works with both SKU and description)
+// ✅ UPDATED: Get gift card information from product (works with SKU, name, and description)
 export const getGiftCardInfo = (product: any): GiftCardProductInfo => {
   if (!isGiftCardProduct(product)) {
     return { isGiftCard: false, isCustomAmount: false };
   }
 
   const sku = product?.sku;
+  const name = product?.name?.toLowerCase() || '';
   const description = product?.description?.toLowerCase() || '';
 
   // If we have SKU, use that (most reliable)
@@ -67,11 +76,25 @@ export const getGiftCardInfo = (product: any): GiftCardProductInfo => {
           maxAmount: 300
         };
       default:
-        return { isGiftCard: false, isCustomAmount: false };
+        break; // Continue to name/description parsing
     }
   }
 
-  // Fall back to description parsing (when added via search)
+  // Check product name for amount patterns
+  if (name.includes('$25') || name.includes('25')) {
+    return { isGiftCard: true, value: 25, isCustomAmount: false };
+  }
+  if (name.includes('$50') || name.includes('50')) {
+    return { isGiftCard: true, value: 50, isCustomAmount: false };
+  }
+  if (name.includes('$100') || name.includes('100')) {
+    return { isGiftCard: true, value: 100, isCustomAmount: false };
+  }
+  if (name.includes('custom')) {
+    return { isGiftCard: true, isCustomAmount: true, minAmount: 25, maxAmount: 300 };
+  }
+
+  // Fall back to description parsing
   if (description.includes('$25')) {
     return { isGiftCard: true, value: 25, isCustomAmount: false };
   }
@@ -85,7 +108,8 @@ export const getGiftCardInfo = (product: any): GiftCardProductInfo => {
     return { isGiftCard: true, isCustomAmount: true, minAmount: 25, maxAmount: 300 };
   }
 
-  return { isGiftCard: false, isCustomAmount: false };
+  // Default gift card (if detected as gift card but no amount found)
+  return { isGiftCard: true, isCustomAmount: true, minAmount: 25, maxAmount: 300 };
 };
 
 // Check if an order contains any gift card products

@@ -212,6 +212,7 @@ model Customer {
   homeAddressId String?   @unique
   addresses     Address[] @relation("RecipientAddresses")
   orders        Order[]
+  paymentTransactions PaymentTransaction[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -279,10 +280,14 @@ model Order {
   couponId    String?
   coupon      Coupon? @relation(fields: [couponId], references: [id])
 
-  gst           Float   @default(0)
-  pst           Float   @default(0)
+  // Dynamic tax breakdown - supports any number of tax rates
+  taxBreakdown  Json    @default("[]") // Array of {name: string, rate: number, amount: number}
+  totalTax      Float   @default(0)    // Sum of all tax amounts
   paymentAmount Float   @default(0)
   paymentMethod String?
+
+  // Payment transaction links
+  orderPayments OrderPayment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -381,6 +386,8 @@ model Employee {
   type      EmployeeType  @default(CASHIER)
   isActive  Boolean       @default(true)
   orders    Order[]       @relation("EmployeeOrders")
+  paymentTransactions PaymentTransaction[] @relation("EmployeeTransactions")
+  refunds   Refund[]      @relation("EmployeeRefunds")
 }
 
 model MessageSuggestion {
@@ -612,4 +619,167 @@ model POSSettings {
   updatedAt DateTime @updatedAt
 
   @@map("pos_settings")
+}
+
+// PT-XXXX TRANSACTION SYSTEM
+model TransactionCounter {
+  id           String @id @default(cuid())
+  currentValue Int    @default(0)
+  prefix       String @default("PT")
+  
+  @@map("transaction_counter")
+}
+
+enum PaymentTransactionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+  CANCELLED
+}
+
+enum PaymentMethodType {
+  CASH
+  CARD
+  GIFT_CARD
+  STORE_CREDIT
+  CHECK
+  COD
+}
+
+enum PaymentProvider {
+  STRIPE
+  SQUARE
+  INTERNAL
+}
+
+enum PaymentChannel {
+  POS
+  PHONE
+  WEBSITE
+}
+
+model PaymentTransaction {
+  id              String                   @id @default(uuid())
+  transactionNumber String                 @unique // PT-00001, PT-00002, etc.
+  status          PaymentTransactionStatus @default(PENDING)
+  channel         PaymentChannel
+  
+  // Transaction totals
+  totalAmount     Float                    @default(0)
+  taxAmount       Float                    @default(0)
+  tipAmount       Float                    @default(0)
+  
+  // Customer and employee tracking
+  customerId      String
+  employeeId      String?
+  
+  // Metadata
+  notes           String?
+  receiptSent     Boolean                  @default(false)
+  receiptEmail    String?
+  
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  completedAt     DateTime?
+  
+  // Relations
+  customer        Customer                 @relation(fields: [customerId], references: [id])
+  employee        Employee?                @relation("EmployeeTransactions", fields: [employeeId], references: [id])
+  paymentMethods  PaymentMethod[]
+  orderPayments   OrderPayment[]
+  refunds         Refund[]
+  
+  @@map("payment_transactions")
+}
+
+model PaymentMethod {
+  id                      String              @id @default(uuid())
+  transactionId           String
+  type                    PaymentMethodType
+  provider                PaymentProvider
+  amount                  Float
+  
+  // Provider-specific data
+  providerTransactionId   String?            // Stripe payment_intent_id, Square payment_id, etc.
+  providerMetadata       Json?              // Provider-specific response data
+  
+  // Method-specific details
+  cardLast4              String?            // For card payments
+  cardBrand              String?            // visa, mastercard, etc.
+  giftCardNumber         String?            // For gift card payments
+  checkNumber            String?            // For check payments
+  
+  status                 String             @default("completed") // completed, failed, refunded
+  processedAt            DateTime           @default(now())
+  
+  transaction            PaymentTransaction @relation(fields: [transactionId], references: [id])
+  
+  @@map("payment_methods")
+}
+
+model OrderPayment {
+  id              String             @id @default(uuid())
+  transactionId   String
+  orderId         String
+  amount          Float              // How much of this order was paid in this transaction
+  
+  transaction     PaymentTransaction @relation(fields: [transactionId], references: [id])
+  order           Order              @relation(fields: [orderId], references: [id])
+  
+  @@map("order_payments")
+}
+
+model Refund {
+  id              String             @id @default(uuid())
+  transactionId   String
+  refundNumber    String             @unique // RF-00001, RF-00002, etc.
+  amount          Float
+  reason          String?
+  
+  // Refund breakdown by payment method
+  refundMethods   RefundMethod[]
+  
+  employeeId      String?
+  processedAt     DateTime           @default(now())
+  
+  transaction     PaymentTransaction @relation(fields: [transactionId], references: [id])
+  employee        Employee?          @relation("EmployeeRefunds", fields: [employeeId], references: [id])
+  
+  @@map("refunds")
+}
+
+model RefundMethod {
+  id                    String         @id @default(uuid())
+  refundId              String
+  paymentMethodType     PaymentMethodType
+  provider              PaymentProvider
+  amount                Float
+  
+  // Provider refund tracking
+  providerRefundId      String?        // Stripe refund_id, Square refund_id, etc.
+  status                String         @default("completed") // completed, failed, pending
+  
+  refund                Refund         @relation(fields: [refundId], references: [id])
+  
+  @@map("refund_methods")
+}
+
+// Tax Rate Configuration
+model TaxRate {
+  id          String   @id @default(cuid())
+  name        String   // e.g., "GST", "PST", "VAT", "Sales Tax"
+  rate        Float    // Percentage (e.g., 5.00 for 5%)
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(1)
+  description String?  // Optional description
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+  
+  @@map("tax_rates")
+  @@index([isActive])
+  @@index([sortOrder])
 }

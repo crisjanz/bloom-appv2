@@ -20,12 +20,21 @@ type CompletedOrder = {
   total: number;
 };
 
+type GiftCard = {
+  cardNumber: string;
+  amount: number;
+  type: 'PHYSICAL' | 'DIGITAL';
+  recipientEmail?: string;
+  recipientName?: string;
+};
+
 type Props = {
   transactionId: string;
   transactionNumber?: string; // PT-XXXX number
   totalAmount: number;
   paymentMethods: PaymentMethod[];
   completedOrders: CompletedOrder[];
+  giftCards?: GiftCard[]; // Optional gift cards created
   onEmailReceipt: () => void;
   onPrintReceipt: () => void;
   onProcessRefund: () => void;
@@ -38,6 +47,7 @@ const OrderCompletionSummary: FC<Props> = ({
   totalAmount,
   paymentMethods,
   completedOrders,
+  giftCards = [],
   onEmailReceipt,
   onPrintReceipt,
   onProcessRefund,
@@ -111,6 +121,30 @@ const OrderCompletionSummary: FC<Props> = ({
           ))}
         </div>
       </div>
+
+      {/* Gift Cards Section (if any) */}
+      {giftCards.length > 0 && (
+        <div className="bg-white dark:bg-boxdark rounded-lg border border-stroke dark:border-strokedark p-4">
+          <h3 className="font-semibold text-black dark:text-white mb-2 text-sm">Gift Cards Created</h3>
+          <div className="space-y-2">
+            {giftCards.map((card, index) => (
+              <div key={index} className="flex justify-between items-center py-2 px-3 bg-green-50 dark:bg-green-900/20 rounded text-sm border border-green-200 dark:border-green-800">
+                <div>
+                  <div className="font-mono font-medium text-black dark:text-white">{card.cardNumber}</div>
+                  <div className="text-xs text-green-700 dark:text-green-300">
+                    {card.type} • {card.recipientName || 'Walk-in Customer'}
+                    {card.recipientEmail && ` • ${card.recipientEmail}`}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="font-semibold text-green-800 dark:text-green-200">${card.amount.toFixed(2)}</div>
+                  <div className="text-xs text-green-600 dark:text-green-400">ACTIVE</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Compact Action Buttons */}
 {/* Card-style Action Buttons */}

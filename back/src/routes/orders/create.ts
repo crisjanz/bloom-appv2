@@ -1,5 +1,6 @@
 import express from 'express';
 import { PrismaClient, OrderStatus } from '@prisma/client';
+import { calculateTax } from '../../utils/taxCalculator';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -52,21 +53,20 @@ router.post('/create', async (req, res) => {
         };
       });
 
-      // Calculate taxes
+      // Calculate taxes using centralized tax rates
       const taxableAmount = orderItems
         .filter((_: any, index: number) => orderData.customProducts[index].tax)
         .reduce((sum: number, item: any) => sum + item.rowTotal, 0);
       
-      const gst = Math.round(taxableAmount * 0.05);
-      const pst = 0;
+      const taxCalculation = await calculateTax(taxableAmount);
       
-      const totalAmount = subtotal + gst + pst + Math.round(orderData.deliveryFee * 100);
+      const totalAmount = subtotal + taxCalculation.totalAmount + Math.round(orderData.deliveryFee * 100);
 
-      // Create order
+      // Create order with DRAFT status first, will be updated to PAID by PT transaction
       const order = await prisma.order.create({
         data: {
           type: orderData.orderType,
-          status: OrderStatus.PAID,
+          status: OrderStatus.DRAFT, // Start as DRAFT, PT transaction will update to PAID
           customerId,
           recipientId,
           cardMessage: orderData.cardMessage || null,
@@ -74,8 +74,8 @@ router.post('/create', async (req, res) => {
           deliveryDate: orderData.deliveryDate ? new Date(orderData.deliveryDate) : null,
           deliveryTime: orderData.deliveryTime || null,
           deliveryFee: Math.round(orderData.deliveryFee * 100),
-          gst,
-          pst,
+          taxBreakdown: taxCalculation.breakdown, // Dynamic tax breakdown
+          totalTax: taxCalculation.totalAmount, // Total tax amount
           paymentAmount: totalAmount,
           images: [], // Initialize empty images array
           orderItems: {
@@ -163,6 +163,13 @@ router.post('/save-draft', async (req, res) => {
         };
       });
 
+      // Calculate taxes using centralized tax rates for draft
+      const taxableAmountDraft = orderItems
+        .filter((_: any, index: number) => orderData.customProducts[index].tax)
+        .reduce((sum: number, item: any) => sum + item.rowTotal, 0);
+      
+      const taxCalculationDraft = await calculateTax(taxableAmountDraft);
+
       const order = await prisma.order.create({
         data: {
           type: orderData.orderType,
@@ -174,8 +181,8 @@ router.post('/save-draft', async (req, res) => {
           deliveryDate: orderData.deliveryDate ? new Date(orderData.deliveryDate) : null,
           deliveryTime: orderData.deliveryTime || null,
           deliveryFee: Math.round(orderData.deliveryFee * 100),
-          gst: 0, // No taxes calculated for drafts
-          pst: 0,
+          taxBreakdown: taxCalculationDraft.breakdown, // Dynamic tax breakdown
+          totalTax: taxCalculationDraft.totalAmount, // Total tax amount
           paymentAmount: 0, // No payment for drafts
           images: [], // Initialize empty images array
           orderItems: {

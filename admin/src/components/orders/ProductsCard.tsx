@@ -5,6 +5,7 @@ import InputField from "../form/input/InputField";
 import Select from "../form/Select";
 import Label from "../form/Label";
 import Checkbox from "../form/input/Checkbox";
+import { useTaxRates } from "../../hooks/useTaxRates";
 
 
 
@@ -33,6 +34,9 @@ export default function ProductsCard({
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+
+  // Get centralized tax rates
+  const { calculateTax, individualTaxRates } = useTaxRates();
 
 
   
@@ -88,7 +92,8 @@ export default function ProductsCard({
     return customProducts.reduce((total, item) => {
       if (item.tax) {
         const itemTotal = parseFloat(item.price || "0") * parseInt(item.qty || "0");
-        return total + (itemTotal * 0.12); // 12% tax (5% GST + 7% PST)
+        const taxCalc = calculateTax(itemTotal);
+        return total + taxCalc.totalAmount;
       }
       return total;
     }, 0);
@@ -176,42 +181,42 @@ export default function ProductsCard({
       </div>
 
       {/* Products Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full table-auto">
+      <div className="overflow-hidden">
+        <table className="w-full table-fixed">
           <thead>
             <tr className="bg-gray-2 text-left dark:bg-meta-4">
-              <th className="min-w-[200px] py-4 px-4 font-medium text-black dark:text-white">
+              <th className="py-2 px-4 text-xs text-black dark:text-white">
                 Description
               </th>
-              <th className="min-w-[120px] py-4 px-4 font-medium text-black dark:text-white">
+              <th className="w-42 py-2 px-4 text-xs text-black dark:text-white">
                 Category
               </th>
-              <th className="min-w-[100px] py-4 px-4 font-medium text-black dark:text-white text-right">
+              <th className="w-22 py-2 px-2 text-xs text-black dark:text-white text-center">
                 Unit Price
               </th>
-              <th className="min-w-[80px] py-4 px-4 font-medium text-black dark:text-white text-right">
+              <th className="w-16 py-2 px-2 text-xs text-black dark:text-white text-center">
                 Qty
               </th>
-              <th className="min-w-[100px] py-4 px-4 font-medium text-black dark:text-white text-right">
+              <th className="w-20 py-2 px-2 text-xs text-black dark:text-white text-center">
                 Total
               </th>
-              <th className="min-w-[80px] py-4 px-4 font-medium text-black dark:text-white text-center">
+              <th className="w-12 py-2 px-2 text-xs text-black dark:text-white text-center">
                 Tax
               </th>
-              <th className="py-4 px-4 font-medium text-black dark:text-white text-center">
-                Actions
+              <th className="w-10 py-2 px-2">
+                {/* No title for actions */}
               </th>
             </tr>
           </thead>
           <tbody>
             {customProducts.map((item, idx) => {
               const itemTotal = parseFloat(item.price || "0") * parseInt(item.qty || "0");
-              const taxAmount = item.tax ? itemTotal * 0.12 : 0;
+              const taxCalculation = item.tax ? calculateTax(itemTotal) : null;
 
               return (
                 <tr key={idx} className="border-b border-stroke dark:border-strokedark">
                   {/* Description */}
-                  <td className="py-5 px-4">
+                  <td className="py-2 px-4">
                     <InputField
                       type="text"
                       placeholder="Enter item description..."
@@ -223,7 +228,7 @@ export default function ProductsCard({
                   </td>
 
                   {/* Category */}
-                  <td className="py-5 px-4">
+                  <td className="w-42 py-2 px-2">
                     <Select
                       options={[
                         { value: "", label: "Select category" },
@@ -241,32 +246,27 @@ export default function ProductsCard({
                   </td>
 
                   {/* Unit Price */}
-                  <td className="py-5 px-4">
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400">
-                        $
-                      </span>
-                      <InputField
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="0.00"
-                        className="pl-8 text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                        value={item.price}
-                        onChange={(e) =>
-                          handleProductChange(idx, "price", e.target.value)
-                        }
-                      />
-                    </div>
+                  <td className="w-22 py-2 px-1">
+                    <InputField
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      className="w-full text-center py-1 px-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      value={item.price}
+                      onChange={(e) =>
+                        handleProductChange(idx, "price", e.target.value)
+                      }
+                    />
                   </td>
 
                   {/* Quantity */}
-                  <td className="py-5 px-4">
+                  <td className="w-16 py-2 px-2">
                     <InputField
                       type="number"
                       min="1"
                       placeholder="1"
-                      className="text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      className="w-12 text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       value={item.qty}
                       onChange={(e) =>
                         handleProductChange(idx, "qty", e.target.value)
@@ -275,19 +275,19 @@ export default function ProductsCard({
                   </td>
 
                   {/* Total */}
-                  <td className="py-5 px-4 text-right">
-                    <div className="font-medium text-black dark:text-white">
+                  <td className="w-20 py-2 px-2 text-right">
+                    <div className="font-medium text-black dark:text-white text-sm">
                       ${calculateRowTotal(item.price, item.qty)}
                     </div>
-                    {item.tax && (
+                    {item.tax && taxCalculation && (
                       <div className="text-xs text-gray-500 dark:text-gray-400">
-                        +${taxAmount.toFixed(2)} tax
+                        +${taxCalculation.totalAmount.toFixed(2)} tax
                       </div>
                     )}
                   </td>
 
                   {/* Tax Checkbox */}
-                  <td className="py-5 px-4">
+                  <td className="w-12 py-2 px-2">
                     <div className="flex items-center justify-center">
                       <Checkbox
                         checked={item.tax}
@@ -300,16 +300,16 @@ export default function ProductsCard({
                   </td>
 
                   {/* Actions */}
-                  <td className="py-5 px-4">
+                  <td className="w-10 py-2 px-2">
                     <div className="flex items-center justify-center">
                       <button
                         type="button"
                         onClick={() => handleRemoveProduct(idx)}
-                        className="flex h-8 w-8 items-center justify-center rounded-full text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        className="flex h-7 w-7 items-center justify-center rounded-full text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                         title={customProducts.length === 1 ? "Clear item" : "Remove item"}
                       >
                         <svg
-                          className="h-4 w-4"
+                          className="h-3.5 w-3.5"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -340,12 +340,23 @@ export default function ProductsCard({
               ${calculateSubtotal().toFixed(2)}
             </span>
           </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600 dark:text-gray-400">Tax (12%):</span>
-            <span className="font-medium text-black dark:text-white">
-              ${calculateTaxTotal().toFixed(2)}
-            </span>
-          </div>
+          
+          {/* Individual Tax Breakdown */}
+          {(() => {
+            const subtotal = calculateSubtotal();
+            const taxCalc = calculateTax(subtotal);
+            return taxCalc.breakdown.map((tax, idx) => (
+              <div key={idx} className="flex justify-between text-sm">
+                <span className="text-gray-600 dark:text-gray-400">
+                  {tax.name} ({tax.rate.toFixed(1)}%):
+                </span>
+                <span className="font-medium text-black dark:text-white">
+                  ${tax.amount.toFixed(2)}
+                </span>
+              </div>
+            ));
+          })()}
+          
           <div className="border-t border-stroke pt-2 dark:border-strokedark">
             <div className="flex justify-between">
               <span className="font-medium text-black dark:text-white">Total:</span>

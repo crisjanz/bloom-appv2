@@ -6,8 +6,9 @@ import CardPaymentModal from "../../pos/payment/CardPaymentModal";
 import SplitPaymentView from "../../pos/payment/SplitPaymentView";
 import InputField from "../../form/input/InputField";
 import Label from "../../form/Label";
+import { TruckIcon, CreditCardIcon, DollarLineIcon } from "../../../icons";
 
-type PaymentView = 'methods' | 'split' | 'manual';
+type PaymentView = 'methods' | 'split' | 'manual' | 'other_methods';
 
 type PaymentEntry = {
   method: string;
@@ -27,6 +28,7 @@ type Props = {
   onConfirm: (payments: PaymentEntry[]) => void;
   employee: string;
   setFormError: (val: string | null) => void;
+  isOverlay?: boolean; // To detect if accessed from POS vs Dashboard
 };
 
 const TakeOrderPaymentModal: FC<Props> = ({
@@ -37,6 +39,7 @@ const TakeOrderPaymentModal: FC<Props> = ({
   onConfirm,
   employee,
   setFormError,
+  isOverlay = false,
 }) => {
   const [currentView, setCurrentView] = useState<PaymentView>('methods');
   const [selectedMethod, setSelectedMethod] = useState<string>('');
@@ -53,7 +56,13 @@ const TakeOrderPaymentModal: FC<Props> = ({
 
   if (!open) return null;
 
-  const adminPaymentMethods = getPaymentMethods('admin');
+  const adminPaymentMethods = getPaymentMethods('admin').filter(method => {
+    // Hide "Send to POS" when accessed from Dashboard (not overlay)
+    if (method.id === 'send_to_pos' && !isOverlay) {
+      return false;
+    }
+    return true;
+  });
   const paidTotal = payments.reduce((sum, p) => sum + p.amount, 0);
   const remaining = Number((total - paidTotal).toFixed(2));
 
@@ -70,6 +79,9 @@ const TakeOrderPaymentModal: FC<Props> = ({
     } else if (method === 'send_to_pos') {
       // Handle Send to POS - create special payment entry
       handleSendToPOS();
+    } else if (method === 'other_methods') {
+      // Show Other Methods screen
+      setCurrentView('other_methods');
     } else {
       // For other methods (check, wire, etc.), show manual entry
       setCurrentView('manual');
@@ -172,7 +184,7 @@ const TakeOrderPaymentModal: FC<Props> = ({
   // Payment methods grid view
   if (currentView === 'methods') {
     return (
-      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100000] p-4">
         <div className="bg-white dark:bg-boxdark rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
           
           {/* Header */}
@@ -321,7 +333,7 @@ const TakeOrderPaymentModal: FC<Props> = ({
   // Split payment view
   if (currentView === 'split') {
     return (
-      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100000] p-4">
         <div className="bg-white dark:bg-boxdark rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
           <SplitPaymentView
             total={total}
@@ -338,7 +350,7 @@ const TakeOrderPaymentModal: FC<Props> = ({
     const methodConfig = adminPaymentMethods.find(m => m.id === selectedMethod);
     
     return (
-      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100000] p-4">
         <div className="bg-white dark:bg-boxdark rounded-2xl shadow-2xl w-full max-w-md">
           
           {/* Header */}
@@ -402,6 +414,100 @@ const TakeOrderPaymentModal: FC<Props> = ({
               >
                 Add Payment
               </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Other Methods view
+  if (currentView === 'other_methods') {
+    const otherMethods = [
+      { id: 'cod', label: 'COD', icon: <TruckIcon className="w-6 h-6 text-orange-600" />, description: 'Cash on delivery' },
+      { id: 'house_account', label: 'House Account', icon: <CreditCardIcon className="w-6 h-6 text-blue-600" />, description: 'Charge to customer account' },
+      { id: 'paypal', label: 'PayPal', icon: <CreditCardIcon className="w-6 h-6 text-indigo-600" />, description: 'PayPal online payment' },
+      { id: 'wire', label: 'Wire Transfer', icon: <CreditCardIcon className="w-6 h-6 text-teal-600" />, description: 'Bank wire transfer' },
+      { id: 'offline', label: 'Offline Payment', icon: <DollarLineIcon className="w-6 h-6 text-gray-600" />, description: 'Payment processed offline' },
+    ];
+
+    return (
+      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100000] p-4">
+        <div className="bg-white dark:bg-boxdark rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          
+          {/* Header */}
+          <div className="border-b border-stroke dark:border-strokedark px-6 py-4">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleBack}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <h2 className="text-xl font-semibold text-black dark:text-white">Other Payment Methods</h2>
+              </div>
+              <button
+                onClick={onClose}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div className="p-6 space-y-6">
+            {/* Total Display */}
+            <div className="text-center">
+              <p className="text-gray-600 dark:text-gray-400">
+                Total: <span className="text-2xl font-bold text-[#597485]">${total.toFixed(2)}</span>
+              </p>
+              {giftCardDiscount > 0 && (
+                <p className="text-sm text-green-600 dark:text-green-400">
+                  Gift Card Applied: -${giftCardDiscount.toFixed(2)}
+                </p>
+              )}
+            </div>
+
+            {/* Other Payment Methods Grid */}
+            <div>
+              <h3 className="text-lg font-semibold text-black dark:text-white mb-4">Select Payment Method</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {otherMethods.map((method) => {
+                  const isSelected = selectedMethod === method.id;
+
+                  return (
+                    <button
+                      key={method.id}
+                      onClick={() => {
+                        setSelectedMethod(method.id);
+                        setCurrentView('manual');
+                        setAmountInput(remaining.toString());
+                      }}
+                      className={`relative w-full h-24 flex flex-col justify-center items-center rounded-xl border-2 shadow-md transition-all hover:shadow-xl
+                        ${
+                          isSelected
+                            ? "bg-[#597485] border-[#597485] text-white"
+                            : "bg-white dark:bg-boxdark border-gray-300 dark:border-strokedark hover:border-[#597485]/50 text-gray-800 dark:text-white"
+                        }
+                      `}
+                    >
+                      <div className="mb-1">{method.icon}</div>
+                      <span className="text-sm font-medium text-center px-2">{method.label}</span>
+
+                      {isSelected && (
+                        <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-white border-2 border-white flex items-center justify-center">
+                          <div className="w-2 h-2 rounded-full bg-[#597485]" />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>

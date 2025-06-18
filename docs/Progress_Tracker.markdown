@@ -40,12 +40,16 @@ Todos are grouped by feature and sorted by priority within each group. Partially
   - Impact: Database pollution with duplicate walk-in customer entries
   - Expected: Guest orders should not create customer records or use single reusable guest record
   - Status: Needs investigation and fix
-- [ ] **Fix gift card purchase/activation workflow** (Critical - POS Hardware Testing 2025-06-17)
-  - Problem 1: No modal showing gift card number after purchase (customer can't receive card info)
-  - Problem 2: No way to enter preprinted gift card numbers for activation
-  - Impact: Gift cards are created but can't be properly delivered to customers
-  - Expected: Modal with generated/entered card number for customer handoff
-  - Status: Needs UI enhancement for gift card workflow
+- [x] **Fix gift card purchase/activation workflow** (Completed 2025-06-18)
+  - ✅ Built complete gift card purchase/activation workflow for both POS and TakeOrder
+  - ✅ Created GiftCardActivationModal for entering card numbers and selecting Physical/Digital types
+  - ✅ Built GiftCardHandoffModal with print functionality for customer handoff
+  - ✅ Added support for both physical (preprinted) and digital (system-generated) gift cards
+  - ✅ Implemented proper recipient name/email collection for digital cards
+  - ✅ Fixed backend validation to allow digital cards without card numbers
+  - ✅ Added beautiful print layout for digital gift cards with professional styling
+  - ✅ Fixed POS tax calculation to respect product isTaxable flags (gift cards now non-taxable)
+  - ✅ Integrated with PT-XXXX payment transaction system
 - [ ] **Fix coupon discount application glitch** (High - POS Hardware Testing 2025-06-17)
   - Problem: Coupon discount doesn't apply to cart on first attempt
   - Behavior: Code remains in modal, works on second "Add" click
@@ -118,7 +122,16 @@ Todos are grouped by feature and sorted by priority within each group. Partially
 
 ## Settings System
 ### High Priority
-- [ ] Develop TaxCard for regional tax rates and calculations (Partially complete, status to be confirmed).
+- [x] **Develop centralized tax system for any number of tax rates** (Completed 2025-06-18)
+  - Created TaxCard settings component with full CRUD operations for tax rate management
+  - Built useTaxRates hook for centralized tax calculations throughout the app
+  - Implemented backend tax-rates API with validation and error handling
+  - Updated Order schema to support dynamic tax breakdown (JSON array) instead of hardcoded GST/PST fields
+  - Replaced all hardcoded tax rates (0.05, 0.07, 0.12) across frontend components with centralized system
+  - Updated PaymentSection, POSPage, ProductsCard to use dynamic tax calculations
+  - System now supports 1, 2, 3, or any number of tax rates configured in settings
+  - Geographic flexibility - no hardcoded provincial/country assumptions
+  - Backward compatibility maintained with existing order data
 - [ ] Create CouponListCard for comprehensive coupon management (Planning complete).
 - [ ] Implement GiftCardsCard for gift card management and reporting.
 - [ ] Develop ProductDiscountsCard for product-specific discount rules.

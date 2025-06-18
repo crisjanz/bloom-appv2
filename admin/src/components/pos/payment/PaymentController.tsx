@@ -5,6 +5,9 @@ import SplitPaymentView from "./SplitPaymentView";
 import OrderCompletionSummary from "./OrderCompletionSummary";
 import CashPaymentModal from "./CashPaymentModal";
 import CardPaymentModal from "./CardPaymentModal";
+import GiftCardActivationModal from "../../orders/payment/GiftCardActivationModal";
+import GiftCardHandoffModal from "../../orders/payment/GiftCardHandoffModal";
+import { orderContainsGiftCards, getGiftCardItems } from "../../../utils/giftCardHelpers";
 
 type PaymentView = 'methods' | 'split' | 'completion';
 
@@ -74,17 +77,72 @@ const PaymentController: FC<Props> = ({
   // Modal states for popups
   const [showCashModal, setShowCashModal] = useState(false);
   const [showCardModal, setShowCardModal] = useState(false);
+  
+  // Gift card activation state
+  const [showGiftCardActivation, setShowGiftCardActivation] = useState(false);
+  const [showGiftCardHandoff, setShowGiftCardHandoff] = useState(false);
+  const [giftCardNumbers, setGiftCardNumbers] = useState<any[]>([]);
+  const [activatedGiftCards, setActivatedGiftCards] = useState<any[]>([]);
 
   if (!open) return null;
 
+  // Check if cart contains gift cards
+  const hasGiftCards = cartItems ? orderContainsGiftCards(cartItems) : false;
+  
+  // Debug logging for gift card detection
+  if (cartItems && cartItems.length > 0) {
+    console.log('🎁 Checking cart for gift cards:', cartItems);
+    console.log('🎁 Gift cards detected:', hasGiftCards);
+    cartItems.forEach(item => {
+      console.log(`🎁 Item: ${item.name} - Is gift card:`, orderContainsGiftCards([item]));
+    });
+  }
+
   // Handle payment method selection from grid
   const handleMethodSelect = (method: string) => {
+    console.log('🎁 Payment method selected:', method);
+    console.log('🎁 Has gift cards:', hasGiftCards);
+    console.log('🎁 Gift card numbers collected:', giftCardNumbers.length);
+    
+    // Check if we need gift card activation first
+    if (hasGiftCards && giftCardNumbers.length === 0) {
+      console.log('🎁 Showing gift card activation modal');
+      setPendingPaymentMethod(method); // Store the selected payment method
+      setShowGiftCardActivation(true);
+      return;
+    }
+
     if (method === 'split') {
       setCurrentView('split');
     } else if (method === 'cash') {
       setShowCashModal(true);
     } else if (method === 'credit') {
       setShowCardModal(true);
+    }
+  };
+
+  // Store the selected payment method while waiting for gift card activation
+  const [pendingPaymentMethod, setPendingPaymentMethod] = useState<string | null>(null);
+
+  // Handle gift card activation completion
+  const handleGiftCardActivationComplete = (cardData: any[]) => {
+    setGiftCardNumbers(cardData);
+    setShowGiftCardActivation(false);
+    console.log('🎁 Gift card activation data collected for POS:', cardData);
+    
+    // Continue with the original payment method selection
+    if (pendingPaymentMethod) {
+      console.log('🎁 Continuing with payment method:', pendingPaymentMethod);
+      
+      if (pendingPaymentMethod === 'split') {
+        setCurrentView('split');
+      } else if (pendingPaymentMethod === 'cash') {
+        setShowCashModal(true);
+      } else if (pendingPaymentMethod === 'credit') {
+        setShowCardModal(true);
+      }
+      
+      setPendingPaymentMethod(null); // Clear the pending method
     }
   };
 
@@ -274,6 +332,40 @@ const PaymentController: FC<Props> = ({
 
       const transaction = await response.json();
       
+      // 🎁 Create/activate gift cards if any were purchased
+      if (giftCardNumbers.length > 0) {
+        console.log('🎁 Creating/activating gift cards in POS...');
+        const { purchaseGiftCards } = await import('../../../services/giftCardService');
+        
+        try {
+          // Convert gift card data to purchase format
+          const cardsToProcess = giftCardNumbers.map(card => ({
+            cardNumber: card.cardNumber, // Physical card number (only for physical cards)
+            amount: card.amount,
+            type: card.type || 'PHYSICAL', // Use the actual card type from activation modal
+            recipientName: card.recipientName || customerName || customer?.firstName + ' ' + customer?.lastName,
+            recipientEmail: card.recipientEmail // Include email for digital cards
+          }));
+
+          const purchaseResult = await purchaseGiftCards(
+            cardsToProcess,
+            customerId,
+            employeeId,
+            transaction.id // Use the transaction ID for tracking
+          );
+
+          console.log('✅ Gift cards created/activated in POS:', purchaseResult.cards);
+          
+          // Store activated cards and show handoff modal immediately
+          setActivatedGiftCards(purchaseResult.cards);
+          setShowGiftCardHandoff(true);
+          
+        } catch (error: any) {
+          console.error('❌ Failed to create/activate gift cards in POS:', error);
+          setPaymentError(`Payment successful but gift card activation failed: ${error.message}`);
+        }
+      }
+      
       const completion: CompletionData = {
         transactionNumber: transaction.transactionNumber,
         transactionId: transaction.id,
@@ -283,18 +375,26 @@ const PaymentController: FC<Props> = ({
       };
 
       setCompletionData(completion);
-      setCurrentView('completion');
-      setShowCashModal(false);
-      setShowCardModal(false);
+      
+      // If we have activated gift cards, show handoff modal instead of completion
+      if (activatedGiftCards.length === 0) {
+        setCurrentView('completion');
+        setShowCashModal(false);
+        setShowCardModal(false);
 
-      // Call onComplete with transaction data
-      onComplete({
-        transactionNumber: transaction.transactionNumber,
-        transactionId: transaction.id,
-        totalAmount: total,
-        customerId: customerId,
-        orderIds: orderIds
-      });
+        // Call onComplete with transaction data
+        onComplete({
+          transactionNumber: transaction.transactionNumber,
+          transactionId: transaction.id,
+          totalAmount: total,
+          customerId: customerId,
+          orderIds: orderIds
+        });
+      } else {
+        // Gift cards were created, handoff modal is already showing
+        setShowCashModal(false);
+        setShowCardModal(false);
+      }
 
     } catch (error) {
       console.error('Payment processing failed:', error);
@@ -322,9 +422,16 @@ const PaymentController: FC<Props> = ({
 
   // Handle new order
   const handleNewOrder = () => {
-    setCurrentView('methods');
-    setCompletionData(null);
-    onComplete();
+    // If we have activated gift cards, show handoff modal first
+    if (activatedGiftCards.length > 0) {
+      setShowGiftCardHandoff(true);
+      setCurrentView('methods');
+      setCompletionData(null);
+    } else {
+      setCurrentView('methods');
+      setCompletionData(null);
+      onComplete();
+    }
   };
 
   // Handle back navigation
@@ -333,20 +440,21 @@ const PaymentController: FC<Props> = ({
   };
 
   // Return the appropriate view content
-  if (currentView === 'methods') {
-    return (
-      <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <button
-            onClick={onCancel}
-            className="text-[#597485] hover:text-[#4e6575] text-sm font-medium"
-          >
-            ← Back to Products
-          </button>
-          <h2 className="text-xl font-bold text-black dark:text-white">
-            Select Payment Method
-          </h2>
-          <div></div>
+  const renderPaymentView = () => {
+    if (currentView === 'methods') {
+      return (
+        <div className="p-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={onCancel}
+              className="text-[#597485] hover:text-[#4e6575] text-sm font-medium"
+            >
+              ← Back to Products
+            </button>
+            <h2 className="text-xl font-bold text-black dark:text-white">
+              Select Payment Method
+            </h2>
+            <div></div>
         </div>
 
         <p className="text-gray-600 dark:text-gray-400 text-center">
@@ -410,36 +518,74 @@ const PaymentController: FC<Props> = ({
           onCancel={() => setShowCardModal(false)}
         />
       </div>
-    );
-  }
+      );
+    }
 
-  if (currentView === 'split') {
-    return (
-      <SplitPaymentView
-        total={total}
-        onBack={handleBack}
-        onComplete={handleSplitPaymentComplete}
+    if (currentView === 'split') {
+      return (
+        <SplitPaymentView
+          total={total}
+          onBack={handleBack}
+          onComplete={handleSplitPaymentComplete}
+        />
+      );
+    }
+
+    if (currentView === 'completion' && completionData) {
+      return (
+        <OrderCompletionSummary
+          transactionId={completionData.transactionId}
+          transactionNumber={completionData.transactionNumber}
+          totalAmount={completionData.totalAmount}
+          paymentMethods={completionData.paymentMethods}
+          completedOrders={completionData.completedOrders}
+          giftCards={activatedGiftCards}
+          onEmailReceipt={() => console.log('Email receipt for', completionData.transactionNumber)}
+          onPrintReceipt={() => console.log('Print receipt for', completionData.transactionNumber)}
+          onProcessRefund={() => console.log('Process refund for', completionData.transactionNumber)}
+          onNewOrder={handleNewOrder}
+        />
+      );
+    }
+
+    return null;
+  };
+
+  return (
+    <>
+      {renderPaymentView()}
+      
+      {/* Gift Card Activation Modal */}
+      <GiftCardActivationModal
+        open={showGiftCardActivation}
+        onClose={() => setShowGiftCardActivation(false)}
+        orderItems={cartItems || []}
+        onActivationComplete={handleGiftCardActivationComplete}
       />
-    );
-  }
-
-  if (currentView === 'completion' && completionData) {
-    return (
-      <OrderCompletionSummary
-        transactionId={completionData.transactionId}
-        transactionNumber={completionData.transactionNumber}
-        totalAmount={completionData.totalAmount}
-        paymentMethods={completionData.paymentMethods}
-        completedOrders={completionData.completedOrders}
-        onEmailReceipt={() => console.log('Email receipt for', completionData.transactionNumber)}
-        onPrintReceipt={() => console.log('Print receipt for', completionData.transactionNumber)}
-        onProcessRefund={() => console.log('Process refund for', completionData.transactionNumber)}
-        onNewOrder={handleNewOrder}
+      
+      {/* Gift Card Handoff Modal */}
+      <GiftCardHandoffModal
+        open={showGiftCardHandoff}
+        onClose={() => {
+          setShowGiftCardHandoff(false);
+          setActivatedGiftCards([]);
+          // After handoff, show completion summary
+          setCurrentView('completion');
+        }}
+        cards={activatedGiftCards}
+        customerName={customerName || customer?.firstName + ' ' + customer?.lastName}
+        isDigital={(() => {
+          const hasDigital = activatedGiftCards.some(card => card.type === 'DIGITAL');
+          console.log('🎁 POS HandoffModal Debug:', {
+            activatedGiftCards,
+            hasDigital,
+            cardTypes: activatedGiftCards.map(card => card.type)
+          });
+          return hasDigital;
+        })()}
       />
-    );
-  }
-
-  return null;
+    </>
+  );
 };
 
 // Helper functions for payment method mapping

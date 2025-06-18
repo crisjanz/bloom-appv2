@@ -43,6 +43,7 @@ import WebsitePage from "./pages/settings/website";
 import MiscPage from "./pages/settings/misc";
 import POSPage from "./pages/pos/POSPage"; 
 import FullscreenPOS from "./pages/pos/FullscreenPOS";
+import GiftCardsPage from "./pages/gift-cards/GiftCardsPage";
 
 export default function App() {
   return (
@@ -92,6 +93,9 @@ export default function App() {
             <Route path="customers" element={<CustomersPage />} />
             <Route path="customers/new" element={<CustomerFormPage />} />
             <Route path="customers/:id" element={<CustomerFormPage />} />
+
+            {/* Gift Cards route */}
+            <Route path="gift-cards" element={<GiftCardsPage />} />
 
             {/* Settings routes */}
             <Route path="settings" element={<SettingsIndexPage />} />

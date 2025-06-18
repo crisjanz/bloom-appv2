@@ -1,6 +1,7 @@
 // components/pos/POSCart.tsx - Single card layout
 import React, { useState } from 'react';
 import { useCustomerSearch } from '../../hooks/useCustomerSearch';
+import { useTaxRates } from '../../hooks/useTaxRates';
 import InputField from '../form/input/InputField';
 
 type CartItem = {
@@ -10,6 +11,7 @@ type CartItem = {
   quantity: number;
   isCustom?: boolean;
   customPrice?: number;
+  isTaxable?: boolean;
 };
 
 type Props = {
@@ -49,6 +51,9 @@ export default function POSCart({
   const [editingPrice, setEditingPrice] = useState<string | null>(null);
   const [tempPrice, setTempPrice] = useState('');
 
+  // Get centralized tax rates
+  const { calculateItemTax } = useTaxRates();
+
     const { 
     customerQuery, 
     setCustomerQuery, 
@@ -64,10 +69,19 @@ const totalDiscountAmount = (appliedDiscounts?.reduce((sum, discount) => sum + d
                            (giftCardDiscount || 0) + 
                            (couponDiscount?.amount || 0);
 
-
+// Apply discounts proportionally to items
 const discountedSubtotal = Math.max(0, subtotal - totalDiscountAmount);
-const tax = discountedSubtotal * 0.12;
-const total = discountedSubtotal + tax;
+const discountRatio = subtotal > 0 ? discountedSubtotal / subtotal : 0;
+
+// Calculate tax using individual items with their taxability
+const itemsWithAdjustedPrices = items.map(item => ({
+  ...item,
+  price: (item.customPrice ?? item.price) * discountRatio,
+  isTaxable: item.isTaxable ?? true // Default to taxable if not specified
+}));
+
+const taxCalculation = calculateItemTax(itemsWithAdjustedPrices);
+const total = discountedSubtotal + taxCalculation.totalAmount;
 
 const handleCustomerSelect = (selectedCustomer: any) => {
   // Transform the customer data to match what POSCart expects
@@ -425,10 +439,17 @@ const handleCustomerSelect = (selectedCustomer: any) => {
 )}
 
   
-  <div className="flex justify-between text-sm">
-    <span className="text-gray-600 dark:text-gray-400">Tax (12%):</span>
-    <span className="font-medium text-black dark:text-white">${tax.toFixed(2)}</span>
-  </div>
+  {/* Individual Tax Breakdown */}
+  {taxCalculation.breakdown.map((tax, idx) => (
+    <div key={idx} className="flex justify-between text-sm">
+      <span className="text-gray-600 dark:text-gray-400">
+        {tax.name} ({tax.rate.toFixed(1)}%):
+      </span>
+      <span className="font-medium text-black dark:text-white">
+        ${tax.amount.toFixed(2)}
+      </span>
+    </div>
+  ))}
   
   <div className="flex justify-between">
     <span className="text-lg font-bold text-black dark:text-white">Total:</span>

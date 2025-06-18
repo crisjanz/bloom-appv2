@@ -2,6 +2,7 @@ import express from 'express';
 import { PrismaClient, OrderStatus } from '@prisma/client';
 import { createClient } from '@supabase/supabase-js';
 import multer from 'multer';
+import { calculateTax } from '../utils/taxCalculator';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -329,11 +330,11 @@ router.put('/:id/update', async (req, res) => {
       if (updateData.discount !== undefined) {
         orderUpdateData.discount = updateData.discount;
       }
-      if (updateData.gst !== undefined) {
-        orderUpdateData.gst = updateData.gst;
+      if (updateData.taxBreakdown !== undefined) {
+        orderUpdateData.taxBreakdown = updateData.taxBreakdown;
       }
-      if (updateData.pst !== undefined) {
-        orderUpdateData.pst = updateData.pst;
+      if (updateData.totalTax !== undefined) {
+        orderUpdateData.totalTax = updateData.totalTax;
       }
 
       // Handle status updates
@@ -365,10 +366,9 @@ router.put('/:id/update', async (req, res) => {
         const subtotal = newOrderItems.reduce((sum: number, item: any) => sum + item.rowTotal, 0);
         const currentDeliveryFee = orderUpdateData.deliveryFee !== undefined ? orderUpdateData.deliveryFee : currentOrder.deliveryFee;
         const currentDiscount = orderUpdateData.discount !== undefined ? orderUpdateData.discount : currentOrder.discount;
-        const currentGst = orderUpdateData.gst !== undefined ? orderUpdateData.gst : currentOrder.gst;
-        const currentPst = orderUpdateData.pst !== undefined ? orderUpdateData.pst : currentOrder.pst;
+        const currentTotalTax = orderUpdateData.totalTax !== undefined ? orderUpdateData.totalTax : currentOrder.totalTax;
         
-        orderUpdateData.paymentAmount = subtotal + currentDeliveryFee - currentDiscount + currentGst + currentPst;
+        orderUpdateData.paymentAmount = subtotal + currentDeliveryFee - currentDiscount + currentTotalTax;
       }
 
       // Handle images updates
@@ -476,15 +476,14 @@ router.post('/create', async (req, res) => {
         };
       });
 
-      // ✅ Fixed: Properly typed filter and reduce
+      // Calculate taxes using centralized tax rates
       const taxableAmount = orderItems
         .filter((_: any, index: number) => orderData.customProducts[index].tax)
         .reduce((sum: number, item: any) => sum + item.rowTotal, 0);
       
-      const gst = Math.round(taxableAmount * 0.05);
-      const pst = 0;
-      
-      const totalAmount = subtotal + gst + pst + Math.round(orderData.deliveryFee * 100);
+      const taxCalculation = await calculateTax(taxableAmount);
+
+      const totalAmount = subtotal + taxCalculation.totalAmount + Math.round(orderData.deliveryFee * 100);
 
       // ✅ Fixed: Use proper OrderStatus enum
       const order = await prisma.order.create({
@@ -498,8 +497,8 @@ router.post('/create', async (req, res) => {
           deliveryDate: orderData.deliveryDate ? new Date(orderData.deliveryDate) : null,
           deliveryTime: orderData.deliveryTime || null,
           deliveryFee: Math.round(orderData.deliveryFee * 100),
-          gst,
-          pst,
+          taxBreakdown: taxCalculation.breakdown, // Dynamic tax breakdown
+          totalTax: taxCalculation.totalAmount, // Total tax amount
           paymentAmount: totalAmount,
           images: [], // Initialize empty images array
           orderItems: {
@@ -582,6 +581,13 @@ router.post('/save-draft', async (req, res) => {
         };
       });
 
+      // Calculate taxes using centralized tax rates
+      const taxableAmount = orderItems
+        .filter((_: any, index: number) => orderData.customProducts[index].tax)
+        .reduce((sum: number, item: any) => sum + item.rowTotal, 0);
+      
+      const taxCalculation = await calculateTax(taxableAmount);
+
       const order = await prisma.order.create({
         data: {
           type: orderData.orderType,
@@ -593,8 +599,8 @@ router.post('/save-draft', async (req, res) => {
           deliveryDate: orderData.deliveryDate ? new Date(orderData.deliveryDate) : null,
           deliveryTime: orderData.deliveryTime || null,
           deliveryFee: Math.round(orderData.deliveryFee * 100),
-          gst: 0, // No taxes calculated for drafts
-          pst: 0,
+          taxBreakdown: taxCalculation.breakdown, // Dynamic tax breakdown
+          totalTax: taxCalculation.totalAmount, // Total tax amount
           paymentAmount: 0, // No payment for drafts
           images: [], // Initialize empty images array
           orderItems: {

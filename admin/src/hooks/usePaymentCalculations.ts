@@ -1,5 +1,6 @@
 // src/hooks/usePaymentCalculations.ts
 import { useMemo } from 'react';
+import { useTaxRates } from './useTaxRates';
 
 type OrderEntry = {
   customProducts: {
@@ -17,6 +18,8 @@ export const usePaymentCalculations = (
   discount: number,
   discountType: '$' | '%'
 ) => {
+  // Get centralized tax rates
+  const { calculateGST, calculatePST, individualTaxRates } = useTaxRates();
   // Calculate base item total
   const itemTotal = useMemo(() => {
     return orders.reduce((total, order) => {
@@ -63,9 +66,9 @@ export const usePaymentCalculations = (
     return Math.max(0, taxableAmount - discountOnTaxable);
   }, [taxableAmount, discountOnTaxable]);
   
-  // Calculate taxes on the discounted taxable amount
-  const gst = useMemo(() => adjustedTaxableAmount * 0.05, [adjustedTaxableAmount]);
-  const pst = useMemo(() => adjustedTaxableAmount * 0.07, [adjustedTaxableAmount]);
+  // Calculate taxes on the discounted taxable amount using centralized rates
+  const gst = useMemo(() => calculateGST(adjustedTaxableAmount), [adjustedTaxableAmount, calculateGST]);
+  const pst = useMemo(() => calculatePST(adjustedTaxableAmount), [adjustedTaxableAmount, calculatePST]);
   
   // Grand total includes everything
   const grandTotal = useMemo(() => {
@@ -78,6 +81,8 @@ export const usePaymentCalculations = (
     gst,
     pst,
     grandTotal,
-    calculateDiscountAmount
+    calculateDiscountAmount,
+    // Tax rate information for display
+    taxRates: individualTaxRates
   };
 };

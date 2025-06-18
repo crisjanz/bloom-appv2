@@ -73,6 +73,11 @@ const navItems: NavItem[] = [
     ],
   },
   {
+    icon: <GridIcon />,
+    name: "Gift Cards",
+    path: "/gift-cards",
+  },
+  {
     icon: <SettingsIcon />,
     name: "Settings",
     path: "/settings",

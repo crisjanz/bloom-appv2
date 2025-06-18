@@ -3,7 +3,9 @@ import React, { useState } from 'react';
 import PaymentCard from '../PaymentCard';
 import TakeOrderPaymentModal from './TakeOrderPaymentModal';
 import GiftCardActivationModal from './GiftCardActivationModal';
+import GiftCardHandoffModal from './GiftCardHandoffModal';
 import { orderContainsGiftCards } from '../../../utils/giftCardHelpers';
+import { useTaxRates } from '../../../hooks/useTaxRates';
 
 // Helper function to replace crypto.randomUUID
 const generateId = () => {
@@ -30,6 +32,7 @@ type Props = {
   setManualDiscountType: (val: "$" | "%") => void;
   giftCardDiscount: number;
   setGiftCardDiscount: (val: number) => void;
+  isOverlay?: boolean;
 };
 
 const PaymentSection: React.FC<Props> = ({
@@ -52,14 +55,20 @@ const PaymentSection: React.FC<Props> = ({
   setManualDiscountType,
   giftCardDiscount,
   setGiftCardDiscount,
+  isOverlay = false,
 }) => {
   const [couponCode, setCouponCode] = useState("");
+  
+  // Get centralized tax rates
+  const { calculateTax } = useTaxRates();
   const [subscribe, setSubscribe] = useState(false);
   const [showPaymentPopup, setShowPaymentPopup] = useState(false);
   const [sendEmailReceipt, setSendEmailReceipt] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [showGiftCardActivation, setShowGiftCardActivation] = useState(false);
+  const [showGiftCardHandoff, setShowGiftCardHandoff] = useState(false);
   const [giftCardNumbers, setGiftCardNumbers] = useState<any[]>([]);
+  const [activatedGiftCards, setActivatedGiftCards] = useState<any[]>([]);
   const [pendingGiftCardRedemptions, setPendingGiftCardRedemptions] = useState<any[]>([]);
   const [isProcessingPOSTransfer, setIsProcessingPOSTransfer] = useState(false);
 
@@ -247,11 +256,10 @@ const PaymentSection: React.FC<Props> = ({
           const orderDiscountRatio = totalItemsValue > 0 ? orderItemTotal / totalItemsValue : 0;
           const orderDiscount = (manualDiscount + couponDiscount + giftCardDiscount) * orderDiscountRatio;
           
-          // Calculate order subtotal and taxes
+          // Calculate order subtotal and taxes using centralized rates
           const orderSubtotal = orderItemTotal + orderDeliveryFee - orderDiscount;
-          const orderGst = orderSubtotal * 0.05; // 5% GST
-          const orderPst = orderSubtotal * 0.07; // 7% PST (adjust based on province)
-          const orderGrandTotal = orderSubtotal + orderGst + orderPst;
+          const orderTaxCalculation = calculateTax(orderSubtotal);
+          const orderGrandTotal = orderSubtotal + orderTaxCalculation.totalAmount;
           
           return {
             ...draftOrder,
@@ -259,8 +267,8 @@ const PaymentSection: React.FC<Props> = ({
             itemTotal: orderItemTotal,
             deliveryFee: orderDeliveryFee,
             discount: orderDiscount,
-            gst: orderGst,
-            pst: orderPst,
+            taxBreakdown: orderTaxCalculation.breakdown,
+            totalTax: orderTaxCalculation.totalAmount,
             subtotal: orderSubtotal
           };
         });
@@ -370,7 +378,7 @@ const PaymentSection: React.FC<Props> = ({
                 employeeId: employeeId,
                 channel: 'PHONE',
                 totalAmount: grandTotal,
-                taxAmount: gst + pst,
+                taxAmount: calculateTax(itemTotal + totalDeliveryFee - manualDiscount - couponDiscount - giftCardDiscount).totalAmount,
                 tipAmount: 0,
                 notes: `Phone order from ${customerState.customerName || 'customer'}`,
                 paymentMethods: paymentMethods,
@@ -397,16 +405,37 @@ const PaymentSection: React.FC<Props> = ({
         }
       }
 
+      // 🎁 Create/activate gift cards if any were purchased
       if (giftCardNumbers.length > 0) {
-        console.log('🎁 Activating gift cards...');
-        const { activateGiftCard } = await import('../../../services/giftCardService');
-        for (const { cardNumber, amount } of giftCardNumbers) {
-          try {
-            await activateGiftCard(cardNumber, amount);
-            console.log('✅ Activated card:', cardNumber);
-          } catch (error: any) {
-            console.error('❌ Failed to activate card:', cardNumber);
-          }
+        console.log('🎁 Creating/activating gift cards...');
+        const { purchaseGiftCards } = await import('../../../services/giftCardService');
+        
+        try {
+          // Convert gift card data to purchase format
+          const cardsToProcess = giftCardNumbers.map(card => ({
+            cardNumber: card.cardNumber, // Physical card number (only for physical cards)
+            amount: card.amount,
+            type: card.type || 'PHYSICAL', // Use the actual card type from activation modal
+            recipientName: card.recipientName || customerState.customer?.firstName + ' ' + customerState.customer?.lastName,
+            recipientEmail: card.recipientEmail // Include email for digital cards
+          }));
+
+          const purchaseResult = await purchaseGiftCards(
+            cardsToProcess,
+            customerState.customer?.id,
+            employee,
+            result.orders[0]?.id // Use first order ID for tracking
+          );
+
+          console.log('✅ Gift cards created/activated:', purchaseResult.cards);
+          
+          // Store activated cards and show handoff modal
+          setActivatedGiftCards(purchaseResult.cards);
+          setShowGiftCardHandoff(true);
+          
+        } catch (error: any) {
+          console.error('❌ Failed to create/activate gift cards:', error);
+          setFormError(`Orders created but gift card activation failed: ${error.message}`);
         }
       }
 
@@ -553,6 +582,26 @@ const PaymentSection: React.FC<Props> = ({
         employee={employee}
         setFormError={setFormError}
         onConfirm={handlePaymentConfirm}
+        isOverlay={isOverlay}
+      />
+      <GiftCardHandoffModal
+        open={showGiftCardHandoff}
+        onClose={() => {
+          setShowGiftCardHandoff(false);
+          setActivatedGiftCards([]);
+          onOrderComplete(); // Complete the order flow after gift card handoff
+        }}
+        cards={activatedGiftCards}
+        customerName={customerState.customer?.firstName + ' ' + customerState.customer?.lastName}
+        isDigital={(() => {
+          const hasDigital = activatedGiftCards.some(card => card.type === 'DIGITAL');
+          console.log('🎁 TakeOrder HandoffModal Debug:', {
+            activatedGiftCards,
+            hasDigital,
+            cardTypes: activatedGiftCards.map(card => card.type)
+          });
+          return hasDigital;
+        })()}
       />
     </>
   );
