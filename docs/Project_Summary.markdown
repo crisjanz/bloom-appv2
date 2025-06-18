@@ -78,6 +78,7 @@ Bloom is a comprehensive flower shop management system designed to digitize and 
   - **Edge Cases Planned**: Partial refunds, payment method failures, cross-order gift card usage.
   - PaymentMethodGrid for card-based selection.
   - CashPaymentModal, CardPaymentModal, SplitPaymentView, GiftCardModal.
+  - **Gift Card Number Display Modal**: Shows generated/entered card numbers for customer handoff after purchase/activation.
 
 ### 3. Settings System
 - **Architecture**: Modular card-based system (45 planned, 7 complete) with admin/employee permissions.
@@ -112,6 +113,7 @@ Bloom is a comprehensive flower shop management system designed to digitize and 
   - Schedule restrictions (business hours, holidays).
   - Prep-time management per product.
   - Route optimization for drivers.
+  - **Enhanced Recipient Selection**: Three-option workflow for existing recipients (Update existing, Create new from scratch, Duplicate with new name).
 - **Completed**:
   - Delivery fee calculation with manual overrides.
   - Address autocomplete with timezone handling.
@@ -169,13 +171,3 @@ Bloom is a comprehensive flower shop management system designed to digitize and 
   - Customer satisfaction: Streamlined ordering.
   - Staff efficiency: Reduced manual errors.
   - Revenue growth: Increased online/subscription sales.
-
-## Real-World Improvement Opportunities
-Based on actual shop usage and comparison with FloraNext:
-
-### Recipient Selection Enhancement (High Priority)
-- **Current Issue**: When selecting existing recipient, only two options: "Update existing" or "Create new from scratch"
-- **Real-World Need**: Third option to "Duplicate recipient with new name" 
-- **Use Case**: Deliveries to same address but different recipients (e.g., dentist office → different patient names)
-- **Business Impact**: Saves time, reduces errors, improves customer service efficiency
-- **Implementation**: Add duplicate option to recipient selection workflow with pre-filled address fields

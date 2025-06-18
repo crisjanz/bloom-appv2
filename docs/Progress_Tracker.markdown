@@ -35,6 +35,23 @@ Todos are grouped by feature and sorted by priority within each group. Partially
   - Current options: Update existing recipient OR create new recipient from scratch
   - Needed: Third option to duplicate address but change recipient name
   - Status: Needs design and implementation
+- [ ] **Fix POS guest customer creation issue** (Critical - POS Hardware Testing 2025-06-17)
+  - Problem: Creating guest customer orders creates new "Walk-In Customer" records in database
+  - Impact: Database pollution with duplicate walk-in customer entries
+  - Expected: Guest orders should not create customer records or use single reusable guest record
+  - Status: Needs investigation and fix
+- [ ] **Fix gift card purchase/activation workflow** (Critical - POS Hardware Testing 2025-06-17)
+  - Problem 1: No modal showing gift card number after purchase (customer can't receive card info)
+  - Problem 2: No way to enter preprinted gift card numbers for activation
+  - Impact: Gift cards are created but can't be properly delivered to customers
+  - Expected: Modal with generated/entered card number for customer handoff
+  - Status: Needs UI enhancement for gift card workflow
+- [ ] **Fix coupon discount application glitch** (High - POS Hardware Testing 2025-06-17)
+  - Problem: Coupon discount doesn't apply to cart on first attempt
+  - Behavior: Code remains in modal, works on second "Add" click
+  - Impact: Confusing UX, requires double-entry to apply discount
+  - Expected: Discount applies immediately on first attempt
+  - Status: Needs debugging of coupon state management
 
 ### Medium Priority
 - [ ] Enhance mobile responsiveness for tablet touch optimization (Phase 6).
