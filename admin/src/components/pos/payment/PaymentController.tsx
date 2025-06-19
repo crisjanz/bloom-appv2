@@ -5,6 +5,7 @@ import SplitPaymentView from "./SplitPaymentView";
 import OrderCompletionSummary from "./OrderCompletionSummary";
 import CashPaymentModal from "./CashPaymentModal";
 import CardPaymentModal from "./CardPaymentModal";
+import EmailReceiptModal from "./EmailReceiptModal";
 import GiftCardActivationModal from "../../orders/payment/GiftCardActivationModal";
 import GiftCardHandoffModal from "../../orders/payment/GiftCardHandoffModal";
 import { orderContainsGiftCards, getGiftCardItems } from "../../../utils/giftCardHelpers";
@@ -77,6 +78,8 @@ const PaymentController: FC<Props> = ({
   // Modal states for popups
   const [showCashModal, setShowCashModal] = useState(false);
   const [showCardModal, setShowCardModal] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailSendStatus, setEmailSendStatus] = useState<'success' | 'error' | null>(null);
   
   // Gift card activation state
   const [showGiftCardActivation, setShowGiftCardActivation] = useState(false);
@@ -439,6 +442,53 @@ const PaymentController: FC<Props> = ({
     setCurrentView('methods');
   };
 
+  // Handle email receipt - show modal first
+  const handleEmailReceipt = (completionData: CompletionData) => {
+    setShowEmailModal(true);
+  };
+
+  // Handle email confirmation from modal
+  const handleEmailConfirm = async (email: string) => {
+    const displayName = customerName || `${customer?.firstName} ${customer?.lastName}` || 'Walk-in Customer';
+    
+    setShowEmailModal(false);
+    
+    console.log('📧 Sending POS receipt email to:', email);
+    try {
+      const response = await fetch('/api/email/receipt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerEmail: email,
+          customerName: displayName,
+          transactionNumber: completionData?.transactionNumber,
+          orderNumbers: orderIds,
+          totalAmount: completionData?.totalAmount,
+          paymentMethods: completionData?.paymentMethods.map(pm => ({
+            type: pm.method,
+            amount: pm.amount
+          })) || [],
+          orderDetails: completionData?.completedOrders || []
+        })
+      });
+
+      if (response.ok) {
+        console.log('✅ POS receipt email sent successfully');
+        // Show success state in UI instead of alert
+        setEmailSendStatus('success');
+        setTimeout(() => setEmailSendStatus(null), 3000);
+      } else {
+        console.log('❌ Failed to send POS receipt email');
+        setEmailSendStatus('error');
+        setTimeout(() => setEmailSendStatus(null), 5000);
+      }
+    } catch (error) {
+      console.error('❌ Error sending POS receipt email:', error);
+      setEmailSendStatus('error');
+      setTimeout(() => setEmailSendStatus(null), 5000);
+    }
+  };
+
   // Return the appropriate view content
   const renderPaymentView = () => {
     if (currentView === 'methods') {
@@ -540,7 +590,7 @@ const PaymentController: FC<Props> = ({
           paymentMethods={completionData.paymentMethods}
           completedOrders={completionData.completedOrders}
           giftCards={activatedGiftCards}
-          onEmailReceipt={() => console.log('Email receipt for', completionData.transactionNumber)}
+          onEmailReceipt={() => handleEmailReceipt(completionData)}
           onPrintReceipt={() => console.log('Print receipt for', completionData.transactionNumber)}
           onProcessRefund={() => console.log('Process refund for', completionData.transactionNumber)}
           onNewOrder={handleNewOrder}
@@ -555,6 +605,42 @@ const PaymentController: FC<Props> = ({
     <>
       {renderPaymentView()}
       
+      {/* Email Receipt Modal */}
+      <EmailReceiptModal
+        open={showEmailModal}
+        customerEmail={customer?.email}
+        customerName={customerName || customer?.firstName + ' ' + customer?.lastName}
+        onConfirm={handleEmailConfirm}
+        onCancel={() => setShowEmailModal(false)}
+      />
+      
+      {/* Email Send Status Toast */}
+      {emailSendStatus && (
+        <div className={`fixed top-4 right-4 z-[100001] px-6 py-4 rounded-lg shadow-lg text-white font-medium ${
+          emailSendStatus === 'success' 
+            ? 'bg-green-600' 
+            : 'bg-red-600'
+        }`}>
+          <div className="flex items-center gap-2">
+            {emailSendStatus === 'success' ? (
+              <>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Receipt email sent successfully!
+              </>
+            ) : (
+              <>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Failed to send receipt email
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Gift Card Activation Modal */}
       <GiftCardActivationModal
         open={showGiftCardActivation}

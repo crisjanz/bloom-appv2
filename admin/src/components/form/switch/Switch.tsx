@@ -2,7 +2,8 @@ import { useState } from "react";
 
 interface SwitchProps {
   label: string;
-  defaultChecked?: boolean;
+  checked?: boolean; // Controlled mode
+  defaultChecked?: boolean; // Uncontrolled mode
   disabled?: boolean;
   onChange?: (checked: boolean) => void;
   color?: "blue" | "gray"; // Added prop to toggle color theme
@@ -10,17 +11,26 @@ interface SwitchProps {
 
 const Switch: React.FC<SwitchProps> = ({
   label,
+  checked,
   defaultChecked = false,
   disabled = false,
   onChange,
   color = "blue", // Default to blue color
 }) => {
-  const [isChecked, setIsChecked] = useState(defaultChecked);
+  // Use controlled mode if 'checked' prop is provided, otherwise use uncontrolled mode
+  const isControlled = checked !== undefined;
+  const [internalChecked, setInternalChecked] = useState(defaultChecked);
+  
+  const currentChecked = isControlled ? checked : internalChecked;
 
   const handleToggle = () => {
     if (disabled) return;
-    const newCheckedState = !isChecked;
-    setIsChecked(newCheckedState);
+    const newCheckedState = !currentChecked;
+    
+    if (!isControlled) {
+      setInternalChecked(newCheckedState);
+    }
+    
     if (onChange) {
       onChange(newCheckedState);
     }
@@ -29,18 +39,18 @@ const Switch: React.FC<SwitchProps> = ({
   const switchColors =
     color === "blue"
       ? {
-          background: isChecked
+          background: currentChecked
             ? "bg-brand-500 "
             : "bg-gray-200 dark:bg-white/10", // Blue version
-          knob: isChecked
+          knob: currentChecked
             ? "translate-x-full bg-white"
             : "translate-x-0 bg-white",
         }
       : {
-          background: isChecked
+          background: currentChecked
             ? "bg-gray-800 dark:bg-white/10"
             : "bg-gray-200 dark:bg-white/10", // Gray version
-          knob: isChecked
+          knob: currentChecked
             ? "translate-x-full bg-white"
             : "translate-x-0 bg-white",
         };

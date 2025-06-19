@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { emailService } from '../../services/emailService';
 
 const prisma = new PrismaClient();
 
@@ -171,6 +172,33 @@ export const purchaseCards = async (req: Request, res: Response) => {
         });
       }
     });
+
+    // 📧 Send email for digital gift cards
+    for (const card of purchasedCards) {
+      if (card.type === 'DIGITAL' && card.recipientEmail) {
+        console.log('📧 Sending digital gift card email to:', card.recipientEmail);
+        try {
+          const emailSent = await emailService.sendGiftCardEmail({
+            recipientEmail: card.recipientEmail,
+            recipientName: card.recipientName || 'Gift Card Recipient',
+            giftCardNumber: card.cardNumber,
+            amount: card.amount,
+            purchaserName: purchasedBy,
+            message: card.message,
+            redeemUrl: 'https://bloomflowershop.com' // Update when website is live
+          });
+          
+          if (emailSent) {
+            console.log('✅ Digital gift card email sent successfully');
+          } else {
+            console.log('❌ Failed to send digital gift card email');
+          }
+        } catch (error) {
+          console.error('❌ Error sending digital gift card email:', error);
+          // Don't fail the whole purchase if email fails
+        }
+      }
+    }
 
     return res.status(201).json({
       success: true,

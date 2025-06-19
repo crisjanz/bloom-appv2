@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import PageMeta from '../../components/common/PageMeta';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
@@ -37,7 +37,7 @@ export default function NewProductPage() {
   const [reportingCategoryId, setReportingCategoryId] = useState('');
   const [price, setPrice] = useState(0);
   const [priceTitle, setPriceTitle] = useState('');
-  const [isTaxable, setIsTaxable] = useState(false);
+  const [isTaxable, setIsTaxable] = useState(true);
   const [isActive, setIsActive] = useState(true);
   const [isFeatured, setIsFeatured] = useState(false);
   const [inventory, setInventory] = useState(0);
@@ -49,9 +49,13 @@ export default function NewProductPage() {
   const [seoTitle, setSeoTitle] = useState('');
   const [seoDescription, setSeoDescription] = useState('');
   const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [existingImages, setExistingImages] = useState<string[]>([]);
+  const [imagesToDelete, setImagesToDelete] = useState<string[]>([]);
   const [slug, setSlug] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const hasLoadedData = useRef(false);
   const [availabilityType, setAvailabilityType] = useState('always');
   const [holidayPreset, setHolidayPreset] = useState('');
   const [isTemporarilyUnavailable, setIsTemporarilyUnavailable] = useState(false);
@@ -64,35 +68,57 @@ export default function NewProductPage() {
 
   // Fetch product data in edit mode
   useEffect(() => {
-    if (isEditMode && id) {
+    if (isEditMode && id && !hasLoadedData.current) {
+      console.log('🔄 useEffect triggered - fetching data for product:', id);
+      hasLoadedData.current = true;
       fetchProductData(id);
+    } else if (!isEditMode && !hasLoadedData.current) {
+      console.log('🔄 useEffect triggered - new product mode');
+      hasLoadedData.current = true;
+      setDataLoaded(true);
     }
   }, [id, isEditMode]);
 
   const fetchProductData = async (productId: string) => {
     try {
+      console.log('🔄 Starting fetchProductData for:', productId);
       setIsLoading(true);
       const response = await fetch(`/api/products/${productId}`);
       if (!response.ok) throw new Error('Failed to fetch product');
       
       const product = await response.json();
-      console.log('Fetched product data:', product);
+      console.log('✅ Fetched product data:', product);
       
-      // Populate all the state fields
+      // Populate all the state fields 
+      console.log('🐛 Full product data from DB:', product);
+      console.log('🐛 Product isTaxable from DB:', product.isTaxable, 'type:', typeof product.isTaxable);
+      console.log('🐛 Product price from DB:', product.variants?.[0]?.price, 'type:', typeof product.variants?.[0]?.price);
+      console.log('🐛 Product variants array:', product.variants);
+      console.log('🐛 Product images from DB:', product.images, 'type:', typeof product.images);
+      console.log('🐛 About to set isTaxable to:', Boolean(product.isTaxable));
+      
       setTitle(product.name || '');
       setDescription(product.description || '');
       setVisibility(product.visibility || 'ONLINE');
       setCategoryId(product.categoryId || '');
       setReportingCategoryId(product.reportingCategoryId || '');
       setPrice((product.variants?.[0]?.price || 0) / 100); // Convert from cents
-      setIsTaxable(product.isTaxable || false);
-      setIsActive(product.isActive || true);
-      setIsFeatured(product.showOnHomepage || false);
+      setIsTaxable(Boolean(product.isTaxable)); // Convert to boolean, default false if null/undefined
+      setIsActive(Boolean(product.isActive));
+      setIsFeatured(Boolean(product.showOnHomepage));
+      
+      console.log('🐛 State after setting isTaxable:', isTaxable); // This will show the old value due to async state
       setInventory(product.variants?.[0]?.stockLevel || 0);
       setRecipe(product.recipeNotes || '');
       setSlug(product.slug || '');
       setSeoTitle(product.seoTitle || '');
       setSeoDescription(product.seoDescription || '');
+      
+      // Load existing images
+      if (product.images && Array.isArray(product.images)) {
+        setExistingImages(product.images);
+        console.log('🖼️ Loaded existing images:', product.images);
+      }
       
       // Populate availability fields
       setAvailabilityType(product.availabilityType || 'always');
@@ -114,7 +140,14 @@ export default function NewProductPage() {
       alert('Failed to load product data');
     } finally {
       setIsLoading(false);
+      setDataLoaded(true);
     }
+  };
+
+  const handleExistingImageDelete = (imageUrl: string) => {
+    console.log('🗑️ Deleting existing image:', imageUrl);
+    setExistingImages(prev => prev.filter(img => img !== imageUrl));
+    setImagesToDelete(prev => [...prev, imageUrl]);
   };
 
   const handleChange = (field: string, value: any) => {
@@ -233,9 +266,15 @@ export default function NewProductPage() {
       formData.append('unavailableUntil', unavailableUntil);
       formData.append('unavailableMessage', unavailableMessage);
 
-   imageFiles.forEach((file) => {
-      formData.append('images', file);
-    });
+      // Add images to delete (for edit mode)
+      if (isEditMode && imagesToDelete.length > 0) {
+        formData.append('imagesToDelete', JSON.stringify(imagesToDelete));
+      }
+
+      // Add new image files
+      imageFiles.forEach((file) => {
+        formData.append('images', file);
+      });
 
     const url = isEditMode ? `/api/products/${id}` : '/api/products';
     const method = isEditMode ? 'PUT' : 'POST';
@@ -273,8 +312,8 @@ export default function NewProductPage() {
   }
 };
 
-  // Show loading state
-  if (isLoading) {
+  // Show loading state or wait for data in edit mode
+  if (isLoading || (isEditMode && !dataLoaded)) {
     return (
       <div className="bg-whiten dark:bg-boxdark min-h-screen relative">
         <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
@@ -319,8 +358,10 @@ export default function NewProductPage() {
             <ProductInfoCard
               title={title}
               description={description}
+              existingImages={existingImages}
               onChange={handleChange}
               onImagesChange={setImageFiles}
+              onExistingImageDelete={handleExistingImageDelete}
               setSlug={setSlug}
             />
             <PricingCard

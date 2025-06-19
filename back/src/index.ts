@@ -29,6 +29,7 @@ import {
   getActiveHoliday 
 } from './routes/settings/holidays';
 import taxRatesRouter from './routes/settings/tax-rates';
+import emailRouter from './routes/email';
 
 dotenv.config();
 
@@ -67,6 +68,7 @@ app.use('/api/payment-transactions', paymentTransactionsRouter);
 app.get('/api/settings/pos-tabs', getPOSTabs);
 app.post('/api/settings/pos-tabs', savePOSTabs);
 app.use('/api/settings/tax-rates', taxRatesRouter);
+app.use('/api/email', emailRouter);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'Backend is alive!' });

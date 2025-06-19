@@ -24,6 +24,7 @@ Bloom is a comprehensive flower shop management system designed to digitize and 
 - **Database**: PostgreSQL
 - **Styling**: Tailwind CSS 4.0.8, brand color #597485 (custom flower shop green)
 - **Payment**: Stripe (primary) + Square (future integration)
+- **Email**: SendGrid via Twilio (configured in .env)
 - **Maps**: Google Maps API for delivery calculations
 - **Project Structure**:
   ```

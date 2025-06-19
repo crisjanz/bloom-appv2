@@ -93,13 +93,17 @@ export const useTaxRates = () => {
 
   /**
    * Calculate tax for individual items (respects tax flags)
-   * @param items - Array of items with price, quantity, and tax flag
+   * @param items - Array of items with price, quantity, and tax flag (supports both 'tax' and 'isTaxable' properties)
    * @returns TaxCalculation object
    */
-  const calculateItemTax = (items: Array<{ price: number; qty: number; tax: boolean }>): TaxCalculation => {
+  const calculateItemTax = (items: Array<{ price: number; quantity?: number; qty?: number; tax?: boolean; isTaxable?: boolean }>): TaxCalculation => {
     const taxableSubtotal = items.reduce((total, item) => {
-      if (item.tax) {
-        return total + (item.price * item.qty);
+      // Support both 'tax' and 'isTaxable' properties
+      const isTaxable = item.tax ?? item.isTaxable ?? true; // Default to taxable
+      const quantity = item.quantity ?? item.qty ?? 1; // Support both quantity properties
+      
+      if (isTaxable) {
+        return total + (item.price * quantity);
       }
       return total;
     }, 0);

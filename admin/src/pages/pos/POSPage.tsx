@@ -234,18 +234,20 @@ const handleRemoveCoupon = () => {
   const handlePaymentComplete = (transactionData) => {
     if (transactionData) {
       console.log('💳 Payment completed successfully!', transactionData);
-      // PaymentController will show OrderCompletionSummary
-      // Don't reset anything yet - wait for "New Order" button
-    } else {
-      console.log('🔄 New Order - Resetting POS state');
-      // This is called when user clicks "New Order" in OrderCompletionSummary
+      // IMMEDIATELY clear cart and discounts to prevent double-charging
       setCartItems([]);
-      setSelectedCustomer(null);
-      setShowPaymentController(false);
       setAppliedDiscounts([]);
       setGiftCardDiscount(0);
       setCouponDiscount({amount: 0});
-      console.log('✅ POS reset to empty state');
+      console.log('✅ Cart cleared immediately after successful payment');
+      // PaymentController will show OrderCompletionSummary
+      // Keep customer and payment controller open for receipt options
+    } else {
+      console.log('🔄 New Order - Resetting remaining POS state');
+      // This is called when user clicks "New Order" in OrderCompletionSummary
+      setSelectedCustomer(null);
+      setShowPaymentController(false);
+      console.log('✅ POS fully reset to empty state');
     }
   };
 
@@ -338,6 +340,7 @@ const totalDiscountAmount = appliedDiscounts.reduce((sum, discount) => sum + dis
               open={showPaymentController}
               total={calculatedTotal}
               cartItems={cartItems}
+              customer={selectedCustomer}
               customerName={selectedCustomer?.name}
               onComplete={handlePaymentComplete}
               onCancel={() => setShowPaymentController(false)}

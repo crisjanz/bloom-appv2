@@ -124,7 +124,7 @@ const ProductTable: FC<Props> = ({ products }) => {
                 <TableCell className="px-5 py-4">
                   <div className="text-gray-600 dark:text-gray-300">
                     {product.variants?.[0]?.price != null
-                      ? `$${product.variants[0].price.toFixed(2)}`
+                      ? `$${(product.variants[0].price / 100).toFixed(2)}`
                       : "N/A"}
                   </div>
                 </TableCell>

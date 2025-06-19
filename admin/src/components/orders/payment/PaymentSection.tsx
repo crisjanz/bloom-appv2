@@ -508,6 +508,38 @@ const PaymentSection: React.FC<Props> = ({
         }
       }
 
+      // 📧 Send receipt email if requested
+      if (sendEmailReceipt && customerState.customer?.email && orderData.transactionNumber) {
+        console.log('📧 Sending receipt email...');
+        try {
+          const receiptResponse = await fetch('/api/email/receipt', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              customerEmail: customerState.customer.email,
+              customerName: customerState.customer.firstName + ' ' + customerState.customer.lastName,
+              transactionNumber: orderData.transactionNumber,
+              orderNumbers: result.orders.map((order: any) => order.id),
+              totalAmount: grandTotal,
+              paymentMethods: payments.map(p => ({
+                type: p.method,
+                amount: p.amount
+              })),
+              orderDetails: result.orders
+            })
+          });
+
+          if (receiptResponse.ok) {
+            console.log('✅ Receipt email sent successfully');
+          } else {
+            console.log('❌ Failed to send receipt email');
+          }
+        } catch (error) {
+          console.error('❌ Error sending receipt email:', error);
+          // Don't fail the order if email fails
+        }
+      }
+
       setShowPaymentPopup(false);
       alert("✅ All orders created successfully!");
       setCouponCode("");

@@ -6,12 +6,22 @@ import Textarea from "../../form/input/Textarea";
 type Props = {
   title: string;
   description: string;
+  existingImages?: string[]; // URLs of existing images
   onChange: (field: "title" | "description", value: string) => void;
   onImagesChange: (files: File[]) => void;
-  setSlug: (slug: string) => void; // ✅ Added this prop
+  onExistingImageDelete?: (imageUrl: string) => void;
+  setSlug: (slug: string) => void;
 };
 
-const ProductInfoCard: FC<Props> = ({ title, description, onChange, onImagesChange, setSlug }) => {
+const ProductInfoCard: FC<Props> = ({ 
+  title, 
+  description, 
+  existingImages = [], 
+  onChange, 
+  onImagesChange, 
+  onExistingImageDelete,
+  setSlug 
+}) => {
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
@@ -109,24 +119,49 @@ const handleRemoveFile = (index: number) => {
               onChange={handleInputChange}
             />
           </div>
-          {selectedFiles.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-2">
-{selectedFiles.map((file, index) => (
-  <div key={index} className="flex flex-col items-center relative">
-    <img
-      src={URL.createObjectURL(file)}
-      alt={file.name}
-      className="w-16 h-16 object-cover rounded-md"
-    />
-    <button
-      onClick={() => handleRemoveFile(index)}
-      className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
-    >
-      X
-    </button>
-    <span className="text-sm text-gray-600 dark:text-gray-300 mt-1 truncate w-16">{file.name}</span>
-  </div>
-))}
+          
+          {/* Display existing images and new uploads */}
+          {(existingImages.length > 0 || selectedFiles.length > 0) && (
+            <div className="mt-2">
+              <div className="flex flex-wrap gap-2">
+                {/* Existing images from database */}
+                {existingImages.map((imageUrl, index) => (
+                  <div key={`existing-${index}`} className="flex flex-col items-center relative">
+                    <img
+                      src={imageUrl}
+                      alt={`Product image ${index + 1}`}
+                      className="w-16 h-16 object-cover rounded-md border-2 border-green-200"
+                    />
+                    {onExistingImageDelete && (
+                      <button
+                        onClick={() => onExistingImageDelete(imageUrl)}
+                        className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                      >
+                        X
+                      </button>
+                    )}
+                    <span className="text-xs text-green-600 mt-1">Saved</span>
+                  </div>
+                ))}
+                
+                {/* New file uploads */}
+                {selectedFiles.map((file, index) => (
+                  <div key={`new-${index}`} className="flex flex-col items-center relative">
+                    <img
+                      src={URL.createObjectURL(file)}
+                      alt={file.name}
+                      className="w-16 h-16 object-cover rounded-md border-2 border-blue-200"
+                    />
+                    <button
+                      onClick={() => handleRemoveFile(index)}
+                      className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                    >
+                      X
+                    </button>
+                    <span className="text-xs text-blue-600 mt-1">New</span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

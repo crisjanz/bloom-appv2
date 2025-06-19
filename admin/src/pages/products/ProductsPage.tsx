@@ -1,5 +1,6 @@
 // ProductsPage.tsx
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { useProducts } from "../../hooks/useProducts";
 import ComponentCard from "../../components/common/ComponentCard";
 import ProductTable from "../../components/products/ProductTable";
@@ -57,12 +58,12 @@ useEffect(() => {
 />
         </div>
 
-        <a
-          href="/products/new"
+        <Link
+          to="/products/new"
           className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#597485] px-4 py-3 text-sm font-medium text-white hover:bg-[#4e6575]"
         >
           + Add Product
-        </a>
+        </Link>
       </div>
     {console.log("Example product:", products[0])}
       <ComponentCard>
