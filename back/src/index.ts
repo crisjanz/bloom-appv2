@@ -17,6 +17,7 @@ import ordersRouter from './routes/orders/index';
 import paymentTransactionsRouter from './routes/payment-transactions';
 import { getPOSTabs, savePOSTabs } from './routes/settings/pos-tabs';
 import { getStoreInfo, saveStoreInfo } from './routes/settings/store-info';
+import { getOrderStatusNotificationSettings, saveOrderStatusNotificationSettings } from './routes/settings/order-status-notifications';
 import { getBusinessHours, saveBusinessHours } from './routes/settings/business-hours';
 import { getDeliveryExceptions, saveDeliveryExceptions } from './routes/settings/delivery-exceptions';
 import { getDeliveryCharges, saveDeliveryCharges } from './routes/settings/delivery-charges';
@@ -30,6 +31,8 @@ import {
 } from './routes/settings/holidays';
 import taxRatesRouter from './routes/settings/tax-rates';
 import emailRouter from './routes/email';
+import smsRouter from './routes/sms';
+import notificationsRouter from './routes/notifications';
 
 dotenv.config();
 
@@ -50,6 +53,8 @@ app.use('/api/products', productsRouter);
 app.use('/api/categories', categoriesRouter);
 app.get('/api/settings/store-info', getStoreInfo);
 app.post('/api/settings/store-info', saveStoreInfo);
+app.get('/api/settings/notifications/order-status', getOrderStatusNotificationSettings);
+app.post('/api/settings/notifications/order-status', saveOrderStatusNotificationSettings);
 app.get('/api/settings/business-hours', getBusinessHours);
 app.post('/api/settings/business-hours', saveBusinessHours);
 app.get('/api/settings/delivery-exceptions', getDeliveryExceptions);
@@ -69,6 +74,8 @@ app.get('/api/settings/pos-tabs', getPOSTabs);
 app.post('/api/settings/pos-tabs', savePOSTabs);
 app.use('/api/settings/tax-rates', taxRatesRouter);
 app.use('/api/email', emailRouter);
+app.use('/api/sms', smsRouter);
+app.use('/api/notifications', notificationsRouter);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'Backend is alive!' });

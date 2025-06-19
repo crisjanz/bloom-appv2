@@ -10,15 +10,19 @@ import {
 } from '../../components/ui/table';
 import Badge from '../../components/ui/badge/Badge';
 import ComponentCard from '../../components/common/ComponentCard';
+import { statusOptions as importedStatusOptions } from '../../components/orders/types';
+import StatusBadge from '../../components/orders/StatusBadge';
 import Label from '../../components/form/Label';
 import Select from '../../components/form/Select';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 
+import type { OrderStatus, OrderType } from '../../utils/orderStatusHelpers';
+
 interface Order {
   id: string;
   orderNumber: number;
-  status: string;
-  type: string;
+  status: OrderStatus;
+  type: OrderType;
   createdAt: string;
   deliveryDate: string | null;
   paymentAmount: number;
@@ -36,26 +40,10 @@ interface Order {
   }>;
 }
 
-const statusConfig = {
-  DRAFT: { color: 'default', label: 'Draft' },
-  PAID: { color: 'info', label: 'Paid' },
-  IN_DESIGN: { color: 'warning', label: 'In Design' },
-  READY: { color: 'success', label: 'Ready' },
-  DELIVERED: { color: 'success', label: 'Delivered' },
-  COMPLETED: { color: 'success', label: 'Completed' },
-  REJECTED: { color: 'error', label: 'Rejected' },
-  CANCELLED: { color: 'error', label: 'Cancelled' },
-} as const;
-
+// Add "All Status" option to the imported status options
 const statusOptions = [
   { value: "ALL", label: "All Status" },
-  { value: "DRAFT", label: "Draft" },
-  { value: "PAID", label: "Paid" },
-  { value: "IN_DESIGN", label: "In Design" },
-  { value: "READY", label: "Ready" },
-  { value: "DELIVERED", label: "Delivered" },
-  { value: "REJECTED", label: "Rejected" },
-  { value: "CANCELLED", label: "Cancelled" },
+  ...importedStatusOptions
 ];
 
 const OrdersListPage: React.FC = () => {
@@ -278,12 +266,10 @@ const OrdersListPage: React.FC = () => {
                       </TableCell>
 
                       <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                        <Badge 
-                          size="sm" 
-                          color={statusConfig[order.status as keyof typeof statusConfig]?.color || 'default'}
-                        >
-                          {statusConfig[order.status as keyof typeof statusConfig]?.label || order.status}
-                        </Badge>
+                        <StatusBadge 
+                          status={order.status}
+                          orderType={order.type}
+                        />
                       </TableCell>
 
                       <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">

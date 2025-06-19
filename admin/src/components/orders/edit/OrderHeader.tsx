@@ -2,23 +2,17 @@
 import React from 'react';
 import Select from '../../form/Select';
 import { Order } from '../types';
+import StatusBadge from '../StatusBadge';
+import { getStatusOptions } from '../../../utils/orderStatusHelpers';
 
 interface OrderHeaderProps {
   order: Order;
   onStatusChange: (status: string) => void;
 }
 
-const statusOptions = [
-  { value: "DRAFT", label: "Draft" },
-  { value: "PAID", label: "Paid" },
-  { value: "IN_DESIGN", label: "In Design" },
-  { value: "READY", label: "Ready" },
-  { value: "COMPLETED", label: "Completed" },
-  { value: "REJECTED", label: "Rejected" },
-  { value: "CANCELLED", label: "Cancelled" },
-];
-
 const OrderHeader: React.FC<OrderHeaderProps> = ({ order, onStatusChange }) => {
+  const statusOptions = getStatusOptions(order.type);
+  
   return (
     <div className="mb-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -31,17 +25,26 @@ const OrderHeader: React.FC<OrderHeaderProps> = ({ order, onStatusChange }) => {
           </p>
         </div>
         
-        {/* Always visible status dropdown */}
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            Status:
-          </span>
-          <div className="min-w-[150px]">
+        {/* Status display and controls */}
+        <div className="flex items-center gap-4">
+          {/* Smart status badge */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Status:
+            </span>
+            <StatusBadge 
+              status={order.status}
+              orderType={order.type}
+            />
+          </div>
+          
+          {/* Status change dropdown */}
+          <div className="min-w-[180px]">
             <Select
               options={statusOptions}
               value={order.status}
               onChange={onStatusChange}
-              placeholder="Select Status"
+              placeholder="Change Status"
             />
           </div>
         </div>

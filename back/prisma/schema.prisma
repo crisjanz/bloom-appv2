@@ -35,6 +35,7 @@ enum OrderStatus {
   PAID
   IN_DESIGN
   READY
+  OUT_FOR_DELIVERY
   COMPLETED
   REJECTED
   CANCELLED
@@ -798,4 +799,15 @@ model TaxRate {
   @@map("tax_rates")
   @@index([isActive])
   @@index([sortOrder])
+}
+
+// Notification Settings Storage
+model NotificationSettings {
+  id        String   @id @default(cuid())
+  type      String   @unique // "ORDER_STATUS", "MARKETING", etc.
+  settings  String   // JSON string of settings data
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("notification_settings")
 }

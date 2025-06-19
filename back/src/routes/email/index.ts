@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { emailService } from '../../services/emailService';
+import { smsService } from '../../services/smsService';
 
 const router = Router();
 
@@ -94,56 +95,123 @@ router.post('/gift-card', async (req, res) => {
   }
 });
 
-// Send receipt email
+// Send receipt email and/or SMS
 router.post('/receipt', async (req, res) => {
   try {
     const {
       customerEmail,
       customerName,
+      customerPhone,
       transactionNumber,
       orderNumbers,
       totalAmount,
       paymentMethods,
-      orderDetails
+      orderDetails,
+      sendEmail = true,
+      sendSMS = false
     } = req.body;
 
-    if (!customerEmail || !customerName || !transactionNumber || !totalAmount) {
+    if (!customerName || !transactionNumber || !totalAmount) {
       return res.status(400).json({
         success: false,
-        error: 'Missing required fields: customerEmail, customerName, transactionNumber, totalAmount'
+        error: 'Missing required fields: customerName, transactionNumber, totalAmount'
       });
     }
 
-    console.log('🧾 Sending receipt email:', {
+    // Validate email if sending email
+    if (sendEmail && !customerEmail) {
+      return res.status(400).json({
+        success: false,
+        error: 'customerEmail is required when sendEmail is true'
+      });
+    }
+
+    // Validate phone if sending SMS
+    if (sendSMS && !customerPhone) {
+      return res.status(400).json({
+        success: false,
+        error: 'customerPhone is required when sendSMS is true'
+      });
+    }
+
+    console.log('🧾 Sending receipt notifications:', {
       customerEmail,
+      customerPhone,
       customerName,
       transactionNumber,
-      totalAmount
+      totalAmount,
+      sendEmail,
+      sendSMS
     });
 
-    const success = await emailService.sendReceiptEmail({
-      customerEmail,
-      customerName,
-      transactionNumber,
-      orderNumbers: orderNumbers || [],
-      totalAmount: parseFloat(totalAmount),
-      paymentMethods: paymentMethods || [],
-      orderDetails: orderDetails || []
-    });
+    const results = {
+      email: { sent: false, success: false },
+      sms: { sent: false, success: false }
+    };
 
-    if (success) {
+    // Send email receipt if requested
+    if (sendEmail && customerEmail) {
+      results.email.sent = true;
+      results.email.success = await emailService.sendReceiptEmail({
+        customerEmail,
+        customerName,
+        transactionNumber,
+        orderNumbers: orderNumbers || [],
+        totalAmount: parseFloat(totalAmount),
+        paymentMethods: paymentMethods || [],
+        orderDetails: orderDetails || []
+      });
+    }
+
+    // Send SMS receipt if requested
+    if (sendSMS && customerPhone) {
+      results.sms.sent = true;
+      results.sms.success = await smsService.sendReceiptSMS({
+        phoneNumber: customerPhone,
+        customerName,
+        transactionNumber,
+        orderNumbers: orderNumbers || [],
+        totalAmount: parseFloat(totalAmount),
+        paymentMethods: paymentMethods || []
+      });
+    }
+
+    // Determine overall success
+    const emailOk = !results.email.sent || results.email.success;
+    const smsOk = !results.sms.sent || results.sms.success;
+    const overallSuccess = emailOk && smsOk;
+
+    // Build response message
+    let message = '';
+    if (results.email.sent && results.sms.sent) {
+      if (overallSuccess) {
+        message = 'Receipt email and SMS sent successfully';
+      } else {
+        message = 'Some receipt notifications failed to send';
+      }
+    } else if (results.email.sent) {
+      message = results.email.success ? 'Receipt email sent successfully' : 'Failed to send receipt email';
+    } else if (results.sms.sent) {
+      message = results.sms.success ? 'Receipt SMS sent successfully' : 'Failed to send receipt SMS';
+    } else {
+      message = 'No receipt notifications were requested';
+    }
+
+    if (overallSuccess) {
       res.json({
         success: true,
-        message: 'Receipt email sent successfully'
+        message,
+        results
       });
     } else {
       res.status(500).json({
         success: false,
-        error: 'Failed to send receipt email'
+        error: message,
+        results
       });
     }
   } catch (error) {
-    console.error('Error in receipt email endpoint:', error);
+    console.error('Error in receipt notification endpoint:', error);
     res.status(500).json({
       success: false,
       error: 'Internal server error'

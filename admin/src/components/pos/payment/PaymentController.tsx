@@ -5,7 +5,7 @@ import SplitPaymentView from "./SplitPaymentView";
 import OrderCompletionSummary from "./OrderCompletionSummary";
 import CashPaymentModal from "./CashPaymentModal";
 import CardPaymentModal from "./CardPaymentModal";
-import EmailReceiptModal from "./EmailReceiptModal";
+import NotificationModal from "./NotificationModal";
 import GiftCardActivationModal from "../../orders/payment/GiftCardActivationModal";
 import GiftCardHandoffModal from "../../orders/payment/GiftCardHandoffModal";
 import { orderContainsGiftCards, getGiftCardItems } from "../../../utils/giftCardHelpers";
@@ -78,8 +78,8 @@ const PaymentController: FC<Props> = ({
   // Modal states for popups
   const [showCashModal, setShowCashModal] = useState(false);
   const [showCardModal, setShowCardModal] = useState(false);
-  const [showEmailModal, setShowEmailModal] = useState(false);
-  const [emailSendStatus, setEmailSendStatus] = useState<'success' | 'error' | null>(null);
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [notificationStatus, setNotificationStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   
   // Gift card activation state
   const [showGiftCardActivation, setShowGiftCardActivation] = useState(false);
@@ -442,51 +442,22 @@ const PaymentController: FC<Props> = ({
     setCurrentView('methods');
   };
 
-  // Handle email receipt - show modal first
-  const handleEmailReceipt = (completionData: CompletionData) => {
-    setShowEmailModal(true);
+  // Handle unified receipt notification - show modal
+  const handleSendReceipt = () => {
+    setShowNotificationModal(true);
   };
 
-  // Handle email confirmation from modal
-  const handleEmailConfirm = async (email: string) => {
-    const displayName = customerName || `${customer?.firstName} ${customer?.lastName}` || 'Walk-in Customer';
-    
-    setShowEmailModal(false);
-    
-    console.log('📧 Sending POS receipt email to:', email);
-    try {
-      const response = await fetch('/api/email/receipt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customerEmail: email,
-          customerName: displayName,
-          transactionNumber: completionData?.transactionNumber,
-          orderNumbers: orderIds,
-          totalAmount: completionData?.totalAmount,
-          paymentMethods: completionData?.paymentMethods.map(pm => ({
-            type: pm.method,
-            amount: pm.amount
-          })) || [],
-          orderDetails: completionData?.completedOrders || []
-        })
-      });
+  // Handle notification success
+  const handleNotificationSuccess = (message: string) => {
+    setShowNotificationModal(false);
+    setNotificationStatus({ type: 'success', message });
+    setTimeout(() => setNotificationStatus(null), 3000);
+  };
 
-      if (response.ok) {
-        console.log('✅ POS receipt email sent successfully');
-        // Show success state in UI instead of alert
-        setEmailSendStatus('success');
-        setTimeout(() => setEmailSendStatus(null), 3000);
-      } else {
-        console.log('❌ Failed to send POS receipt email');
-        setEmailSendStatus('error');
-        setTimeout(() => setEmailSendStatus(null), 5000);
-      }
-    } catch (error) {
-      console.error('❌ Error sending POS receipt email:', error);
-      setEmailSendStatus('error');
-      setTimeout(() => setEmailSendStatus(null), 5000);
-    }
+  // Handle notification error  
+  const handleNotificationError = (error: string) => {
+    setNotificationStatus({ type: 'error', message: error });
+    setTimeout(() => setNotificationStatus(null), 5000);
   };
 
   // Return the appropriate view content
@@ -590,7 +561,7 @@ const PaymentController: FC<Props> = ({
           paymentMethods={completionData.paymentMethods}
           completedOrders={completionData.completedOrders}
           giftCards={activatedGiftCards}
-          onEmailReceipt={() => handleEmailReceipt(completionData)}
+          onSendReceipt={handleSendReceipt}
           onPrintReceipt={() => console.log('Print receipt for', completionData.transactionNumber)}
           onProcessRefund={() => console.log('Process refund for', completionData.transactionNumber)}
           onNewOrder={handleNewOrder}
@@ -605,36 +576,43 @@ const PaymentController: FC<Props> = ({
     <>
       {renderPaymentView()}
       
-      {/* Email Receipt Modal */}
-      <EmailReceiptModal
-        open={showEmailModal}
+      {/* Unified Notification Modal */}
+      <NotificationModal
+        isOpen={showNotificationModal}
+        onClose={() => setShowNotificationModal(false)}
+        transactionNumber={completionData?.transactionNumber}
+        transactionId={completionData?.transactionId}
+        total={completionData?.totalAmount || total}
         customerEmail={customer?.email}
-        customerName={customerName || customer?.firstName + ' ' + customer?.lastName}
-        onConfirm={handleEmailConfirm}
-        onCancel={() => setShowEmailModal(false)}
+        customerPhone={customer?.phone}
+        customerName={customerName || `${customer?.firstName} ${customer?.lastName}`.trim() || ''}
+        onSuccess={handleNotificationSuccess}
+        onError={handleNotificationError}
+        defaultChannels={['email']}
+        title="Send Receipt"
       />
       
-      {/* Email Send Status Toast */}
-      {emailSendStatus && (
+      {/* Unified Notification Status Toast */}
+      {notificationStatus && (
         <div className={`fixed top-4 right-4 z-[100001] px-6 py-4 rounded-lg shadow-lg text-white font-medium ${
-          emailSendStatus === 'success' 
+          notificationStatus.type === 'success' 
             ? 'bg-green-600' 
             : 'bg-red-600'
         }`}>
           <div className="flex items-center gap-2">
-            {emailSendStatus === 'success' ? (
+            {notificationStatus.type === 'success' ? (
               <>
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
-                Receipt email sent successfully!
+                {notificationStatus.message}
               </>
             ) : (
               <>
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
-                Failed to send receipt email
+                {notificationStatus.message}
               </>
             )}
           </div>

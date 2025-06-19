@@ -3,7 +3,7 @@ import { FC } from "react";
 import { 
   CheckCircleIcon, 
   DocsIcon, 
-  MailIcon, 
+  MailIcon,
   ArrowUpIcon,
   PlusIcon 
 } from "../../../icons";
@@ -35,7 +35,7 @@ type Props = {
   paymentMethods: PaymentMethod[];
   completedOrders: CompletedOrder[];
   giftCards?: GiftCard[]; // Optional gift cards created
-  onEmailReceipt: () => void;
+  onSendReceipt: () => void;
   onPrintReceipt: () => void;
   onProcessRefund: () => void;
   onNewOrder: () => void;
@@ -48,7 +48,7 @@ const OrderCompletionSummary: FC<Props> = ({
   paymentMethods,
   completedOrders,
   giftCards = [],
-  onEmailReceipt,
+  onSendReceipt,
   onPrintReceipt,
   onProcessRefund,
   onNewOrder,
@@ -148,13 +148,13 @@ const OrderCompletionSummary: FC<Props> = ({
 
       {/* Compact Action Buttons */}
 {/* Card-style Action Buttons */}
-<div className="grid grid-cols-4 gap-4">
+<div className="grid grid-cols-4 gap-3">
   <button
-    onClick={onEmailReceipt}
-    className="relative h-20 flex flex-col justify-center items-center rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-boxdark hover:border-blue-500 hover:shadow-lg transition-all text-gray-800 dark:text-white"
+    onClick={onSendReceipt}
+    className="relative h-20 flex flex-col justify-center items-center rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-boxdark hover:border-[#597485] hover:shadow-lg transition-all text-gray-800 dark:text-white"
   >
-    <MailIcon className="w-6 h-6 text-blue-600 mb-1" />
-    <span className="text-sm font-medium">Email Receipt</span>
+    <MailIcon className="w-6 h-6 text-[#597485] mb-1" />
+    <span className="text-xs font-medium">Send Receipt</span>
     
     {/* Selection indicator circle */}
     <div className="absolute top-2 right-2 w-4 h-4 rounded-full border-2 border-gray-400 bg-transparent" />
@@ -165,7 +165,7 @@ const OrderCompletionSummary: FC<Props> = ({
     className="relative h-20 flex flex-col justify-center items-center rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-boxdark hover:border-gray-500 hover:shadow-lg transition-all text-gray-800 dark:text-white"
   >
     <DocsIcon className="w-6 h-6 text-gray-600 mb-1" />
-    <span className="text-sm font-medium">Print Receipt</span>
+    <span className="text-xs font-medium">Print Receipt</span>
     
     {/* Selection indicator circle */}
     <div className="absolute top-2 right-2 w-4 h-4 rounded-full border-2 border-gray-400 bg-transparent" />
@@ -176,7 +176,7 @@ const OrderCompletionSummary: FC<Props> = ({
     className="relative h-20 flex flex-col justify-center items-center rounded-xl border-2 border-red-200 dark:border-gray-700 bg-white dark:bg-boxdark hover:border-red-500 hover:shadow-lg transition-all text-gray-800 dark:text-white"
   >
     <ArrowUpIcon className="w-6 h-6 text-red-600 mb-1" />
-    <span className="text-sm font-medium">Process Refund</span>
+    <span className="text-xs font-medium">Process Refund</span>
     
     {/* Selection indicator circle */}
     <div className="absolute top-2 right-2 w-4 h-4 rounded-full border-2 border-gray-400 bg-transparent" />
@@ -187,7 +187,7 @@ const OrderCompletionSummary: FC<Props> = ({
     className="relative h-20 flex flex-col justify-center items-center rounded-xl border-2 border-[#597485] bg-[#597485] hover:bg-[#4e6575] hover:shadow-lg transition-all text-white"
   >
     <PlusIcon className="w-6 h-6 text-white mb-1" />
-    <span className="text-sm font-medium">New Order</span>
+    <span className="text-xs font-medium">New Order</span>
     
     {/* Selection indicator circle - filled for primary action */}
     <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-white border-2 border-white">

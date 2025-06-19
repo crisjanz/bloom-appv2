@@ -64,6 +64,7 @@ const PaymentSection: React.FC<Props> = ({
   const [subscribe, setSubscribe] = useState(false);
   const [showPaymentPopup, setShowPaymentPopup] = useState(false);
   const [sendEmailReceipt, setSendEmailReceipt] = useState(false);
+  const [sendSMSReceipt, setSendSMSReceipt] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [showGiftCardActivation, setShowGiftCardActivation] = useState(false);
   const [showGiftCardHandoff, setShowGiftCardHandoff] = useState(false);
@@ -508,35 +509,44 @@ const PaymentSection: React.FC<Props> = ({
         }
       }
 
-      // 📧 Send receipt email if requested
-      if (sendEmailReceipt && customerState.customer?.email && orderData.transactionNumber) {
-        console.log('📧 Sending receipt email...');
-        try {
-          const receiptResponse = await fetch('/api/email/receipt', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              customerEmail: customerState.customer.email,
-              customerName: customerState.customer.firstName + ' ' + customerState.customer.lastName,
-              transactionNumber: orderData.transactionNumber,
-              orderNumbers: result.orders.map((order: any) => order.id),
-              totalAmount: grandTotal,
-              paymentMethods: payments.map(p => ({
-                type: p.method,
-                amount: p.amount
-              })),
-              orderDetails: result.orders
-            })
-          });
+      // 📧📱 Send receipt notifications if requested
+      if ((sendEmailReceipt || sendSMSReceipt) && orderData.transactionNumber) {
+        const customerName = customerState.customer?.firstName + ' ' + customerState.customer?.lastName;
+        const shouldSendEmail = sendEmailReceipt && customerState.customer?.email;
+        const shouldSendSMS = sendSMSReceipt && customerState.customer?.phone;
+        
+        if (shouldSendEmail || shouldSendSMS) {
+          console.log('📧📱 Sending receipt notifications...', { email: shouldSendEmail, sms: shouldSendSMS });
+          try {
+            const receiptResponse = await fetch('/api/email/receipt', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                customerEmail: customerState.customer?.email,
+                customerPhone: customerState.customer?.phone,
+                customerName,
+                transactionNumber: orderData.transactionNumber,
+                orderNumbers: result.orders.map((order: any) => order.id),
+                totalAmount: grandTotal,
+                paymentMethods: payments.map(p => ({
+                  type: p.method,
+                  amount: p.amount
+                })),
+                orderDetails: result.orders,
+                sendEmail: shouldSendEmail,
+                sendSMS: shouldSendSMS
+              })
+            });
 
-          if (receiptResponse.ok) {
-            console.log('✅ Receipt email sent successfully');
-          } else {
-            console.log('❌ Failed to send receipt email');
+            if (receiptResponse.ok) {
+              console.log('✅ Receipt notifications sent successfully');
+            } else {
+              console.log('❌ Failed to send receipt notifications');
+            }
+          } catch (error) {
+            console.error('❌ Error sending receipt notifications:', error);
+            // Don't fail the order if receipt notifications fail
           }
-        } catch (error) {
-          console.error('❌ Error sending receipt email:', error);
-          // Don't fail the order if email fails
         }
       }
 
@@ -583,6 +593,8 @@ const PaymentSection: React.FC<Props> = ({
         setSubscribe={setSubscribe}
         sendEmailReceipt={sendEmailReceipt}
         setSendEmailReceipt={setSendEmailReceipt}
+        sendSMSReceipt={sendSMSReceipt}
+        setSendSMSReceipt={setSendSMSReceipt}
         onTriggerPayment={handleTriggerPayment}
         onCouponDiscountChange={setCouponDiscount}
         onGiftCardChange={handleGiftCardChange}

@@ -1,8 +1,16 @@
+import { 
+  OrderStatus, 
+  OrderType,
+  getAllStatuses, 
+  getStatusDisplayText, 
+  getStatusColor 
+} from '../../utils/orderStatusHelpers';
+
 export interface Order {
   id: string;
   orderNumber: number;
-  status: string;
-  type: string;
+  status: OrderStatus;
+  type: OrderType;
   createdAt: string;
   deliveryDate: string | null;
   deliveryTime: string | null;
@@ -44,23 +52,45 @@ export interface Order {
   images?: string[];
 }
 
-export const statusOptions = [
-  { value: 'DRAFT', label: 'Draft' },
-  { value: 'PAID', label: 'Paid' },
-  { value: 'IN_DESIGN', label: 'In Design' },
-  { value: 'READY', label: 'Ready for Delivery' },
-  { value: 'DELIVERED', label: 'Delivered' },
-  { value: 'REJECTED', label: 'Rejected' },
-  { value: 'CANCELLED', label: 'Cancelled' },
-];
+// Generate status options for dropdowns using helper functions
+export const statusOptions = getAllStatuses().map(status => ({
+  value: status,
+  label: getStatusDisplayText(status)
+}));
 
-export const statusConfig = {
-  DRAFT: { color: 'default', label: 'Draft' },
-  PAID: { color: 'info', label: 'Paid' },
-  IN_DESIGN: { color: 'warning', label: 'In Design' },
-  READY: { color: 'success', label: 'Ready' },
-  DELIVERED: { color: 'success', label: 'Delivered' },
-  COMPLETED: { color: 'success', label: 'Completed' },
-  REJECTED: { color: 'error', label: 'Rejected' },
-  CANCELLED: { color: 'error', label: 'Cancelled' },
-} as const;
+// Badge color mapping for existing Badge components
+const getBadgeColor = (status: OrderStatus): 'default' | 'info' | 'warning' | 'success' | 'error' => {
+  switch (status) {
+    case 'DRAFT':
+      return 'default';
+    case 'PAID':
+      return 'info';
+    case 'IN_DESIGN':
+      return 'warning';
+    case 'READY':
+    case 'OUT_FOR_DELIVERY':
+    case 'COMPLETED':
+      return 'success';
+    case 'REJECTED':
+    case 'CANCELLED':
+      return 'error';
+    default:
+      return 'default';
+  }
+};
+
+// Generate status config using helper functions
+export const statusConfig = Object.fromEntries(
+  getAllStatuses().map(status => [
+    status,
+    {
+      color: getBadgeColor(status),
+      label: getStatusDisplayText(status),
+      tailwindClasses: getStatusColor(status) // Add Tailwind classes for new components
+    }
+  ])
+) as Record<OrderStatus, { 
+  color: 'default' | 'info' | 'warning' | 'success' | 'error';
+  label: string;
+  tailwindClasses: string;
+}>;
