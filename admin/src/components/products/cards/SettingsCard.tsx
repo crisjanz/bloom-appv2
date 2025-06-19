@@ -43,7 +43,7 @@ const SettingsCard: FC<Props> = ({
     const fetchData = async () => {
       try {
         const [catRes, repCatRes] = await Promise.all([
-          fetch('/api/categories'),
+          fetch('/api/categories'), // This will return flat list with depth info
           fetch('/api/reportingcategories'),
         ]);
         if (!catRes.ok) throw new Error('Failed to fetch categories');
@@ -100,8 +100,9 @@ const SettingsCard: FC<Props> = ({
           onChange={(value) => handleChange('categoryId', value)}
           placeholder={isLoading ? 'Loading...' : 'Select a category'}
           options={categories.map((cat) => ({
-            label: cat.name,
+            label: cat.name, // Use just the name since indentation is handled separately
             value: cat.id,
+            depth: cat.depth || 0, // Add depth for indentation
           }))}
           disabled={isLoading}
         />

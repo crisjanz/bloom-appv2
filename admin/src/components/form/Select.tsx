@@ -3,6 +3,7 @@ import { useState } from "react";
 interface Option {
   value: string;
   label: string;
+  depth?: number; // For hierarchical indentation
 }
 
 interface SelectProps {
@@ -65,7 +66,8 @@ const Select: React.FC<SelectProps> = ({
             value={option.value}
             className="text-gray-700 dark:bg-gray-900 dark:text-gray-400"
           >
-            {option.label}
+            {/* Add indentation for hierarchical categories */}
+            {option.depth ? '→'.repeat(option.depth) + ' ' : ''}{option.label}
           </option>
         ))}
       </select>

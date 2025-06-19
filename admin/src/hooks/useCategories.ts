@@ -8,7 +8,7 @@ export function useCategories() {
   const fetchCategories = async () => {
     try {
       setLoading(true);
-      const res = await fetch("http://cristians-macbook-air.local:4000/api/categories");
+      const res = await fetch("/api/categories"); // Use relative URL to get hierarchical data with depth
       if (!res.ok) throw new Error("Failed to fetch categories");
       const data = await res.json();
       setCategories(data);

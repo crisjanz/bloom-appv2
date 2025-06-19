@@ -3,3 +3,8 @@ node_modules/
 dist/
 .vscode/
 .DS_Store
+
+# Documentation (internal use only)
+docs/
+Progress_Tracker.markdown
+Project_Summary.markdown

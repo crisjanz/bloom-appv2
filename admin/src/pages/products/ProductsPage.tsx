@@ -21,6 +21,7 @@ export default function ProductsPage() {
     ...categories.map((cat) => ({
       label: cat.name,
       value: cat.id,
+      depth: cat.depth || 0, // Add depth for hierarchical indentation
     })),
   ];
 
