@@ -117,17 +117,25 @@ router.post('/create', async (req, res) => {
 
         console.log(`📋 Order #${order.orderNumber} status updated: DRAFT → PAID`);
 
-        // Trigger status notifications
-        await triggerStatusNotifications(updatedOrder, 'PAID', 'DRAFT');
+        // Trigger status notifications in background (non-blocking)
+        triggerStatusNotifications(updatedOrder, 'PAID', 'DRAFT')
+          .then(() => {
+            console.log(`✅ Order confirmation notifications sent for order #${updatedOrder.orderNumber}`);
+          })
+          .catch((error) => {
+            console.error(`❌ Order confirmation notification failed for order #${updatedOrder.orderNumber}:`, error);
+            // TODO: Log to monitoring service for production
+          });
 
       } catch (error) {
-        console.error(`❌ Failed to update order ${order.id} to PAID or send notifications:`, error);
+        console.error(`❌ Failed to update order ${order.id} to PAID:`, error);
         // Continue with other orders even if one fails
       }
     }
 
     console.log(`Successfully created ${createdOrders.length} orders`);
 
+    // Respond immediately - notifications are sent in background
     res.json({ 
       success: true, 
       orders: createdOrders,

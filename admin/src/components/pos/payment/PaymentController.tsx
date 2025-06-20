@@ -196,7 +196,7 @@ const PaymentController: FC<Props> = ({
   };
 
   const handleCouponAdd = async () => {
-    if (!couponCode.trim() || !isCouponValid) return;
+    if (!couponCode.trim() || !isCouponValid) return false;
 
     try {
       const response = await fetch('/api/coupons/validate', {
@@ -219,12 +219,16 @@ const PaymentController: FC<Props> = ({
       if (result.valid && onCouponChange) {
         onCouponChange(result.discountAmount, result.coupon.name);
         setCouponSuccess(`Applied: ${result.coupon.name} - $${result.discountAmount.toFixed(2)} off`);
+        setCouponCode(''); // Clear the coupon code after successful application
+        return true; // Success - modal can close
       } else {
         setCouponError(result.error || 'Failed to apply coupon');
+        return false; // Error - keep modal open
       }
     } catch (error) {
       console.error('Error applying coupon:', error);
       setCouponError('Failed to apply coupon');
+      return false; // Error - keep modal open
     }
   };
 

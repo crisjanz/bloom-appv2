@@ -131,26 +131,9 @@ router.post('/', upload.array('images'), async (req, res) => {
       return res.status(400).json({ error: 'Title is required' });
     }
 
-    let imageUrls: string[] = [];
+    // Create product first without images for immediate response
+    const imageUrls: string[] = [];
     const files = (req as any).files as Express.Multer.File[];
-    if (files && files.length > 0) {
-      for (const file of files) {
-        const filePath = `products/${Date.now()}-${file.originalname}`;
-        const { error } = await supabase.storage
-          .from('product-images')
-          .upload(filePath, file.buffer, {
-            contentType: file.mimetype,
-          });
-        if (error) {
-          console.error('Supabase upload error:', error);
-          throw error;
-        }
-        const { data: publicUrlData } = supabase.storage
-          .from('product-images')
-          .getPublicUrl(filePath);
-        imageUrls.push(publicUrlData.publicUrl);
-      }
-    }
 
     const optionGroups = optionGroupsJson ? JSON.parse(optionGroupsJson) : [];
     const variants = variantsJson ? JSON.parse(variantsJson) : [];
@@ -192,7 +175,7 @@ router.post('/', upload.array('images'), async (req, res) => {
         showOnHomepage: typeof isFeatured === 'string' ? JSON.parse(isFeatured) : (isFeatured !== undefined ? isFeatured : false),
         productType: 'MAIN',
         inventoryMode: 'OWN',
-        images: imageUrls,
+        images: imageUrls, // Start with empty array
         recipeNotes: recipe || null,
         
         availabilityType: availabilityType || 'always',
@@ -249,7 +232,28 @@ router.post('/', upload.array('images'), async (req, res) => {
       },
     });
 
-    res.status(201).json({ id: product.id });
+    // Respond immediately to user
+    res.status(201).json({ 
+      id: product.id,
+      message: files && files.length > 0 ? `Product created. Uploading ${files.length} images in background...` : 'Product created successfully'
+    });
+
+    // Upload images in background and update product
+    if (files && files.length > 0) {
+      console.log(`📤 Starting background image upload for product ${product.id} (${files.length} files)`);
+      
+      uploadProductImages(files, product.id)
+        .then((uploadedUrls) => {
+          console.log(`✅ Background image upload completed for product ${product.id}:`, uploadedUrls);
+        })
+        .catch((error) => {
+          console.error(`❌ Background image upload failed for product ${product.id}:`, error);
+          // TODO: In production, you might want to:
+          // - Log to monitoring service
+          // - Store failure for retry
+          // - Send admin notification
+        });
+    }
   } catch (err: any) {
     console.error('Create product error:', err.message, err.stack);
     res.status(500).json({ error: err.message || 'Failed to create product' });
@@ -384,5 +388,47 @@ router.put('/:id', upload.array('images'), async (req, res) => {
     res.status(500).json({ error: 'Failed to update product', details: err.message });
   }
 });
+
+// Background upload function for product images
+async function uploadProductImages(files: Express.Multer.File[], productId: string): Promise<string[]> {
+  const imageUrls: string[] = [];
+  
+  console.log(`📤 Starting background upload for product ${productId} (${files.length} files)`);
+  
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const filePath = `products/${Date.now()}-${i}-${file.originalname}`;
+    
+    console.log(`📤 Uploading file ${i + 1}/${files.length}: ${filePath}`);
+    
+    const { error } = await supabase.storage
+      .from('product-images')
+      .upload(filePath, file.buffer, {
+        contentType: file.mimetype,
+      });
+    
+    if (error) {
+      console.error(`❌ Supabase upload error for file ${i + 1}:`, error);
+      throw error;
+    }
+    
+    const { data: publicUrlData } = supabase.storage
+      .from('product-images')
+      .getPublicUrl(filePath);
+    
+    imageUrls.push(publicUrlData.publicUrl);
+    console.log(`✅ File ${i + 1}/${files.length} uploaded: ${publicUrlData.publicUrl}`);
+  }
+  
+  // Update the product with the uploaded image URLs
+  console.log(`🔄 Updating product ${productId} with ${imageUrls.length} image URLs`);
+  await prisma.product.update({
+    where: { id: productId },
+    data: { images: imageUrls }
+  });
+  
+  console.log(`✅ Product ${productId} updated with images successfully`);
+  return imageUrls;
+}
 
 export default router;

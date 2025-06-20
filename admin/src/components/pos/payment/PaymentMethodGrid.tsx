@@ -186,10 +186,13 @@ const PaymentMethodGrid: FC<Props> = ({
           Cancel
         </button>
         <button
-          onClick={() => {
-            // Call the new onCouponAdd function
-            onCouponAdd();
-            setShowCouponModal(false);
+          onClick={async () => {
+            // Call the new onCouponAdd function and wait for result
+            const success = await onCouponAdd();
+            if (success) {
+              setShowCouponModal(false); // Only close modal on success
+            }
+            // If success is false, modal stays open so user can correct the code
           }}
           disabled={!couponCode}
           className="flex-1 py-3 px-4 bg-[#597485] hover:bg-[#4e6575] disabled:opacity-50 text-white rounded-xl font-medium transition-colors"

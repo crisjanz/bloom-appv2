@@ -44,6 +44,7 @@ import MiscPage from "./pages/settings/misc";
 import POSPage from "./pages/pos/POSPage"; 
 import FullscreenPOS from "./pages/pos/FullscreenPOS";
 import GiftCardsPage from "./pages/gift-cards/GiftCardsPage";
+import CouponsPage from "./pages/coupons/CouponsPage";
 
 export default function App() {
   return (
@@ -96,6 +97,9 @@ export default function App() {
 
             {/* Gift Cards route */}
             <Route path="gift-cards" element={<GiftCardsPage />} />
+
+            {/* Coupons route */}
+            <Route path="coupons" element={<CouponsPage />} />
 
             {/* Settings routes */}
             <Route path="settings" element={<SettingsIndexPage />} />

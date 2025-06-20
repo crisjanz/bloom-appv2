@@ -261,23 +261,31 @@ if (updateData.orderItems || updateData.recalculateTotal) {
 
     console.log('Transaction completed successfully');
 
-    // Trigger status notifications if status was updated
-    if (notificationTrigger && result) {
-      try {
-        const { newStatus, previousStatus } = notificationTrigger;
-        console.log(`🔔 Triggering notifications for status change: ${previousStatus} → ${newStatus}`);
-        await triggerStatusNotifications(result, newStatus, previousStatus);
-      } catch (error) {
-        console.error('❌ Failed to trigger status notifications:', error);
-        // Don't fail the order update if notifications fail
-      }
-    }
-
+    // Respond immediately to user for better UX
     res.json({
       success: true,
       order: result,
       message: 'Order updated successfully'
     });
+
+    // Trigger status notifications in background (non-blocking)
+    if (notificationTrigger && result) {
+      const { newStatus, previousStatus } = notificationTrigger;
+      console.log(`🔔 Triggering notifications for status change: ${previousStatus} → ${newStatus}`);
+      
+      // Fire-and-forget with proper logging
+      triggerStatusNotifications(result, newStatus, previousStatus)
+        .then(() => {
+          console.log(`✅ Status notifications completed for order #${result.orderNumber}: ${previousStatus} → ${newStatus}`);
+        })
+        .catch((error) => {
+          console.error(`❌ Status notification failed for order #${result.orderNumber}: ${previousStatus} → ${newStatus}`, error);
+          // TODO: In production, you might want to:
+          // - Save failed notifications to database for retry
+          // - Send admin alert email
+          // - Log to monitoring service (e.g., Sentry)
+        });
+    }
 
   } catch (error) {
     console.error('Error updating order:', error);

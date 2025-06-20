@@ -78,6 +78,11 @@ const navItems: NavItem[] = [
     path: "/gift-cards",
   },
   {
+    icon: <BoxCubeIcon />,
+    name: "Coupons",
+    path: "/coupons",
+  },
+  {
     icon: <SettingsIcon />,
     name: "Settings",
     path: "/settings",
