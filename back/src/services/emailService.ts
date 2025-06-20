@@ -230,6 +230,63 @@ class EmailService {
   }
 
   /**
+   * Send a custom email with template replacement
+   */
+  async sendCustomEmail(options: {
+    to: string;
+    subject: string;
+    htmlContent: string;
+    recipientName?: string;
+  }): Promise<boolean> {
+    try {
+      const html = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>${options.subject}</title>
+          </head>
+          <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f9f9f9;">
+            <div style="max-width: 600px; margin: 0 auto; background-color: white; padding: 40px;">
+              
+              <!-- Header -->
+              <div style="text-align: center; margin-bottom: 30px;">
+                <h1 style="color: #597485; font-size: 28px; margin: 0;">🌸 Bloom Flower Shop</h1>
+              </div>
+
+              <!-- Content -->
+              <div style="color: #333; line-height: 1.6; font-size: 16px;">
+                ${options.htmlContent}
+              </div>
+
+              <!-- Footer -->
+              <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee;">
+                <p style="color: #666; font-size: 14px; margin: 5px 0;">
+                  Thank you for choosing Bloom Flower Shop! 🌸
+                </p>
+                <p style="color: #999; font-size: 12px; margin: 5px 0;">
+                  This is an automated notification from our system.
+                </p>
+              </div>
+
+            </div>
+          </body>
+        </html>
+      `;
+
+      return await this.sendEmail({
+        to: options.to,
+        subject: options.subject,
+        html
+      });
+    } catch (error) {
+      console.error('Error sending custom email:', error);
+      return false;
+    }
+  }
+
+  /**
    * Generate receipt HTML email
    */
   private generateReceiptHTML(data: ReceiptEmailData): string {

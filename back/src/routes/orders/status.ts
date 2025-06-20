@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { triggerStatusNotifications } from '../../utils/notificationTriggers';
 
 const router = Router();
 const prisma = new PrismaClient();
+
 
 // Valid status transitions based on business logic
 const VALID_TRANSITIONS: Record<string, string[]> = {
@@ -95,8 +97,8 @@ router.patch('/:orderId/status', async (req, res) => {
 
     console.log(`📋 Order #${order.orderNumber} status updated: ${order.status} → ${newStatus}`);
 
-    // TODO: Trigger SMS notifications based on new status (Phase 2)
-    // await triggerStatusNotification(updatedOrder, newStatus);
+    // Trigger status notifications based on settings
+    await triggerStatusNotifications(updatedOrder, newStatus, order.status);
 
     res.json({
       success: true,
@@ -209,6 +211,72 @@ router.get('/:orderId/history', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to get order history'
+    });
+  }
+});
+
+/**
+ * TEST ENDPOINT - Trigger notifications without full order (REMOVE IN PRODUCTION)
+ */
+router.post('/test-notification', async (req, res) => {
+  try {
+    const { status, orderNumber, customerEmail, customerPhone, recipientPhone } = req.body;
+    
+    // Mock order data for testing
+    const mockOrder = {
+      id: 'test-order-id',
+      orderNumber: orderNumber || 12345,
+      status: 'PAID',
+      type: 'DELIVERY',
+      customer: {
+        id: 'test-customer',
+        firstName: 'Test',
+        lastName: 'Customer',
+        email: customerEmail || 'test@example.com',
+        phone: customerPhone || '+16042175706'
+      },
+      recipient: recipientPhone ? {
+        id: 'test-recipient',
+        firstName: 'Jane',
+        lastName: 'Recipient',
+        address1: '123 Test St',
+        city: 'Vancouver',
+        phone: recipientPhone,
+        customerId: null
+      } : null,
+      orderItems: [
+        {
+          id: 'test-item',
+          rowTotal: 2999, // $29.99 in cents
+          quantity: 1,
+          product: { name: 'Test Rose Bouquet' }
+        }
+      ],
+      deliveryDate: new Date(Date.now() + 24 * 60 * 60 * 1000), // Tomorrow
+      deliveryTime: '2:00 PM'
+    };
+    
+    console.log(`🧪 TEST: Triggering notifications for status: ${status}`);
+    
+    await triggerStatusNotifications(mockOrder, status, 'PAID');
+    
+    res.json({ 
+      success: true, 
+      message: `Test notification triggered for status: ${status}`,
+      orderNumber: mockOrder.orderNumber,
+      testData: {
+        customerEmail: mockOrder.customer.email,
+        customerPhone: mockOrder.customer.phone,
+        recipientPhone: mockOrder.recipient?.phone
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Test notification failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Test notification failed',
+      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });

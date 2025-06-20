@@ -204,6 +204,16 @@ export class NotificationService {
           });
           break;
           
+        case 'status_update':
+          // For status updates, we'll use a custom template-based email
+          success = await emailService.sendCustomEmail({
+            to: data.email,
+            subject: this.replaceTokens(data.subject || 'Order Update', data),
+            htmlContent: this.replaceTokens(data.template || 'Your order has been updated', data),
+            recipientName: data.recipientName || `${data.firstName} ${data.lastName}`.trim()
+          });
+          break;
+          
         default:
           throw new Error(`Email template not implemented for type: ${type}`);
       }
@@ -256,6 +266,14 @@ export class NotificationService {
           });
           break;
           
+        case 'status_update':
+          // For status updates, we'll use a custom template-based SMS
+          success = await smsService.sendCustomSMS({
+            phoneNumber: data.phone,
+            message: this.replaceTokens(data.template || 'Your order has been updated', data)
+          });
+          break;
+          
         default:
           throw new Error(`SMS template not implemented for type: ${type}`);
       }
@@ -283,7 +301,20 @@ export class NotificationService {
     // Replace all {{token}} patterns with data values
     Object.entries(data).forEach(([key, value]) => {
       const token = `{{${key}}}`;
-      result = result.replace(new RegExp(token, 'g'), String(value || ''));
+      let replacement = '';
+      
+      if (value !== null && value !== undefined) {
+        // Special formatting for specific fields
+        if (key === 'orderTotal' && typeof value === 'number') {
+          replacement = `$${value.toFixed(2)}`;
+        } else if (key === 'isPickup' && typeof value === 'boolean') {
+          replacement = value.toString();
+        } else {
+          replacement = String(value);
+        }
+      }
+      
+      result = result.replace(new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), replacement);
     });
     
     return result;
@@ -313,3 +344,6 @@ export class NotificationService {
     ];
   }
 }
+
+// Export singleton instance
+export const notificationService = new NotificationService();

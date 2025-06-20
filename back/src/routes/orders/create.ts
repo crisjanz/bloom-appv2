@@ -1,6 +1,7 @@
 import express from 'express';
 import { PrismaClient, OrderStatus } from '@prisma/client';
 import { calculateTax } from '../../utils/taxCalculator';
+import { triggerStatusNotifications } from '../../utils/notificationTriggers';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -91,6 +92,38 @@ router.post('/create', async (req, res) => {
 
       console.log('Order created:', order.id);
       createdOrders.push(order);
+    }
+
+    // Update all orders to PAID status and trigger notifications
+    for (const order of createdOrders) {
+      try {
+        // Update order status to PAID
+        const updatedOrder = await prisma.order.update({
+          where: { id: order.id },
+          data: { 
+            status: OrderStatus.PAID,
+            updatedAt: new Date()
+          },
+          include: {
+            customer: true,
+            recipient: true,
+            orderItems: {
+              include: {
+                product: true
+              }
+            }
+          }
+        });
+
+        console.log(`📋 Order #${order.orderNumber} status updated: DRAFT → PAID`);
+
+        // Trigger status notifications
+        await triggerStatusNotifications(updatedOrder, 'PAID', 'DRAFT');
+
+      } catch (error) {
+        console.error(`❌ Failed to update order ${order.id} to PAID or send notifications:`, error);
+        // Continue with other orders even if one fails
+      }
     }
 
     console.log(`Successfully created ${createdOrders.length} orders`);

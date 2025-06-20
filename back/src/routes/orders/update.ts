@@ -1,5 +1,6 @@
 import express from 'express';
 import { PrismaClient, OrderStatus } from '@prisma/client';
+import { triggerStatusNotifications } from '../../utils/notificationTriggers';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -12,6 +13,9 @@ router.put('/:id/update', async (req, res) => {
 
     console.log('Update request for order:', id);
     console.log('Update data received:', updateData);
+
+    // Store notification trigger data outside transaction scope
+    let notificationTrigger: { newStatus: string; previousStatus: string } | null = null;
 
     // Start a transaction to ensure data consistency
     const result = await prisma.$transaction(async (tx) => {
@@ -165,10 +169,17 @@ router.put('/:id/update', async (req, res) => {
         orderUpdateData.pst = updateData.pst;
       }
 
-      // Handle status updates
+      // Handle status updates (with notification triggers)
       if (updateData.status) {
         console.log('Updating status to:', updateData.status);
+        const previousStatus = currentOrder.status;
         orderUpdateData.status = updateData.status as OrderStatus;
+        
+        // Store notification trigger data for after the transaction
+        notificationTrigger = {
+          newStatus: updateData.status,
+          previousStatus: previousStatus
+        };
       }
 
       // Handle order items updates
@@ -249,6 +260,18 @@ if (updateData.orderItems || updateData.recalculateTotal) {
     });
 
     console.log('Transaction completed successfully');
+
+    // Trigger status notifications if status was updated
+    if (notificationTrigger && result) {
+      try {
+        const { newStatus, previousStatus } = notificationTrigger;
+        console.log(`🔔 Triggering notifications for status change: ${previousStatus} → ${newStatus}`);
+        await triggerStatusNotifications(result, newStatus, previousStatus);
+      } catch (error) {
+        console.error('❌ Failed to trigger status notifications:', error);
+        // Don't fail the order update if notifications fail
+      }
+    }
 
     res.json({
       success: true,

@@ -104,6 +104,24 @@ class SMSService {
   }
 
   /**
+   * Send custom SMS with template content
+   */
+  async sendCustomSMS(options: {
+    phoneNumber: string;
+    message: string;
+  }): Promise<boolean> {
+    try {
+      return await this.sendSMS({
+        to: options.phoneNumber,
+        message: options.message
+      });
+    } catch (error) {
+      console.error('❌ Failed to send custom SMS:', error);
+      return false;
+    }
+  }
+
+  /**
    * Send test SMS
    */
   async sendTestSMS(phoneNumber: string): Promise<boolean> {
