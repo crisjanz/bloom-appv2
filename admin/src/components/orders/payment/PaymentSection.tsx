@@ -188,12 +188,53 @@ const PaymentSection: React.FC<Props> = ({
       console.log('📤 Saving as draft and transferring to POS...');
       
       try {
+        // First, ensure we have a customer - create one if needed
+        let currentCustomerId = customerState.customerId;
+        
+        if (!currentCustomerId && customerState.customer) {
+          console.log('👤 Creating new customer...');
+          try {
+            const customerResponse = await fetch('/api/customers', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                firstName: customerState.customer.firstName || '',
+                lastName: customerState.customer.lastName || '',
+                email: customerState.customer.email || '',
+                phone: customerState.customer.phone || ''
+              })
+            });
+            
+            if (customerResponse.ok) {
+              const newCustomer = await customerResponse.json();
+              currentCustomerId = newCustomer.id;
+              console.log('✅ Customer created:', currentCustomerId);
+              
+              // Update the customer state with the new ID
+              customerState.setCustomerId?.(currentCustomerId);
+            } else {
+              throw new Error('Failed to create customer');
+            }
+          } catch (error) {
+            console.error('❌ Customer creation failed:', error);
+            setFormError('Failed to create customer. Please try again.');
+            setIsProcessingPOSTransfer(false);
+            return;
+          }
+        }
+        
+        if (!currentCustomerId) {
+          setFormError('Please enter customer information before proceeding.');
+          setIsProcessingPOSTransfer(false);
+          return;
+        }
+        
         // First, create/update recipients using customer API
         const ordersWithRecipientIds = await Promise.all(
           orderState.orders.map(async (order) => {
             if (order.orderType === 'DELIVERY') {
               // Use customer recipient API to create/update recipient
-              const recipientResponse = await fetch(`/api/customers/${customerState.customerId}/recipients`, {
+              const recipientResponse = await fetch(`/api/customers/${currentCustomerId}/recipients`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -219,7 +260,7 @@ const PaymentSection: React.FC<Props> = ({
 
         // Create DRAFT orders (data safety) using draft API
         const draftOrderData = {
-          customerId: customerState.customerId,
+          customerId: currentCustomerId,
           orders: ordersWithRecipientIds,
         };
 
@@ -306,9 +347,48 @@ const PaymentSection: React.FC<Props> = ({
       }
     }
 
+    // Ensure we have a customer for non-POS payments too
+    let currentCustomerId = customerState.customerId;
+    
+    if (!currentCustomerId && customerState.customer) {
+      console.log('👤 Creating new customer for payment...');
+      try {
+        const customerResponse = await fetch('/api/customers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            firstName: customerState.customer.firstName || '',
+            lastName: customerState.customer.lastName || '',
+            email: customerState.customer.email || '',
+            phone: customerState.customer.phone || ''
+          })
+        });
+        
+        if (customerResponse.ok) {
+          const newCustomer = await customerResponse.json();
+          currentCustomerId = newCustomer.id;
+          console.log('✅ Customer created for payment:', currentCustomerId);
+          
+          // Update the customer state with the new ID
+          customerState.setCustomerId?.(currentCustomerId);
+        } else {
+          throw new Error('Failed to create customer');
+        }
+      } catch (error) {
+        console.error('❌ Customer creation failed:', error);
+        setFormError('Failed to create customer. Please try again.');
+        return;
+      }
+    }
+    
+    if (!currentCustomerId) {
+      setFormError('Please enter customer information before proceeding.');
+      return;
+    }
+
     try {
       const orderData = {
-        customerId: customerState.customerId,
+        customerId: currentCustomerId,
         orders: orderState.orders,
         paymentConfirmed: true,
         payments: payments.length > 0 ? payments : [{
@@ -375,7 +455,7 @@ const PaymentSection: React.FC<Props> = ({
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                customerId: customerState.customerId,
+                customerId: currentCustomerId,
                 employeeId: employeeId,
                 channel: 'PHONE',
                 totalAmount: grandTotal,
@@ -456,13 +536,13 @@ const PaymentSection: React.FC<Props> = ({
       for (const order of orderState.orders) {
         if (
           order.orderType === "DELIVERY" &&
-          customerState.customerId &&
+          currentCustomerId &&
           order.recipientFirstName &&
           order.recipientAddress.address1
         ) {
           try {
             // First, get existing recipients to check for duplicates
-            const existingResponse = await fetch(`/api/customers/${customerState.customerId}/recipients`);
+            const existingResponse = await fetch(`/api/customers/${currentCustomerId}/recipients`);
             const existingRecipients = existingResponse.ok ? await existingResponse.json() : [];
             
             // Check if recipient already exists (match by name and address)
@@ -488,7 +568,7 @@ const PaymentSection: React.FC<Props> = ({
             
             if (existingRecipient) {
               // Update existing recipient
-              await fetch(`/api/customers/${customerState.customerId}/recipients/${existingRecipient.id}`, {
+              await fetch(`/api/customers/${currentCustomerId}/recipients/${existingRecipient.id}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(recipientData),
@@ -496,7 +576,7 @@ const PaymentSection: React.FC<Props> = ({
               console.log("✅ Updated existing recipient:", existingRecipient.id);
             } else {
               // Create new recipient
-              await fetch(`/api/customers/${customerState.customerId}/recipients`, {
+              await fetch(`/api/customers/${currentCustomerId}/recipients`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(recipientData),
