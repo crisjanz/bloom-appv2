@@ -38,6 +38,16 @@ type OrderEntry = {
   }[];
   shortcutQuery: string;
   filteredShortcuts: any[];
+  // Recipient tracking fields for 3-option workflow
+  selectedRecipientId?: string;
+  recipientDataChanged: boolean;
+  originalRecipientData?: {
+    firstName: string;
+    lastName: string;
+    phone: string;
+    address1: string;
+    city: string;
+  };
 };
 
 type Props = {
@@ -261,6 +271,13 @@ export default function MultiOrderTabs({
           onManualEditChange={(isManual) => updateOrderManualEditFlag(activeTab, isManual)} 
           activeTab={activeTab}
           onDeliveryFeeCalculated={(fee) => updateOrderDeliveryFee(activeTab, fee)} // ✅ Direct call!
+          // New recipient tracking props
+          selectedRecipientId={order.selectedRecipientId}
+          onSelectedRecipientIdChange={(id) => updateOrder(activeTab, "selectedRecipientId", id)}
+          recipientDataChanged={order.recipientDataChanged}
+          onRecipientDataChangedChange={(changed) => updateOrder(activeTab, "recipientDataChanged", changed)}
+          originalRecipientData={order.originalRecipientData}
+          onOriginalRecipientDataChange={(data) => updateOrder(activeTab, "originalRecipientData", data)}
         />
 
         <DeliveryCard

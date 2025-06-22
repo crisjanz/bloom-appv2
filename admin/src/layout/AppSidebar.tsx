@@ -64,6 +64,11 @@ const navItems: NavItem[] = [
       { name: "Take Order", path: "/orders/new", pro: false, icon: <PageIcon /> },
     ],
   },
+  {
+    name: "Delivery",
+    icon: <TruckIcon />,
+    path: "/delivery",
+  },
     {
     icon: <UserCircleIcon />,
     name: "Customers",
@@ -79,8 +84,8 @@ const navItems: NavItem[] = [
   },
   {
     icon: <BoxCubeIcon />,
-    name: "Coupons",
-    path: "/coupons",
+    name: "Discounts",
+    path: "/discounts",
   },
   {
     icon: <SettingsIcon />,

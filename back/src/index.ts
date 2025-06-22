@@ -11,7 +11,7 @@ import addressesRouter from './routes/addresses';
 import employeeRoutes from "./routes/employees";
 import messageRoutes from "./routes/messages";
 import addressShortcutRoutes from "./routes/addressShortcuts";
-import couponsRouter from './routes/coupons';
+import discountsRouter from './routes/discounts';
 import giftCardsRouter from './routes/gift-cards';
 import ordersRouter from './routes/orders/index';
 import paymentTransactionsRouter from './routes/payment-transactions';
@@ -42,7 +42,7 @@ const prisma = new PrismaClient();
 app.use(cors());
 app.use(express.json()); 
 
-app.use('/api/coupons', couponsRouter); // ADD THIS LINE
+app.use('/api/discounts', discountsRouter); // Unified discounts system
 app.use("/api/shortcuts", addressShortcutRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/employees", employeeRoutes);

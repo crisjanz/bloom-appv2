@@ -36,10 +36,16 @@ export async function calculateDeliveryFee(
       return 0;
     }
 
+    // Format destination address properly
+    const destinationFormatted = `${destinationAddress}, ${destinationCity}, ${destinationProvince} ${destinationPostalCode}`;
+    console.log('🗺️ Calculating distance:');
+    console.log('  Origin:', settings.storeAddress);
+    console.log('  Destination:', destinationFormatted);
+
     // Calculate distance using Google Maps Distance Matrix API
     const distance = await calculateDistance(
       settings.storeAddress,
-      `${destinationAddress}, ${destinationCity}, ${destinationProvince} ${destinationPostalCode}`
+      destinationFormatted
     );
 
     if (distance === null) {
@@ -94,13 +100,25 @@ async function calculateDistance(origin: string, destination: string): Promise<n
         avoidHighways: false,
         avoidTolls: false
       }, (response, status) => {
+        console.log('📍 Distance Matrix API Response:');
+        console.log('  Status:', status);
+        console.log('  Response:', response);
+        
         if (status === google.maps.DistanceMatrixStatus.OK && response) {
           const element = response.rows[0]?.elements[0];
+          console.log('  Element:', element);
+          
           if (element?.status === 'OK' && element.distance) {
+            console.log('  Distance (meters):', element.distance.value);
+            console.log('  Distance (text):', element.distance.text);
+            console.log('  Duration:', element.duration?.text);
+            
             // Convert meters to kilometers
             const distanceKm = element.distance.value / 1000;
+            console.log('  Distance (km):', distanceKm);
             resolve(distanceKm);
           } else {
+            console.error('Element error:', element?.status);
             resolve(null);
           }
         } else {

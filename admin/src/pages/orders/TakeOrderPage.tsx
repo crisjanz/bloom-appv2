@@ -35,6 +35,8 @@ export default function TakeOrderPage({
   const [manualDiscount, setManualDiscount] = useState(0);
   const [manualDiscountType, setManualDiscountType] = useState<"$" | "%">("$");
   const [giftCardDiscount, setGiftCardDiscount] = useState(0);
+  const [automaticDiscount, setAutomaticDiscount] = useState(0);
+  const [appliedAutomaticDiscounts, setAppliedAutomaticDiscounts] = useState<any[]>([]);
 
   const cleanPhoneNumber = (value: string) => {
     if (value.startsWith("+")) {
@@ -72,7 +74,7 @@ export default function TakeOrderPage({
     ? (itemsTotal + totalDeliveryFee) * manualDiscount / 100
     : manualDiscount;
   
-  const totalDiscount = manualDiscountAmount + couponDiscount + giftCardDiscount;
+  const totalDiscount = manualDiscountAmount + couponDiscount + giftCardDiscount + automaticDiscount;
 
   const { itemTotal, subtotal, gst, pst, grandTotal } = usePaymentCalculations(
     orderState.orders,
@@ -137,7 +139,15 @@ export default function TakeOrderPage({
       setManualDiscount(0);
       setManualDiscountType("$");
       setGiftCardDiscount(0);
+      setAutomaticDiscount(0);
+      setAppliedAutomaticDiscounts([]);
     }
+  };
+
+  // Handler for automatic discount changes
+  const handleAutomaticDiscountChange = (amount: number, discounts: any[]) => {
+    setAutomaticDiscount(amount);
+    setAppliedAutomaticDiscounts(discounts);
   };
 
   return (
@@ -244,6 +254,7 @@ export default function TakeOrderPage({
           setGiftCardDiscount={setGiftCardDiscount}
           onOrderComplete={handleOrderComplete}
           isOverlay={isOverlay}
+          onAutomaticDiscountChange={handleAutomaticDiscountChange}
         />
       </div>
 

@@ -7,6 +7,7 @@ import Label from "../form/Label";
 import PhoneInput from "../form/group-input/PhoneInput";
 import AddressAutocomplete from "../form/AddressAutocomplete";
 import { calculateDeliveryFee } from "../../utils/deliveryCalculations";
+import RecipientUpdateModal from "./RecipientUpdateModal";
 
 
 
@@ -35,6 +36,19 @@ type Props = {
   isManuallyEdited?: boolean;
   onManualEditChange?: (isManual: boolean) => void;
   activeTab?: number;
+  // New props for recipient tracking
+  selectedRecipientId?: string;
+  onSelectedRecipientIdChange?: (id: string | undefined) => void;
+  recipientDataChanged?: boolean;
+  onRecipientDataChangedChange?: (changed: boolean) => void;
+  originalRecipientData?: {
+    firstName: string;
+    lastName: string;
+    phone: string;
+    address1: string;
+    city: string;
+  };
+  onOriginalRecipientDataChange?: (data: any) => void;
 };
 
 export default function RecipientCard({
@@ -62,9 +76,17 @@ export default function RecipientCard({
   isManuallyEdited = false,
   onManualEditChange,
   activeTab = 0,
+  // New props
+  selectedRecipientId,
+  onSelectedRecipientIdChange,
+  recipientDataChanged = false,
+  onRecipientDataChangedChange,
+  originalRecipientData,
+  onOriginalRecipientDataChange,
 }: Props) {
   const [allShortcuts, setAllShortcuts] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [showRecipientUpdateModal, setShowRecipientUpdateModal] = useState(false);
 
 
   // Load address shortcuts
@@ -75,6 +97,40 @@ export default function RecipientCard({
       .catch((err) => console.error("Failed to load shortcuts:", err));
   }, []);
 
+  // Change detection for existing recipients
+  useEffect(() => {
+    if (!selectedRecipientId || !originalRecipientData || !onRecipientDataChangedChange) return;
+
+    const currentData = {
+      firstName: recipientFirstName,
+      lastName: recipientLastName,
+      phone: recipientPhone,
+      address1: recipientAddress.address1,
+      city: recipientAddress.city,
+    };
+
+    const hasChanges = 
+      originalRecipientData.firstName !== currentData.firstName ||
+      originalRecipientData.lastName !== currentData.lastName ||
+      originalRecipientData.phone !== currentData.phone ||
+      originalRecipientData.address1 !== currentData.address1 ||
+      originalRecipientData.city !== currentData.city;
+
+    if (hasChanges !== recipientDataChanged) {
+      onRecipientDataChangedChange(hasChanges);
+    }
+  }, [
+    recipientFirstName, 
+    recipientLastName, 
+    recipientPhone, 
+    recipientAddress.address1, 
+    recipientAddress.city,
+    selectedRecipientId,
+    originalRecipientData,
+    recipientDataChanged,
+    onRecipientDataChangedChange
+  ]);
+
 
 useEffect(() => {
     if (orderType === "DELIVERY" && 
@@ -84,19 +140,47 @@ useEffect(() => {
         onDeliveryFeeCalculated &&
         !isManuallyEdited) { 
       const debounceTimer = setTimeout(() => {
-        calculateDeliveryFee(
-          recipientAddress.address1,
-          recipientAddress.city,
-          recipientAddress.postalCode,
-          recipientAddress.province,
-          onDeliveryFeeCalculated
-        );
+        // Check if Google Maps is loaded before calculating
+        if (typeof google !== 'undefined' && google.maps && google.maps.DistanceMatrixService) {
+          console.log('🗺️ Google Maps loaded, calculating delivery fee...');
+          calculateDeliveryFee(
+            recipientAddress.address1,
+            recipientAddress.city,
+            recipientAddress.postalCode,
+            recipientAddress.province,
+            onDeliveryFeeCalculated
+          );
+        } else {
+          console.warn('⚠️ Google Maps not loaded yet, retrying in 2 seconds...');
+          // Retry after Google Maps loads
+          setTimeout(() => {
+            if (typeof google !== 'undefined' && google.maps && google.maps.DistanceMatrixService) {
+              console.log('🗺️ Google Maps loaded on retry, calculating delivery fee...');
+              calculateDeliveryFee(
+                recipientAddress.address1,
+                recipientAddress.city,
+                recipientAddress.postalCode,
+                recipientAddress.province,
+                onDeliveryFeeCalculated
+              );
+            } else {
+              console.error('❌ Google Maps failed to load, delivery fee calculation unavailable');
+            }
+          }, 2000);
+        }
       }, 1000);
 
     
     return () => clearTimeout(debounceTimer);
   }
-  }, [recipientAddress, orderType, onDeliveryFeeCalculated, isManuallyEdited]);
+  }, [
+    recipientAddress.address1, 
+    recipientAddress.city, 
+    recipientAddress.province, 
+    recipientAddress.postalCode,
+    orderType, 
+    isManuallyEdited
+  ]);
   // Filter shortcuts based on query
   useEffect(() => {
     if (!shortcutQuery.trim()) {
@@ -127,13 +211,37 @@ useEffect(() => {
     });
     setShortcutQuery("");
     setFilteredShortcuts([]);
+    
+    // Clear recipient tracking data
+    onSelectedRecipientIdChange?.(undefined);
+    onOriginalRecipientDataChange?.(undefined);
+    onRecipientDataChangedChange?.(false);
   };
 
   const handleSaveRecipient = async () => {
+    // Check if we need to show the modal first
+    if (selectedRecipientId && recipientDataChanged && originalRecipientData) {
+      setShowRecipientUpdateModal(true);
+      return;
+    }
+
+    // Proceed with normal save
+    await performSaveRecipient('new');
+  };
+
+  const performSaveRecipient = async (action: 'update' | 'new' | 'duplicate') => {
     setIsSaving(true);
     try {
-      const response = await fetch(`/api/customers/${customerId}/recipients`, {
-        method: "POST",
+      let endpoint = `/api/customers/${customerId}/recipients`;
+      let method = 'POST';
+      
+      if (action === 'update' && selectedRecipientId) {
+        endpoint = `/api/customers/${customerId}/recipients/${selectedRecipientId}`;
+        method = 'PUT';
+      }
+
+      const response = await fetch(endpoint, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           firstName: recipientFirstName.trim(),
@@ -155,7 +263,27 @@ useEffect(() => {
       }
 
       const savedAddress = await response.json();
-      alert("Recipient saved successfully!");
+      
+      const actionText = action === 'update' ? 'updated' : 'saved';
+      alert(`Recipient ${actionText} successfully!`);
+      
+      // Update tracking data if we updated existing recipient
+      if (action === 'update') {
+        onOriginalRecipientDataChange?.({
+          firstName: recipientFirstName,
+          lastName: recipientLastName,
+          phone: recipientPhone,
+          address1: recipientAddress.address1,
+          city: recipientAddress.city,
+        });
+        onRecipientDataChangedChange?.(false);
+      } else {
+        // Clear tracking for new recipient
+        onSelectedRecipientIdChange?.(undefined);
+        onOriginalRecipientDataChange?.(undefined);
+        onRecipientDataChangedChange?.(false);
+      }
+      
       if (onRecipientSaved) onRecipientSaved();
       
     } catch (error: any) {
@@ -167,10 +295,14 @@ useEffect(() => {
           lastName: recipientLastName,
         }
       });
-      alert(`Error: ${error.message}\n\nCheck console for details`);
+      alert(`Error: ${error.message}\\n\\nCheck console for details`);
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleRecipientUpdateChoice = (choice: 'update' | 'new' | 'duplicate') => {
+    performSaveRecipient(choice);
   };
 
   const countries = [
@@ -181,6 +313,7 @@ useEffect(() => {
   ];
 
   return (
+    <>
       <ComponentCard title={orderType === "PICKUP" ? "Pickup Person Information" : "Recipient Information"}>
         {/* Top Row: Saved Recipients, Address Shortcuts, Order Type */}
         <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-end">
@@ -204,6 +337,7 @@ useEffect(() => {
               onChange={(value) => {
                 const selected = savedRecipients.find(r => r.id === value);
                 if (selected) {
+                  // Update recipient fields
                   setRecipientFirstName(selected.firstName || "");
                   setRecipientLastName(selected.lastName || "");
                   setRecipientPhone(selected.phone || "");
@@ -214,6 +348,17 @@ useEffect(() => {
                     province: selected.province || "",
                     postalCode: selected.postalCode || "",
                   });
+                  
+                  // Track selected recipient for change detection
+                  onSelectedRecipientIdChange?.(selected.id);
+                  onOriginalRecipientDataChange?.({
+                    firstName: selected.firstName || "",
+                    lastName: selected.lastName || "",
+                    phone: selected.phone || "",
+                    address1: selected.address1 || "",
+                    city: selected.city || "",
+                  });
+                  onRecipientDataChangedChange?.(false); // Reset change flag
                 }
               }}
               disabled={savedRecipients.length === 0}
@@ -529,6 +674,30 @@ onAddressSelect={(parsedAddress) => {
           </button>
         </div>
       </ComponentCard>
-  
+
+      {/* Recipient Update Modal */}
+      {originalRecipientData && (
+        <RecipientUpdateModal
+          open={showRecipientUpdateModal}
+          onClose={() => setShowRecipientUpdateModal(false)}
+          originalRecipient={{
+            id: selectedRecipientId || '',
+            firstName: originalRecipientData.firstName,
+            lastName: originalRecipientData.lastName,
+            phone: originalRecipientData.phone,
+            address1: originalRecipientData.address1,
+            city: originalRecipientData.city,
+          }}
+          currentData={{
+            firstName: recipientFirstName,
+            lastName: recipientLastName,
+            phone: recipientPhone,
+            address1: recipientAddress.address1,
+            city: recipientAddress.city,
+          }}
+          onChoice={handleRecipientUpdateChoice}
+        />
+      )}
+    </>
   );
 }

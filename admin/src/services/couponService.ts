@@ -15,20 +15,46 @@ export const validateCoupon = async (
   }
 ): Promise<CouponValidationResult> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/coupons/validate`, {
+    const response = await fetch(`${API_BASE_URL}/discounts/validate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         code: code.trim(),
-        orderTotal,
-        ...options,
+        cartItems: options.productIds?.map(id => ({
+          id,
+          categoryId: options.categoryIds?.find(catId => catId), // This might need better mapping
+          quantity: 1,
+          price: orderTotal / (options.productIds?.length || 1) // Rough estimate
+        })) || [],
+        customerId: options.customerId,
+        source: options.source
       }),
     });
 
     const result = await response.json();
-    return result;
+    
+    // Transform new discount API response to match old coupon format
+    if (result.valid && result.discount) {
+      return {
+        valid: true,
+        coupon: {
+          id: result.discount.id,
+          name: result.discount.name,
+          code: code.trim(),
+          discountType: result.discount.discountType,
+          value: result.discount.value
+        },
+        discountAmount: result.discountAmount || 0
+      };
+    } else {
+      return {
+        valid: false,
+        error: result.error || 'Invalid discount code',
+        errorCode: 'NOT_FOUND'
+      };
+    }
   } catch (error) {
     console.error('Error validating coupon:', error);
     return {

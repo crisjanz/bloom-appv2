@@ -12,12 +12,12 @@ export default function POSTabsCard() {
   const [saving, setSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   
-  const { products, fetchProducts } = useProducts();
+  const { products, refetch } = useProducts();
   const { tabs, loading, error, saveTabs, setTabs } = usePOSTabs();
 
   useEffect(() => {
     refetch();
-  }, []);
+  }, [refetch]);
 
   // Set default selected tab when tabs load
   useEffect(() => {
@@ -154,7 +154,7 @@ export default function POSTabsCard() {
                     <div className="flex-1">
                       <h4 className="font-medium text-black dark:text-white">{product.name}</h4>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
-                        ${product.price.toFixed(2)} • {product.category || 'No category'}
+                        ${product.price.toFixed(2)} • {product.category?.name || 'No category'}
                       </p>
                     </div>
                   </div>

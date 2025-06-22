@@ -15,6 +15,7 @@ import StatusBadge from '../../components/orders/StatusBadge';
 import Label from '../../components/form/Label';
 import Select from '../../components/form/Select';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
+import { useBusinessTimezone } from '../../hooks/useBusinessTimezone';
 
 import type { OrderStatus, OrderType } from '../../utils/orderStatusHelpers';
 
@@ -48,6 +49,7 @@ const statusOptions = [
 
 const OrdersListPage: React.FC = () => {
   const navigate = useNavigate();
+  const { formatDate: formatBusinessDate, loading: timezoneLoading } = useBusinessTimezone();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
@@ -111,7 +113,14 @@ const OrdersListPage: React.FC = () => {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-CA', {
+    if (timezoneLoading) return dateString;
+    
+    // Extract just the date part to avoid timezone conversion issues
+    const datePart = dateString.split('T')[0]; // Get YYYY-MM-DD part
+    const [year, month, day] = datePart.split('-').map(Number);
+    const date = new Date(year, month - 1, day); // Create date in local timezone
+    
+    return formatBusinessDate(date, {
       year: 'numeric',
       month: 'short',
       day: 'numeric'

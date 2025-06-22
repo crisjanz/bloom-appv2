@@ -7,6 +7,7 @@ import { EventInput, DateSelectArg, EventClickArg } from "@fullcalendar/core";
 import { Modal } from "../components/ui/modal";
 import { useModal } from "../hooks/useModal";
 import PageMeta from "../components/common/PageMeta";
+import { useBusinessTimezone } from "../hooks/useBusinessTimezone";
 
 interface CalendarEvent extends EventInput {
   extendedProps: {
@@ -15,6 +16,7 @@ interface CalendarEvent extends EventInput {
 }
 
 const Calendar: React.FC = () => {
+  const { getBusinessDateString } = useBusinessTimezone();
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(
     null
   );
@@ -35,28 +37,35 @@ const Calendar: React.FC = () => {
 
   useEffect(() => {
     // Initialize with some events
-    setEvents([
-      {
-        id: "1",
-        title: "Event Conf.",
-        start: new Date().toISOString().split("T")[0],
-        extendedProps: { calendar: "Danger" },
-      },
-      {
-        id: "2",
-        title: "Meeting",
-        start: new Date(Date.now() + 86400000).toISOString().split("T")[0],
-        extendedProps: { calendar: "Success" },
-      },
-      {
-        id: "3",
-        title: "Workshop",
-        start: new Date(Date.now() + 172800000).toISOString().split("T")[0],
-        end: new Date(Date.now() + 259200000).toISOString().split("T")[0],
-        extendedProps: { calendar: "Primary" },
-      },
-    ]);
-  }, []);
+    if (getBusinessDateString) {
+      const today = getBusinessDateString(new Date());
+      const tomorrow = getBusinessDateString(new Date(Date.now() + 86400000));
+      const dayAfter = getBusinessDateString(new Date(Date.now() + 172800000));
+      const dayAfterEnd = getBusinessDateString(new Date(Date.now() + 259200000));
+      
+      setEvents([
+        {
+          id: "1",
+          title: "Event Conf.",
+          start: today,
+          extendedProps: { calendar: "Danger" },
+        },
+        {
+          id: "2",
+          title: "Meeting",
+          start: tomorrow,
+          extendedProps: { calendar: "Success" },
+        },
+        {
+          id: "3",
+          title: "Workshop",
+          start: dayAfter,
+          end: dayAfterEnd,
+          extendedProps: { calendar: "Primary" },
+        },
+      ]);
+    }
+  }, [getBusinessDateString]);
 
   const handleDateSelect = (selectInfo: DateSelectArg) => {
     resetModalFields();

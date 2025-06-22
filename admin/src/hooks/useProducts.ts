@@ -1,5 +1,5 @@
 // useProducts.ts
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { getAllProducts } from "../services/productService";
 
 import { createProduct } from "../services/productService";
@@ -11,7 +11,7 @@ export function useProducts() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     try {
       setLoading(true);
       const data = await getAllProducts();
@@ -22,7 +22,7 @@ export function useProducts() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Inside export function useProducts() {...}
 const addProduct = async (data: { name: string; price: number }) => {

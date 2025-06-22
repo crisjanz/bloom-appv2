@@ -1,6 +1,8 @@
 import React from 'react';
 import { PencilIcon, CalendarIcon, UserIcon, TruckIcon, CreditCardIcon, PhotoIcon } from '../../../icons';
 import { Order } from '../types';
+import { useBusinessTimezone } from '../../../hooks/useBusinessTimezone';
+import { useTaxRates } from '../../../hooks/useTaxRates';
 
 interface OrderSectionsProps {
   order: Order;
@@ -8,6 +10,9 @@ interface OrderSectionsProps {
 }
 
 const OrderSections: React.FC<OrderSectionsProps> = ({ order, onEdit }) => {
+  const { formatDate: formatBusinessDate, loading: timezoneLoading } = useBusinessTimezone();
+  const { taxRates } = useTaxRates();
+  
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-CA', {
       style: 'currency',
@@ -16,7 +21,8 @@ const OrderSections: React.FC<OrderSectionsProps> = ({ order, onEdit }) => {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-CA');
+    if (timezoneLoading) return dateString;
+    return formatBusinessDate(new Date(dateString));
   };
 
   return (
@@ -232,10 +238,32 @@ const OrderSections: React.FC<OrderSectionsProps> = ({ order, onEdit }) => {
               <span className="text-sm text-gray-500 dark:text-gray-400">Discount:</span>
               <span className="text-gray-900 dark:text-white">-{formatCurrency(order.discount)}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-gray-500 dark:text-gray-400">GST:</span>
-              <span className="text-gray-900 dark:text-white">{formatCurrency(order.gst)}</span>
-            </div>
+            {/* Dynamic Tax Breakdown */}
+            {order.taxBreakdown && order.taxBreakdown.length > 0 ? (
+              // New dynamic tax system
+              order.taxBreakdown.map((tax: any, index: number) => (
+                <div key={index} className="flex justify-between">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">{tax.name}:</span>
+                  <span className="text-gray-900 dark:text-white">{formatCurrency(tax.amount)}</span>
+                </div>
+              ))
+            ) : (
+              // Fallback to legacy tax fields for backward compatibility
+              <>
+                {order.gst > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">GST (5%):</span>
+                    <span className="text-gray-900 dark:text-white">{formatCurrency(order.gst)}</span>
+                  </div>
+                )}
+                {order.pst > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">PST (7%):</span>
+                    <span className="text-gray-900 dark:text-white">{formatCurrency(order.pst)}</span>
+                  </div>
+                )}
+              </>
+            )}
             <div className="flex justify-between border-t border-gray-200 dark:border-gray-700 pt-2">
               <span className="font-medium text-gray-900 dark:text-white">Total:</span>
               <span className="font-medium text-gray-900 dark:text-white">{formatCurrency(order.paymentAmount)}</span>

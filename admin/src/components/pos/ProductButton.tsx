@@ -16,13 +16,15 @@ type Props = {
 
 export default function ProductButton({ product, onClick }: Props) {
   const getProductPrice = () => {
+    // For products with variants, use the default variant price (stored in cents)
     if (product.variants && product.variants.length > 0) {
-      const defaultVariant = product.variants.find(v => v.isDefault) || product.variants[0];
+      const defaultVariant = product.variants.find(v => v.isDefault);
       if (defaultVariant && defaultVariant.price !== undefined) {
         return defaultVariant.price / 100;
       }
     }
     
+    // For products without variants, use the base price (already in dollars)
     if (product.price !== undefined && product.price !== null) {
       return product.price;
     }

@@ -167,9 +167,17 @@ router.post('/save-draft', async (req, res) => {
     const draftOrders = [];
 
     for (const orderData of orders) {
-      // Same logic as above but with DRAFT status
-      let recipientId = null;
-      if (orderData.orderType === 'DELIVERY') {
+      // Use existing recipient ID if provided, otherwise create new recipient
+      let recipientId = orderData.recipientId || null;
+      
+      console.log('📦 Processing order:', {
+        orderType: orderData.orderType,
+        providedRecipientId: orderData.recipientId,
+        finalRecipientId: recipientId
+      });
+      
+      if (orderData.orderType === 'DELIVERY' && !recipientId) {
+        // Only create new recipient if no recipientId was provided
         const recipient = await prisma.address.create({
           data: {
             firstName: orderData.recipientFirstName,

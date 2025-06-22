@@ -237,7 +237,15 @@ console.log("🎯 Test distance calculated:", mockDistance);
                     value={settings.storeAddress}
                     onChange={(value) => handleSettingChange('storeAddress', value)}
                     onAddressSelect={(parsedAddress) => {
-                      handleSettingChange('storeAddress', parsedAddress.address1);
+                      // Save the complete address for Google Maps distance calculations
+                      const fullAddress = [
+                        parsedAddress.address1,
+                        parsedAddress.city,
+                        parsedAddress.province,
+                        parsedAddress.country || 'Canada'
+                      ].filter(Boolean).join(', ');
+                      
+                      handleSettingChange('storeAddress', fullAddress);
                       handleSettingChange('storePostalCode', parsedAddress.postalCode);
                       // You could also save lat/lng here for more precise calculations
                     }}

@@ -32,7 +32,8 @@ import OrderEditPage from "./pages/orders/OrderEditPage";
 import SettingsIndexPage from "./pages/settings";
 import BusinessPage from "./pages/settings/business";
 import PaymentsPage from "./pages/settings/payments";
-import DeliveryPage from "./pages/settings/delivery";
+import DeliverySettingsPage from "./pages/settings/delivery";
+import DeliveryManagementPage from "./pages/delivery/DeliveryPage";
 import NotificationsPage from "./pages/settings/notifications";
 import OrdersPage from "./pages/settings/orders";
 import DiscountsPage from "./pages/settings/discounts";
@@ -44,7 +45,7 @@ import MiscPage from "./pages/settings/misc";
 import POSPage from "./pages/pos/POSPage"; 
 import FullscreenPOS from "./pages/pos/FullscreenPOS";
 import GiftCardsPage from "./pages/gift-cards/GiftCardsPage";
-import CouponsPage from "./pages/coupons/CouponsPage";
+import UnifiedDiscountsPage from "./pages/discounts/DiscountsPage";
 
 export default function App() {
   return (
@@ -90,6 +91,9 @@ export default function App() {
             <Route path="orders/:id/edit" element={<OrderEditPage />} /> 
             <Route path="orders/:id" element={<OrderEditPage />} />
             
+            {/* Delivery Management route */}
+            <Route path="delivery" element={<DeliveryManagementPage />} />
+            
             {/* Customer routes */}
             <Route path="customers" element={<CustomersPage />} />
             <Route path="customers/new" element={<CustomerFormPage />} />
@@ -98,14 +102,14 @@ export default function App() {
             {/* Gift Cards route */}
             <Route path="gift-cards" element={<GiftCardsPage />} />
 
-            {/* Coupons route */}
-            <Route path="coupons" element={<CouponsPage />} />
+            {/* Unified Discounts route */}
+            <Route path="discounts" element={<UnifiedDiscountsPage />} />
 
             {/* Settings routes */}
             <Route path="settings" element={<SettingsIndexPage />} />
             <Route path="settings/business" element={<BusinessPage />} />
             <Route path="settings/payments" element={<PaymentsPage />} />
-            <Route path="settings/delivery" element={<DeliveryPage />} />
+            <Route path="settings/delivery" element={<DeliverySettingsPage />} />
             <Route path="settings/notifications" element={<NotificationsPage />} />
             <Route path="settings/orders" element={<OrdersPage />} />
             <Route path="settings/discounts" element={<DiscountsPage />} />

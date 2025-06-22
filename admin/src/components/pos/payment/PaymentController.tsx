@@ -159,17 +159,20 @@ const PaymentController: FC<Props> = ({
     setIsCouponValid(false);
 
     try {
-      const response = await fetch('/api/coupons/validate', {
+      const response = await fetch('/api/discounts/validate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           code: code.toUpperCase(),
+          cartItems: cartItems.map(item => ({
+            id: item.id,
+            categoryId: item.categoryId,
+            quantity: item.quantity,
+            price: item.unitPrice
+          })),
           customerId: undefined,
-          orderTotal: total,
-          productIds: cartItems.map(item => item.id),
-          categoryIds: cartItems.map(item => item.category || '').filter(Boolean),
           source: 'POS'
         }),
       });
@@ -178,11 +181,11 @@ const PaymentController: FC<Props> = ({
 
       if (result.valid) {
         setIsCouponValid(true);
-        setCouponSuccess(`Valid coupon: ${result.coupon.name}`);
+        setCouponSuccess(`Valid discount: ${result.discount.name}`);
         setCouponError('');
       } else {
         setIsCouponValid(false);
-        setCouponError(result.error || 'Invalid coupon code');
+        setCouponError(result.error || 'Invalid discount code');
         setCouponSuccess('');
       }
     } catch (error) {
@@ -199,17 +202,20 @@ const PaymentController: FC<Props> = ({
     if (!couponCode.trim() || !isCouponValid) return false;
 
     try {
-      const response = await fetch('/api/coupons/validate', {
+      const response = await fetch('/api/discounts/validate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           code: couponCode.toUpperCase(),
+          cartItems: cartItems.map(item => ({
+            id: item.id,
+            categoryId: item.categoryId,
+            quantity: item.quantity,
+            price: item.unitPrice
+          })),
           customerId: undefined,
-          orderTotal: total,
-          productIds: cartItems.map(item => item.id),
-          categoryIds: cartItems.map(item => item.category || '').filter(Boolean),
           source: 'POS'
         }),
       });
@@ -217,12 +223,12 @@ const PaymentController: FC<Props> = ({
       const result = await response.json();
 
       if (result.valid && onCouponChange) {
-        onCouponChange(result.discountAmount, result.coupon.name);
-        setCouponSuccess(`Applied: ${result.coupon.name} - $${result.discountAmount.toFixed(2)} off`);
+        onCouponChange(result.discountAmount, result.discount.name);
+        setCouponSuccess(`Applied: ${result.discount.name} - $${result.discountAmount.toFixed(2)} off`);
         setCouponCode(''); // Clear the coupon code after successful application
         return true; // Success - modal can close
       } else {
-        setCouponError(result.error || 'Failed to apply coupon');
+        setCouponError(result.error || 'Failed to apply discount');
         return false; // Error - keep modal open
       }
     } catch (error) {

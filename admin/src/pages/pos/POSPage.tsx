@@ -4,12 +4,15 @@ import POSLayout from '../../components/pos/POSLayout';
 import POSGrid from '../../components/pos/POSGrid';
 import POSCart from '../../components/pos/POSCart';
 import CustomItemModal from '../../components/pos/CustomItemModal';
+import ProductVariantModal from '../../components/pos/ProductVariantModal';
 import PaymentController from '../../components/pos/payment/PaymentController';
 import TakeOrderOverlay from '../../components/pos/TakeOrderOverlay';
 import { useTaxRates } from '../../hooks/useTaxRates';
 
 export default function POSPage() {
   const [showCustomItemModal, setShowCustomItemModal] = useState(false);
+  const [showVariantModal, setShowVariantModal] = useState(false);
+  const [selectedProductForVariants, setSelectedProductForVariants] = useState(null);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   
   // Get centralized tax rates
@@ -22,21 +25,80 @@ export default function POSPage() {
   // Discount state
   const [appliedDiscounts, setAppliedDiscounts] = useState([]);
   const [giftCardDiscount, setGiftCardDiscount] = useState(0);
-const [couponDiscount, setCouponDiscount] = useState<{amount: number, name?: string}>({amount: 0});
+  const [couponDiscount, setCouponDiscount] = useState<{amount: number, name?: string}>({amount: 0});
+  const [autoDiscounts, setAutoDiscounts] = useState([]);
+
+  // Check for automatic discounts when cart changes
+  const checkAutomaticDiscounts = async (currentCartItems) => {
+    try {
+      const cartItemsForAPI = currentCartItems.map(item => ({
+        id: item.id,
+        categoryId: item.categoryId,
+        quantity: item.quantity,
+        price: item.price || item.unitPrice
+      }));
+      
+      console.log('🔍 Sending cart items to auto-discount API:', cartItemsForAPI);
+      
+      const response = await fetch('/api/discounts/auto-apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cartItems: cartItemsForAPI,
+          source: 'POS'
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('🎯 Auto discount response:', result);
+        if (result.discounts && result.discounts.length > 0) {
+          console.log('✅ Setting auto discounts:', result.discounts);
+          setAutoDiscounts(result.discounts);
+        } else {
+          setAutoDiscounts([]);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to check automatic discounts:', error);
+    }
+  };
 
   const handleAddProduct = (product) => {
     console.log('🛒 Adding product to cart:', product);
     
     try {
+      // Check if product has multiple variants (non-default variants)
+      const hasVariants = product.variants && product.variants.length > 1;
+      const hasNonDefaultVariants = product.variants && product.variants.some(v => !v.isDefault);
+      
+      console.log('🔍 Variant check:', {
+        productName: product.name,
+        variantsLength: product.variants?.length || 0,
+        hasVariants,
+        hasNonDefaultVariants,
+        variants: product.variants?.map(v => ({ name: v.name, isDefault: v.isDefault }))
+      });
+      
+      if (hasVariants && hasNonDefaultVariants) {
+        console.log('🎛️ Product has variants, showing selection modal');
+        setSelectedProductForVariants(product);
+        setShowVariantModal(true);
+        return;
+      }
+      
+      // No variants or only default variant - add directly
       const existingItem = cartItems.find(item => item.id === product.id);
       
       if (existingItem) {
         console.log('📦 Product already in cart, increasing quantity');
-        setCartItems(cartItems.map(item => 
+        const updatedCartItems = cartItems.map(item => 
           item.id === product.id 
             ? { ...item, quantity: item.quantity + 1 }
             : item
-        ));
+        );
+        setCartItems(updatedCartItems);
+        checkAutomaticDiscounts(updatedCartItems);
       } else {
         console.log('✨ Adding new product to cart');
         
@@ -58,7 +120,9 @@ const [couponDiscount, setCouponDiscount] = useState<{amount: number, name?: str
         };
         
         console.log('🎯 New cart item:', newItem);
-        setCartItems([...cartItems, newItem]);
+        const updatedCartItems = [...cartItems, newItem];
+        setCartItems(updatedCartItems);
+        checkAutomaticDiscounts(updatedCartItems);
       }
     } catch (error) {
       console.error('❌ Error adding product to cart:', error);
@@ -77,6 +141,48 @@ const handleRemoveGiftCard = () => {
 const handleRemoveCoupon = () => {
   setCouponDiscount(0);
 };
+
+  const handleVariantSelection = (variant) => {
+    console.log('🎛️ Variant selected:', variant);
+    
+    try {
+      // Create a unique ID for this variant selection
+      const variantItemId = `${selectedProductForVariants.id}-${variant.id}`;
+      
+      const existingItem = cartItems.find(item => item.id === variantItemId);
+      
+      if (existingItem) {
+        console.log('📦 Variant already in cart, increasing quantity');
+        setCartItems(cartItems.map(item => 
+          item.id === variantItemId 
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        ));
+      } else {
+        console.log('✨ Adding new variant to cart');
+        
+        const newItem = {
+          ...selectedProductForVariants,
+          id: variantItemId,
+          name: `${selectedProductForVariants.name} - ${variant.name}`,
+          quantity: 1,
+          price: variant.price,
+          variantId: variant.id,
+          variantName: variant.name,
+          isTaxable: selectedProductForVariants.isTaxable ?? true
+        };
+        
+        console.log('🎯 New variant cart item:', newItem);
+        setCartItems([...cartItems, newItem]);
+      }
+      
+      // Close modal
+      setShowVariantModal(false);
+      setSelectedProductForVariants(null);
+    } catch (error) {
+      console.error('❌ Error adding variant to cart:', error);
+    }
+  };
 
   const handleDeliveryOrder = () => {
     console.log('🚚 Opening delivery order overlay');
@@ -377,6 +483,7 @@ const totalDiscountAmount = appliedDiscounts.reduce((sum, discount) => sum + dis
   appliedDiscounts={appliedDiscounts}
   giftCardDiscount={giftCardDiscount}
   couponDiscount={couponDiscount}
+  autoDiscounts={autoDiscounts}
   onRemoveDiscount={handleRemoveDiscount}
   onRemoveGiftCard={handleRemoveGiftCard}
   onRemoveCoupon={handleRemoveCoupon}
@@ -388,6 +495,16 @@ const totalDiscountAmount = appliedDiscounts.reduce((sum, discount) => sum + dis
         open={showCustomItemModal}
         onClose={() => setShowCustomItemModal(false)}
         onConfirm={handleAddCustomItem}
+      />
+
+      <ProductVariantModal
+        open={showVariantModal}
+        product={selectedProductForVariants}
+        onClose={() => {
+          setShowVariantModal(false);
+          setSelectedProductForVariants(null);
+        }}
+        onSelectVariant={handleVariantSelection}
       />
     </POSLayout>
   );

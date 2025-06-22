@@ -102,7 +102,7 @@ export default function NewProductPage() {
       setVisibility(product.visibility || 'ONLINE');
       setCategoryId(product.categoryId || '');
       setReportingCategoryId(product.reportingCategoryId || '');
-      setPrice((product.variants?.[0]?.price || 0) / 100); // Convert from cents
+      setPrice(product.price || 0); // Backend now returns base price in dollars
       setIsTaxable(Boolean(product.isTaxable)); // Convert to boolean, default false if null/undefined
       setIsActive(Boolean(product.isActive));
       setIsFeatured(Boolean(product.showOnHomepage));
@@ -131,9 +131,14 @@ export default function NewProductPage() {
       setUnavailableUntil(product.unavailableUntil ? product.unavailableUntil.split('T')[0] : '');
       setUnavailableMessage(product.unavailableMessage || '');
       
-      // TODO: Handle variants and option groups if needed
-      // setVariants(product.variants || []);
-      // setOptionGroups(product.optionGroups || []);
+      // Load variants and option groups for edit mode
+      console.log('🔍 Loading variants and options:', {
+        variants: product.variants,
+        price: product.price
+      });
+      
+      setVariants(product.variants || []);
+      setOptionGroups(product.optionGroups || []);
       
     } catch (error) {
       console.error('Error fetching product:', error);

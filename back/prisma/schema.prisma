@@ -102,7 +102,8 @@ model ProductVariant {
   productId      String
   name           String
   sku            String   @unique
-  price          Int
+  price          Int      // For default variant, this IS the base price. For others, calculated: base + priceDifference
+  priceDifference Int?    // Price adjustment from base (in cents). NULL for default variant
   discountPrice  Int?
   stockLevel     Int?
   trackInventory Boolean  @default(true)
@@ -293,9 +294,17 @@ model Order {
 
   deliveryFee Float   @default(0)
   discount    Float   @default(0)
+  
+  // Legacy coupon support (during migration)
   couponCode  String?
   couponId    String?
   coupon      Coupon? @relation(fields: [couponId], references: [id])
+  
+  // New unified discount support
+  discountId  String?
+  discountCode String?
+  appliedDiscount Discount? @relation(fields: [discountId], references: [id])
+  discountBreakdown Json @default("[]") // Array of applied discounts with details
 
   // Dynamic tax breakdown - supports any number of tax rates
   taxBreakdown  Json    @default("[]") // Array of {name: string, rate: number, amount: number}
@@ -375,6 +384,88 @@ model CouponUsage {
   coupon    Coupon   @relation(fields: [couponId], references: [id])
 }
 
+// UNIFIED DISCOUNT SYSTEM - Next generation discount engine
+enum DiscountType {
+  FIXED_AMOUNT      // $5 OFF
+  PERCENTAGE        // 20% OFF  
+  FREE_SHIPPING     // Free delivery
+  SALE_PRICE        // Product-specific pricing
+  BUY_X_GET_Y_FREE  // Buy 2 Get 1 Free
+}
+
+enum TriggerType {
+  COUPON_CODE       // Manual entry required
+  AUTOMATIC_PRODUCT // Auto-apply when product added
+  AUTOMATIC_CATEGORY // Auto-apply for category items
+}
+
+model Discount {
+  id              String        @id @default(uuid())
+  
+  // Core identification
+  code            String?       @unique // NULL for automatic discounts
+  name            String        // "Spring Sale 20% Off", "Roses Sale Price"
+  description     String?       // Admin reference description
+  
+  // Discount configuration
+  discountType    DiscountType  // Type of discount to apply
+  triggerType     TriggerType   // How discount is triggered
+  value           Float         // 20 (for 20% or $20), or sale price amount
+  
+  // Product targeting
+  applicableProducts   String[] @default([]) // Product IDs (empty = all products)
+  applicableCategories String[] @default([]) // Category IDs (empty = all categories)
+  
+  // Advanced rules
+  minimumQuantity Int?          // Buy 3+ for discount
+  maximumQuantity Int?          // Only first 5 items get discount
+  minimumOrder    Float?        // Minimum order amount required
+  buyXGetYFree    Json?         // {buy: 2, get: 1, freeType: "CHEAPEST"}
+  
+  // Application behavior
+  autoApply       Boolean       @default(false) // Automatic vs manual application
+  priority        Int           @default(1)     // Conflict resolution order (lower = higher priority)
+  stackable       Boolean       @default(false) // Can combine with other discounts
+  
+  // Usage & validity
+  usageLimit      Int?          // Max total uses (null = unlimited)
+  usageCount      Int           @default(0)     // Current usage count
+  perCustomerLimit Int?         // Max uses per customer
+  startDate       DateTime?     // When discount becomes active
+  endDate         DateTime?     // When discount expires
+  
+  // Channel restrictions
+  posOnly         Boolean       @default(false) // POS-only discounts
+  webOnly         Boolean       @default(false) // Website-only discounts
+  
+  // Status
+  enabled         Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  // Relations
+  orders          Order[]       // Orders using this discount
+  usages          DiscountUsage[]
+  
+  @@index([discountType])
+  @@index([triggerType])
+  @@index([enabled])
+  @@index([startDate, endDate])
+}
+
+model DiscountUsage {
+  id          String   @id @default(uuid())
+  discountId  String
+  customerId  String?  // Track per-customer usage
+  orderId     String?  // Link to actual orders
+  employeeId  String?  // Who applied it (POS context)
+  source      String   // "POS", "WEBSITE"
+  appliedValue Float   // Actual discount amount applied
+  usedAt      DateTime @default(now())
+  
+  discount    Discount @relation(fields: [discountId], references: [id])
+}
+
 // 🌍 Updated AddressShortcut for international support
 model AddressShortcut {
   type         ShortcutType
@@ -446,6 +537,7 @@ model StoreSettings {
   country   String   @default("CA")
   taxId     String?
   currency  String   @default("CAD")
+  timezone  String   @default("America/Vancouver")
   logoUrl   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

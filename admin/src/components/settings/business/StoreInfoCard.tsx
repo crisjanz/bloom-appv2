@@ -27,6 +27,7 @@ interface StoreInfo {
   country: string;
   taxId: string;
   currency: string;
+  timezone: string;
 }
 
 const StoreInfoCard = () => {
@@ -41,6 +42,7 @@ const StoreInfoCard = () => {
     country: "CA",
     taxId: "",
     currency: "CAD",
+    timezone: "America/Vancouver",
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -68,6 +70,7 @@ const StoreInfoCard = () => {
           country: data.country || "CA",
           taxId: data.taxId || "",
           currency: data.currency || "CAD",
+          timezone: data.timezone || "America/Vancouver",
         });
       } else {
         console.error('Failed to load store settings');
@@ -128,6 +131,19 @@ const StoreInfoCard = () => {
     { value: "CAD", label: "CAD - Canadian Dollar" },
     { value: "EUR", label: "EUR - Euro" },
     { value: "GBP", label: "GBP - British Pound" },
+  ];
+
+  const timezoneOptions = [
+    { value: "America/Vancouver", label: "Pacific Time (Vancouver, BC)" },
+    { value: "America/Edmonton", label: "Mountain Time (Edmonton, AB)" },
+    { value: "America/Winnipeg", label: "Central Time (Winnipeg, MB)" },
+    { value: "America/Toronto", label: "Eastern Time (Toronto, ON)" },
+    { value: "America/Halifax", label: "Atlantic Time (Halifax, NS)" },
+    { value: "America/St_Johns", label: "Newfoundland Time (St. John's, NL)" },
+    { value: "America/New_York", label: "US Eastern Time" },
+    { value: "America/Chicago", label: "US Central Time" },
+    { value: "America/Denver", label: "US Mountain Time" },
+    { value: "America/Los_Angeles", label: "US Pacific Time" },
   ];
 
   if (isLoading) {
@@ -239,7 +255,7 @@ const StoreInfoCard = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <Label htmlFor="taxId">Tax ID or Business Number</Label>
             <InputField
@@ -250,16 +266,26 @@ const StoreInfoCard = () => {
               placeholder="123456789BC0001"
             />
           </div>
-<div>
-  <Label htmlFor="currency">Currency</Label>
-  <Select
-    options={currencyOptions}
-    placeholder="Select Currency"
-    value={formData.currency}
-    onChange={(value) => handleInputChange('currency', value)}
-    className="dark:bg-dark-900"
-  />
-</div>
+          <div>
+            <Label htmlFor="currency">Currency</Label>
+            <Select
+              options={currencyOptions}
+              placeholder="Select Currency"
+              value={formData.currency}
+              onChange={(value) => handleInputChange('currency', value)}
+              className="dark:bg-dark-900"
+            />
+          </div>
+          <div>
+            <Label htmlFor="timezone">Business Timezone</Label>
+            <Select
+              options={timezoneOptions}
+              placeholder="Select Timezone"
+              value={formData.timezone}
+              onChange={(value) => handleInputChange('timezone', value)}
+              className="dark:bg-dark-900"
+            />
+          </div>
         </div>
 
         <div className="flex justify-end">

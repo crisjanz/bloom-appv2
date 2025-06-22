@@ -6,7 +6,7 @@
 import React from "react";
 import { LoadScript } from '@react-google-maps/api';
 
-const libraries: ("places")[] = ["places"];
+const libraries: ("places" | "geometry")[] = ["places", "geometry"];
 const GOOGLE_MAPS_API_KEY = "AIzaSyB550tfeabwT0zRGecbLdmoITNsYoP2AIg";
 
 interface GoogleMapsProviderProps {

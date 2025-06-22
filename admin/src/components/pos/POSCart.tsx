@@ -26,6 +26,7 @@ type Props = {
   appliedDiscounts?: Array<{type: string, amount: number, description: string}>;
   giftCardDiscount?: number;
   couponDiscount?: {amount: number, name?: string};
+  autoDiscounts?: Array<{id: string, name: string, discountAmount: number}>;
   onRemoveDiscount?: (index: number) => void;
   onRemoveGiftCard?: () => void;
   onRemoveCoupon?: () => void;
@@ -43,6 +44,7 @@ export default function POSCart({
   appliedDiscounts = [],
   giftCardDiscount = 0,
   couponDiscount = 0,
+  autoDiscounts = [],
   onRemoveDiscount,
   onRemoveGiftCard,
   onRemoveCoupon
@@ -67,7 +69,8 @@ const subtotal = items.reduce((sum, item) => {
 }, 0);
 const totalDiscountAmount = (appliedDiscounts?.reduce((sum, discount) => sum + discount.amount, 0) || 0) + 
                            (giftCardDiscount || 0) + 
-                           (couponDiscount?.amount || 0);
+                           (couponDiscount?.amount || 0) +
+                           (autoDiscounts?.reduce((sum, discount) => sum + (discount.discountAmount || 0), 0) || 0);
 
 // Apply discounts proportionally to items
 const discountedSubtotal = Math.max(0, subtotal - totalDiscountAmount);
@@ -438,7 +441,20 @@ const handleCustomerSelect = (selectedCustomer: any) => {
   </div>
 )}
 
-  
+  {/* Auto Discounts */}
+  {autoDiscounts?.map((discount, index) => (
+    discount.discountAmount > 0 && (
+      <div key={discount.id} className="flex justify-between items-center text-sm">
+        <span className="text-blue-600 dark:text-blue-400 flex-1">
+          Auto: {discount.name}
+        </span>
+        <span className="font-medium text-blue-600 dark:text-blue-400">
+          -${(discount.discountAmount || 0).toFixed(2)}
+        </span>
+      </div>
+    )
+  ))}
+
   {/* Individual Tax Breakdown */}
   {taxCalculation.breakdown.map((tax, idx) => (
     <div key={idx} className="flex justify-between text-sm">

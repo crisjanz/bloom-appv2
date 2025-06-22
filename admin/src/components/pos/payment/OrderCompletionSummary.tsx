@@ -7,6 +7,7 @@ import {
   ArrowUpIcon,
   PlusIcon 
 } from "../../../icons";
+import { useBusinessTimezone } from "../../../hooks/useBusinessTimezone";
 
 type PaymentMethod = {
   method: string;
@@ -53,6 +54,8 @@ const OrderCompletionSummary: FC<Props> = ({
   onProcessRefund,
   onNewOrder,
 }) => {
+  const { formatDate: formatBusinessDate } = useBusinessTimezone();
+  
   const formatPaymentMethod = (method: string) => {
     switch (method) {
       case 'cash': return 'Cash';
@@ -208,7 +211,7 @@ const OrderCompletionSummary: FC<Props> = ({
         </div>
         <div>
           <div className="text-lg font-bold text-[#597485]">
-            {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            {formatBusinessDate ? formatBusinessDate(new Date(), { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </div>
           <div className="text-xs text-gray-600 dark:text-gray-400">Time</div>
         </div>

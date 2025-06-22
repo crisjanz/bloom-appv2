@@ -29,6 +29,16 @@ type OrderEntry = {
   }[];
   shortcutQuery: string;
   filteredShortcuts: any[];
+  // Recipient tracking fields for 3-option workflow
+  selectedRecipientId?: string;
+  recipientDataChanged: boolean;
+  originalRecipientData?: {
+    firstName: string;
+    lastName: string;
+    phone: string;
+    address1: string;
+    city: string;
+  };
 };
 
 const createEmptyOrder = (): OrderEntry => ({
@@ -56,6 +66,10 @@ const createEmptyOrder = (): OrderEntry => ({
   ],
   shortcutQuery: "",
   filteredShortcuts: [],
+  // Initialize new recipient tracking fields
+  selectedRecipientId: undefined,
+  recipientDataChanged: false,
+  originalRecipientData: undefined,
 });
 
 export const useOrderState = () => {

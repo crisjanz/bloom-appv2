@@ -36,6 +36,8 @@ type Props = {
   onGiftCardChange?: (amount: number, redemptionData?: any) => void;
   hasGiftCards?: boolean;
   giftCardDiscount?: number;
+  automaticDiscounts?: any[];
+  automaticDiscountAmount?: number;
 };
 
 export default function PaymentCard({
@@ -64,6 +66,8 @@ export default function PaymentCard({
   onGiftCardChange,
   hasGiftCards = false,
   giftCardDiscount = 0,
+  automaticDiscounts = [],
+  automaticDiscountAmount = 0,
 }: Props) {
   const [showGiftCardModal, setShowGiftCardModal] = useState(false);
   const [appliedGiftCards, setAppliedGiftCards] = useState<any[]>([]);
@@ -155,61 +159,80 @@ export default function PaymentCard({
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
         <div className="space-y-4">
           <h3 className="font-medium text-black dark:text-white mb-4">Order Breakdown</h3>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center py-2">
+          <div className="space-y-1">
+            <div className="flex justify-between items-center py-1">
               <span className="text-gray-600 dark:text-gray-400">Items Total:</span>
               <span className="font-medium text-black dark:text-white">${itemTotal.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between items-center py-2">
-              <Label htmlFor="deliveryCharge">Delivery Charge:</Label>
-              <div className="w-24">
-                <InputField
-                  type="number"
-                  id="deliveryCharge"
-                  value={deliveryCharge.toString()}
-                  onChange={(e) => setDeliveryCharge(parseFloat(e.target.value) || 0)}
-                  className="text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  min="0"
-                  step="0.01"
-                />
-              </div>
+            <div className="flex justify-between items-center py-1">
+              <span className="text-gray-600 dark:text-gray-400">Delivery Charge:</span>
+              <span className="font-medium text-black dark:text-white">${deliveryCharge.toFixed(2)}</span>
             </div>
-            <div className="border-t border-stroke pt-3 dark:border-strokedark">
-              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Discounts</h4>
-              <div className="flex justify-between items-center py-2">
+            <div className="flex justify-between items-center py-1">
+              <div className="flex items-center gap-4">
+                <span className="text-gray-600 dark:text-gray-400">Manual Discount:</span>
                 <div className="flex items-center gap-3">
-                  <Label>Manual Discount:</Label>
-                  <div className="flex items-center gap-2">
-                    <div className="w-20">
-                      <InputField
-                        type="number"
-                        value={discount.toString()}
-                        onChange={(e) => setDiscount(Number(e.target.value) || 0)}
-                        className="text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                        min="0"
+                  <input
+                    type="number"
+                    value={discount.toString()}
+                    onChange={(e) => setDiscount(Number(e.target.value) || 0)}
+                    className="w-16 bg-transparent border-0 border-b border-gray-300 dark:border-gray-600 text-center text-sm focus:outline-none focus:border-[#597485] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    placeholder="0"
+                    min="0"
+                  />
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center cursor-pointer">
+                      <input
+                        type="radio"
+                        name="discountType"
+                        value="$"
+                        checked={discountType === "$"}
+                        onChange={(e) => setDiscountType(e.target.value as "$" | "%")}
+                        className="sr-only"
                       />
-                    </div>
-                    <div className="w-16">
-                      <Select
-                        options={[
-                          { value: "$", label: "$" },
-                          { value: "%", label: "%" },
-                        ]}
-                        value={discountType}
-                        onChange={(value) => setDiscountType(value as "$" | "%")}
+                      <span className={`flex h-4 w-4 items-center justify-center rounded-full border ${
+                        discountType === "$" 
+                          ? "border-[#597485] bg-[#597485]" 
+                          : "border-stroke dark:border-strokedark"
+                      }`}>
+                        {discountType === "$" && (
+                          <span className="h-1.5 w-1.5 rounded-full bg-white"></span>
+                        )}
+                      </span>
+                      <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">$</span>
+                    </label>
+                    <label className="flex items-center cursor-pointer">
+                      <input
+                        type="radio"
+                        name="discountType"
+                        value="%"
+                        checked={discountType === "%"}
+                        onChange={(e) => setDiscountType(e.target.value as "$" | "%")}
+                        className="sr-only"
                       />
-                    </div>
+                      <span className={`flex h-4 w-4 items-center justify-center rounded-full border ${
+                        discountType === "%" 
+                          ? "border-[#597485] bg-[#597485]" 
+                          : "border-stroke dark:border-strokedark"
+                      }`}>
+                        {discountType === "%" && (
+                          <span className="h-1.5 w-1.5 rounded-full bg-white"></span>
+                        )}
+                      </span>
+                      <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">%</span>
+                    </label>
                   </div>
                 </div>
-                <span className="text-black font-medium">
-                  -${discountType === "%" 
-                    ? ((itemTotal + deliveryCharge) * discount / 100).toFixed(2)
-                    : discount.toFixed(2)
-                  }
-                </span>
               </div>
-              {isValid && couponSuccess && appliedCoupon && (
-                <div className="flex justify-between items-center py-2 bg-green-50 dark:bg-green-900/20 px-3 rounded-md border border-green-200 dark:border-green-800">
+              <span className="font-medium text-black dark:text-white">
+                -${discountType === "%" 
+                  ? ((itemTotal + deliveryCharge) * discount / 100).toFixed(2)
+                  : discount.toFixed(2)
+                }
+              </span>
+            </div>
+            {isValid && couponSuccess && appliedCoupon && (
+              <div className="flex justify-between items-center py-1 bg-green-50 dark:bg-green-900/20 px-3 rounded-md border border-green-200 dark:border-green-800">
                   <div className="flex items-center gap-2">
                     <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -238,9 +261,31 @@ export default function PaymentCard({
                     </button>
                   </div>
                 </div>
-              )}
-              {appliedGiftCards.map((card, index) => (
-                <div key={index} className="flex justify-between items-center py-2 bg-blue-50 dark:bg-blue-900/20 px-3 rounded-md border border-blue-200 dark:border-blue-800 mt-2">
+            )}
+            {automaticDiscounts.map((discount, index) => (
+              <div key={index} className="flex justify-between items-center py-1 bg-blue-50 dark:bg-blue-900/20 px-3 rounded-md border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <div>
+                      <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                        Auto: {discount.name}
+                      </span>
+                      <div className="text-xs text-blue-600 dark:text-blue-400">
+                        {discount.description || 'Automatic discount applied'}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-blue-800 dark:text-blue-200">
+                      -${discount.discountAmount?.toFixed(2) || '0.00'}
+                    </span>
+                  </div>
+                </div>
+            ))}
+            {appliedGiftCards.map((card, index) => (
+              <div key={index} className="flex justify-between items-center py-1 bg-blue-50 dark:bg-blue-900/20 px-3 rounded-md border border-blue-200 dark:border-blue-800">
                   <div className="flex items-center gap-2">
                     <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4zm14 5H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM2 8h16V6H2v2zm2 3a1 1 0 011-1h1a1 1 0 010 2H5a1 1 0 01-1-1z" clipRule="evenodd" />
@@ -266,15 +311,14 @@ export default function PaymentCard({
                     </button>
                   </div>
                 </div>
-              ))}
-              <button
-                type="button"
-                onClick={() => setShowGiftCardModal(true)}
-                className="mt-3 text-sm text-[#597485] hover:text-[#597485]/80 font-medium"
-              >
-                + Add Gift Card
-              </button>
-            </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setShowGiftCardModal(true)}
+              className="mt-2 text-sm text-[#597485] hover:text-[#597485]/80 font-medium"
+            >
+              + Add Gift Card
+            </button>
             <div className="border-t border-stroke pt-3 dark:border-strokedark">
               <div className="flex justify-between items-center py-1">
                 <span className="text-gray-600 dark:text-gray-400">GST (5%):</span>

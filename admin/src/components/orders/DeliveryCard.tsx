@@ -109,17 +109,6 @@ export default function DeliveryCard({
             />
           </div>
 
-          {/* Message Preview */}
-          {cardMessage.trim() && (
-            <div className="rounded-md border border-stroke bg-gray-2 p-4 dark:border-strokedark dark:bg-meta-4">
-              <div className="mb-2 text-sm font-medium text-black dark:text-white">
-                Card Preview:
-              </div>
-              <div className="text-sm text-gray-600 dark:text-gray-300 italic">
-                "{cardMessage}"
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </ComponentCard>

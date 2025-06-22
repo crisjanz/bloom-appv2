@@ -1,5 +1,6 @@
 // src/components/orders/payment/PaymentSection.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import PaymentCard from '../PaymentCard';
 import TakeOrderPaymentModal from './TakeOrderPaymentModal';
 import GiftCardActivationModal from './GiftCardActivationModal';
@@ -10,6 +11,25 @@ import { useTaxRates } from '../../../hooks/useTaxRates';
 // Helper function to replace crypto.randomUUID
 const generateId = () => {
   return 'id-' + Math.random().toString(36).substr(2, 9) + '-' + Date.now().toString(36);
+};
+
+// Simple success toast component that won't kick you out of fullscreen
+const SuccessToast = ({ show, message, onClose }: { show: boolean; message: string; onClose: () => void }) => {
+  if (!show) return null;
+  
+  return (
+    <div className="fixed top-4 right-4 z-[100001] bg-green-600 text-white px-6 py-4 rounded-lg shadow-lg flex items-center gap-3">
+      <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+      </svg>
+      <span className="font-medium">{message}</span>
+      <button onClick={onClose} className="ml-2 text-white hover:text-gray-200">
+        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+        </svg>
+      </button>
+    </div>
+  );
 };
 
 type Props = {
@@ -33,6 +53,7 @@ type Props = {
   giftCardDiscount: number;
   setGiftCardDiscount: (val: number) => void;
   isOverlay?: boolean;
+  onAutomaticDiscountChange?: (amount: number, discounts: any[]) => void;
 };
 
 const PaymentSection: React.FC<Props> = ({
@@ -56,8 +77,10 @@ const PaymentSection: React.FC<Props> = ({
   giftCardDiscount,
   setGiftCardDiscount,
   isOverlay = false,
+  onAutomaticDiscountChange,
 }) => {
   const [couponCode, setCouponCode] = useState("");
+  const navigate = useNavigate();
   
   // Get centralized tax rates
   const { calculateTax } = useTaxRates();
@@ -72,10 +95,90 @@ const PaymentSection: React.FC<Props> = ({
   const [activatedGiftCards, setActivatedGiftCards] = useState<any[]>([]);
   const [pendingGiftCardRedemptions, setPendingGiftCardRedemptions] = useState<any[]>([]);
   const [isProcessingPOSTransfer, setIsProcessingPOSTransfer] = useState(false);
+  const [automaticDiscounts, setAutomaticDiscounts] = useState<any[]>([]);
+  const [automaticDiscountAmount, setAutomaticDiscountAmount] = useState(0);
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
 
   const currentOrder = orderState.orders[orderState.activeTab];
   const hasGiftCards = currentOrder ? orderContainsGiftCards(currentOrder.customProducts) : false;
   const amountAfterGiftCards = Math.max(0, grandTotal - giftCardDiscount);
+
+  // Function to check for automatic discounts
+  const checkAutomaticDiscounts = async () => {
+    if (!orderState.orders.length) return;
+
+    try {
+      // Build cart items from all orders
+      const cartItems = [];
+      for (const order of orderState.orders) {
+        for (const product of order.customProducts) {
+          if (product.description && product.price && parseFloat(product.price) > 0) {
+            cartItems.push({
+              id: product.productId || product.id || `temp-${Date.now()}`,
+              categoryId: product.category || '',
+              quantity: parseInt(product.qty) || 1,
+              price: parseFloat(product.price) * 100 // Convert to cents
+            });
+          }
+        }
+      }
+
+      if (cartItems.length === 0) {
+        setAutomaticDiscounts([]);
+        setAutomaticDiscountAmount(0);
+        return;
+      }
+
+      console.log('🔍 Checking for automatic discounts...', { 
+        cartItems,
+        orderCount: orderState.orders.length,
+        customerState: customerState.customerId
+      });
+
+      const response = await fetch('/api/discounts/auto-apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cartItems,
+          customerId: customerState.customerId,
+          source: 'WEBSITE'
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Automatic discounts found:', result);
+        
+        if (result.discounts && result.discounts.length > 0) {
+          setAutomaticDiscounts(result.discounts);
+          const totalAutoDiscount = result.discounts.reduce((sum: number, discount: any) => 
+            sum + (discount.discountAmount || 0), 0
+          );
+          setAutomaticDiscountAmount(totalAutoDiscount);
+          onAutomaticDiscountChange?.(totalAutoDiscount, result.discounts);
+        } else {
+          setAutomaticDiscounts([]);
+          setAutomaticDiscountAmount(0);
+          onAutomaticDiscountChange?.(0, []);
+        }
+      } else {
+        console.error('Failed to check automatic discounts');
+        setAutomaticDiscounts([]);
+        setAutomaticDiscountAmount(0);
+        onAutomaticDiscountChange?.(0, []);
+      }
+    } catch (error) {
+      console.error('Error checking automatic discounts:', error);
+      setAutomaticDiscounts([]);
+      setAutomaticDiscountAmount(0);
+      onAutomaticDiscountChange?.(0, []);
+    }
+  };
+
+  // Check for automatic discounts when orders change
+  useEffect(() => {
+    checkAutomaticDiscounts();
+  }, [orderState.orders, customerState.customerId]);
 
   const validateOrdersBeforePayment = (): string | null => {
     if (!customerState.customer) {
@@ -387,9 +490,48 @@ const PaymentSection: React.FC<Props> = ({
     }
 
     try {
+      // Create recipients first, then orders with recipientId links
+      const ordersWithRecipientIds = await Promise.all(
+        orderState.orders.map(async (order) => {
+          if (order.orderType === 'DELIVERY') {
+            let recipientId = order.selectedRecipientId;
+            
+            // If no selected recipient or data has changed, create/update recipient
+            if (!recipientId || order.recipientDataChanged) {
+              const recipientResponse = await fetch(`/api/customers/${currentCustomerId}/recipients`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  firstName: order.recipientFirstName,
+                  lastName: order.recipientLastName,
+                  phone: cleanPhoneNumber(order.recipientPhone),
+                  address1: order.recipientAddress.address1,
+                  address2: order.recipientAddress.address2,
+                  city: order.recipientAddress.city,
+                  province: order.recipientAddress.province,
+                  postalCode: order.recipientAddress.postalCode,
+                  country: order.recipientAddress.country || "CA",
+                  company: order.recipientCompany,
+                })
+              });
+              
+              if (!recipientResponse.ok) {
+                throw new Error('Failed to create recipient');
+              }
+              
+              const recipient = await recipientResponse.json();
+              recipientId = recipient.id;
+            }
+            
+            return { ...order, recipientId };
+          }
+          return order;
+        })
+      );
+
       const orderData = {
         customerId: currentCustomerId,
-        orders: orderState.orders,
+        orders: ordersWithRecipientIds,
         paymentConfirmed: true,
         payments: payments.length > 0 ? payments : [{
           method: 'GIFT_CARD',
@@ -533,61 +675,8 @@ const PaymentSection: React.FC<Props> = ({
         }
       }
 
-      for (const order of orderState.orders) {
-        if (
-          order.orderType === "DELIVERY" &&
-          currentCustomerId &&
-          order.recipientFirstName &&
-          order.recipientAddress.address1
-        ) {
-          try {
-            // First, get existing recipients to check for duplicates
-            const existingResponse = await fetch(`/api/customers/${currentCustomerId}/recipients`);
-            const existingRecipients = existingResponse.ok ? await existingResponse.json() : [];
-            
-            // Check if recipient already exists (match by name and address)
-            const existingRecipient = existingRecipients.find((r: any) => 
-              r.firstName?.toLowerCase() === order.recipientFirstName?.toLowerCase() &&
-              r.lastName?.toLowerCase() === order.recipientLastName?.toLowerCase() &&
-              r.address1?.toLowerCase() === order.recipientAddress.address1?.toLowerCase() &&
-              r.city?.toLowerCase() === order.recipientAddress.city?.toLowerCase()
-            );
-            
-            const recipientData = {
-              firstName: order.recipientFirstName,
-              lastName: order.recipientLastName,
-              phone: cleanPhoneNumber(order.recipientPhone),
-              address1: order.recipientAddress.address1,
-              address2: order.recipientAddress.address2,
-              city: order.recipientAddress.city,
-              province: order.recipientAddress.province,
-              postalCode: order.recipientAddress.postalCode,
-              country: order.recipientAddress.country || "CA",
-              company: order.recipientCompany,
-            };
-            
-            if (existingRecipient) {
-              // Update existing recipient
-              await fetch(`/api/customers/${currentCustomerId}/recipients/${existingRecipient.id}`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(recipientData),
-              });
-              console.log("✅ Updated existing recipient:", existingRecipient.id);
-            } else {
-              // Create new recipient
-              await fetch(`/api/customers/${currentCustomerId}/recipients`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(recipientData),
-              });
-              console.log("✅ Created new recipient");
-            }
-          } catch (error) {
-            console.error("Failed to auto-save recipient:", error);
-          }
-        }
-      }
+      // Recipients are now created/updated before order creation above
+      // No need for post-order recipient creation
 
       // 📧📱 Send receipt notifications if requested
       if ((sendEmailReceipt || sendSMSReceipt) && orderData.transactionNumber) {
@@ -631,11 +720,23 @@ const PaymentSection: React.FC<Props> = ({
       }
 
       setShowPaymentPopup(false);
-      alert("✅ All orders created successfully!");
+      setShowSuccessToast(true);
       setCouponCode("");
       setGiftCardNumbers([]);
       setPendingGiftCardRedemptions([]);
       setFormError(null);
+      
+      // Auto-hide toast after 3 seconds, then redirect to order view
+      setTimeout(() => {
+        setShowSuccessToast(false);
+        
+        // Redirect to the first created order's view page
+        if (result.orders && result.orders.length > 0) {
+          const firstOrderId = result.orders[0].id;
+          navigate(`/orders/${firstOrderId}`);
+        }
+      }, 3000);
+      
       onOrderComplete();
       
     } catch (error) {
@@ -679,8 +780,34 @@ const PaymentSection: React.FC<Props> = ({
         onCouponDiscountChange={setCouponDiscount}
         onGiftCardChange={handleGiftCardChange}
         customerId={customerState.customerId}
+        productIds={(() => {
+          // Extract product IDs from all orders
+          const productIds: string[] = [];
+          orderState.orders.forEach((order: any) => {
+            order.customProducts.forEach((product: any) => {
+              if (product.category) {
+                productIds.push(product.category); // Using category ID as product ID for now
+              }
+            });
+          });
+          return productIds;
+        })()}
+        categoryIds={(() => {
+          // Extract category IDs from all orders  
+          const categoryIds: string[] = [];
+          orderState.orders.forEach((order: any) => {
+            order.customProducts.forEach((product: any) => {
+              if (product.category && !categoryIds.includes(product.category)) {
+                categoryIds.push(product.category);
+              }
+            });
+          });
+          return categoryIds;
+        })()}
         source="WEBSITE"
         hasGiftCards={hasGiftCards}
+        automaticDiscounts={automaticDiscounts}
+        automaticDiscountAmount={automaticDiscountAmount}
       />
       {formError && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg dark:bg-red-900/20 dark:border-red-800">
@@ -726,6 +853,13 @@ const PaymentSection: React.FC<Props> = ({
           });
           return hasDigital;
         })()}
+      />
+      
+      {/* Success Toast - won't kick you out of fullscreen */}
+      <SuccessToast 
+        show={showSuccessToast}
+        message="✅ All orders created successfully!"
+        onClose={() => setShowSuccessToast(false)}
       />
     </>
   );

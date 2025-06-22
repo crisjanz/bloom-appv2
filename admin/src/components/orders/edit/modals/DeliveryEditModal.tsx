@@ -1,6 +1,7 @@
 import React from 'react';
 import { SaveIcon } from '../../../../icons';
 import Label from '../../../form/Label';
+import DeliveryDatePicker from '../../../form/DeliveryDatePicker';
 
 interface DeliveryEditModalProps {
   delivery: {
@@ -28,12 +29,12 @@ const DeliveryEditModal: React.FC<DeliveryEditModalProps> = ({
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <Label>Delivery Date</Label>
-          <input
-            type="date"
+          <DeliveryDatePicker
+            id="delivery-edit-date-picker"
+            label="Delivery Date"
+            placeholder="Select delivery date"
             value={delivery.deliveryDate}
-            onChange={(e) => onChange({ ...delivery, deliveryDate: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#597485] focus:border-transparent dark:bg-gray-700 dark:text-white"
+            onChange={(date) => onChange({ ...delivery, deliveryDate: date })}
           />
         </div>
         <div>

@@ -5,6 +5,7 @@ import updateRoutes from './update';
 import uploadRoutes from './upload';
 import singleRoutes from './single';
 import statusRoutes from './status';
+import deliveryRoutes from './delivery';
 
 const router = express.Router();
 
@@ -17,6 +18,7 @@ router.use('/', updateRoutes);
 router.use('/', uploadRoutes);
 router.use('/', singleRoutes);
 router.use('/', statusRoutes);
+router.use('/', deliveryRoutes);
 
 console.log('Order routes configured successfully');
 

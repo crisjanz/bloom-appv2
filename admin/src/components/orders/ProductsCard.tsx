@@ -6,6 +6,7 @@ import Select from "../form/Select";
 import Label from "../form/Label";
 import Checkbox from "../form/input/Checkbox";
 import { useTaxRates } from "../../hooks/useTaxRates";
+import ProductVariantModal from "../pos/ProductVariantModal";
 
 
 
@@ -15,6 +16,7 @@ type Product = {
   price: string;
   qty: string;
   tax: boolean;
+  productId?: string;
 };
 
 type Props = {
@@ -34,9 +36,61 @@ export default function ProductsCard({
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  
+  // Variant modal state
+  const [showVariantModal, setShowVariantModal] = useState(false);
+  const [selectedProductForVariants, setSelectedProductForVariants] = useState(null);
+  const [pendingProductIndex, setPendingProductIndex] = useState<number | null>(null);
 
   // Get centralized tax rates
   const { calculateTax, individualTaxRates } = useTaxRates();
+
+  // Helper function to check if product has variants
+  const hasMultipleVariants = (product: any) => {
+    console.log('🔍 Checking variants for product:', product.name);
+    console.log('📦 Product variants:', product.variants);
+    
+    const hasVariants = product.variants && product.variants.length > 1 && 
+           product.variants.some(v => !v.isDefault);
+    
+    console.log('✅ Has multiple variants:', hasVariants);
+    return hasVariants;
+  };
+
+  // Helper function to add product to form
+  const addProductToForm = (product: any, selectedVariant?: any) => {
+    const emptyIndex = customProducts.findIndex(p => !p.description);
+    const productName = selectedVariant ? `${product.name} - ${selectedVariant.name}` : product.name;
+    const productPrice = selectedVariant ? selectedVariant.calculatedPrice || selectedVariant.price / 100 : product.defaultPrice;
+    
+    if (emptyIndex >= 0) {
+      handleProductChange(emptyIndex, "description", productName);
+      handleProductChange(emptyIndex, "category", product.categoryId);
+      handleProductChange(emptyIndex, "price", productPrice.toFixed(2));
+      handleProductChange(emptyIndex, "productId", product.id); // Store actual product ID
+    } else {
+      handleAddCustomProduct();
+      setTimeout(() => {
+        const newIndex = customProducts.length;
+        handleProductChange(newIndex, "description", productName);
+        handleProductChange(newIndex, "category", product.categoryId);
+        handleProductChange(newIndex, "price", productPrice.toFixed(2));
+        handleProductChange(newIndex, "productId", product.id); // Store actual product ID
+      }, 100);
+    }
+  };
+
+  // Handle variant selection
+  const handleVariantSelection = (variant: any) => {
+    if (selectedProductForVariants) {
+      addProductToForm(selectedProductForVariants, variant);
+    }
+    setShowVariantModal(false);
+    setSelectedProductForVariants(null);
+    setPendingProductIndex(null);
+    setSearchQuery("");
+    setSearchResults([]);
+  };
 
 
   
@@ -55,7 +109,10 @@ export default function ProductsCard({
         setIsSearching(true);
         fetch(`/api/products/search?q=${encodeURIComponent(searchQuery)}`)
           .then((res) => res.json())
-          .then((data) => setSearchResults(data || []))
+          .then((data) => {
+            console.log('🔍 TakeOrder product search results:', data);
+            setSearchResults(data || []);
+          })
           .catch((err) => console.error("Failed to search products:", err))
           .finally(() => setIsSearching(false));
       }, 300);
@@ -88,19 +145,25 @@ export default function ProductsCard({
     }, 0);
   };
 
-  const calculateTaxTotal = () => {
+  const calculateTaxableTotal = () => {
     return customProducts.reduce((total, item) => {
       if (item.tax) {
-        const itemTotal = parseFloat(item.price || "0") * parseInt(item.qty || "0");
-        const taxCalc = calculateTax(itemTotal);
-        return total + taxCalc.totalAmount;
+        return total + parseFloat(item.price || "0") * parseInt(item.qty || "0");
       }
       return total;
     }, 0);
   };
 
+  const calculateTaxTotal = () => {
+    const taxableAmount = calculateTaxableTotal();
+    if (taxableAmount === 0) return 0;
+    const taxCalc = calculateTax(taxableAmount);
+    return taxCalc.totalAmount;
+  };
+
   return (
-    <ComponentCard title="Products & Items">
+    <>
+      <ComponentCard title="Products & Items">
       {/* Header with Add Button and Search */}
       <div className="flex items-center justify-between mb-6">
         <button
@@ -149,29 +212,27 @@ export default function ProductsCard({
                 <div
                   key={product.id}
                   onClick={() => {
-                    // Find first empty row or add new one
-                    const emptyIndex = customProducts.findIndex(p => !p.description);
-                    if (emptyIndex >= 0) {
-                      handleProductChange(emptyIndex, "description", product.name);
-                      handleProductChange(emptyIndex, "category", product.categoryId);
-    		      handleProductChange(emptyIndex, "price", (product.defaultPrice / 100).toFixed(2));
+                    // Check if product has multiple variants
+                    if (hasMultipleVariants(product)) {
+                      // Ensure the product has the price field that the modal expects
+                      const productForModal = {
+                        ...product,
+                        price: product.defaultPrice || product.price || 0
+                      };
+                      setSelectedProductForVariants(productForModal);
+                      setShowVariantModal(true);
                     } else {
-                      handleAddCustomProduct();
-                      setTimeout(() => {
-                        const newIndex = customProducts.length;
-                        handleProductChange(newIndex, "description", product.name);
-                        handleProductChange(newIndex, "category", product.categoryId);
-      handleProductChange(newIndex, "price", (product.defaultPrice / 100).toFixed(2));
-                      }, 100);
+                      // Add product directly if no variants or only default variant
+                      addProductToForm(product);
+                      setSearchQuery("");
+                      setSearchResults([]);
                     }
-                    setSearchQuery("");
-                    setSearchResults([]);
                   }}
                   className="px-5 py-3 text-sm hover:bg-gray-2 cursor-pointer border-b border-stroke last:border-b-0 dark:hover:bg-meta-4 dark:border-strokedark"
                 >
                   <div className="font-medium text-black dark:text-white">{product.name}</div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">
-  ${(product.defaultPrice / 100).toFixed(2)} • {product.categoryName}
+  ${product.defaultPrice.toFixed(2)} • {product.categoryName}
                   </div>
                 </div>
               ))}
@@ -341,10 +402,12 @@ export default function ProductsCard({
             </span>
           </div>
           
-          {/* Individual Tax Breakdown */}
+          {/* Individual Tax Breakdown - Only show if there are taxable items */}
           {(() => {
-            const subtotal = calculateSubtotal();
-            const taxCalc = calculateTax(subtotal);
+            const taxableAmount = calculateTaxableTotal();
+            if (taxableAmount === 0) return null;
+            
+            const taxCalc = calculateTax(taxableAmount);
             return taxCalc.breakdown.map((tax, idx) => (
               <div key={idx} className="flex justify-between text-sm">
                 <span className="text-gray-600 dark:text-gray-400">
@@ -367,6 +430,19 @@ export default function ProductsCard({
           </div>
         </div>
       </div>
-    </ComponentCard>
+      </ComponentCard>
+      
+      {/* Product Variant Modal */}
+      <ProductVariantModal
+        open={showVariantModal}
+        product={selectedProductForVariants}
+        onClose={() => {
+          setShowVariantModal(false);
+          setSelectedProductForVariants(null);
+          setPendingProductIndex(null);
+        }}
+        onSelectVariant={handleVariantSelection}
+      />
+    </>
   );
 }

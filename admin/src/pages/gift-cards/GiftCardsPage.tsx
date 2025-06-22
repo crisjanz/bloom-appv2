@@ -10,6 +10,7 @@ import InputField from "../../components/form/input/InputField";
 import Button from "../../components/ui/button/Button";
 import Badge from "../../components/ui/badge/Badge";
 import { fetchGiftCards } from "../../services/giftCardService";
+import { useBusinessTimezone } from "../../hooks/useBusinessTimezone";
 
 type GiftCard = {
   id: string;
@@ -27,6 +28,7 @@ type GiftCard = {
 };
 
 export default function GiftCardsPage() {
+  const { formatDate: formatBusinessDate, loading: timezoneLoading } = useBusinessTimezone();
   const [giftCards, setGiftCards] = useState<GiftCard[]>([]);
   const [filteredCards, setFilteredCards] = useState<GiftCard[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -77,7 +79,8 @@ export default function GiftCardsPage() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
+    if (timezoneLoading) return dateString;
+    return formatBusinessDate(new Date(dateString));
   };
 
   const getStatusBadgeColor = (status: string) => {

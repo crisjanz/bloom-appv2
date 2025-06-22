@@ -4,6 +4,7 @@ import Select from '../../form/Select';
 import { Order } from '../types';
 import StatusBadge from '../StatusBadge';
 import { getStatusOptions } from '../../../utils/orderStatusHelpers';
+import { useBusinessTimezone } from '../../../hooks/useBusinessTimezone';
 
 interface OrderHeaderProps {
   order: Order;
@@ -12,6 +13,7 @@ interface OrderHeaderProps {
 
 const OrderHeader: React.FC<OrderHeaderProps> = ({ order, onStatusChange }) => {
   const statusOptions = getStatusOptions(order.type);
+  const { formatDate, loading: timezoneLoading } = useBusinessTimezone();
   
   return (
     <div className="mb-6">
@@ -21,7 +23,7 @@ const OrderHeader: React.FC<OrderHeaderProps> = ({ order, onStatusChange }) => {
             Order #{order.orderNumber}
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Created {new Date(order.createdAt).toLocaleDateString()}
+            Created {timezoneLoading ? 'Loading...' : formatDate(new Date(order.createdAt))}
           </p>
         </div>
         

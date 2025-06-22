@@ -6,6 +6,7 @@ import ComponentCard from '../../components/common/ComponentCard';
 import OrderHeader from '../../components/orders/edit/OrderHeader';
 import OrderSections from '../../components/orders/edit/OrderSections';
 import { Order } from '../../components/orders/types';
+import { useBusinessTimezone } from '../../hooks/useBusinessTimezone';
 
 // Import all modal components
 import CustomerEditModal from '../../components/orders/edit/modals/CustomerEditModal';
@@ -27,6 +28,7 @@ interface PaymentAdjustmentResult {
 
 const OrderEditPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const { getBusinessDateString } = useBusinessTimezone();
   
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
@@ -129,7 +131,9 @@ const OrderEditPage: React.FC = () => {
         break;
       case 'delivery':
         setEditingDelivery({
-          deliveryDate: order.deliveryDate ? order.deliveryDate.split('T')[0] : '',
+          deliveryDate: order.deliveryDate && getBusinessDateString ? 
+            getBusinessDateString(new Date(order.deliveryDate)) : 
+            (order.deliveryDate ? order.deliveryDate.split('T')[0] : ''),
           deliveryTime: order.deliveryTime || '',
           cardMessage: order.cardMessage || '',
           specialInstructions: order.specialInstructions || '',

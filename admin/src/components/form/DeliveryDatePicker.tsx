@@ -3,6 +3,7 @@ import flatpickr from "flatpickr";
 import "flatpickr/dist/flatpickr.css";
 import Label from "./Label";
 import { CalenderIcon } from "../../icons";
+import { useBusinessTimezone } from "../../hooks/useBusinessTimezone";
 
 // ✅ Updated custom styles with better tooltip positioning
 const customStyles = `
@@ -99,6 +100,7 @@ export default function DeliveryDatePicker({
   value,
   onChange,
 }: Props) {
+  const { timezone, getBusinessDateString } = useBusinessTimezone();
   const [businessHours, setBusinessHours] = useState<BusinessHours>({});
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [exceptions, setExceptions] = useState<DeliveryException[]>([]);
@@ -210,11 +212,11 @@ export default function DeliveryDatePicker({
     (window as any)[`disabledDatesInfo_${id}`] = disabled;
   }, [businessHours, holidays, exceptions, isLoaded, id]);
 
-  // Initialize flatpickr ONCE when settings are loaded
+  // Initialize flatpickr ONCE when settings and timezone are loaded
   useEffect(() => {
-    if (!isLoaded || flatpickrRef.current) return;
+    if (!isLoaded || !timezone || flatpickrRef.current) return;
     
-    const today = new Date().toISOString().split('T')[0];
+    const today = getBusinessDateString(new Date());
     
     const flatPickr = flatpickr(`#${id}`, {
       mode: "single",
@@ -278,7 +280,7 @@ onDayCreate: function(dObj, dStr, fp, dayElem) {
       }
       delete (window as any)[`disabledDatesInfo_${id}`];
     };
-  }, [isLoaded]);
+  }, [isLoaded, timezone, getBusinessDateString]);
 
   // Update disabled dates WITHOUT recreating the picker
   useEffect(() => {

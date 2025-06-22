@@ -6,6 +6,7 @@ import Select from "../../form/Select";
 import Button from "../../ui/button/Button";
 import { CalenderIcon, TrashBinIcon, PencilIcon } from "../../../icons";
 import DatePicker from "../../form/date-picker";
+import { useBusinessTimezone } from "../../../hooks/useBusinessTimezone";
 
 interface Holiday {
   id?: string;
@@ -20,6 +21,7 @@ interface Holiday {
 }
 
 const HolidaysCard = () => {
+  const { formatDate: formatBusinessDate, loading: timezoneLoading } = useBusinessTimezone();
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -151,17 +153,19 @@ const HolidaysCard = () => {
   };
 
   const formatDateRange = (startDate: string, endDate: string) => {
+    if (timezoneLoading) return `${startDate} - ${endDate}`;
+    
     const start = new Date(startDate + 'T00:00:00');
     const end = new Date(endDate + 'T00:00:00');
     
     if (startDate === endDate) {
-      return start.toLocaleDateString('en-US', { 
+      return formatBusinessDate(start, { 
         month: 'short', 
         day: 'numeric',
         year: 'numeric'
       });
     } else {
-      return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+      return `${formatBusinessDate(start, { month: 'short', day: 'numeric' })} - ${formatBusinessDate(end, { month: 'short', day: 'numeric', year: 'numeric' })}`;
     }
   };
 

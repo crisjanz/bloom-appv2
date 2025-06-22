@@ -62,13 +62,29 @@ router.get('/search', async (req, res) => {
       take: 10,
     });
     res.json(
-      products.map((product) => ({
-        id: product.id,
-        name: product.name,
-        categoryId: product.category?.id,
-        categoryName: product.category?.name,
-        defaultPrice: product.variants[0]?.price || 0,
-      }))
+      products.map((product) => {
+        const defaultVariant = product.variants.find(v => v.isDefault);
+        const basePrice = defaultVariant ? defaultVariant.price : 0;
+        
+        const transformedVariants = product.variants.map(variant => ({
+          ...variant,
+          // Calculate final price for display components (like POS)
+          calculatedPrice: variant.isDefault 
+            ? basePrice / 100 
+            : (basePrice + (variant.priceDifference || 0)) / 100,
+          // Keep priceDifference in cents for consistency
+          priceDifference: variant.priceDifference || 0
+        }));
+
+        return {
+          id: product.id,
+          name: product.name,
+          categoryId: product.category?.id,
+          categoryName: product.category?.name,
+          defaultPrice: basePrice / 100,
+          variants: transformedVariants
+        };
+      })
     );
   } catch (err) {
     console.error('Product search failed:', err);
@@ -80,11 +96,36 @@ router.get('/', async (req, res) => {
   try {
     const products = await prisma.product.findMany({
       include: {
-        variants: true,
+        variants: {
+          orderBy: { isDefault: 'desc' } // Default variant first
+        },
         category: true,
       },
     });
-    res.json(products);
+    
+    // Transform products for frontend consumption (same as single product GET)
+    const transformedProducts = products.map(product => {
+      const defaultVariant = product.variants.find(v => v.isDefault);
+      const basePrice = defaultVariant ? defaultVariant.price : 0;
+      
+      const transformedVariants = product.variants.map(variant => ({
+        ...variant,
+        // Calculate final price for display components (like POS)
+        calculatedPrice: variant.isDefault 
+          ? basePrice / 100 
+          : (basePrice + (variant.priceDifference || 0)) / 100,
+        // Keep priceDifference in cents for consistency
+        priceDifference: variant.priceDifference || 0
+      }));
+
+      return {
+        ...product,
+        price: basePrice / 100, // Convert cents to dollars for base price
+        variants: transformedVariants
+      };
+    });
+    
+    res.json(transformedProducts);
   } catch (err) {
     console.error('Failed to fetch products:', err);
     res.status(500).json({ error: 'Failed to fetch products' });
@@ -139,6 +180,13 @@ router.post('/', upload.array('images'), async (req, res) => {
     const variants = variantsJson ? JSON.parse(variantsJson) : [];
     const basePrice = parseFloat(price || '0') * 100;
 
+    console.log('🔍 Variants data received:', {
+      variantsJson,
+      parsedVariants: variants,
+      basePrice,
+      optionGroups
+    });
+
     const optionGroupMap: { [name: string]: { id: string; values: { [label: string]: string } } } = {};
     for (const group of optionGroups) {
       const option = await prisma.productOption.create({
@@ -191,45 +239,36 @@ router.post('/', upload.array('images'), async (req, res) => {
         category: { connect: { id: categoryId } },
         reportingCategory: { connect: { id: reportingCategoryId } },
         variants: {
-          create: variants.length > 0
-            ? variants.map((variant: any) => ({
-                id: variant.id,
-                name: variant.name,
-                sku: variant.sku || null,
-                price: basePrice + (variant.priceDifference || 0),
-                stockLevel: variant.stockLevel || 0,
-                trackInventory: variant.trackInventory || false,
-                isDefault: false,
-                options: {
-                  create: variant.name
-                    .split(' - ')
-                    .map((value: string) => {
-                      const group = optionGroups.find((g: any) =>
-                        g.values.includes(value)
-                      );
-                      if (!group) {
-                        throw new Error(`Option value ${value} not found in groups`);
-                      }
-                      const valueId = optionGroupMap[group.name].values[value];
-                      if (!valueId) {
-                        throw new Error(`Value ID for ${value} not found`);
-                      }
-                      return {
-                        optionValueId: valueId,
-                      };
-                    }),
-                },
-              }))
-            : [{
-                name: 'Default',
-                sku: `${slug}-default`,
-                price: basePrice,
-                stockLevel: parseInt(inventory || '0'),
-                trackInventory: parseInt(inventory || '0') > 0,
-                isDefault: true,
-              }],
+          create: [
+            // Always create default variant for base price
+            {
+              name: 'Default',
+              sku: `${slug}-default`,
+              price: basePrice,
+              priceDifference: null, // No difference for base variant
+              stockLevel: parseInt(inventory || '0'),
+              trackInventory: parseInt(inventory || '0') > 0,
+              isDefault: true,
+            },
+            // Add additional variants if provided
+            ...variants.map((variant: any) => ({
+              name: variant.name,
+              sku: variant.sku || `${slug}-${variant.name.toLowerCase().replace(/\s+/g, '-')}`,
+              price: 0, // Don't store calculated price - calculate when needed
+              priceDifference: variant.priceDifference || 0, // Store the actual difference
+              stockLevel: variant.stockLevel || 0,
+              trackInventory: variant.trackInventory || false,
+              isDefault: false,
+            }))
+          ],
         },
       },
+    });
+
+    console.log('✅ Product created successfully:', {
+      productId: product.id,
+      basePrice: basePrice / 100,
+      variantCount: variants.length
     });
 
     // Respond immediately to user
@@ -266,14 +305,51 @@ router.get('/:id', async (req, res) => {
     const product = await prisma.product.findUnique({
       where: { id },
       include: {
-        variants: true,
-        category: true
+        variants: {
+          orderBy: { isDefault: 'desc' } // Default variant first
+        },
+        category: true,
+        // TODO: Add option groups loading if needed for edit mode
+        // We'll need to reconstruct option groups from variant names
       }
     });
     if (!product) {
       return res.status(404).json({ error: 'Product not found' });
     }
-    res.json(product);
+
+    // Get base price from default variant and prepare variants for frontend
+    const defaultVariant = product.variants.find(v => v.isDefault);
+    const basePrice = defaultVariant ? defaultVariant.price : 0;
+    
+    const transformedVariants = product.variants
+      .filter(v => !v.isDefault) // Exclude default variant from variants list
+      .map(variant => ({
+        ...variant,
+        // priceDifference is stored in cents, keep as cents for frontend
+        priceDifference: variant.priceDifference || 0,
+        // Calculate final price for display components (like POS)
+        calculatedPrice: (basePrice + (variant.priceDifference || 0)) / 100
+      }));
+
+    const responseProduct = {
+      ...product,
+      price: basePrice / 100, // Convert cents to dollars for base price
+      variants: transformedVariants,
+      optionGroups: [] // TODO: Reconstruct option groups from variants if needed
+    };
+
+    console.log('🔍 Loading product for edit:', {
+      productId: id,
+      basePrice: basePrice / 100,
+      variantCount: transformedVariants.length,
+      variants: transformedVariants.map(v => ({
+        name: v.name,
+        storedPriceDifference: v.priceDifference,
+        calculatedPrice: v.calculatedPrice
+      }))
+    });
+
+    res.json(responseProduct);
   } catch (err) {
     console.error('Error fetching product:', err);
     res.status(500).json({ error: 'Failed to load product' });
@@ -306,12 +382,27 @@ router.put('/:id', upload.array('images'), async (req, res) => {
     unavailableUntil,
     unavailableMessage,
     seoTitle,
-    seoDescription
+    seoDescription,
+    optionGroups: optionGroupsJson,
+    variants: variantsJson,
+    imagesToDelete
   } = req.body;
   
   try {
     const productName = name || title;
     const basePrice = parseFloat(price || '0') * 100;
+    
+    // Parse variants and optionGroups
+    const optionGroups = optionGroupsJson ? JSON.parse(optionGroupsJson) : [];
+    const variants = variantsJson ? JSON.parse(variantsJson) : [];
+    
+    console.log('🔍 PUT - Variants data received:', {
+      productId: id,
+      variantsJson,
+      parsedVariants: variants,
+      basePrice,
+      optionGroups
+    });
 
     // Handle image uploads for updates (if any new images)
     let imageUrls: string[] = [];
@@ -358,29 +449,115 @@ router.put('/:id', upload.array('images'), async (req, res) => {
       unavailableMessage: (unavailableMessage && unavailableMessage.trim() !== '') ? unavailableMessage : null,
     };
 
+    // Handle image deletions if requested
+    if (imagesToDelete) {
+      const imagesToDeleteArray = JSON.parse(imagesToDelete);
+      for (const imageUrl of imagesToDeleteArray) {
+        try {
+          // Extract file path from URL for Supabase deletion
+          const urlParts = imageUrl.split('/');
+          const fileName = urlParts[urlParts.length - 1];
+          const filePath = `products/${fileName}`;
+          
+          const { error } = await supabase.storage
+            .from('product-images')
+            .remove([filePath]);
+          
+          if (error) {
+            console.error('Error deleting image from Supabase:', error);
+          }
+        } catch (error) {
+          console.error('Error processing image deletion:', error);
+        }
+      }
+    }
+
     // Only update images if new ones were uploaded
     if (imageUrls.length > 0) {
       updateData.images = imageUrls;
     }
 
-    const updated = await prisma.product.update({
-      where: { id },
-      data: updateData,
+    // Delete existing variants and their associated data
+    await prisma.productVariant.deleteMany({
+      where: { productId: id }
+    });
+    
+    // Delete existing product options (this will cascade delete option values)
+    await prisma.productOption.deleteMany({
+      where: { 
+        // Find options that were created for this product
+        // Since we don't have a direct productId on ProductOption,
+        // we'll delete all options that might be orphaned
+        // This is safe since we're recreating them immediately after
+        id: {
+          in: optionGroups.map((g: any) => g.id)
+        }
+      }
     });
 
-    // Update the default variant price if provided - fixed the TypeScript error
-    if (price) {
-      await prisma.productVariant.updateMany({
-        where: { 
-          productId: id,
-          isDefault: true 
-        },
+    // Create option groups if provided
+    const optionGroupMap: { [name: string]: { id: string; values: { [label: string]: string } } } = {};
+    for (const group of optionGroups) {
+      const option = await prisma.productOption.create({
         data: {
-          price: basePrice,
-          stockLevel: inventory ? parseInt(inventory) : undefined,
+          id: group.id,
+          name: group.name,
+          impactVariants: group.impactsVariants,
+          values: {
+            create: group.values.map((value: string, index: number) => ({
+              id: generateUUID(),
+              label: value,
+              sortOrder: index,
+            })),
+          },
         },
+        include: { values: true },
       });
+      optionGroupMap[group.name] = {
+        id: option.id,
+        values: Object.fromEntries(
+          option.values.map((v: { label: string; id: string }) => [v.label, v.id])
+        ),
+      };
     }
+
+    const updated = await prisma.product.update({
+      where: { id },
+      data: {
+        ...updateData,
+        variants: {
+          create: [
+            // Always create default variant for base price
+            {
+              name: 'Default',
+              sku: `${slug}-default`,
+              price: basePrice,
+              priceDifference: null, // No difference for base variant
+              stockLevel: parseInt(inventory || '0'),
+              trackInventory: parseInt(inventory || '0') > 0,
+              isDefault: true,
+            },
+            // Add additional variants if provided
+            ...variants.map((variant: any) => ({
+              name: variant.name,
+              sku: variant.sku || `${slug}-${variant.name.toLowerCase().replace(/\s+/g, '-')}`,
+              price: 0, // Don't store calculated price - calculate when needed
+              priceDifference: variant.priceDifference || 0, // Store the actual difference
+              stockLevel: variant.stockLevel || 0,
+              trackInventory: variant.trackInventory || false,
+              isDefault: false,
+            }))
+          ],
+        },
+      },
+    });
+
+    console.log('✅ Product updated successfully:', {
+      productId: id,
+      basePrice: basePrice / 100,
+      variantCount: variants.length,
+      optionGroupCount: optionGroups.length
+    });
 
     res.json(updated);
   } catch (err: any) {
@@ -405,6 +582,8 @@ async function uploadProductImages(files: Express.Multer.File[], productId: stri
       .from('product-images')
       .upload(filePath, file.buffer, {
         contentType: file.mimetype,
+        cacheControl: '3600', // Cache for 1 hour
+        upsert: false
       });
     
     if (error) {
