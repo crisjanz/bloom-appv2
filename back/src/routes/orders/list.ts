@@ -7,9 +7,9 @@ const prisma = new PrismaClient();
 // Get all orders with filtering and search
 router.get('/list', async (req, res) => {
   try {
-    const { status, search, limit = 50, offset = 0 } = req.query;
+    const { status, search, deliveryDateFrom, deliveryDateTo, orderDateFrom, orderDateTo, limit = 50, offset = 0 } = req.query;
 
-    console.log('Orders list request:', { status, search, limit, offset });
+    console.log('Orders list request:', { status, search, deliveryDateFrom, deliveryDateTo, orderDateFrom, orderDateTo, limit, offset });
 
     // Build where clause for filtering
     const where: any = {};
@@ -17,6 +17,36 @@ router.get('/list', async (req, res) => {
     // Status filter
     if (status && status !== 'ALL') {
       where.status = status as OrderStatus;
+    }
+
+    // Delivery date filter
+    if (deliveryDateFrom || deliveryDateTo) {
+      where.deliveryDate = {};
+      if (deliveryDateFrom) {
+        const fromDate = new Date(deliveryDateFrom as string);
+        fromDate.setHours(0, 0, 0, 0);
+        where.deliveryDate.gte = fromDate;
+      }
+      if (deliveryDateTo) {
+        const toDate = new Date(deliveryDateTo as string);
+        toDate.setHours(23, 59, 59, 999);
+        where.deliveryDate.lte = toDate;
+      }
+    }
+
+    // Order date filter (createdAt)
+    if (orderDateFrom || orderDateTo) {
+      where.createdAt = {};
+      if (orderDateFrom) {
+        const fromDate = new Date(orderDateFrom as string);
+        fromDate.setHours(0, 0, 0, 0);
+        where.createdAt.gte = fromDate;
+      }
+      if (orderDateTo) {
+        const toDate = new Date(orderDateTo as string);
+        toDate.setHours(23, 59, 59, 999);
+        where.createdAt.lte = toDate;
+      }
     }
 
     // Search filter

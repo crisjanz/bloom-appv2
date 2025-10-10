@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "dev": "nodemon",
-    "build": "tsc"
+    "build": "tsc",
+    "kill": "lsof -ti:4000 | xargs kill -9",
+    "start": "npm run kill; npm run dev"
   },
   "keywords": [],
   "author": "",
@@ -19,6 +21,8 @@
     "express": "^4.21.2",
     "multer": "^2.0.1",
     "prisma": "^6.8.2",
+    "square-connect": "^6.20201216.0",
+    "stripe": "^18.2.1",
     "twilio": "^5.7.1"
   },
   "devDependencies": {

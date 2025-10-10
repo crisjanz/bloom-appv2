@@ -68,11 +68,14 @@ router.post('/create', async (req, res) => {
         data: {
           type: orderData.orderType,
           status: OrderStatus.DRAFT, // Start as DRAFT, PT transaction will update to PAID
+          orderSource: orderData.orderSource || 'PHONE', // Default to PHONE if not provided
           customerId,
           recipientId,
           cardMessage: orderData.cardMessage || null,
           specialInstructions: orderData.deliveryInstructions || null,
-          deliveryDate: orderData.deliveryDate ? new Date(orderData.deliveryDate) : null,
+          deliveryDate: orderData.deliveryDate
+            ? new Date(orderData.deliveryDate + 'T00:00:00')  // Explicitly midnight to avoid timezone shift
+            : null,
           deliveryTime: orderData.deliveryTime || null,
           deliveryFee: Math.round(orderData.deliveryFee * 100),
           taxBreakdown: taxCalculation.breakdown, // Dynamic tax breakdown
@@ -227,7 +230,9 @@ router.post('/save-draft', async (req, res) => {
           recipientId,
           cardMessage: orderData.cardMessage || null,
           specialInstructions: orderData.deliveryInstructions || null,
-          deliveryDate: orderData.deliveryDate ? new Date(orderData.deliveryDate) : null,
+          deliveryDate: orderData.deliveryDate
+            ? new Date(orderData.deliveryDate + 'T00:00:00')  // Explicitly midnight to avoid timezone shift
+            : null,
           deliveryTime: orderData.deliveryTime || null,
           deliveryFee: Math.round(orderData.deliveryFee * 100),
           taxBreakdown: taxCalculationDraft.breakdown, // Dynamic tax breakdown

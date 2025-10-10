@@ -55,11 +55,40 @@ router.delete('/addresses/:id', async (req, res) => {
 // CUSTOMER ROUTES
 // ========================================
 
+// GET /quick-search - Quick customer search for POS/TakeOrder
+router.get("/quick-search", async (req, res) => {
+  try {
+    const query = req.query.query?.toString().trim();
+    const limit = parseInt(req.query.limit?.toString() || "10");
+
+    if (!query || query.length < 2) {
+      return res.json([]);
+    }
+    
+    const customers = await prisma.customer.findMany({
+      where: {
+        OR: [
+          { firstName: { contains: query, mode: "insensitive" } },
+          { lastName: { contains: query, mode: "insensitive" } },
+          { email: { contains: query, mode: "insensitive" } },
+          { phone: { contains: query } },
+        ],
+      },
+      orderBy: { lastName: "asc" },
+      take: limit,
+    });
+
+    res.json(customers);
+  } catch (err: any) {
+    console.error("Failed to search customers:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET all customers
 router.get("/", async (req, res) => {
   try {
     const q = req.query.q?.toString().trim();
-    console.log("🔍 Search query received:", q);
     const customers = await prisma.customer.findMany({
       where: q
         ? {
@@ -239,8 +268,7 @@ router.post("/:id/recipients", async (req, res) => {
           country: country?.trim() || "CA", // 🆕 Add country support
         },
       });
-      
-      console.log("✅ Updated existing recipient:", updatedRecipient.id);
+
       return res.json(updatedRecipient);
     }
     
@@ -259,8 +287,7 @@ router.post("/:id/recipients", async (req, res) => {
         customer: { connect: { id } },
       },
     });
-    
-    console.log("✅ New recipient saved:", newRecipient.id);
+
     res.status(201).json(newRecipient);
   } catch (err) {
     console.error("Failed to save recipient:", (err as any)?.message || err);
@@ -302,8 +329,7 @@ router.put("/:customerId/recipients/:recipientId", async (req, res) => {
         company: company?.trim() || null,
       },
     });
-    
-    console.log("✅ Updated recipient:", updatedRecipient.id);
+
     res.json(updatedRecipient);
   } catch (err) {
     console.error("Failed to update recipient:", (err as any)?.message || err);

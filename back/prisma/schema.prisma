@@ -41,6 +41,14 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum OrderSource {
+  PHONE
+  WALKIN
+  WIREIN
+  WEBSITE
+  POS
+}
+
 enum EmployeeType {
   CASHIER
   DESIGNER
@@ -53,6 +61,15 @@ enum ShortcutType {
   FUNERAL_HOME
   SCHOOL
   HOSPITAL
+  OTHER
+}
+
+enum AddressType {
+  RESIDENCE
+  BUSINESS
+  CHURCH
+  SCHOOL
+  FUNERAL_HOME
   OTHER
 }
 
@@ -95,6 +112,7 @@ model Product {
   bundleComponents  BundleItem[]        @relation("BundleParent")
   includedInBundles BundleItem[]        @relation("BundleChild")
   orderItems        OrderItem[]
+  eventItems        EventItem[]         // Wedding/event items can reference products
 }
 
 model ProductVariant {
@@ -231,6 +249,8 @@ model Customer {
   addresses     Address[] @relation("RecipientAddresses")
   orders        Order[]
   paymentTransactions PaymentTransaction[]
+  providerCustomers ProviderCustomer[]
+  events        Event[]   // Wedding/event manager
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -238,17 +258,18 @@ model Customer {
 
 // 🌍 Updated Address model for international support
 model Address {
-  id         String  @id @default(cuid())
-  firstName  String
-  lastName   String
-  address1   String
-  address2   String?
-  city       String
-  province   String  // Now supports state/province/region worldwide
-  postalCode String  // Now supports postal codes/zip codes worldwide
-  country    String  @default("CA") // ISO country code (CA, US, GB, etc.)
-  phone      String?
-  company    String? @db.VarChar(255)
+  id          String       @id @default(cuid())
+  firstName   String
+  lastName    String
+  address1    String
+  address2    String?
+  city        String
+  province    String       // Now supports state/province/region worldwide
+  postalCode  String       // Now supports postal codes/zip codes worldwide
+  country     String       @default("CA") // ISO country code (CA, US, GB, etc.)
+  phone       String?
+  company     String?      @db.VarChar(255)
+  addressType AddressType? @default(RESIDENCE) // Type of delivery location
 
   customer   Customer? @relation("RecipientAddresses", fields: [customerId], references: [id])
   customerId String?
@@ -269,6 +290,7 @@ model Order {
   orderNumber Int         @unique @default(autoincrement())
   type   OrderType
   status OrderStatus @default(DRAFT)
+  orderSource OrderSource @default(PHONE)
   images String[] @default([])
 
   customer   Customer @relation(fields: [customerId], references: [id])
@@ -496,6 +518,8 @@ model Employee {
   orders    Order[]       @relation("EmployeeOrders")
   paymentTransactions PaymentTransaction[] @relation("EmployeeTransactions")
   refunds   Refund[]      @relation("EmployeeRefunds")
+  events    Event[]       // Wedding/event manager
+  eventPayments EventPayment[] // Event payment tracking
 }
 
 model MessageSuggestion {
@@ -903,3 +927,201 @@ model NotificationSettings {
   
   @@map("notification_settings")
 }
+
+// Provider Customer Linking - Links local customers to payment provider customer IDs
+model ProviderCustomer {
+  id                    String          @id @default(uuid())
+  customerId            String          // Local customer ID
+  provider              PaymentProvider // STRIPE, SQUARE, etc.
+  providerCustomerId    String          // Stripe customer ID, Square customer ID, etc.
+  providerEmail         String?         // Email used with the provider (may differ from local)
+  
+  // Provider-specific metadata
+  providerMetadata      Json?           // Store provider response data
+  isActive              Boolean         @default(true)
+  lastSyncAt            DateTime?       // Last time we synced with provider
+  
+  // Timestamps
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  
+  // Relations
+  customer              Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  // Constraints
+  @@unique([customerId, provider]) // One provider customer per local customer per provider
+  @@unique([provider, providerCustomerId]) // Provider customer IDs must be unique per provider
+  @@map("provider_customers")
+  @@index([customerId])
+  @@index([provider, providerCustomerId])
+}
+
+// === WEDDING/EVENT MANAGER SYSTEM ===
+
+enum EventType {
+  WEDDING
+  CORPORATE
+  BIRTHDAY
+  ANNIVERSARY
+  FUNERAL
+  GRADUATION
+  OTHER
+}
+
+enum EventStatus {
+  INQUIRY           // Initial customer contact/inquiry
+  QUOTE_REQUESTED   // Customer has requested a quote
+  QUOTE_SENT        // Staff has sent quote to customer
+  QUOTE_APPROVED    // Customer has approved the quote
+  DEPOSIT_RECEIVED  // Deposit payment received
+  IN_PRODUCTION     // Items being created/prepared
+  READY_FOR_INSTALL // Ready for delivery/installation
+  INSTALLED         // Successfully delivered/installed
+  COMPLETED         // Event completed successfully
+  CANCELLED         // Event cancelled
+  REJECTED          // Quote rejected by customer
+}
+
+enum EventPaymentType {
+  CASH
+  CHECK
+  BANK_TRANSFER
+  POS_SYSTEM      // Payment made through other POS
+  CREDIT_CARD     // Manual credit card (when integrated later)
+  OTHER
+}
+
+enum EventPaymentStatus {
+  PENDING
+  RECEIVED
+  FAILED
+  REFUNDED
+}
+
+model Event {
+  id              String      @id @default(uuid())
+  eventNumber     Int         @unique @default(autoincrement()) // EV-001, EV-002, etc.
+  
+  // Basic event information
+  eventType       EventType
+  eventName       String      // "Sarah & Mike's Wedding", "Annual Corporate Gala"
+  description     String?     // Additional event details
+  
+  // Customer information
+  customerId      String
+  customer        Customer    @relation(fields: [customerId], references: [id])
+  
+  // Event details
+  eventDate       DateTime    // When the actual event takes place
+  setupDate       DateTime?   // When setup/installation should happen
+  setupTime       String?     // Time for setup
+  venue           String      // Event location/venue
+  venueAddress    String?     // Full venue address
+  contactPerson   String?     // Primary contact at venue
+  contactPhone    String?     // Contact phone number
+  
+  // Guest and service details
+  estimatedGuests Int?        // Number of guests expected
+  serviceType     String?     // "Full Service", "Delivery Only", "Pickup"
+  
+  // Quote and pricing
+  status          EventStatus @default(INQUIRY)
+  quotedAmount    Float?      // Total quoted amount
+  finalAmount     Float?      // Final agreed amount (may differ from quote)
+  
+  // Staff and workflow
+  employeeId      String?     // Primary staff member handling event
+  employee        Employee?   @relation(fields: [employeeId], references: [id])
+  
+  // Production notes
+  designNotes     String?     // Design and production instructions
+  setupNotes      String?     // Setup and installation notes
+  internalNotes   String?     // Private staff notes
+  
+  // Communication
+  customerNotes   String?     // Notes from customer
+  lastContactDate DateTime?   // Last time we contacted customer
+  quoteEmailSent  Boolean     @default(false)
+  quoteEmailDate  DateTime?
+  
+  // Images and inspiration
+  inspirationPhotos String[]  @default([]) // Customer-provided inspiration images
+  quotePhotos      String[]   @default([]) // Staff-provided quote/example images
+  finalPhotos      String[]   @default([]) // Final installation photos
+  
+  // Timestamps
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  completedAt     DateTime?   // When event was marked as completed
+  
+  // Relations
+  items           EventItem[]
+  payments        EventPayment[]
+  
+  @@map("events")
+  @@index([eventType])
+  @@index([status])
+  @@index([eventDate])
+  @@index([customerId])
+}
+
+model EventItem {
+  id          String  @id @default(uuid())
+  eventId     String
+  event       Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  
+  // Item details
+  category    String  // "Bridal Bouquet", "Centerpiece", "Ceremony Arrangement", etc.
+  description String  // Detailed description of the item
+  quantity    Int     @default(1)
+  unitPrice   Float   // Price per item
+  totalPrice  Float   // quantity * unitPrice
+  
+  // Production details
+  productionNotes String? // Special instructions for creating this item
+  isCompleted     Boolean @default(false)
+  completedAt     DateTime?
+  
+  // Optional product link (for items that exist in regular catalog)
+  productId       String?
+  product         Product? @relation(fields: [productId], references: [id])
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@map("event_items")
+}
+
+model EventPayment {
+  id            String             @id @default(uuid())
+  eventId       String
+  event         Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  
+  // Payment details
+  amount        Float
+  paymentType   EventPaymentType
+  status        EventPaymentStatus @default(PENDING)
+  
+  // Payment metadata
+  description   String?            // "Deposit", "Final Payment", "Additional Services"
+  reference     String?            // Check number, transaction ID, etc.
+  notes         String?            // Additional payment notes
+  
+  // Staff tracking
+  employeeId    String?
+  employee      Employee?          @relation(fields: [employeeId], references: [id])
+  
+  // Dates
+  dueDate       DateTime?          // When payment is due
+  receivedDate  DateTime?          // When payment was actually received
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  
+  @@map("event_payments")
+  @@index([eventId])
+  @@index([status])
+}
+
+// === POS CART SYSTEM ===
+// REMOVED: Cart system reverted to local state management for better performance
+// Draft orders now use the existing Order model with status = DRAFT

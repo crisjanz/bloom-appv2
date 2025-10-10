@@ -122,18 +122,18 @@ async function uploadFilesToSupabase(files: Express.Multer.File[], uploadId: str
     }
     
     const { error } = await supabase.storage
-      .from('product-images')
+      .from('images')
       .upload(filePath, file.buffer, {
         contentType: file.mimetype,
       });
-    
+
     if (error) {
       console.error(`❌ Supabase upload error for file ${i + 1}:`, error);
       throw error;
     }
-    
+
     const { data: publicUrlData } = supabase.storage
-      .from('product-images')
+      .from('images')
       .getPublicUrl(filePath);
     
     imageUrls.push(publicUrlData.publicUrl);

@@ -12,13 +12,15 @@ const router = express.Router();
 console.log('Setting up order routes...');
 
 // Mount all sub-routes
+// IMPORTANT: deliveryRoutes must come BEFORE singleRoutes
+// because /:id in singleRoutes would match /delivery
 router.use('/', listRoutes);
 router.use('/', createRoutes);
 router.use('/', updateRoutes);
 router.use('/', uploadRoutes);
-router.use('/', singleRoutes);
+router.use('/', deliveryRoutes);  // Must be before singleRoutes!
 router.use('/', statusRoutes);
-router.use('/', deliveryRoutes);
+router.use('/', singleRoutes);    // /:id route - must be last
 
 console.log('Order routes configured successfully');
 

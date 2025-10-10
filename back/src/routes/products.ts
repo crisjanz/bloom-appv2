@@ -29,7 +29,7 @@ router.get('/test-supabase', async (req, res) => {
     console.log('Test-supabase route hit');
     console.log('Supabase URL:', process.env.SUPABASE_URL);
     console.log('Supabase Key:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'Set' : 'Missing');
-    const { data, error } = await supabase.storage.from('product-images').list();
+    const { data, error } = await supabase.storage.from('images').list();
     if (error) {
       console.error('Supabase error:', error);
       throw error;
@@ -57,6 +57,7 @@ router.get('/search', async (req, res) => {
       },
       include: {
         category: true,
+        reportingCategory: true,
         variants: true,
       },
       take: 10,
@@ -81,6 +82,8 @@ router.get('/search', async (req, res) => {
           name: product.name,
           categoryId: product.category?.id,
           categoryName: product.category?.name,
+          reportingCategoryId: product.reportingCategory?.id,
+          reportingCategoryName: product.reportingCategory?.name,
           defaultPrice: basePrice / 100,
           variants: transformedVariants
         };
@@ -411,7 +414,7 @@ router.put('/:id', upload.array('images'), async (req, res) => {
       for (const file of files) {
         const filePath = `products/${Date.now()}-${file.originalname}`;
         const { error } = await supabase.storage
-          .from('product-images')
+          .from('images')
           .upload(filePath, file.buffer, {
             contentType: file.mimetype,
           });
@@ -420,7 +423,7 @@ router.put('/:id', upload.array('images'), async (req, res) => {
           throw error;
         }
         const { data: publicUrlData } = supabase.storage
-          .from('product-images')
+          .from('images')
           .getPublicUrl(filePath);
         imageUrls.push(publicUrlData.publicUrl);
       }
@@ -460,7 +463,7 @@ router.put('/:id', upload.array('images'), async (req, res) => {
           const filePath = `products/${fileName}`;
           
           const { error } = await supabase.storage
-            .from('product-images')
+            .from('images')
             .remove([filePath]);
           
           if (error) {
@@ -579,20 +582,20 @@ async function uploadProductImages(files: Express.Multer.File[], productId: stri
     console.log(`📤 Uploading file ${i + 1}/${files.length}: ${filePath}`);
     
     const { error } = await supabase.storage
-      .from('product-images')
+      .from('images')
       .upload(filePath, file.buffer, {
         contentType: file.mimetype,
         cacheControl: '3600', // Cache for 1 hour
         upsert: false
       });
-    
+
     if (error) {
       console.error(`❌ Supabase upload error for file ${i + 1}:`, error);
       throw error;
     }
-    
+
     const { data: publicUrlData } = supabase.storage
-      .from('product-images')
+      .from('images')
       .getPublicUrl(filePath);
     
     imageUrls.push(publicUrlData.publicUrl);

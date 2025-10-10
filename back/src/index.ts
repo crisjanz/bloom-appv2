@@ -33,6 +33,9 @@ import taxRatesRouter from './routes/settings/tax-rates';
 import emailRouter from './routes/email';
 import smsRouter from './routes/sms';
 import notificationsRouter from './routes/notifications';
+import stripeRouter from './routes/stripe';
+import squareRouter from './routes/square';
+import eventsRouter from './routes/events';
 
 dotenv.config();
 
@@ -73,9 +76,13 @@ app.use('/api/payment-transactions', paymentTransactionsRouter);
 app.get('/api/settings/pos-tabs', getPOSTabs);
 app.post('/api/settings/pos-tabs', savePOSTabs);
 app.use('/api/settings/tax-rates', taxRatesRouter);
+app.use('/api/settings/reporting-categories', reportingCategoriesRouter);
 app.use('/api/email', emailRouter);
 app.use('/api/sms', smsRouter);
 app.use('/api/notifications', notificationsRouter);
+app.use('/api/stripe', stripeRouter);
+app.use('/api/square', squareRouter);
+app.use('/api/events', eventsRouter);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'Backend is alive!' });

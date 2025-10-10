@@ -195,18 +195,18 @@ router.post('/upload-images', upload.array('images'), async (req, res) => {
       for (const file of files) {
         const filePath = `orders/${Date.now()}-${file.originalname}`;
         const { error } = await supabase.storage
-          .from('product-images') // Using same bucket as products, or create 'order-images' bucket
+          .from('images')
           .upload(filePath, file.buffer, {
             contentType: file.mimetype,
           });
-        
+
         if (error) {
           console.error('Supabase upload error:', error);
           throw error;
         }
-        
+
         const { data: publicUrlData } = supabase.storage
-          .from('product-images')
+          .from('images')
           .getPublicUrl(filePath);
         
         imageUrls.push(publicUrlData.publicUrl);
@@ -306,27 +306,29 @@ router.put('/:id/update', async (req, res) => {
         }
       }
 
-      // Handle delivery details updates
-      if (updateData.deliveryDate !== undefined) {
-        orderUpdateData.deliveryDate = updateData.deliveryDate ? new Date(updateData.deliveryDate) : null;
+      // Handle delivery details updates (both flat and nested under 'delivery' section)
+      const deliveryData = updateData.delivery || updateData;
+
+      if (deliveryData.deliveryDate !== undefined) {
+        orderUpdateData.deliveryDate = deliveryData.deliveryDate ? new Date(deliveryData.deliveryDate) : null;
       }
-      if (updateData.deliveryTime !== undefined) {
-        orderUpdateData.deliveryTime = updateData.deliveryTime;
+      if (deliveryData.deliveryTime !== undefined) {
+        orderUpdateData.deliveryTime = deliveryData.deliveryTime;
       }
-      if (updateData.cardMessage !== undefined) {
-        orderUpdateData.cardMessage = updateData.cardMessage;
+      if (deliveryData.cardMessage !== undefined) {
+        orderUpdateData.cardMessage = deliveryData.cardMessage;
       }
-      if (updateData.specialInstructions !== undefined) {
-        orderUpdateData.specialInstructions = updateData.specialInstructions;
+      if (deliveryData.specialInstructions !== undefined) {
+        orderUpdateData.specialInstructions = deliveryData.specialInstructions;
       }
-      if (updateData.occasion !== undefined) {
-        orderUpdateData.occasion = updateData.occasion;
+      if (deliveryData.occasion !== undefined) {
+        orderUpdateData.occasion = deliveryData.occasion;
+      }
+      if (deliveryData.deliveryFee !== undefined) {
+        orderUpdateData.deliveryFee = deliveryData.deliveryFee;
       }
 
       // Handle payment/pricing updates
-      if (updateData.deliveryFee !== undefined) {
-        orderUpdateData.deliveryFee = updateData.deliveryFee;
-      }
       if (updateData.discount !== undefined) {
         orderUpdateData.discount = updateData.discount;
       }

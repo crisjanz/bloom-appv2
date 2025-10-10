@@ -11,9 +11,6 @@ router.put('/:id/update', async (req, res) => {
     const { id } = req.params;
     const updateData = req.body;
 
-    console.log('Update request for order:', id);
-    console.log('Update data received:', updateData);
-
     // Store notification trigger data outside transaction scope
     let notificationTrigger: { newStatus: string; previousStatus: string } | null = null;
 
@@ -32,41 +29,27 @@ router.put('/:id/update', async (req, res) => {
         throw new Error('Order not found');
       }
 
-      console.log('Current order found:', currentOrder.id);
-
       let orderUpdateData: any = {};
 
       // Handle customer updates
       if (updateData.customer) {
-        console.log('Updating customer:', currentOrder.customerId, 'with data:', updateData.customer);
-        
-        try {
-          // Update the actual customer record in the database
-          const updatedCustomer = await tx.customer.update({
-            where: { id: currentOrder.customerId },
-            data: {
-              firstName: updateData.customer.firstName,
-              lastName: updateData.customer.lastName,
-              email: updateData.customer.email,
-              phone: updateData.customer.phone,
-            }
-          });
-          console.log('Customer updated successfully:', updatedCustomer.id);
-        } catch (customerError) {
-          console.error('Error updating customer:', customerError);
-          throw new Error(`Failed to update customer: ${customerError}`);
-        }
+        // Update the actual customer record in the database
+        await tx.customer.update({
+          where: { id: currentOrder.customerId },
+          data: {
+            firstName: updateData.customer.firstName,
+            lastName: updateData.customer.lastName,
+            email: updateData.customer.email,
+            phone: updateData.customer.phone,
+          }
+        });
       }
 
       // Handle recipient/address updates
       if (updateData.recipient) {
-        console.log('Updating recipient for order:', id);
-        
         if (currentOrder.recipientId && updateData.updateDatabase) {
-          console.log('Updating existing address:', currentOrder.recipientId);
-          try {
-            // Update the existing address record
-            const updatedAddress = await tx.address.update({
+          // Update the existing address record
+          await tx.address.update({
               where: { id: currentOrder.recipientId },
               data: {
                 firstName: updateData.recipient.firstName,
@@ -81,13 +64,10 @@ router.put('/:id/update', async (req, res) => {
                 country: updateData.recipient.country || 'CA',
               }
             });
-            console.log('Address updated successfully');
 
-            // 🔥 NEW: Also update the customer's address database
+            // Also update the customer's address database
             // This ensures the customer's recipient list is kept in sync
             if (updateData.recipient.customerId) {
-              console.log('Syncing customer address database for customer:', updateData.recipient.customerId);
-              
               // The address is already linked to the customer via customerId
               // So the update above already updated the customer's address database
               // But we can also update the customer's main contact info if this matches their home address
@@ -98,7 +78,6 @@ router.put('/:id/update', async (req, res) => {
 
               // If this address is the customer's home address, update their main contact info too
               if (customer?.homeAddressId === currentOrder.recipientId) {
-                console.log('This is the customer\'s home address - updating customer contact info');
                 await tx.customer.update({
                   where: { id: updateData.recipient.customerId },
                   data: {
@@ -107,16 +86,9 @@ router.put('/:id/update', async (req, res) => {
                     phone: updateData.recipient.phone,
                   }
                 });
-                console.log('Customer contact info updated to match home address');
               }
             }
-
-          } catch (addressError) {
-            console.error('Error updating address:', addressError);
-            throw new Error(`Failed to update address: ${addressError}`);
-          }
         } else if (!currentOrder.recipientId) {
-          console.log('Creating new address');
           // Create new address if none exists
           const newAddress = await tx.address.create({
             data: {
@@ -134,28 +106,35 @@ router.put('/:id/update', async (req, res) => {
             }
           });
           orderUpdateData.recipientId = newAddress.id;
-          console.log('New address created:', newAddress.id);
         }
       }
 
-      // Handle delivery details updates
-      if (updateData.deliveryDate !== undefined) {
-        orderUpdateData.deliveryDate = updateData.deliveryDate ? new Date(updateData.deliveryDate) : null;
+      // Handle delivery details updates (both flat and nested under 'delivery' section)
+      const deliveryData = updateData.delivery || updateData;
+
+      if (deliveryData.deliveryDate !== undefined) {
+        orderUpdateData.deliveryDate = deliveryData.deliveryDate
+          ? new Date(deliveryData.deliveryDate + 'T00:00:00')  // Explicitly midnight to avoid timezone shift
+          : null;
       }
-      if (updateData.deliveryTime !== undefined) {
-        orderUpdateData.deliveryTime = updateData.deliveryTime;
+      if (deliveryData.deliveryTime !== undefined) {
+        orderUpdateData.deliveryTime = deliveryData.deliveryTime;
       }
-      if (updateData.cardMessage !== undefined) {
-        orderUpdateData.cardMessage = updateData.cardMessage;
+      if (deliveryData.cardMessage !== undefined) {
+        orderUpdateData.cardMessage = deliveryData.cardMessage;
       }
-      if (updateData.specialInstructions !== undefined) {
-        orderUpdateData.specialInstructions = updateData.specialInstructions;
+      if (deliveryData.specialInstructions !== undefined) {
+        orderUpdateData.specialInstructions = deliveryData.specialInstructions;
       }
-      if (updateData.occasion !== undefined) {
-        orderUpdateData.occasion = updateData.occasion;
+      if (deliveryData.occasion !== undefined) {
+        orderUpdateData.occasion = deliveryData.occasion;
+      }
+      if (deliveryData.deliveryFee !== undefined) {
+        orderUpdateData.deliveryFee = deliveryData.deliveryFee;
       }
 
       // Handle payment/pricing updates
+      // Additional deliveryFee handling for multi-order scenarios
       if (updateData.deliveryFee !== undefined) {
         orderUpdateData.deliveryFee = updateData.deliveryFee;
       }
@@ -171,10 +150,9 @@ router.put('/:id/update', async (req, res) => {
 
       // Handle status updates (with notification triggers)
       if (updateData.status) {
-        console.log('Updating status to:', updateData.status);
         const previousStatus = currentOrder.status;
         orderUpdateData.status = updateData.status as OrderStatus;
-        
+
         // Store notification trigger data for after the transaction
         notificationTrigger = {
           newStatus: updateData.status,
@@ -184,8 +162,6 @@ router.put('/:id/update', async (req, res) => {
 
       // Handle order items updates
 if (updateData.orderItems || updateData.recalculateTotal) {
-  console.log('Updating order items and recalculating totals');
-  
   if (updateData.orderItems) {
     // Delete existing order items
     await tx.orderItem.deleteMany({
@@ -204,8 +180,6 @@ if (updateData.orderItems || updateData.recalculateTotal) {
     await tx.orderItem.createMany({
       data: newOrderItems
     });
-
-    console.log('Order items updated:', newOrderItems);
   }
 
   // Always recalculate totals when products change
@@ -217,18 +191,14 @@ if (updateData.orderItems || updateData.recalculateTotal) {
   const currentDeliveryFee = orderUpdateData.deliveryFee !== undefined ? orderUpdateData.deliveryFee : currentOrder.deliveryFee;
   const currentDiscount = orderUpdateData.discount !== undefined ? orderUpdateData.discount : currentOrder.discount;
   const currentTotalTax = orderUpdateData.totalTax !== undefined ? orderUpdateData.totalTax : currentOrder.totalTax;
-  
+
   orderUpdateData.paymentAmount = subtotal + currentDeliveryFee - currentDiscount + currentTotalTax;
-  console.log('Recalculated payment amount:', orderUpdateData.paymentAmount);
 }
 
       // Handle images updates
       if (updateData.images !== undefined) {
-        console.log('Updating order images:', updateData.images);
         orderUpdateData.images = updateData.images;
       }
-
-      console.log('Final order update data:', orderUpdateData);
 
       // Update the order with any changes
       if (Object.keys(orderUpdateData).length > 0) {
@@ -236,9 +206,6 @@ if (updateData.orderItems || updateData.recalculateTotal) {
           where: { id },
           data: orderUpdateData
         });
-        console.log('Order updated successfully');
-      } else {
-        console.log('No order data to update');
       }
 
       // Return the updated order with all relations
@@ -258,8 +225,6 @@ if (updateData.orderItems || updateData.recalculateTotal) {
         }
       });
     });
-
-    console.log('Transaction completed successfully');
 
     // Respond immediately to user for better UX
     res.json({
