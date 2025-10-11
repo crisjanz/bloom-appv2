@@ -1,22 +1,19 @@
 /**
  * Image Upload Service
- * Handles immediate image uploads to Supabase with cropping support
+ * Handles secure image uploads through backend API with cropping support
  *
  * Pattern for all image uploads across the application:
  * 1. User selects image
  * 2. ImageCropModal opens
  * 3. User crops image
- * 4. Image uploads immediately to Supabase
+ * 4. Image uploads securely through backend API
  * 5. Returns public URL for display
+ *
+ * SECURITY: All uploads go through the backend API which:
+ * - Uses secure service role key (never exposed to client)
+ * - Validates file type and size
+ * - Prevents unauthorized uploads/deletes
  */
-
-import { createClient } from '@supabase/supabase-js';
-
-// Initialize Supabase client
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL || 'https://iohmuzityuugpypvlkft.supabase.co',
-  import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlvaG11eml0eXV1Z3B5cHZsa2Z0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAxMDgwMjQsImV4cCI6MjA3NTY4NDAyNH0.HLVNyztxCCrwiE1iEucO0KpXfzAozem1vyLf79EzFWI'
-);
 
 export interface UploadProgress {
   loaded: number;
@@ -27,10 +24,10 @@ export interface UploadProgress {
 export type UploadCallback = (progress: UploadProgress) => void;
 
 /**
- * Upload image to Supabase storage
+ * Upload image securely through backend API
  * @param blob - Image blob (from crop or direct file)
  * @param folder - Folder path ('products' or 'orders')
- * @param fileName - Optional custom file name
+ * @param fileName - Optional custom file name (ignored, server generates secure name)
  * @param onProgress - Optional progress callback
  * @returns Public URL of uploaded image
  */
@@ -41,41 +38,33 @@ export async function uploadImage(
   onProgress?: UploadCallback
 ): Promise<string> {
   try {
-    // Generate unique file name
-    const timestamp = Date.now();
-    const randomStr = Math.random().toString(36).substring(2, 9);
-    const finalFileName = fileName || `${timestamp}-${randomStr}.jpg`;
-    const filePath = `${folder}/${finalFileName}`;
+    console.log('📤 Uploading image through secure backend API...');
 
-    console.log('📤 Uploading image to Supabase:', filePath);
+    // Create FormData with image blob and folder
+    const formData = new FormData();
+    formData.append('image', blob, 'image.jpg');
+    formData.append('folder', folder);
 
-    // Upload to Supabase
-    const { error } = await supabase.storage
-      .from('images')
-      .upload(filePath, blob, {
-        contentType: 'image/jpeg',
-        cacheControl: '3600',
-        upsert: false,
-      });
+    // Upload through secure backend endpoint
+    const response = await fetch('/api/products/images/upload', {
+      method: 'POST',
+      body: formData,
+    });
 
-    if (error) {
-      console.error('❌ Supabase upload error:', error);
-      throw new Error(`Upload failed: ${error.message}`);
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `Upload failed: ${response.status}`);
     }
 
-    // Get public URL
-    const { data: publicUrlData } = supabase.storage
-      .from('images')
-      .getPublicUrl(filePath);
+    const data = await response.json();
+    console.log('✅ Image uploaded successfully:', data.url);
 
-    console.log('✅ Image uploaded successfully:', publicUrlData.publicUrl);
-
-    // Simulate progress callback (Supabase doesn't provide real-time progress)
+    // Simulate progress callback
     if (onProgress) {
       onProgress({ loaded: blob.size, total: blob.size, percentage: 100 });
     }
 
-    return publicUrlData.publicUrl;
+    return data.url;
   } catch (error) {
     console.error('❌ Error uploading image:', error);
     throw error;
@@ -83,7 +72,7 @@ export async function uploadImage(
 }
 
 /**
- * Delete image from Supabase storage
+ * Delete image securely through backend API
  * @param imageUrl - Public URL of the image to delete
  * @param folder - Folder path ('products' or 'orders')
  */
@@ -92,20 +81,19 @@ export async function deleteImage(
   folder: 'products' | 'orders'
 ): Promise<void> {
   try {
-    // Extract file name from URL
-    const urlParts = imageUrl.split('/');
-    const fileName = urlParts[urlParts.length - 1];
-    const filePath = `${folder}/${fileName}`;
+    console.log('🗑️ Deleting image through secure backend API...');
 
-    console.log('🗑️ Deleting image from Supabase:', filePath);
+    const response = await fetch('/api/products/images', {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ imageUrl, folder }),
+    });
 
-    const { error } = await supabase.storage
-      .from('images')
-      .remove([filePath]);
-
-    if (error) {
-      console.error('❌ Supabase delete error:', error);
-      throw new Error(`Delete failed: ${error.message}`);
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `Delete failed: ${response.status}`);
     }
 
     console.log('✅ Image deleted successfully');

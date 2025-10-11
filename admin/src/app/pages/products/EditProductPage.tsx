@@ -25,40 +25,28 @@ const EditProductPage = () => {
     console.log('🟢 EditProductPage handleSubmit called with data:', data);
     if (!id) return;
 
-    const formData = new FormData();
-    
-    // Add all product fields
-    Object.keys(data).forEach(key => {
-      if (key === 'imageFiles') {
-        // Handle image files separately
-        data.imageFiles.forEach((file: File) => {
-          formData.append('images', file);
-        });
-      } else if (key === 'imagesToDelete') {
-        // Handle images to delete
-        if (data.imagesToDelete.length > 0) {
-          formData.append('imagesToDelete', JSON.stringify(data.imagesToDelete));
-        }
-      } else if (typeof data[key] === 'object') {
-        formData.append(key, JSON.stringify(data[key]));
-      } else {
-        formData.append(key, String(data[key]));
+    try {
+      // Images are already uploaded to Supabase, just send the URLs
+      console.log('🟢 Sending PUT request to:', `/api/products/${id}`);
+      const response = await fetch(`/api/products/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+      console.log('🟢 Response status:', response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error ${response.status}`);
       }
-    });
 
-    console.log('🟢 Sending PUT request to:', `/api/products/${id}`);
-    const response = await fetch(`/api/products/${id}`, {
-      method: 'PUT',
-      body: formData,
-    });
-    console.log('🟢 Response status:', response.status);
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || `HTTP error ${response.status}`);
+      navigate("/products");
+    } catch (error) {
+      console.error('Error saving product:', error);
+      alert(`Failed to save product: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-
-    navigate("/products");
   };
 
   if (loading) {

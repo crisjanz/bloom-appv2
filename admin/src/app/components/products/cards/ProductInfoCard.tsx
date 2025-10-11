@@ -12,7 +12,9 @@ type Props = {
   onChange: (field: "title" | "description", value: string) => void;
   onImageUploaded: (imageUrl: string) => void; // Called when image is uploaded
   onImageDeleted: (imageUrl: string) => void; // Called when image is deleted
+  onImagesReordered: (newOrder: string[]) => void; // Called when images are reordered
   setSlug: (slug: string) => void;
+  productId?: string; // Product ID for immediate database updates
 };
 
 const ProductInfoCard: FC<Props> = ({
@@ -22,12 +24,15 @@ const ProductInfoCard: FC<Props> = ({
   onChange,
   onImageUploaded,
   onImageDeleted,
-  setSlug
+  onImagesReordered,
+  setSlug,
+  productId
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [cropModalOpen, setCropModalOpen] = useState(false);
   const [imageToEdit, setImageToEdit] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [editingExistingImage, setEditingExistingImage] = useState<string | null>(null); // URL of image being re-cropped
 
   const handleFileSelect = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -46,6 +51,7 @@ const ProductInfoCard: FC<Props> = ({
   };
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+    console.log('📁 File input changed:', e.target.files);
     handleFileSelect(e.target.files);
     // Reset input so same file can be selected again
     e.target.value = '';
@@ -70,6 +76,30 @@ const ProductInfoCard: FC<Props> = ({
     handleFileSelect(e.dataTransfer.files);
   };
 
+  const updateDatabaseImages = async (newImages: string[]) => {
+    if (!productId) return; // Can't update if no product ID
+
+    try {
+      console.log('💾 Updating database with images:', newImages);
+      const response = await fetch(`/api/products/${productId}/images`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ images: newImages }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('❌ Database update error:', errorData);
+        throw new Error('Failed to update database');
+      }
+
+      console.log('✅ Database updated');
+    } catch (error) {
+      console.error('❌ Database update failed:', error);
+      // Don't show alert - this is background operation
+    }
+  };
+
   const handleCropComplete = async (croppedBlob: Blob) => {
     setCropModalOpen(false);
     setImageToEdit(null);
@@ -80,7 +110,24 @@ const ProductInfoCard: FC<Props> = ({
       const imageUrl = await uploadImage(croppedBlob, 'products');
       console.log('✅ Image uploaded:', imageUrl);
 
+      let updatedImages = [...existingImages];
+
+      // If re-cropping an existing image, delete the old one first
+      if (editingExistingImage) {
+        console.log('🗑️ Deleting old image:', editingExistingImage);
+        await deleteImage(editingExistingImage, 'products');
+        updatedImages = updatedImages.filter(img => img !== editingExistingImage);
+        onImageDeleted(editingExistingImage);
+        setEditingExistingImage(null);
+      }
+
+      // Add new image
+      updatedImages.push(imageUrl);
       onImageUploaded(imageUrl);
+
+      // Update database immediately
+      await updateDatabaseImages(updatedImages);
+
       alert('Image uploaded successfully!');
     } catch (error) {
       console.error('❌ Upload failed:', error);
@@ -88,6 +135,13 @@ const ProductInfoCard: FC<Props> = ({
     } finally {
       setIsUploading(false);
     }
+  };
+
+  const handleEditExistingImage = (imageUrl: string) => {
+    console.log('✏️ Editing existing image:', imageUrl);
+    setEditingExistingImage(imageUrl);
+    setImageToEdit(imageUrl); // Load the existing image URL directly into crop modal
+    setCropModalOpen(true);
   };
 
   const handleDeleteImage = async (imageUrl: string) => {
@@ -98,11 +152,45 @@ const ProductInfoCard: FC<Props> = ({
       await deleteImage(imageUrl, 'products');
       console.log('✅ Image deleted');
 
+      // Remove from state
       onImageDeleted(imageUrl);
+
+      // Update database immediately
+      const updatedImages = existingImages.filter(img => img !== imageUrl);
+      await updateDatabaseImages(updatedImages);
+
     } catch (error) {
       console.error('❌ Delete failed:', error);
       alert('Failed to delete image. Please try again.');
     }
+  };
+
+  const handleMoveImageLeft = async (index: number) => {
+    if (index === 0) return; // Can't move first image left
+
+    const newImages = [...existingImages];
+    // Swap with previous image
+    [newImages[index - 1], newImages[index]] = [newImages[index], newImages[index - 1]];
+
+    // Update parent state
+    onImagesReordered(newImages);
+
+    // Update database immediately
+    await updateDatabaseImages(newImages);
+  };
+
+  const handleMoveImageRight = async (index: number) => {
+    if (index === existingImages.length - 1) return; // Can't move last image right
+
+    const newImages = [...existingImages];
+    // Swap with next image
+    [newImages[index], newImages[index + 1]] = [newImages[index + 1], newImages[index]];
+
+    // Update parent state
+    onImagesReordered(newImages);
+
+    // Update database immediately
+    await updateDatabaseImages(newImages);
   };
 
   const handleTitleBlur = () => {
@@ -111,6 +199,8 @@ const ProductInfoCard: FC<Props> = ({
       setSlug(generatedSlug);
     }
   };
+
+  console.log('🔵 ProductInfoCard rendering', { title, existingImages });
 
   return (
     <>
@@ -144,52 +234,53 @@ const ProductInfoCard: FC<Props> = ({
 
             {/* Upload Area */}
             <div
-              className={`border border-dashed border-stroke p-4 text-center dark:border-strokedark ${
-                isDragging ? "bg-gray-100 dark:bg-gray-800" : ""
+              className={`border border-dashed border-stroke p-6 text-center dark:border-strokedark transition-colors ${
+                isDragging ? "bg-gray-100 dark:bg-gray-800 border-primary" : ""
               }`}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
             >
+              <input
+                type="file"
+                id="product-image"
+                accept="image/*"
+                onChange={handleInputChange}
+                style={{ display: 'none' }}
+              />
+
               <div className="flex flex-col items-center gap-3">
-                <div className="flex h-16 w-16 items-center justify-center rounded-full border border-stroke bg-white dark:border-strokedark dark:bg-boxdark">
-                  <svg
-                    className="fill-current"
-                    width="28"
-                    height="28"
-                    viewBox="0 0 28 28"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M14 2.33334V25.6667M2.33334 14H25.6667"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </div>
+                <svg
+                  className="h-12 w-12 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+
                 <div>
-                  <p className="text-sm">
-                    <label
-                      htmlFor="product-image"
-                      className="cursor-pointer text-primary hover:underline"
-                    >
-                      Click to upload
-                    </label>{" "}
-                    or drag and drop
-                  </p>
-                  <p className="mt-1 text-xs text-gray-500">
-                    Images will be cropped before upload
-                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      console.log('🟢 Button clicked!');
+                      document.getElementById('product-image')?.click();
+                    }}
+                    className="text-primary font-medium hover:underline"
+                  >
+                    Click to upload
+                  </button>
+                  <span className="text-gray-600 dark:text-gray-400"> or drag and drop</span>
                 </div>
-                <input
-                  type="file"
-                  id="product-image"
-                  className="sr-only"
-                  accept="image/*"
-                  onChange={handleInputChange}
-                />
+
+                <p className="text-xs text-gray-500">
+                  Images will be cropped before upload
+                </p>
               </div>
             </div>
 
@@ -228,17 +319,39 @@ const ProductInfoCard: FC<Props> = ({
                 {existingImages.map((imageUrl, index) => (
                   <div
                     key={index}
-                    className="group relative aspect-square overflow-hidden rounded-lg border border-stroke dark:border-strokedark"
+                    className="group relative aspect-square overflow-hidden rounded-lg border border-stroke dark:border-strokedark cursor-pointer"
+                    onClick={() => handleEditExistingImage(imageUrl)}
                   >
                     <img
                       src={imageUrl}
                       alt={`Product ${index + 1}`}
-                      className="h-full w-full object-cover"
+                      className="h-full w-full object-cover transition-transform group-hover:scale-105"
                     />
+                    {/* Edit icon overlay */}
+                    <div className="absolute inset-0 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100 flex items-center justify-center">
+                      <svg
+                        className="h-8 w-8 text-white"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                        />
+                      </svg>
+                    </div>
+
+                    {/* Delete button */}
                     <button
                       type="button"
-                      onClick={() => handleDeleteImage(imageUrl)}
-                      className="absolute top-2 right-2 rounded-full bg-red-600 p-2 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-700"
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent triggering edit
+                        handleDeleteImage(imageUrl);
+                      }}
+                      className="absolute top-2 right-2 rounded-full bg-red-600 p-2 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-700 z-10"
                     >
                       <svg
                         className="h-4 w-4"
@@ -254,6 +367,60 @@ const ProductInfoCard: FC<Props> = ({
                         />
                       </svg>
                     </button>
+
+                    {/* Left arrow button - only show if not first image */}
+                    {index > 0 && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleMoveImageLeft(index);
+                        }}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-[#597485] p-2 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-[#4a6270] z-10"
+                        title="Move left"
+                      >
+                        <svg
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M15 19l-7-7 7-7"
+                          />
+                        </svg>
+                      </button>
+                    )}
+
+                    {/* Right arrow button - only show if not last image */}
+                    {index < existingImages.length - 1 && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleMoveImageRight(index);
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-[#597485] p-2 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-[#4a6270] z-10"
+                        title="Move right"
+                      >
+                        <svg
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 5l7 7-7 7"
+                          />
+                        </svg>
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>

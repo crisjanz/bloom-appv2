@@ -46,9 +46,7 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
   const [availableTo, setAvailableTo] = useState('');
   const [seoTitle, setSeoTitle] = useState('');
   const [seoDescription, setSeoDescription] = useState('');
-  const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [existingImages, setExistingImages] = useState<string[]>([]);
-  const [imagesToDelete, setImagesToDelete] = useState<string[]>([]);
   const [slug, setSlug] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [availabilityType, setAvailabilityType] = useState('always');
@@ -98,9 +96,19 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
     }
   }, [initialData]);
 
-  const handleExistingImageDelete = (imageUrl: string) => {
+  // Handle immediate image upload (from ImageCropModal)
+  const handleImageUploaded = (imageUrl: string) => {
+    setExistingImages(prev => [...prev, imageUrl]);
+  };
+
+  // Handle immediate image deletion
+  const handleImageDeleted = (imageUrl: string) => {
     setExistingImages(prev => prev.filter(img => img !== imageUrl));
-    setImagesToDelete(prev => [...prev, imageUrl]);
+  };
+
+  // Handle image reordering
+  const handleImagesReordered = (newOrder: string[]) => {
+    setExistingImages(newOrder);
   };
 
   const handleChange = (field: string, value: any) => {
@@ -216,9 +224,7 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
         isTemporarilyUnavailable,
         unavailableUntil,
         unavailableMessage,
-        imageFiles,
-        existingImages,
-        imagesToDelete
+        images: existingImages  // Images are already uploaded, just save URLs
       };
 
       await onSubmit(data);
@@ -238,9 +244,11 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
           description={description}
           existingImages={existingImages}
           onChange={handleChange}
-          onImagesChange={setImageFiles}
-          onExistingImageDelete={handleExistingImageDelete}
+          onImageUploaded={handleImageUploaded}
+          onImageDeleted={handleImageDeleted}
+          onImagesReordered={handleImagesReordered}
           setSlug={setSlug}
+          productId={initialData?.id}
         />
         <PricingCard
           price={price}

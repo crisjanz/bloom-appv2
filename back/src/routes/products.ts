@@ -359,7 +359,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.put('/:id', upload.array('images'), async (req, res) => {
+router.put('/:id', async (req, res) => {
   const { id } = req.params;
   const {
     title,
@@ -386,48 +386,22 @@ router.put('/:id', upload.array('images'), async (req, res) => {
     unavailableMessage,
     seoTitle,
     seoDescription,
-    optionGroups: optionGroupsJson,
-    variants: variantsJson,
-    imagesToDelete
+    optionGroups,
+    variants,
+    images  // Image URLs (already uploaded to Supabase)
   } = req.body;
-  
+
   try {
     const productName = name || title;
     const basePrice = parseFloat(price || '0') * 100;
     
-    // Parse variants and optionGroups
-    const optionGroups = optionGroupsJson ? JSON.parse(optionGroupsJson) : [];
-    const variants = variantsJson ? JSON.parse(variantsJson) : [];
-    
-    console.log('🔍 PUT - Variants data received:', {
+    console.log('🔍 PUT - Product update:', {
       productId: id,
-      variantsJson,
-      parsedVariants: variants,
+      variants,
       basePrice,
-      optionGroups
+      optionGroups,
+      imageCount: images?.length || 0
     });
-
-    // Handle image uploads for updates (if any new images)
-    let imageUrls: string[] = [];
-    const files = (req as any).files as Express.Multer.File[];
-    if (files && files.length > 0) {
-      for (const file of files) {
-        const filePath = `products/${Date.now()}-${file.originalname}`;
-        const { error } = await supabase.storage
-          .from('images')
-          .upload(filePath, file.buffer, {
-            contentType: file.mimetype,
-          });
-        if (error) {
-          console.error('Supabase upload error:', error);
-          throw error;
-        }
-        const { data: publicUrlData } = supabase.storage
-          .from('images')
-          .getPublicUrl(filePath);
-        imageUrls.push(publicUrlData.publicUrl);
-      }
-    }
 
     const updateData: any = {
       name: productName,
@@ -452,32 +426,9 @@ router.put('/:id', upload.array('images'), async (req, res) => {
       unavailableMessage: (unavailableMessage && unavailableMessage.trim() !== '') ? unavailableMessage : null,
     };
 
-    // Handle image deletions if requested
-    if (imagesToDelete) {
-      const imagesToDeleteArray = JSON.parse(imagesToDelete);
-      for (const imageUrl of imagesToDeleteArray) {
-        try {
-          // Extract file path from URL for Supabase deletion
-          const urlParts = imageUrl.split('/');
-          const fileName = urlParts[urlParts.length - 1];
-          const filePath = `products/${fileName}`;
-          
-          const { error } = await supabase.storage
-            .from('images')
-            .remove([filePath]);
-          
-          if (error) {
-            console.error('Error deleting image from Supabase:', error);
-          }
-        } catch (error) {
-          console.error('Error processing image deletion:', error);
-        }
-      }
-    }
-
-    // Only update images if new ones were uploaded
-    if (imageUrls.length > 0) {
-      updateData.images = imageUrls;
+    // Update images (already uploaded to Supabase via immediate upload)
+    if (images && Array.isArray(images)) {
+      updateData.images = images;
     }
 
     // Delete existing variants and their associated data
@@ -612,5 +563,138 @@ async function uploadProductImages(files: Express.Multer.File[], productId: stri
   console.log(`✅ Product ${productId} updated with images successfully`);
   return imageUrls;
 }
+
+// PATCH route for updating only images (immediate upload)
+router.patch('/:id/images', async (req, res) => {
+  const { id } = req.params;
+  const { images } = req.body;
+
+  try {
+    console.log(`🖼️ Updating images for product ${id}:`, images);
+
+    await prisma.product.update({
+      where: { id },
+      data: { images: images || [] }
+    });
+
+    console.log(`✅ Images updated for product ${id}`);
+    res.json({ success: true, images });
+  } catch (error) {
+    console.error('❌ Error updating images:', error);
+    res.status(500).json({
+      error: 'Failed to update images',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Secure image upload endpoint
+router.post('/images/upload', upload.single('image'), async (req, res) => {
+  try {
+    const file = req.file;
+    const { folder } = req.body; // 'products' or 'orders'
+
+    if (!file) {
+      return res.status(400).json({ error: 'No file provided' });
+    }
+
+    // Validate folder
+    if (!folder || !['products', 'orders'].includes(folder)) {
+      return res.status(400).json({ error: 'Invalid folder. Must be "products" or "orders"' });
+    }
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!validTypes.includes(file.mimetype)) {
+      return res.status(400).json({ error: 'Invalid file type. Only JPEG, PNG, and WebP are allowed' });
+    }
+
+    // Validate file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      return res.status(400).json({ error: 'File too large. Maximum size is 10MB' });
+    }
+
+    // Generate unique file name
+    const timestamp = Date.now();
+    const randomStr = Math.random().toString(36).substring(2, 9);
+    const extension = file.mimetype.split('/')[1];
+    const fileName = `${timestamp}-${randomStr}.${extension}`;
+    const filePath = `${folder}/${fileName}`;
+
+    console.log('📤 Uploading image to Supabase:', filePath);
+
+    // Upload to Supabase using secure service role key
+    const { error: uploadError } = await supabase.storage
+      .from('images')
+      .upload(filePath, file.buffer, {
+        contentType: file.mimetype,
+        cacheControl: '3600',
+        upsert: false,
+      });
+
+    if (uploadError) {
+      console.error('❌ Supabase upload error:', uploadError);
+      throw new Error(`Upload failed: ${uploadError.message}`);
+    }
+
+    // Get public URL
+    const { data: publicUrlData } = supabase.storage
+      .from('images')
+      .getPublicUrl(filePath);
+
+    console.log('✅ Image uploaded successfully:', publicUrlData.publicUrl);
+
+    res.json({ url: publicUrlData.publicUrl });
+  } catch (error) {
+    console.error('❌ Error uploading image:', error);
+    res.status(500).json({
+      error: 'Failed to upload image',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Secure image delete endpoint
+router.delete('/images', async (req, res) => {
+  try {
+    const { imageUrl, folder } = req.body;
+
+    if (!imageUrl) {
+      return res.status(400).json({ error: 'No image URL provided' });
+    }
+
+    // Validate folder
+    if (!folder || !['products', 'orders'].includes(folder)) {
+      return res.status(400).json({ error: 'Invalid folder. Must be "products" or "orders"' });
+    }
+
+    // Extract file name from URL
+    const urlParts = imageUrl.split('/');
+    const fileName = urlParts[urlParts.length - 1];
+    const filePath = `${folder}/${fileName}`;
+
+    console.log('🗑️ Deleting image from Supabase:', filePath);
+
+    const { error: deleteError } = await supabase.storage
+      .from('images')
+      .remove([filePath]);
+
+    if (deleteError) {
+      console.error('❌ Supabase delete error:', deleteError);
+      throw new Error(`Delete failed: ${deleteError.message}`);
+    }
+
+    console.log('✅ Image deleted successfully');
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('❌ Error deleting image:', error);
+    res.status(500).json({
+      error: 'Failed to delete image',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
 
 export default router;
