@@ -255,9 +255,14 @@ router.post("/merge", async (req, res) => {
           }
         });
 
-        if (!existingAddress) {
+        let addressIdToUse: string;
+
+        if (existingAddress) {
+          // Use existing address
+          addressIdToUse = existingAddress.id;
+        } else {
           // Create new address for target customer
-          await prisma.address.create({
+          const newAddress = await prisma.address.create({
             data: {
               firstName: addr.firstName,
               lastName: addr.lastName,
@@ -272,8 +277,21 @@ router.post("/merge", async (req, res) => {
               customerId: targetId
             }
           });
+          addressIdToUse = newAddress.id;
           totalAddressesMerged++;
         }
+
+        // Update orders that use this address as recipient
+        await prisma.order.updateMany({
+          where: { recipientId: addr.id },
+          data: { recipientId: addressIdToUse }
+        });
+
+        // Update orders that use this address as pickup person
+        await prisma.order.updateMany({
+          where: { pickupPersonId: addr.id },
+          data: { pickupPersonId: addressIdToUse }
+        });
       }
 
       // Delete old addresses from source customer
