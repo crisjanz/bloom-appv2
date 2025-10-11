@@ -200,13 +200,145 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// POST /api/customers/merge - Merge customers
+router.post("/merge", async (req, res) => {
+  const { sourceIds, targetId } = req.body;
+
+  if (!sourceIds || !Array.isArray(sourceIds) || sourceIds.length === 0) {
+    return res.status(400).json({ error: "sourceIds array is required" });
+  }
+
+  if (!targetId) {
+    return res.status(400).json({ error: "targetId is required" });
+  }
+
+  if (sourceIds.includes(targetId)) {
+    return res.status(400).json({ error: "Cannot merge a customer into itself" });
+  }
+
+  try {
+    let totalOrdersMerged = 0;
+    let totalAddressesMerged = 0;
+    let totalTransactionsMerged = 0;
+
+    // For each source customer, transfer their data to the target
+    for (const sourceId of sourceIds) {
+      // Transfer all orders
+      const orderResult = await prisma.order.updateMany({
+        where: { customerId: sourceId },
+        data: { customerId: targetId }
+      });
+      totalOrdersMerged += orderResult.count;
+
+      // Transfer all payment transactions
+      const transactionResult = await prisma.paymentTransaction.updateMany({
+        where: { customerId: sourceId },
+        data: { customerId: targetId }
+      });
+      totalTransactionsMerged += transactionResult.count;
+
+      // Transfer all addresses (avoiding duplicates by checking if similar address exists)
+      const sourceAddresses = await prisma.address.findMany({
+        where: { customerId: sourceId }
+      });
+
+      for (const addr of sourceAddresses) {
+        // Check if target already has this address
+        const existingAddress = await prisma.address.findFirst({
+          where: {
+            customerId: targetId,
+            firstName: addr.firstName,
+            lastName: addr.lastName,
+            address1: addr.address1,
+            city: addr.city,
+            postalCode: addr.postalCode
+          }
+        });
+
+        if (!existingAddress) {
+          // Create new address for target customer
+          await prisma.address.create({
+            data: {
+              firstName: addr.firstName,
+              lastName: addr.lastName,
+              phone: addr.phone,
+              address1: addr.address1,
+              address2: addr.address2,
+              city: addr.city,
+              province: addr.province,
+              postalCode: addr.postalCode,
+              country: addr.country,
+              company: addr.company,
+              customerId: targetId
+            }
+          });
+          totalAddressesMerged++;
+        }
+      }
+
+      // Delete old addresses from source customer
+      await prisma.address.deleteMany({
+        where: { customerId: sourceId }
+      });
+
+      // Delete source customer
+      await prisma.customer.delete({
+        where: { id: sourceId }
+      });
+    }
+
+    res.json({
+      success: true,
+      customersMerged: sourceIds.length,
+      ordersMerged: totalOrdersMerged,
+      addressesMerged: totalAddressesMerged,
+      transactionsMerged: totalTransactionsMerged
+    });
+  } catch (err) {
+    console.error("Failed to merge customers:", err);
+    res.status(500).json({ error: "Failed to merge customers" });
+  }
+});
+
 // DELETE customer
 router.delete("/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
+    // Unlink orders from this customer (set customerId to null)
+    // Orders retain all customer data (name, address, etc.), just lose the FK reference
+    const orderCount = await prisma.order.count({
+      where: { customerId: id }
+    });
+
+    if (orderCount > 0) {
+      await prisma.order.updateMany({
+        where: { customerId: id },
+        data: { customerId: null as any }
+      });
+      console.log(`Unlinked ${orderCount} orders from customer ${id}`);
+    }
+
+    // Delete all addresses associated with this customer
+    const addressCount = await prisma.address.count({
+      where: { customerId: id }
+    });
+
+    if (addressCount > 0) {
+      await prisma.address.deleteMany({
+        where: { customerId: id }
+      });
+      console.log(`Deleted ${addressCount} addresses for customer ${id}`);
+    }
+
+    // Now safe to delete customer
     await prisma.customer.delete({ where: { id } });
-    res.status(204).end();
+
+    res.json({
+      success: true,
+      ordersUnlinked: orderCount,
+      addressesDeleted: addressCount
+    });
   } catch (err) {
     console.error("Failed to delete customer:", err);
     res.status(500).json({ error: "Failed to delete customer" });

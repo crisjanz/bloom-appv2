@@ -251,7 +251,7 @@ router.put('/:id/update', async (req, res) => {
       let orderUpdateData: any = {};
 
       // Handle customer updates
-      if (updateData.customer) {
+      if (updateData.customer && currentOrder.customerId) {
         // Update the actual customer record in the database
         await tx.customer.update({
           where: { id: currentOrder.customerId },
@@ -262,7 +262,7 @@ router.put('/:id/update', async (req, res) => {
             phone: updateData.customer.phone,
           }
         });
-        
+
         // Note: No need to update order.customerId as it's still the same customer
       }
 

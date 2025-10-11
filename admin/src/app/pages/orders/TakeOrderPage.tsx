@@ -59,6 +59,12 @@ export default function TakeOrderPage({
   const { selectedCustomer, setSelectedCustomer, clearCustomer, hasCustomer } = useSelectedCustomer(initialCustomer);
   const orderState = useOrderState();
 
+  // Debug: Check what selectedCustomer actually contains
+  if (selectedCustomer) {
+    console.log('🔍 TakeOrder selectedCustomer:', selectedCustomer);
+    console.log('  Has ID?:', !!selectedCustomer.id, selectedCustomer.id);
+  }
+
   // Legacy compatibility layer for existing code
   const customerState = {
     customer: selectedCustomer || {
@@ -70,6 +76,7 @@ export default function TakeOrderPage({
     },
     setCustomer: setSelectedCustomer,
     customerId: selectedCustomer?.id || null,
+    customerName: selectedCustomer ? `${selectedCustomer.firstName} ${selectedCustomer.lastName}` : null,
     setCustomerId: (id: string | null) => {
       if (id) {
         // Would need to load customer by ID - for now just keep simple

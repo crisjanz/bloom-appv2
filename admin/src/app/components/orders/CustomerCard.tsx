@@ -76,6 +76,7 @@ const CustomerCard: FC<Props> = ({
                   key={c.id}
                   onClick={() => {
                     setCustomer({
+                      id: c.id,  // ✅ Include the ID!
                       firstName: c.firstName,
                       lastName: c.lastName,
                       phone: c.phone,

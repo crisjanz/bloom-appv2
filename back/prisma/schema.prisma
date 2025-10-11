@@ -293,8 +293,8 @@ model Order {
   orderSource OrderSource @default(PHONE)
   images String[] @default([])
 
-  customer   Customer @relation(fields: [customerId], references: [id])
-  customerId String
+  customer   Customer? @relation(fields: [customerId], references: [id])
+  customerId String?
 
   recipient   Address? @relation("OrderRecipient", fields: [recipientId], references: [id])
   recipientId String?

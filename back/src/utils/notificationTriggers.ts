@@ -53,13 +53,19 @@ export async function triggerStatusNotifications(order: any, newStatus: string, 
       console.log(`❌ Could not find full order details for ${order.id}`);
       return;
     }
-    
+
+    // Skip notifications if no customer (e.g., customer was deleted)
+    if (!fullOrder.customer) {
+      console.log(`📋 No customer associated with order ${order.id}, skipping notifications`);
+      return;
+    }
+
     // Get store settings for template tokens
     const storeSettings = await prisma.storeSettings.findFirst();
-    
+
     // Calculate total amount from order items
     const orderTotal = fullOrder.orderItems.reduce((sum, item) => sum + (item.rowTotal || 0), 0) / 100; // Convert from cents
-    
+
     // Prepare template data
     const templateData = {
       customerFirstName: fullOrder.customer.firstName || '',

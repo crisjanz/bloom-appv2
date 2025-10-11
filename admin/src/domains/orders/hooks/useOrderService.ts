@@ -818,7 +818,7 @@ export const useOrderPayments = () => {
       console.log('📤 POS transfer initiated');
 
       // Ensure we have a customer ID - create one if needed
-      let currentCustomerId = customerState.customerId;
+      let currentCustomerId = customerState.customer?.id || customerState.customerId;
 
       if (!currentCustomerId && customerState.customer) {
         console.log('👤 Creating new customer...');
@@ -939,7 +939,14 @@ export const useOrderPayments = () => {
       console.log('💰 Order payment completion initiated');
 
       // Ensure we have a customer ID - create one if needed
-      let currentCustomerId = customerState.customerId;
+      let currentCustomerId = customerState.customer?.id || customerState.customerId;
+
+      console.log('🔍 Customer ID check:', {
+        customerObjectId: customerState.customer?.id,
+        customerStateId: customerState.customerId,
+        finalId: currentCustomerId,
+        hasCustomerObject: !!customerState.customer
+      });
 
       if (!currentCustomerId && customerState.customer) {
         console.log('👤 Creating new customer for payment...');

@@ -389,7 +389,16 @@ const PaymentSection: React.FC<Props> = ({
 
           if (paymentMethods.length > 0) {
             const employeeId = employee; // Should be employee ID, not name
-            const currentCustomerId = customerState.customerId;
+            // Get customer ID from the created orders (they always have the customer ID)
+            const currentCustomerId = result.orders[0]?.customerId;
+
+            console.log('💳 PT Transaction - Customer ID:', currentCustomerId);
+
+            if (!currentCustomerId) {
+              console.error('❌ No customer ID found in created orders');
+              throw new Error('Customer ID missing from orders');
+            }
+
             const transactionResponse = await fetch('/api/payment-transactions', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
