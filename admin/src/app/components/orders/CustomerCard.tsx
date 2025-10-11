@@ -70,7 +70,12 @@ const CustomerCard: FC<Props> = ({
           />
           
           {customerResults.length > 0 && (
-            <div className="absolute z-50 mt-1 w-full bg-white border border-stroke rounded-sm shadow-default max-h-60 overflow-y-auto dark:bg-boxdark dark:border-strokedark">
+            <div className="absolute z-50 mt-1 w-full bg-white border border-stroke rounded-sm shadow-default max-h-80 overflow-y-auto dark:bg-boxdark dark:border-strokedark">
+              <div className="px-5 py-2 bg-gray-1 dark:bg-meta-4 border-b border-stroke dark:border-strokedark">
+                <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                  Customer(s) found with this phone number:
+                </p>
+              </div>
               {customerResults.map((c) => (
                 <div
                   key={c.id}
@@ -108,16 +113,30 @@ const CustomerCard: FC<Props> = ({
                         setSavedRecipients([]);
                       });
                   }}
-                  className="px-5 py-3 text-sm hover:bg-gray-2 cursor-pointer border-b border-stroke last:border-b-0 dark:hover:bg-meta-4 dark:border-strokedark"
+                  className="px-5 py-3 text-sm hover:bg-gray-2 cursor-pointer border-b border-stroke dark:hover:bg-meta-4 dark:border-strokedark"
                 >
                   <div className="font-medium text-black dark:text-white">
-                    {c.firstName} {c.lastName}
+                    ✓ Use: {c.firstName} {c.lastName}
                   </div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">
                     {c.phone} {c.email && `• ${c.email}`}
                   </div>
                 </div>
               ))}
+              <div
+                onClick={() => {
+                  setCustomerQuery("");
+                  setCustomerResults([]);
+                }}
+                className="px-5 py-3 text-sm hover:bg-blue-50 cursor-pointer border-t-2 border-stroke bg-white dark:hover:bg-meta-4 dark:border-strokedark dark:bg-boxdark"
+              >
+                <div className="font-medium text-[#597485] dark:text-blue-400">
+                  + Create new customer with same phone
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  For spouse, family member, or separate account
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -125,6 +144,25 @@ const CustomerCard: FC<Props> = ({
 
       {/* Customer Details */}
       <div className="grid grid-cols-1 gap-4.5 md:grid-cols-2">
+        <div className="md:col-span-2">
+          <Label htmlFor="phone">Phone Number (Primary Identifier)</Label>
+          <PhoneInput
+            type="tel"
+            id="phone"
+            value={customer.phone || ""}
+            onChange={(cleanedPhone) => {
+              setCustomer({ ...customer, phone: cleanedPhone });
+              // Trigger search when phone has 10+ digits
+              if (cleanedPhone.replace(/\D/g, '').length >= 10) {
+                setCustomerQuery(cleanedPhone);
+              }
+            }}
+            countries={countries}
+            selectPosition="none"
+            placeholder="(555) 000-0000"
+          />
+        </div>
+
         <div>
           <Label htmlFor="firstName">First Name</Label>
           <InputField
@@ -153,20 +191,7 @@ const CustomerCard: FC<Props> = ({
           />
         </div>
 
-        <div>
-          <Label htmlFor="phone">Phone Number</Label>
-          <PhoneInput
-            type="tel"
-            id="phone"
-            value={customer.phone || ""}
-            onChange={(cleanedPhone) => setCustomer({ ...customer, phone: cleanedPhone })}
-            countries={countries}
-            selectPosition="none"
-            placeholder="(555) 000-0000"
-          />
-        </div>
-
-        <div>
+        <div className="md:col-span-2">
           <Label htmlFor="email">Email Address</Label>
           <InputField
             type="email"
