@@ -411,6 +411,16 @@ Todos are grouped by feature and sorted by priority within each group. Partially
     - Confirmation dialogs with detailed information
     - Success messages showing transferred data counts
   - Files: `CustomersPage.tsx`, `customers.ts` (routes), `schema.prisma`
+- [x] **Implement customer-based recipient system** (Completed 2025-01-11)
+  - ✅ Recipients are now Customer records instead of Address records
+  - ✅ Phone-first recipient lookup integrated in RecipientCard
+  - ✅ Multiple labeled addresses per recipient ("Home", "Office", "Mom's House")
+  - ✅ CustomerRecipient junction table for many-to-many sender→recipient relationships
+  - ✅ Orders now store recipientCustomerId + deliveryAddressId
+  - ✅ Backward compatibility maintained with existing orders
+  - ✅ Recipient email notifications now functional (recipients have email addresses)
+  - ✅ Unified customer profiles enable loyalty tracking and marketing opportunities
+  - Files: `RecipientCard.tsx`, `customers.ts`, `orders/create.ts`, `schema.prisma`
 - [x] **Multi-order system improvements** (Completed 2025-06-17)
   - [x] Fixed delivery fee calculation per order instead of global
   - [x] Enhanced order state management with proper React hooks
