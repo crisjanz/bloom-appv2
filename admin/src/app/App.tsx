@@ -24,6 +24,7 @@ import ProductsPage from "./pages/products/ProductsPage";
 import NewProductPage from "./pages/products/NewProductPage";
 import EditProductPage from "./pages/products/EditProductPage";
 import TakeOrderPage from "./pages/orders/TakeOrderPage";
+import TakeOrderPrototypePage from "./pages/orders/TakeOrderPrototypePage";
 import CategoriesPage from "./pages/products/CategoriesPage";
 import CustomersPage from "./pages/customers/CustomersPage";
 import CustomerFormPage from "./pages/customers/CustomerFormPage";
@@ -92,8 +93,9 @@ export default function App() {
             
             {/* Order routes */}
             <Route path="orders/new" element={<TakeOrderPage />} />
+            <Route path="orders/prototype" element={<TakeOrderPrototypePage />} />
             <Route path="orders" element={<OrdersListPage />} />
-            <Route path="orders/:id/edit" element={<OrderEditPage />} /> 
+            <Route path="orders/:id/edit" element={<OrderEditPage />} />
             <Route path="orders/:id" element={<OrderEditPage />} />
             
             {/* Delivery Management route */}

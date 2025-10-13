@@ -16,6 +16,7 @@ import PhoneInput from "@shared/ui/forms/group-input/PhoneInput";
 
 interface Address {
   id: string;
+  label?: string; // Custom label like "Home", "Office", "Mom's House"
   firstName: string;
   lastName: string;
   address1: string;
@@ -23,9 +24,10 @@ interface Address {
   city: string;
   province: string;
   postalCode: string;
-  country: string; // 🆕 Add country field
+  country: string;
   phone?: string;
   company?: string;
+  addressType?: string;
 }
 
 interface AdditionalAddressesCardProps {
@@ -98,17 +100,17 @@ export default function AdditionalAddressesCard({
   onUpdateAddress,
   onDeleteAddress,
 }: AdditionalAddressesCardProps) {
-  const [newAddress, setNewAddress] = useState<Omit<Address, "id">>({
-    firstName: "",
-    lastName: "",
+  const [newAddress, setNewAddress] = useState<Omit<Address, "id" | "firstName" | "lastName">>({
+    label: "",
     address1: "",
     address2: "",
     city: "",
     province: "",
     postalCode: "",
-    country: "CA", // 🆕 Default to Canada
+    country: "CA",
     phone: "",
     company: "",
+    addressType: "RESIDENCE",
   });
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -130,52 +132,59 @@ export default function AdditionalAddressesCard({
   };
 
   const handleSubmit = () => {
-    if (!newAddress.firstName.trim() || !newAddress.lastName.trim() || !newAddress.address1.trim()) {
-      alert("Please fill in required fields: First Name, Last Name, and Address");
+    if (!newAddress.address1.trim() || !newAddress.city.trim()) {
+      alert("Please fill in required fields: Address and City");
+      return;
+    }
+
+    // If label is empty or not a preset option, require custom text
+    const presetLabels = ["Home", "Office", "Work", "Cottage", "Mom's House", "Dad's House"];
+    if (!presetLabels.includes(newAddress.label) && !newAddress.label?.trim()) {
+      alert("Please provide a label for this address or select a preset option");
       return;
     }
 
     if (editingId) {
       // Update existing address
-      onUpdateAddress(editingId, newAddress);
+      onUpdateAddress(editingId, newAddress as any);
       setEditingId(null);
     } else {
-      // Add new address
-      onAddAddress(newAddress);
+      // Add new address (backend will auto-populate firstName/lastName from customer)
+      onAddAddress(newAddress as any);
     }
-    
+
     // Reset form
     resetForm();
   };
 
   const resetForm = () => {
     setNewAddress({
-      firstName: "",
-      lastName: "",
+      label: "",
       address1: "",
       address2: "",
       city: "",
       province: "",
       postalCode: "",
-      country: "CA", // 🆕 Reset to default country
+      country: "CA",
       phone: "",
       company: "",
+      addressType: "RESIDENCE",
     });
     setEditingId(null);
   };
 
   const handleEdit = (address: Address) => {
     setNewAddress({
-      firstName: address.firstName,
-      lastName: address.lastName,
+      label: address.label || "",
       address1: address.address1,
       address2: address.address2 || "",
       city: address.city,
       province: address.province,
       postalCode: address.postalCode,
-      country: address.country || "CA", // 🆕 Include country in edit
+      country: address.country || "CA",
       phone: address.phone || "",
       company: address.company || "",
+      addressType: address.addressType || "RESIDENCE",
     });
     setEditingId(address.id);
   };
@@ -203,31 +212,47 @@ export default function AdditionalAddressesCard({
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <Label htmlFor="newFirstName">First Name</Label>
-            <InputField
-              type="text"
-              id="newFirstName"
-              placeholder="Enter first name"
-              value={newAddress.firstName}
-              onChange={(e) => handleAddressChange("firstName", e.target.value)}
-              className="focus:border-[#597485] focus:ring-[#597485]/20"
+          <div className="md:col-span-2">
+            <Label htmlFor="newLabel">Address Label *</Label>
+            <Select
+              id="newLabel"
+              options={[
+                { value: "", label: "Select label..." },
+                { value: "Home", label: "Home" },
+                { value: "Office", label: "Office" },
+                { value: "Work", label: "Work" },
+                { value: "Cottage", label: "Cottage" },
+                { value: "Mom's House", label: "Mom's House" },
+                { value: "Dad's House", label: "Dad's House" },
+                { value: "Custom", label: "Custom..." }
+              ]}
+              value={newAddress.label === "" || ["Home", "Office", "Work", "Cottage", "Mom's House", "Dad's House"].includes(newAddress.label) ? newAddress.label : "Custom"}
+              onChange={(value) => {
+                if (value === "Custom") {
+                  handleAddressChange("label", ""); // Clear for custom entry
+                } else {
+                  handleAddressChange("label", value);
+                }
+              }}
+              placeholder="Select label"
             />
+            {(newAddress.label === "" || !["Home", "Office", "Work", "Cottage", "Mom's House", "Dad's House"].includes(newAddress.label)) && (
+              <div className="mt-2">
+                <InputField
+                  type="text"
+                  placeholder="Enter custom label (e.g., Grandma's House)"
+                  value={newAddress.label}
+                  onChange={(e) => handleAddressChange("label", e.target.value)}
+                  className="focus:border-[#597485] focus:ring-[#597485]/20"
+                />
+              </div>
+            )}
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Give this address a label to easily identify it later
+            </p>
           </div>
-          
-          <div>
-            <Label htmlFor="newLastName">Last Name</Label>
-            <InputField
-              type="text"
-              id="newLastName"
-              placeholder="Enter last name"
-              value={newAddress.lastName}
-              onChange={(e) => handleAddressChange("lastName", e.target.value)}
-              className="focus:border-[#597485] focus:ring-[#597485]/20"
-            />
-          </div>
-          
-          <div>
+
+          <div className="md:col-span-2">
             <Label htmlFor="newAddress1">Address Line 1</Label>
             <AddressAutocomplete
               id="newAddress1"
@@ -362,7 +387,7 @@ export default function AdditionalAddressesCard({
                     isHeader
                     className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
                   >
-                    Name
+                    Label
                   </TableCell>
                   <TableCell
                     isHeader
@@ -395,7 +420,7 @@ export default function AdditionalAddressesCard({
                   <TableRow key={addr.id} className={editingId === addr.id ? "bg-blue-50 dark:bg-blue-900/20" : ""}>
                     <TableCell className="px-5 py-4 sm:px-6 text-start">
                       <span className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                        {addr.firstName} {addr.lastName}
+                        {addr.label || "Address"}
                       </span>
                       {addr.company && (
                         <div className="text-xs text-gray-500 dark:text-gray-400">

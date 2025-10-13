@@ -10,22 +10,43 @@ const router = express.Router();
 // PUT update address by ID
 router.put('/addresses/:id', async (req, res) => {
   const { id } = req.params;
-  const { firstName, lastName, address1, address2, city, province, postalCode, phone, country } = req.body;
+  const { label, firstName, lastName, address1, address2, city, province, postalCode, phone, country, company, addressType } = req.body;
 
   try {
+    const updateData: any = {
+      address1: address1?.trim() || "",
+      address2: address2?.trim() || null,
+      city: city?.trim() || "",
+      province: province?.trim() || "",
+      postalCode: postalCode?.trim() || "",
+      phone: phone?.trim() || null,
+      country: country?.trim() || "CA",
+    };
+
+    // Only update label if provided
+    if (label !== undefined) {
+      updateData.label = label?.trim() || null;
+    }
+
+    // Only update firstName/lastName if provided
+    if (firstName !== undefined) {
+      updateData.firstName = firstName?.trim() || "";
+    }
+    if (lastName !== undefined) {
+      updateData.lastName = lastName?.trim() || "";
+    }
+
+    // Update optional fields
+    if (company !== undefined) {
+      updateData.company = company?.trim() || null;
+    }
+    if (addressType !== undefined) {
+      updateData.addressType = addressType;
+    }
+
     const updatedAddress = await prisma.address.update({
       where: { id },
-      data: {
-        firstName: firstName?.trim() || "",
-        lastName: lastName?.trim() || "",
-        address1: address1?.trim() || "",
-        address2: address2?.trim() || null,
-        city: city?.trim() || "",
-        province: province?.trim() || "",
-        postalCode: postalCode?.trim() || "",
-        phone: phone?.trim() || null,
-        country: country?.trim() || "CA", // ✅ Already updated
-      },
+      data: updateData,
     });
 
     res.json(updatedAddress);
@@ -363,20 +384,93 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
-// GET /api/customers/:id/recipients
+// GET /api/customers/:id/recipients - Returns Customer[] (not Address[])
 router.get("/:id/recipients", async (req, res) => {
   const { id } = req.params;
 
   try {
-    const addresses = await prisma.address.findMany({
-      where: { customerId: id },
-      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    const recipientLinks = await prisma.customerRecipient.findMany({
+      where: { senderId: id },
+      include: {
+        recipient: {
+          include: {
+            homeAddress: true,
+            addresses: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
     });
 
-    res.json(addresses);
+    // Return just the Customer objects with their addresses
+    const recipients = recipientLinks.map(link => link.recipient);
+    res.json(recipients);
   } catch (err) {
     console.error("Failed to fetch saved recipients:", (err as any)?.message || err);
     res.status(500).json({ error: "Failed to fetch saved recipients" });
+  }
+});
+
+// POST /api/customers/:id/save-recipient - Link customer as recipient
+router.post("/:id/save-recipient", async (req, res) => {
+  const { id } = req.params;
+  const { recipientCustomerId } = req.body;
+
+  if (!recipientCustomerId) {
+    return res.status(400).json({ error: "recipientCustomerId is required" });
+  }
+
+  try {
+    // Check if both customers exist
+    const [sender, recipient] = await Promise.all([
+      prisma.customer.findUnique({ where: { id } }),
+      prisma.customer.findUnique({ where: { id: recipientCustomerId } }),
+    ]);
+
+    if (!sender) {
+      return res.status(404).json({ error: "Sender customer not found" });
+    }
+
+    if (!recipient) {
+      return res.status(404).json({ error: "Recipient customer not found" });
+    }
+
+    // Check if link already exists
+    const existingLink = await prisma.customerRecipient.findUnique({
+      where: {
+        senderId_recipientId: {
+          senderId: id,
+          recipientId: recipientCustomerId,
+        },
+      },
+    });
+
+    if (existingLink) {
+      return res.json({ message: "Recipient already saved", link: existingLink });
+    }
+
+    // Create the link
+    const link = await prisma.customerRecipient.create({
+      data: {
+        senderId: id,
+        recipientId: recipientCustomerId,
+      },
+      include: {
+        recipient: {
+          include: {
+            homeAddress: true,
+            addresses: true,
+          },
+        },
+      },
+    });
+
+    res.status(201).json(link);
+  } catch (err) {
+    console.error("Failed to save recipient:", (err as any)?.message || err);
+    res.status(500).json({ error: "Failed to save recipient" });
   }
 });
 
@@ -498,7 +592,25 @@ router.post('/:id/addresses', async (req, res) => {
 
     // Ensure country has a default value
     if (!data.country) {
-      data.country = "CA"; // 🆕 Add default country
+      data.country = "CA";
+    }
+
+    // Auto-populate firstName/lastName from customer if not provided
+    if (!data.firstName || !data.lastName) {
+      const customer = await prisma.customer.findUnique({
+        where: { id },
+        select: { firstName: true, lastName: true },
+      });
+
+      if (customer) {
+        data.firstName = data.firstName || customer.firstName;
+        data.lastName = data.lastName || customer.lastName;
+      }
+    }
+
+    // Ensure label field is included
+    if (!data.label) {
+      data.label = "Address"; // Default label
     }
 
     const address = await prisma.address.create({

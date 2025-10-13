@@ -23,12 +23,13 @@ type OrderEntry = {
   recipientPhone: string;
   recipientAddress: Address;
   recipientAddressType: string;
+  recipientAddressLabel: string; // NEW: Custom address label
   orderType: "DELIVERY" | "PICKUP";
   deliveryDate: string;
   deliveryTime: string;
   deliveryInstructions: string;
   cardMessage: string;
-  deliveryFee: number; // ✅ Add this to match the hook
+  deliveryFee: number;
   isDeliveryFeeManuallyEdited: boolean;
   customProducts: {
     description: string;
@@ -49,6 +50,10 @@ type OrderEntry = {
     address1: string;
     city: string;
   };
+  // NEW: Customer-based recipient fields
+  recipientCustomer?: any;
+  recipientCustomerId?: string;
+  selectedAddressId?: string;
 };
 
 type Props = {
@@ -98,12 +103,13 @@ export default function MultiOrderTabs({
         country: "",
       },
       recipientAddressType: "RESIDENCE",
+      recipientAddressLabel: "", // NEW: Initialize label
       orderType: "DELIVERY",
       deliveryDate: "",
       deliveryTime: "",
       deliveryInstructions: "",
       cardMessage: "",
-      deliveryFee: 0, // ✅ Add this
+      deliveryFee: 0,
       isDeliveryFeeManuallyEdited: false,
       customProducts: [
         {
@@ -117,6 +123,10 @@ export default function MultiOrderTabs({
       shortcutQuery: "",
       filteredShortcuts: [],
       recipientDataChanged: false,
+      // NEW: Initialize customer-based recipient fields
+      recipientCustomer: undefined,
+      recipientCustomerId: undefined,
+      selectedAddressId: undefined,
     };
 
     setOrders([...orders, newOrder]);
@@ -262,6 +272,8 @@ export default function MultiOrderTabs({
           setRecipientAddress={(val) => updateAddress(activeTab, val)}
           recipientAddressType={order.recipientAddressType}
           setRecipientAddressType={(val) => updateOrder(activeTab, "recipientAddressType", val)}
+          recipientAddressLabel={order.recipientAddressLabel} // NEW
+          setRecipientAddressLabel={(val) => updateOrder(activeTab, "recipientAddressLabel", val)} // NEW
           shortcutQuery={order.shortcutQuery}
           setShortcutQuery={(val) => updateOrder(activeTab, "shortcutQuery", val)}
           filteredShortcuts={order.filteredShortcuts}
@@ -270,10 +282,10 @@ export default function MultiOrderTabs({
           customerId={customerId || undefined}
           onRecipientSaved={onRecipientSaved}
           currentDeliveryFee={order.deliveryFee}
-          isManuallyEdited={order.isDeliveryFeeManuallyEdited} // ✅ Add this
+          isManuallyEdited={order.isDeliveryFeeManuallyEdited}
           onManualEditChange={(isManual) => updateOrderManualEditFlag(activeTab, isManual)}
           activeTab={activeTab}
-          onDeliveryFeeCalculated={(fee) => updateOrderDeliveryFee(activeTab, fee)} // ✅ Direct call!
+          onDeliveryFeeCalculated={(fee) => updateOrderDeliveryFee(activeTab, fee)}
           // New recipient tracking props
           selectedRecipientId={order.selectedRecipientId}
           onSelectedRecipientIdChange={(id) => updateOrder(activeTab, "selectedRecipientId", id)}
@@ -281,6 +293,13 @@ export default function MultiOrderTabs({
           onRecipientDataChangedChange={(changed) => updateOrder(activeTab, "recipientDataChanged", changed)}
           originalRecipientData={order.originalRecipientData}
           onOriginalRecipientDataChange={(data) => updateOrder(activeTab, "originalRecipientData", data)}
+          // NEW: Customer-based recipient props
+          recipientCustomer={order.recipientCustomer}
+          setRecipientCustomer={(customer) => updateOrder(activeTab, "recipientCustomer", customer)}
+          recipientCustomerId={order.recipientCustomerId}
+          setRecipientCustomerId={(id) => updateOrder(activeTab, "recipientCustomerId", id)}
+          selectedAddressId={order.selectedAddressId}
+          setSelectedAddressId={(id) => updateOrder(activeTab, "selectedAddressId", id)}
         />
 
         <DeliveryCard

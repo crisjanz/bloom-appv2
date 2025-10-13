@@ -40,7 +40,14 @@ export async function triggerStatusNotifications(order: any, newStatus: string, 
       where: { id: order.id },
       include: {
         customer: true,
-        recipient: true,
+        recipient: true, // OLD format (backward compatibility)
+        recipientCustomer: {  // NEW format
+          include: {
+            homeAddress: true,
+            addresses: true,
+          }
+        },
+        deliveryAddress: true, // NEW format
         orderItems: {
           include: {
             product: true
@@ -66,16 +73,20 @@ export async function triggerStatusNotifications(order: any, newStatus: string, 
     // Calculate total amount from order items
     const orderTotal = fullOrder.orderItems.reduce((sum, item) => sum + (item.rowTotal || 0), 0) / 100; // Convert from cents
 
-    // Prepare template data
+    // Prepare template data - support both old (recipient -> Address) and new (recipientCustomer -> Customer) formats
+    const recipientData = fullOrder.recipientCustomer || fullOrder.recipient;
+    const deliveryAddressData = fullOrder.deliveryAddress || fullOrder.recipient;
+
     const templateData = {
       customerFirstName: fullOrder.customer.firstName || '',
       customerLastName: fullOrder.customer.lastName || '',
       customerEmail: fullOrder.customer.email || '',
       customerPhone: fullOrder.customer.phone || '',
-      recipientName: fullOrder.recipient ? `${fullOrder.recipient.firstName} ${fullOrder.recipient.lastName}`.trim() : '',
-      recipientFirstName: fullOrder.recipient?.firstName || '',
-      deliveryAddress: fullOrder.recipient ? `${fullOrder.recipient.address1}, ${fullOrder.recipient.city}` : '',
-      recipientPhone: fullOrder.recipient?.phone || '',
+      recipientName: recipientData ? `${recipientData.firstName} ${recipientData.lastName}`.trim() : '',
+      recipientFirstName: recipientData?.firstName || '',
+      recipientEmail: fullOrder.recipientCustomer?.email || '', // NEW: Recipients now have emails!
+      deliveryAddress: deliveryAddressData ? `${deliveryAddressData.address1}, ${deliveryAddressData.city}` : '',
+      recipientPhone: deliveryAddressData?.phone || '',
       orderNumber: fullOrder.orderNumber.toString(),
       orderTotal: orderTotal, // Keep as number for NotificationData compatibility
       deliveryDate: fullOrder.deliveryDate ? new Date(fullOrder.deliveryDate).toLocaleDateString() : '',
@@ -116,30 +127,32 @@ export async function triggerStatusNotifications(order: any, newStatus: string, 
       });
     }
     
-    // Recipient Email Notification (for deliveries) 
-    // Note: Recipients don't have email addresses in our current model - only phone numbers
-    // This would only work if the recipient is the same person as the customer
-    if (statusSetting.recipientEmailEnabled && settings.globalEmailEnabled && fullOrder.recipient && 
-        fullOrder.customer.email && fullOrder.recipient.customerId === fullOrder.customer.id) {
+    // Recipient Email Notification (for deliveries)
+    // NEW: Recipients now have their own email addresses via Customer records!
+    const recipientEmail = fullOrder.recipientCustomer?.email;
+    if (statusSetting.recipientEmailEnabled && settings.globalEmailEnabled && recipientEmail) {
+      const recipientDisplayData = fullOrder.recipientCustomer || fullOrder.recipient;
       notifications.push({
         type: 'status_update',
-        channel: 'email', 
-        recipient: fullOrder.customer.email,
+        channel: 'email',
+        recipient: recipientEmail,
         data: {
           ...templateData,
           subject: statusSetting.recipientEmailSubject,
           template: statusSetting.recipientEmailTemplate,
-          recipientName: `${fullOrder.recipient.firstName} ${fullOrder.recipient.lastName}`.trim()
+          recipientName: recipientDisplayData ? `${recipientDisplayData.firstName} ${recipientDisplayData.lastName}`.trim() : ''
         }
       });
     }
     
     // Recipient SMS Notification (for deliveries)
-    if (statusSetting.recipientSmsEnabled && settings.globalSmsEnabled && fullOrder.recipient?.phone) {
+    // Support both old (recipient.phone) and new (deliveryAddress.phone) formats
+    const recipientPhone = deliveryAddressData?.phone;
+    if (statusSetting.recipientSmsEnabled && settings.globalSmsEnabled && recipientPhone) {
       notifications.push({
         type: 'status_update',
         channel: 'sms',
-        recipient: fullOrder.recipient.phone,
+        recipient: recipientPhone,
         data: {
           ...templateData,
           template: statusSetting.recipientSmsTemplate

@@ -246,8 +246,16 @@ model Customer {
   notes         String?
   homeAddress   Address?  @relation("HomeAddress", fields: [homeAddressId], references: [id])
   homeAddressId String?   @unique
-  addresses     Address[] @relation("RecipientAddresses")
-  orders        Order[]
+  addresses     Address[] @relation("MyAddresses")
+
+  // Order relationships
+  ordersAsBuyer     Order[] @relation("BuyerOrders")
+  ordersAsRecipient Order[] @relation("RecipientOrders")
+
+  // Recipient relationships
+  savedRecipients CustomerRecipient[] @relation("Senders")
+  savedBySenders  CustomerRecipient[] @relation("Recipients")
+
   paymentTransactions PaymentTransaction[]
   providerCustomers ProviderCustomer[]
   events        Event[]   // Wedding/event manager
@@ -256,9 +264,27 @@ model Customer {
   updatedAt DateTime @updatedAt
 }
 
+// Junction table for Customer-to-Customer recipient relationships
+model CustomerRecipient {
+  id          String   @id @default(cuid())
+  senderId    String
+  recipientId String
+
+  sender      Customer @relation("Senders", fields: [senderId], references: [id])
+  recipient   Customer @relation("Recipients", fields: [recipientId], references: [id])
+
+  createdAt   DateTime @default(now())
+
+  @@unique([senderId, recipientId])
+  @@index([senderId])
+  @@index([recipientId])
+  @@map("customer_recipients")
+}
+
 // 🌍 Updated Address model for international support
 model Address {
   id          String       @id @default(cuid())
+  label       String?      // "Home", "Office", "Mom's House", etc.
   firstName   String
   lastName    String
   address1    String
@@ -271,12 +297,13 @@ model Address {
   company     String?      @db.VarChar(255)
   addressType AddressType? @default(RESIDENCE) // Type of delivery location
 
-  customer   Customer? @relation("RecipientAddresses", fields: [customerId], references: [id])
+  customer   Customer? @relation("MyAddresses", fields: [customerId], references: [id])
   customerId String?
 
-  homeOf            Customer? @relation("HomeAddress")
-  ordersAsRecipient Order[]   @relation("OrderRecipient")
-  ordersAsPickup    Order[]   @relation("PickupPerson")
+  homeOf                Customer? @relation("HomeAddress")
+  ordersAsRecipient     Order[]   @relation("OrderRecipient")
+  ordersAsPickup        Order[]   @relation("PickupPerson")
+  ordersDeliveredHere   Order[]   @relation("DeliveryAddress")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt  // Add @default(now()) here
@@ -293,11 +320,20 @@ model Order {
   orderSource OrderSource @default(PHONE)
   images String[] @default([])
 
-  customer   Customer? @relation(fields: [customerId], references: [id])
+  customer   Customer? @relation("BuyerOrders", fields: [customerId], references: [id])
   customerId String?
 
+  // OLD: Kept for backward compatibility during migration
   recipient   Address? @relation("OrderRecipient", fields: [recipientId], references: [id])
   recipientId String?
+
+  // NEW: Recipient as Customer
+  recipientCustomer   Customer? @relation("RecipientOrders", fields: [recipientCustomerId], references: [id])
+  recipientCustomerId String?
+
+  // NEW: Delivery address from recipient's addresses
+  deliveryAddress   Address? @relation("DeliveryAddress", fields: [deliveryAddressId], references: [id])
+  deliveryAddressId String?
 
   pickupPerson   Address? @relation("PickupPerson", fields: [pickupPersonId], references: [id])
   pickupPersonId String?
@@ -316,12 +352,12 @@ model Order {
 
   deliveryFee Float   @default(0)
   discount    Float   @default(0)
-  
+
   // Legacy coupon support (during migration)
   couponCode  String?
   couponId    String?
   coupon      Coupon? @relation(fields: [couponId], references: [id])
-  
+
   // New unified discount support
   discountId  String?
   discountCode String?

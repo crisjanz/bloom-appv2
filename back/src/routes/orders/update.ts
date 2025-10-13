@@ -21,7 +21,14 @@ router.put('/:id/update', async (req, res) => {
         where: { id },
         include: {
           customer: true,
-          recipient: true
+          recipient: true,
+          recipientCustomer: {
+            include: {
+              homeAddress: true,
+              addresses: true,
+            }
+          },
+          deliveryAddress: true
         }
       });
 
@@ -214,6 +221,13 @@ if (updateData.orderItems || updateData.recalculateTotal) {
         include: {
           customer: true,
           recipient: true,
+          recipientCustomer: {
+            include: {
+              homeAddress: true,
+              addresses: true,
+            }
+          },
+          deliveryAddress: true,
           orderItems: true,
           employee: {
             select: {

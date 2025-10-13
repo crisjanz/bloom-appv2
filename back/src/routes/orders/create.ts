@@ -30,12 +30,13 @@ router.post('/create', async (req, res) => {
     for (const orderData of orders) {
       console.log('Creating order for:', orderData.orderType);
       
-      // Use existing recipient ID if provided, otherwise skip recipient creation
-      // Recipients should be created/managed through the customer API, not here
-      let recipientId = orderData.recipientId || null;
-      
-      if (orderData.orderType === 'DELIVERY' && !recipientId) {
-        console.warn('⚠️ Delivery order created without recipientId - recipient should be managed via customer API');
+      // NEW: Support both old (recipientId -> Address) and new (recipientCustomerId + deliveryAddressId -> Customer) format
+      let recipientId = orderData.recipientId || null; // OLD format (backward compatibility)
+      let recipientCustomerId = orderData.recipientCustomerId || null; // NEW format
+      let deliveryAddressId = orderData.deliveryAddressId || null; // NEW format
+
+      if (orderData.orderType === 'DELIVERY' && !recipientId && !recipientCustomerId) {
+        console.warn('⚠️ Delivery order created without recipient - recipient should be managed via customer API');
       }
 
       // Calculate totals
@@ -70,7 +71,9 @@ router.post('/create', async (req, res) => {
           status: OrderStatus.DRAFT, // Start as DRAFT, PT transaction will update to PAID
           orderSource: orderData.orderSource || 'PHONE', // Default to PHONE if not provided
           customerId,
-          recipientId,
+          recipientId, // OLD format (backward compatibility)
+          recipientCustomerId, // NEW format
+          deliveryAddressId, // NEW format
           cardMessage: orderData.cardMessage || null,
           specialInstructions: orderData.deliveryInstructions || null,
           deliveryDate: orderData.deliveryDate
@@ -89,6 +92,13 @@ router.post('/create', async (req, res) => {
         include: {
           orderItems: true,
           recipient: true,
+          recipientCustomer: {
+            include: {
+              homeAddress: true,
+              addresses: true,
+            }
+          },
+          deliveryAddress: true,
           customer: true
         }
       });
@@ -103,13 +113,20 @@ router.post('/create', async (req, res) => {
         // Update order status to PAID
         const updatedOrder = await prisma.order.update({
           where: { id: order.id },
-          data: { 
+          data: {
             status: OrderStatus.PAID,
             updatedAt: new Date()
           },
           include: {
             customer: true,
             recipient: true,
+            recipientCustomer: {
+              include: {
+                homeAddress: true,
+                addresses: true,
+              }
+            },
+            deliveryAddress: true,
             orderItems: {
               include: {
                 product: true
@@ -170,17 +187,25 @@ router.post('/save-draft', async (req, res) => {
     const draftOrders = [];
 
     for (const orderData of orders) {
-      // Use existing recipient ID if provided, otherwise create new recipient
-      let recipientId = orderData.recipientId || null;
-      
+      // NEW: Support both old (recipientId -> Address) and new (recipientCustomerId + deliveryAddressId -> Customer) format
+      let recipientId = orderData.recipientId || null; // OLD format (backward compatibility)
+      let recipientCustomerId = orderData.recipientCustomerId || null; // NEW format
+      let deliveryAddressId = orderData.deliveryAddressId || null; // NEW format
+
       console.log('📦 Processing order:', {
         orderType: orderData.orderType,
         providedRecipientId: orderData.recipientId,
-        finalRecipientId: recipientId
+        providedRecipientCustomerId: orderData.recipientCustomerId,
+        providedDeliveryAddressId: orderData.deliveryAddressId,
+        finalRecipientId: recipientId,
+        finalRecipientCustomerId: recipientCustomerId,
+        finalDeliveryAddressId: deliveryAddressId
       });
-      
-      if (orderData.orderType === 'DELIVERY' && !recipientId) {
-        // Only create new recipient if no recipientId was provided
+
+      // DEPRECATED: Old address creation - kept for backward compatibility
+      // TODO: Remove once frontend is updated to use new Customer-based recipient system
+      if (orderData.orderType === 'DELIVERY' && !recipientId && !recipientCustomerId) {
+        // Only create new recipient if no recipientId/recipientCustomerId was provided
         const recipient = await prisma.address.create({
           data: {
             firstName: orderData.recipientFirstName,
@@ -227,7 +252,9 @@ router.post('/save-draft', async (req, res) => {
           type: orderData.orderType,
           status: OrderStatus.DRAFT,
           customerId,
-          recipientId,
+          recipientId, // OLD format (backward compatibility)
+          recipientCustomerId, // NEW format
+          deliveryAddressId, // NEW format
           cardMessage: orderData.cardMessage || null,
           specialInstructions: orderData.deliveryInstructions || null,
           deliveryDate: orderData.deliveryDate
@@ -246,6 +273,13 @@ router.post('/save-draft', async (req, res) => {
         include: {
           orderItems: true,
           recipient: true,
+          recipientCustomer: {
+            include: {
+              homeAddress: true,
+              addresses: true,
+            }
+          },
+          deliveryAddress: true,
           customer: true
         }
       });

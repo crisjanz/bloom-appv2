@@ -12,6 +12,7 @@ export interface Customer {
 
 export interface Address {
   id: string;
+  label?: string; // Custom label like "Home", "Office", "Mom's House"
   firstName: string;
   lastName: string;
   address1: string;
@@ -22,6 +23,7 @@ export interface Address {
   country: string;
   phone?: string;
   company?: string;
+  addressType?: string; // RESIDENCE, BUSINESS, etc. - for delivery calculations
   customerId?: string;
   createdAt?: string;
   updatedAt?: string;

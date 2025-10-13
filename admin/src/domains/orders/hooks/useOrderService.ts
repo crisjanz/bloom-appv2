@@ -854,30 +854,83 @@ export const useOrderPayments = () => {
         throw new Error('Customer information is required');
       }
 
-      // Create/update recipients for delivery orders
+      // NEW: Create/update recipients for delivery orders
       const ordersWithRecipientIds = await Promise.all(
         orderState.orders.map(async (order: any) => {
           if (order.orderType === 'DELIVERY') {
-            const recipientResponse = await fetch(`/api/customers/${currentCustomerId}/recipients`, {
+            // If order has recipientCustomerId (from phone-first lookup or "Use Customer's Name"), use that
+            if (order.recipientCustomerId && order.selectedAddressId) {
+              console.log('✓ POS Transfer using existing customer-based recipient:', order.recipientCustomerId);
+              return {
+                ...order,
+                recipientCustomerId: order.recipientCustomerId,
+                deliveryAddressId: order.selectedAddressId,
+                recipientId: undefined // Don't use old format
+              };
+            }
+
+            // NEW FLOW: Always create Customer for new recipients
+            console.log('✓ POS Transfer creating new customer-based recipient');
+
+            // Create new customer as recipient
+            const createCustomerResponse = await fetch('/api/customers', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                firstName: order.recipientFirstName,
-                lastName: order.recipientLastName,
+                firstName: order.recipientFirstName.trim(),
+                lastName: order.recipientLastName.trim(),
                 phone: cleanPhoneNumber(order.recipientPhone),
-                address1: order.recipientAddress.address1,
-                address2: order.recipientAddress.address2,
-                city: order.recipientAddress.city,
-                province: order.recipientAddress.province,
-                postalCode: order.recipientAddress.postalCode,
-                country: order.recipientAddress.country || "CA",
-                company: order.recipientCompany,
-                addressType: order.recipientAddressType || "RESIDENCE",
-              })
+                email: '', // Recipients don't need email initially
+              }),
             });
 
-            const recipient = await recipientResponse.json();
-            return { ...order, recipientId: recipient.id };
+            if (!createCustomerResponse.ok) {
+              throw new Error('Failed to create recipient customer');
+            }
+
+            const newCustomer = await createCustomerResponse.json();
+
+            // Create address for this customer
+            const createAddressResponse = await fetch(`/api/customers/${newCustomer.id}/addresses`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                label: order.recipientAddressLabel?.trim() || 'Home',
+                firstName: order.recipientFirstName.trim(),
+                lastName: order.recipientLastName.trim(),
+                phone: cleanPhoneNumber(order.recipientPhone),
+                address1: order.recipientAddress.address1.trim(),
+                address2: order.recipientAddress.address2?.trim() || '',
+                city: order.recipientAddress.city.trim(),
+                province: order.recipientAddress.province,
+                postalCode: order.recipientAddress.postalCode.trim(),
+                country: order.recipientAddress.country || 'CA',
+                company: order.recipientCompany?.trim() || '',
+                addressType: order.recipientAddressType || 'RESIDENCE',
+              }),
+            });
+
+            if (!createAddressResponse.ok) {
+              throw new Error('Failed to create recipient address');
+            }
+
+            const newAddress = await createAddressResponse.json();
+
+            // Link as recipient
+            await fetch(`/api/customers/${currentCustomerId}/save-recipient`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                recipientCustomerId: newCustomer.id
+              }),
+            });
+
+            return {
+              ...order,
+              recipientCustomerId: newCustomer.id,
+              deliveryAddressId: newAddress.id,
+              recipientId: undefined // Don't use old format
+            };
           }
           return order;
         })
@@ -990,36 +1043,84 @@ export const useOrderPayments = () => {
         };
       }
 
-      // Create/update recipients for delivery orders
+      // NEW: Create/update recipients for delivery orders
       const ordersWithRecipientIds = await Promise.all(
         orderState.orders.map(async (order: any) => {
           if (order.orderType === 'DELIVERY') {
             try {
-              // Use customer recipient API to create/update recipient
-              const recipientResponse = await fetch(`/api/customers/${currentCustomerId}/recipients`, {
+              // If order has recipientCustomerId (from phone-first lookup or "Use Customer's Name"), use that
+              if (order.recipientCustomerId && order.selectedAddressId) {
+                console.log('✓ Using existing customer-based recipient:', order.recipientCustomerId);
+                return {
+                  ...order,
+                  recipientCustomerId: order.recipientCustomerId,
+                  deliveryAddressId: order.selectedAddressId,
+                  recipientId: undefined // Don't use old format
+                };
+              }
+
+              // NEW FLOW: Always create Customer for new recipients
+              console.log('✓ Creating new customer-based recipient');
+
+              // Create new customer as recipient
+              const createCustomerResponse = await fetch('/api/customers', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  firstName: order.recipientFirstName,
-                  lastName: order.recipientLastName,
+                  firstName: order.recipientFirstName.trim(),
+                  lastName: order.recipientLastName.trim(),
                   phone: cleanPhoneNumber(order.recipientPhone),
-                  address1: order.recipientAddress.address1,
-                  address2: order.recipientAddress.address2,
-                  city: order.recipientAddress.city,
-                  province: order.recipientAddress.province,
-                  postalCode: order.recipientAddress.postalCode,
-                  country: order.recipientAddress.country || "CA",
-                  company: order.recipientCompany,
-                  addressType: order.recipientAddressType || "RESIDENCE",
-                })
+                  email: '', // Recipients don't need email initially
+                }),
               });
 
-              if (!recipientResponse.ok) {
-                throw new Error('Failed to create recipient');
+              if (!createCustomerResponse.ok) {
+                throw new Error('Failed to create recipient customer');
               }
 
-              const recipient = await recipientResponse.json();
-              return { ...order, recipientId: recipient.id };
+              const newCustomer = await createCustomerResponse.json();
+
+              // Create address for this customer
+              const createAddressResponse = await fetch(`/api/customers/${newCustomer.id}/addresses`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  label: order.recipientAddressLabel?.trim() || 'Home',
+                  firstName: order.recipientFirstName.trim(),
+                  lastName: order.recipientLastName.trim(),
+                  phone: cleanPhoneNumber(order.recipientPhone),
+                  address1: order.recipientAddress.address1.trim(),
+                  address2: order.recipientAddress.address2?.trim() || '',
+                  city: order.recipientAddress.city.trim(),
+                  province: order.recipientAddress.province,
+                  postalCode: order.recipientAddress.postalCode.trim(),
+                  country: order.recipientAddress.country || 'CA',
+                  company: order.recipientCompany?.trim() || '',
+                  addressType: order.recipientAddressType || 'RESIDENCE',
+                }),
+              });
+
+              if (!createAddressResponse.ok) {
+                throw new Error('Failed to create recipient address');
+              }
+
+              const newAddress = await createAddressResponse.json();
+
+              // Link as recipient
+              await fetch(`/api/customers/${currentCustomerId}/save-recipient`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  recipientCustomerId: newCustomer.id
+                }),
+              });
+
+              return {
+                ...order,
+                recipientCustomerId: newCustomer.id,
+                deliveryAddressId: newAddress.id,
+                recipientId: undefined // Don't use old format
+              };
             } catch (error) {
               console.error('❌ Recipient creation failed:', error);
               throw error;
