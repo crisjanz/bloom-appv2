@@ -14,6 +14,7 @@ import StatusBadge from '@app/components/orders/StatusBadge';
 import ReportMetricCard from '@app/components/reports/ReportMetricCard';
 import SalesTrendChart from '@app/components/reports/SalesTrendChart';
 import BreakdownList from '@app/components/reports/BreakdownList';
+import SalesReportPrintView from '@app/components/reports/SalesReportPrintView';
 import { getMonthRange, getTodayRange, getWeekRange } from '@app/components/reports/dateUtils';
 import { useSalesReports } from '@domains/reports/hooks/useSalesReports';
 import type { SalesOrder } from '@domains/reports/types';
@@ -228,106 +229,155 @@ const SalesReportPage: React.FC = () => {
     );
   };
 
+  const handlePrint = () => {
+    if (typeof document === 'undefined') return;
+
+    const body = document.body;
+    const mediaQuery = window.matchMedia('print');
+    let removeMediaListener: (() => void) | null = null;
+
+    const cleanup = () => {
+      body.classList.remove('print-mode');
+      window.removeEventListener('afterprint', cleanup);
+      if (removeMediaListener) {
+        removeMediaListener();
+        removeMediaListener = null;
+      }
+    };
+
+    body.classList.add('print-mode');
+
+    const mediaListener = (event: MediaQueryListEvent) => {
+      if (!event.matches) {
+        cleanup();
+      }
+    };
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', mediaListener);
+      removeMediaListener = () => mediaQuery.removeEventListener('change', mediaListener);
+    } else if (mediaQuery.addListener) {
+      mediaQuery.addListener(mediaListener);
+      removeMediaListener = () => mediaQuery.removeListener(mediaListener);
+    }
+
+    window.addEventListener('afterprint', cleanup);
+    window.print();
+
+    setTimeout(() => {
+      if (body.classList.contains('print-mode')) {
+        cleanup();
+      }
+    }, 2000);
+  };
+
   return (
-    <div className="space-y-6">
-      <PageBreadcrumb />
-
-      <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Sales Report</h1>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
-          Analyze order performance, track sales totals, and review payment trends.
-        </p>
-      </div>
-
-      <ComponentCard title="Filters">
-        <div className="flex flex-col gap-6">
-          <div className="flex flex-wrap gap-2">
-            {(['TODAY', 'WEEK', 'MONTH', 'CUSTOM'] as DatePreset[]).map((preset) => (
-              <button
-                key={preset}
-                type="button"
-                onClick={() => handlePresetChange(preset)}
-                className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-                  datePreset === preset
-                    ? 'border-[#597485] bg-[#597485] text-white'
-                    : 'border-gray-300 text-gray-700 hover:border-[#597485] hover:text-[#597485]'
-                }`}
-              >
-                {preset === 'TODAY'
-                  ? 'Today'
-                  : preset === 'WEEK'
-                  ? 'Last 7 Days'
-                  : preset === 'MONTH'
-                  ? 'This Month'
-                  : 'Custom'}
-              </button>
-            ))}
-            <div className="flex-1" />
-            <button
-              type="button"
-              onClick={() => refreshAll()}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-[#597485] transition-colors hover:border-[#597485] hover:bg-[#597485]/10"
-            >
-              Refresh
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <div className="space-y-1">
-              <Label>Date From</Label>
-              <input
-                type="date"
-                value={customStartDate}
-                max={customEndDate}
-                onChange={(event) => handleCustomStartChange(event.target.value)}
-                className="h-11 w-full rounded-lg border border-gray-300 px-3 text-sm shadow-sm focus:border-[#597485] focus:outline-none focus:ring-2 focus:ring-[#597485]/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>Date To</Label>
-              <input
-                type="date"
-                value={customEndDate}
-                min={customStartDate}
-                onChange={(event) => handleCustomEndChange(event.target.value)}
-                className="h-11 w-full rounded-lg border border-gray-300 px-3 text-sm shadow-sm focus:border-[#597485] focus:outline-none focus:ring-2 focus:ring-[#597485]/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>Payment Method</Label>
-              <Select
-                options={paymentOptions}
-                value={filters.paymentMethod ?? 'ALL'}
-                onChange={handlePaymentMethodChange}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>Status</Label>
-              <Select
-                options={backendStatusOptions}
-                value={filters.status ?? 'ALL'}
-                onChange={handleStatusChange}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-2 lg:col-span-1">
-              <Label>Order Source</Label>
-              <Select
-                options={sourceOptions.length > 1 ? sourceOptions : [{ value: 'ALL', label: 'All Sources' }]}
-                value={filters.orderSource ?? 'ALL'}
-                onChange={handleSourceChange}
-              />
-            </div>
-          </div>
-
-          {(summaryError || ordersError) && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {summaryError || ordersError}
-            </div>
-          )}
+    <div>
+      <div className="space-y-6">
+        <PageBreadcrumb />
+        <div className="flex flex-col gap-2">
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Sales Report</h1>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Analyze order performance, track sales totals, and review payment trends.
+          </p>
         </div>
-      </ComponentCard>
 
-      <ComponentCard title="Key Metrics">
+        <ComponentCard title="Filters">
+          <div className="flex flex-col gap-6">
+            <div className="flex flex-wrap gap-2">
+              {(['TODAY', 'WEEK', 'MONTH', 'CUSTOM'] as DatePreset[]).map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => handlePresetChange(preset)}
+                  className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                    datePreset === preset
+                      ? 'border-[#597485] bg-[#597485] text-white'
+                      : 'border-gray-300 text-gray-700 hover:border-[#597485] hover:text-[#597485]'
+                  }`}
+                >
+                  {preset === 'TODAY'
+                    ? 'Today'
+                    : preset === 'WEEK'
+                    ? 'Last 7 Days'
+                    : preset === 'MONTH'
+                    ? 'This Month'
+                    : 'Custom'}
+                </button>
+              ))}
+              <div className="flex-1" />
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="rounded-lg border border-[#597485] px-4 py-2 text-sm font-medium text-[#597485] transition-colors hover:bg-[#597485]/10"
+              >
+                Print Report
+              </button>
+              <button
+                type="button"
+                onClick={() => refreshAll()}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-[#597485] transition-colors hover:border-[#597485] hover:bg-[#597485]/10"
+              >
+                Refresh
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <div className="space-y-1">
+                <Label>Date From</Label>
+                <input
+                  type="date"
+                  value={customStartDate}
+                  max={customEndDate}
+                  onChange={(event) => handleCustomStartChange(event.target.value)}
+                  className="h-11 w-full rounded-lg border border-gray-300 px-3 text-sm shadow-sm focus:border-[#597485] focus:outline-none focus:ring-2 focus:ring-[#597485]/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Date To</Label>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  min={customStartDate}
+                  onChange={(event) => handleCustomEndChange(event.target.value)}
+                  className="h-11 w-full rounded-lg border border-gray-300 px-3 text-sm shadow-sm focus:border-[#597485] focus:outline-none focus:ring-2 focus:ring-[#597485]/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Payment Method</Label>
+                <Select
+                  options={paymentOptions}
+                  value={filters.paymentMethod ?? 'ALL'}
+                  onChange={handlePaymentMethodChange}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Status</Label>
+                <Select
+                  options={backendStatusOptions}
+                  value={filters.status ?? 'ALL'}
+                  onChange={handleStatusChange}
+                />
+              </div>
+              <div className="space-y-1 md:col-span-2 lg:col-span-1">
+                <Label>Order Source</Label>
+                <Select
+                  options={sourceOptions.length > 1 ? sourceOptions : [{ value: 'ALL', label: 'All Sources' }]}
+                  value={filters.orderSource ?? 'ALL'}
+                  onChange={handleSourceChange}
+                />
+              </div>
+            </div>
+
+            {(summaryError || ordersError) && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {summaryError || ordersError}
+              </div>
+            )}
+          </div>
+        </ComponentCard>
+
+        <ComponentCard title="Key Metrics">
         {summaryLoading && !summaryData ? (
           <div className="flex h-32 items-center justify-center">
             <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-[#597485]" />
@@ -425,6 +475,12 @@ const SalesReportPage: React.FC = () => {
           </p>
         )}
       </ComponentCard>
+      </div>
+      <SalesReportPrintView
+        summary={summary ?? null}
+        orders={orders}
+        filters={filters}
+      />
     </div>
   );
 };

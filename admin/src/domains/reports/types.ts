@@ -59,6 +59,10 @@ export interface SalesOrder {
   deliveryFee: number;
   discount: number;
   totalTax: number;
+  taxBreakdown?: Array<{
+    name: string;
+    amount: number;
+  }>;
   customer: SalesOrderCustomer | null;
   orderItems: SalesOrderItem[];
 }
