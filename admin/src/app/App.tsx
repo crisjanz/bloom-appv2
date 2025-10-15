@@ -52,6 +52,8 @@ import EventsListPage from "./pages/events/EventsListPage";
 import CreateEventPage from "./pages/events/CreateEventPage";
 import EventDetailPage from "./pages/events/EventDetailPage";
 import EventPaymentsPage from "./pages/events/EventPaymentsPage";
+import SalesReportPage from "./pages/reports/SalesReportPage";
+import TaxExportPage from "./pages/reports/TaxExportPage";
 
 export default function App() {
   return (
@@ -117,6 +119,10 @@ export default function App() {
             <Route path="events/new" element={<CreateEventPage />} />
             <Route path="events/:id" element={<EventDetailPage />} />
             <Route path="events/:id/payments" element={<EventPaymentsPage />} />
+            
+            {/* Reports */}
+            <Route path="reports/sales" element={<SalesReportPage />} />
+            <Route path="reports/tax-export" element={<TaxExportPage />} />
 
             {/* Settings routes */}
             <Route path="settings" element={<SettingsIndexPage />} />

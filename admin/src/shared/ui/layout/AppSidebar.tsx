@@ -65,6 +65,14 @@ const navItems: NavItem[] = [
     ],
   },
   {
+    icon: <PieChartIcon />,
+    name: "Reports",
+    subItems: [
+      { name: "Sales Overview", path: "/reports/sales", pro: false, icon: <PieChartIcon /> },
+      { name: "Tax Export", path: "/reports/tax-export", pro: false, icon: <TableIcon /> },
+    ],
+  },
+  {
     name: "Delivery",
     icon: <TruckIcon />,
     path: "/delivery",

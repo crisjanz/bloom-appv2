@@ -190,6 +190,14 @@ Todos are grouped by feature and sorted by priority within each group. Partially
 - [ ] Add store credit issuance and redemption (Future).
 - [ ] Implement employee discount tracking (Future).
 
+## Reporting & Analytics
+### High Priority
+- [x] **Launch Sales & Tax Reporting MVP** (Phase 1 Complete)
+  - ✅ Added reporting domain types, service layer, and hooks to consume `/api/reports` endpoints
+  - ✅ Built `SalesReportPage` with date presets, filters, KPI cards, Apex trend chart, and paginated order table
+  - ✅ Built `TaxExportPage` with validated range selector, totals preview, detailed order table, and CSV export workflow
+  - ✅ Updated router and sidebar navigation so reports are available from the admin shell
+
 ## Settings System
 ### High Priority
 - [x] **Develop centralized tax system for any number of tax rates** (Completed 2025-06-18)
