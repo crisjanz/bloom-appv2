@@ -7,7 +7,7 @@ import React from "react";
 import { LoadScript } from '@react-google-maps/api';
 
 const libraries: ("places" | "geometry")[] = ["places", "geometry"];
-const GOOGLE_MAPS_API_KEY = "AIzaSyB550tfeabwT0zRGecbLdmoITNsYoP2AIg";
+const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
 interface GoogleMapsProviderProps {
   children: React.ReactNode;
@@ -15,7 +15,7 @@ interface GoogleMapsProviderProps {
 
 export default function GoogleMapsProvider({ children }: GoogleMapsProviderProps) {
   return (
-    <LoadScript googleMapsApiKey={GOOGLE_MAPS_API_KEY} libraries={libraries}>
+    <LoadScript googleMapsApiKey={googleMapsApiKey ?? ''} libraries={libraries}>
       {children}
     </LoadScript>
   );

@@ -281,7 +281,7 @@ const TaxExportPage: React.FC = () => {
                         {formatCurrency(row.total)}
                       </TableCell>
                       <TableCell className="text-sm text-gray-700 dark:text-gray-200">
-                        {formatLabel(row.paymentMethod)}
+                        {row.paymentMethod || 'No Payments'}
                       </TableCell>
                       <TableCell className="text-sm text-gray-700 dark:text-gray-200">
                         {formatLabel(row.orderSource)}

@@ -1,6 +1,8 @@
 // src/config/maps.ts
+const mapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+
 export const GOOGLE_MAPS_CONFIG = {
-  apiKey: process.env.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyB550tfeabwT0zRGecbLdmoITNsYoP2AIg",
+  apiKey: mapsApiKey,
   libraries: ["places", "geometry"] as ("places" | "geometry")[],
   defaultCenter: {
     lat: 53.9171, // Prince George, BC

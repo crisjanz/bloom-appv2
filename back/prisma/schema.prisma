@@ -368,13 +368,16 @@ model Order {
   taxBreakdown  Json    @default("[]") // Array of {name: string, rate: number, amount: number}
   totalTax      Float   @default(0)    // Sum of all tax amounts
   paymentAmount Float   @default(0)
-  paymentMethod String?
 
   // Payment transaction links
   orderPayments OrderPayment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([createdAt])
+  @@index([status])
+  @@index([orderSource])
 }
 
 model OrderItem {
@@ -860,8 +863,11 @@ model PaymentTransaction {
   paymentMethods  PaymentMethod[]
   orderPayments   OrderPayment[]
   refunds         Refund[]
-  
+
   @@map("payment_transactions")
+  @@index([createdAt])
+  @@index([status])
+  @@index([customerId])
 }
 
 model PaymentMethod {

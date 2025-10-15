@@ -16,6 +16,7 @@ import SalesTrendChart from '@app/components/reports/SalesTrendChart';
 import BreakdownList from '@app/components/reports/BreakdownList';
 import SalesReportPrintView from '@app/components/reports/SalesReportPrintView';
 import { getMonthRange, getTodayRange, getWeekRange } from '@app/components/reports/dateUtils';
+import { DEFAULT_PAYMENT_METHOD_KEYS, formatPaymentMethodKeyLabel, summarizePaymentMethods } from '@app/components/reports/paymentUtils';
 import { useSalesReports } from '@domains/reports/hooks/useSalesReports';
 import type { SalesOrder } from '@domains/reports/types';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
@@ -33,8 +34,6 @@ const backendStatusOptions = [
   { value: 'CANCELLED', label: 'Cancelled' },
   { value: 'REJECTED', label: 'Rejected' }
 ];
-
-const defaultPaymentMethods = ['CASH', 'STRIPE', 'SQUARE', 'GIFT_CARD', 'POS', 'SEND_TO_POS'];
 
 const formatCurrencyFromCents = (amount?: number, emptyValue = '$0.00') => {
   if (amount === undefined || amount === null) return emptyValue;
@@ -87,20 +86,24 @@ const SalesReportPage: React.FC = () => {
   const summaryData = summary?.summary;
 
   const paymentOptions = useMemo(() => {
-    const entries = new Set<string>();
-    defaultPaymentMethods.forEach((method) => entries.add(method));
+    const keys = new Set<string>();
+    DEFAULT_PAYMENT_METHOD_KEYS.forEach((key) => keys.add(key));
 
     if (summary?.paymentBreakdown) {
-      Object.keys(summary.paymentBreakdown).forEach((key) => entries.add(key || 'UNKNOWN'));
+      Object.keys(summary.paymentBreakdown).forEach((key) => {
+        if (key) {
+          keys.add(key);
+        }
+      });
     }
 
     return [
       { value: 'ALL', label: 'All Methods' },
-      ...Array.from(entries)
-        .filter((value) => value)
+      ...Array.from(keys)
+        .filter((value) => value && value !== 'ALL')
         .map((value) => ({
           value,
-          label: formatLabel(value)
+          label: formatPaymentMethodKeyLabel(value)
         }))
         .sort((a, b) => a.label.localeCompare(b.label))
     ];
@@ -218,7 +221,7 @@ const SalesReportPage: React.FC = () => {
           <StatusBadge status={status} />
         </TableCell>
         <TableCell className="text-sm text-gray-700 dark:text-gray-200">
-          {formatLabel(order.paymentMethod || 'Unknown')}
+          {summarizePaymentMethods(order.paymentMethods, 'No Payments')}
         </TableCell>
         <TableCell className="text-sm text-gray-700 dark:text-gray-200">
           {formatLabel(order.orderSource || 'Unknown')}

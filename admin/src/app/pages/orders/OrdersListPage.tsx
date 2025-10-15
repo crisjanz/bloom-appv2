@@ -334,7 +334,9 @@ const OrdersListPage: React.FC = () => {
                       </TableCell>
 
                       <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                        {order.customer.firstName} {order.customer.lastName}
+                        {order.customer
+                          ? `${order.customer.firstName ?? ''} ${order.customer.lastName ?? ''}`.trim() || 'Guest'
+                          : 'Guest'}
                       </TableCell>
 
                       <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">

@@ -48,13 +48,20 @@ export interface SalesOrderCustomer {
   phone?: string | null;
 }
 
+export interface SalesOrderPaymentMethod {
+  key: string;
+  type: string;
+  provider: string | null;
+  amount: number;
+  displayName: string;
+}
+
 export interface SalesOrder {
   id: string;
   orderNumber: number;
   createdAt: string;
   status: string;
   paymentAmount: number;
-  paymentMethod: string | null;
   orderSource: string | null;
   deliveryFee: number;
   discount: number;
@@ -63,6 +70,8 @@ export interface SalesOrder {
     name: string;
     amount: number;
   }>;
+  paymentMethods: SalesOrderPaymentMethod[];
+  paymentSummary: string;
   customer: SalesOrderCustomer | null;
   orderItems: SalesOrderItem[];
 }

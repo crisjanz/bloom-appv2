@@ -1,5 +1,3 @@
-export const GOOGLE_MAPS_API_KEY = 'AIzaSyB550tfeabwT0zRGecbLdmoITNsYoP2AIg';
-
 // Store Configuration
 export const STORE_CONFIG = {
   storeName: "Bloom Flower Shop",

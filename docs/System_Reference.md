@@ -1403,6 +1403,8 @@ enum TransactionStatus {
 }
 ```
 
+> **Note:** The legacy `Order.paymentMethod` field has been removed. All payment-type reporting now derives from `payment_transactions` and their related `payment_methods`, ensuring split payments and multi-provider data stay accurate.
+
 #### PaymentMethod
 ```prisma
 model PaymentMethod {

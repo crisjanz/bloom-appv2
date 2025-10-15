@@ -6,6 +6,7 @@ import type {
   SalesReportFilters
 } from '@domains/reports/types';
 import type { OrderStatus } from '@shared/utils/orderStatusHelpers';
+import { formatPaymentMethodKeyLabel, summarizePaymentMethods } from '@app/components/reports/paymentUtils';
 
 const formatCurrencyFromCents = (amount?: number, emptyValue = '$0.00') => {
   if (amount === undefined || amount === null) {
@@ -138,9 +139,9 @@ const SalesReportPrintView: React.FC<SalesReportPrintViewProps> = ({
           </div>
         </div>
         <div className="mt-2 flex flex-wrap gap-2 text-[10px] uppercase tracking-wide text-gray-600">
-          {filters.paymentMethod && (
+          {filters.paymentMethod && filters.paymentMethod !== 'ALL' && (
             <span className="rounded border border-gray-300 px-2 py-[2px]">
-              Payment: {formatLabel(filters.paymentMethod)}
+              Payment: {formatPaymentMethodKeyLabel(filters.paymentMethod)}
             </span>
           )}
           {filters.status && (
@@ -238,16 +239,18 @@ const SalesReportPrintView: React.FC<SalesReportPrintViewProps> = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.entries(breakdownEntries)
-                    .sort(([, a], [, b]) => b.amount - a.amount)
-                    .map(([key, value]) => (
-                      <tr key={key}>
-                        <td className="border-t border-gray-200 px-2 py-1">{formatLabel(key)}</td>
-                        <td className="border-t border-gray-200 px-2 py-1 text-right">
-                          {formatCurrencyFromCents(value.amount)}
-                        </td>
-                        <td className="border-t border-gray-200 px-2 py-1 text-right">{value.count}</td>
-                      </tr>
+                    {Object.entries(breakdownEntries)
+                      .sort(([, a], [, b]) => b.amount - a.amount)
+                      .map(([key, value]) => (
+                        <tr key={key}>
+                          <td className="border-t border-gray-200 px-2 py-1">
+                            {formatPaymentMethodKeyLabel(key)}
+                          </td>
+                          <td className="border-t border-gray-200 px-2 py-1 text-right">
+                            {formatCurrencyFromCents(value.amount)}
+                          </td>
+                          <td className="border-t border-gray-200 px-2 py-1 text-right">{value.count}</td>
+                        </tr>
                     ))}
                 </tbody>
               </table>
@@ -348,7 +351,7 @@ const SalesReportPrintView: React.FC<SalesReportPrintViewProps> = ({
                     {formatLabel(status)}
                   </td>
                   <td className="border-t border-gray-200 px-2 py-1 whitespace-nowrap">
-                    {formatLabel(order.paymentMethod)}
+                    {summarizePaymentMethods(order.paymentMethods, order.paymentSummary)}
                   </td>
                   <td className="border-t border-gray-200 px-2 py-1 whitespace-nowrap">
                     {formatLabel(order.orderSource)}

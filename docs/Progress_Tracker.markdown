@@ -66,6 +66,10 @@ Todos are grouped by feature and sorted by priority within each group. Partially
   - ✅ Only closes on successful coupon application
   - ✅ Allows employees to correct invalid codes without reopening modal
   - ✅ Improved user experience with proper async validation handling
+- [x] **Migrate reporting to PT-XXXX payment transactions** (Completed 2025-06-24)
+  - ✅ Sales summaries and CSV exports now aggregate from `payment_transactions`/`payment_methods`
+  - ✅ Removed legacy `Order.paymentMethod` field from Prisma schema and frontend types
+  - ✅ UI shows accurate payment labels for filters, tables, and print views
 - [x] **Implement unified discount system and product variants** (Completed 2025-06-21)
   - ✅ Built comprehensive unified discount system replacing legacy coupon system
   - ✅ Created TailAdmin-compliant discount manager with progressive disclosure UI
