@@ -1,13 +1,14 @@
 // components/pos/payment/PaymentMethodGrid.tsx - Using centralized payment methods config
-import { FC, useState, useEffect } from "react";
-import { getPaymentMethods } from "@shared/utils/paymentMethods";
+import { FC, useEffect, useState, useMemo } from "react";
+import { getPaymentMethods, getPaymentMethodsWithOptions, PaymentMethodConfig } from "@shared/utils/paymentMethods";
 import GiftCardInput from "../../orders/payment/GiftCardInput";
 import CouponInput from "../../orders/payment/CouponInput";
 import DiscountModal from "./DiscountModal";
+import usePaymentSettingsConfig from "@domains/payments/hooks/usePaymentSettingsConfig";
 
 type Props = {
   selectedMethod: string;
-  onSelect: (method: string) => void;
+  onSelect: (method: PaymentMethodConfig) => void;
   total: number;
   // Existing coupon/gift card state
   couponCode: string;
@@ -41,7 +42,21 @@ const PaymentMethodGrid: FC<Props> = ({
   onCouponAdd
 }) => {
   // Get POS payment methods from centralized config
-  const posPaymentMethods = getPaymentMethods('pos');
+  const { settings: paymentSettings, offlineMethods, refresh } = usePaymentSettingsConfig();
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    refresh();
+  }, [refresh]);
+
+  const posPaymentMethods = useMemo(() => {
+    if (paymentSettings) {
+      return getPaymentMethodsWithOptions('pos', {
+        builtIn: paymentSettings.builtInMethods,
+        offlineMethods,
+      });
+    }
+    return getPaymentMethods('pos');
+  }, [paymentSettings, offlineMethods]);
   const [showDiscountModal, setShowDiscountModal] = useState(false);
   const [showGiftCardModal, setShowGiftCardModal] = useState(false);
   const [showCouponModal, setShowCouponModal] = useState(false);
@@ -59,7 +74,7 @@ const PaymentMethodGrid: FC<Props> = ({
               return (
                 <button
                   key={method.id}
-                  onClick={() => onSelect(method.id)}
+                  onClick={() => onSelect(method)}
                   className={`relative w-full h-24 flex flex-col justify-center items-center rounded-xl border-2 shadow-md transition-all hover:shadow-xl
                     ${
                       isSelected

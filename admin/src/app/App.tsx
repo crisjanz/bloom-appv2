@@ -54,6 +54,7 @@ import EventDetailPage from "./pages/events/EventDetailPage";
 import EventPaymentsPage from "./pages/events/EventPaymentsPage";
 import SalesReportPage from "./pages/reports/SalesReportPage";
 import TaxExportPage from "./pages/reports/TaxExportPage";
+import TransactionsReportPage from "./pages/reports/TransactionsReportPage";
 
 export default function App() {
   return (
@@ -123,6 +124,7 @@ export default function App() {
             {/* Reports */}
             <Route path="reports/sales" element={<SalesReportPage />} />
             <Route path="reports/tax-export" element={<TaxExportPage />} />
+            <Route path="reports/transactions" element={<TransactionsReportPage />} />
 
             {/* Settings routes */}
             <Route path="settings" element={<SettingsIndexPage />} />

@@ -132,6 +132,99 @@ Create new **TakeOrderFlowPage** that combines the prototype's clean stepwise UX
 
 ---
 
+### Sales & Tax Reporting System
+
+**Status:** Phase 1 in Development
+**Estimated Time:** 2-3 days (Phase 1)
+**Priority:** High
+
+#### Overview
+Build a practical sales and tax reporting system that works with the current schema, focusing on real operational needs without over-engineering.
+
+#### Phased Approach
+
+**Phase 1: MVP Reports (2-3 days) - IN PROGRESS**
+- Sales Dashboard: Total Sales, Order Count, Average Order Value KPIs
+- Date range filtering (Today, This Week, This Month, Custom)
+- Payment method and status filters
+- Simple daily sales trend chart
+- Tax export to CSV (Order #, Date, Subtotal, GST, PST, Total, Payment Method)
+- Real-time queries (no caching yet)
+- Works with existing schema
+
+**Phase 2: Production Features (2-3 days) - FUTURE**
+- Monthly caching with watermarking
+- PDF exports
+- Soft-close workflow for periods
+- Month-to-month comparisons
+- Performance optimizations
+
+**Phase 3: Advanced Accounting (3-4 days) - FUTURE**
+- Hard-close with adjustment entries
+- Cash drawer reconciliation
+- Petty cash tracking
+- Full audit log
+- Revision history
+
+**Phase 4: Product & Inventory (Requires New Tables) - FUTURE**
+- Product catalog table
+- Product performance reports
+- Category analytics
+- Inventory tracking
+- Customer lifetime value analytics
+
+#### Database Changes (Phase 1)
+
+**Indexes for Performance:**
+```sql
+CREATE INDEX idx_orders_created_at ON "Order"(created_at);
+CREATE INDEX idx_orders_status ON "Order"(status);
+CREATE INDEX idx_payment_transactions_created_at ON "PaymentTransaction"(created_at);
+```
+
+**Optional Field (for easier reporting):**
+```prisma
+reportingMonth String? // "YYYY-MM" - populated on order creation
+```
+
+#### API Endpoints (Phase 1)
+
+- `GET /api/reports/sales/summary` - Aggregated sales data with filters
+- `GET /api/reports/sales/orders` - Filtered order list for detailed view
+- `GET /api/reports/tax/export` - Generate tax CSV export
+
+#### Key Design Decisions
+
+**No Period Locking (Phase 1):**
+- Admins can edit any order anytime
+- Reports always show current state
+- Simpler to implement and understand
+
+**No Caching (Phase 1):**
+- Real-time queries fast enough for <10k orders/month
+- Add caching only if performance becomes an issue
+
+**CSV Only (Phase 1):**
+- Excel/Google Sheets compatible
+- Easy to implement
+- Add PDF in Phase 2 if needed
+
+**Limitations Accepted:**
+- No product-specific reports (requires Product catalog table)
+- Payment breakdown approximate (links via customerId)
+- No month comparison (add in Phase 2)
+
+#### Why Not Product Reports Yet?
+
+Current system uses `OrderItem.customName` (freeform text) instead of linking to a Product catalog. This means:
+- "Red Roses Bouquet" and "red roses bouquet" are different entries
+- Can't aggregate "How many Red Rose Bouquets sold this month?"
+- Product reports require a `Product` table first (future enhancement)
+
+Sales total reports work fine without this!
+
+---
+
 ## ⚠️ Known Limitations & Issues to Address
 
 ### Critical: Timezone Handling

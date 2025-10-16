@@ -18,6 +18,28 @@ export interface PaymentMethodConfig {
   description?: string;
   isCustom?: boolean;
   sortOrder: number;
+  offlineId?: string;
+  meta?: Record<string, any>;
+}
+
+export interface GetPaymentMethodsOptions {
+  builtIn?: {
+    cod?: boolean;
+    houseAccount?: boolean;
+    check?: boolean;
+  };
+  offlineMethods?: Array<{
+    id: string;
+    name: string;
+    description?: string | null;
+    instructions?: string | null;
+    isActive: boolean;
+    visibleOnPos: boolean;
+    visibleOnTakeOrder: boolean;
+    sortOrder: number;
+    requiresReference: boolean;
+    allowChangeTracking: boolean;
+  }>;
 }
 
 export const paymentMethods: PaymentMethodConfig[] = [
@@ -62,7 +84,7 @@ export const paymentMethods: PaymentMethodConfig[] = [
     label: "COD",
     icon: <TruckIcon className="w-6 h-6 text-orange-600" />,
     enabled: false,
-    availableIn: ["admin", "website"],
+    availableIn: ["pos", "admin", "website"],
     description: "Cash on delivery",
     sortOrder: 5,
   },
@@ -89,7 +111,7 @@ export const paymentMethods: PaymentMethodConfig[] = [
     label: "Check",
     icon: <DollarLineIcon className="w-6 h-6 text-gray-600" />,
     enabled: true,
-    availableIn: ["admin"],
+    availableIn: ["pos", "admin"],
     description: "Check payment",
     sortOrder: 8,
   },
@@ -133,9 +155,64 @@ export const paymentMethods: PaymentMethodConfig[] = [
 
 // Helper functions
 export const getPaymentMethods = (platform: PaymentMethodPlatform): PaymentMethodConfig[] => {
-  return paymentMethods
-    .filter(method => method.enabled && method.availableIn.includes(platform))
-    .sort((a, b) => a.sortOrder - b.sortOrder);
+  return getPaymentMethodsWithOptions(platform, {});
+};
+
+export const getPaymentMethodsWithOptions = (
+  platform: PaymentMethodPlatform,
+  options: GetPaymentMethodsOptions
+): PaymentMethodConfig[] => {
+  const { builtIn, offlineMethods } = options;
+
+  const base = paymentMethods
+    .map((method) => {
+      let enabled = method.enabled;
+
+      if (builtIn) {
+        if (method.id === 'cod' && typeof builtIn.cod === 'boolean') {
+          enabled = builtIn.cod;
+        }
+        if (method.id === 'house_account' && typeof builtIn.houseAccount === 'boolean') {
+          enabled = builtIn.houseAccount;
+        }
+        if (method.id === 'check' && typeof builtIn.check === 'boolean') {
+          enabled = builtIn.check;
+        }
+      }
+
+      return {
+        ...method,
+        enabled,
+      };
+    })
+    .filter((method) => method.enabled && method.availableIn.includes(platform));
+
+  const offlineConfigs: PaymentMethodConfig[] = (offlineMethods ?? [])
+    .filter((method) => {
+      if (!method.isActive) return false;
+      if (platform === 'pos') return method.visibleOnPos;
+      if (platform === 'admin') return method.visibleOnTakeOrder || method.visibleOnPos;
+      if (platform === 'website') return method.visibleOnTakeOrder; // website aligns with take order for now
+      return false;
+    })
+    .map((method) => ({
+      id: `offline:${method.id}`,
+      label: method.name,
+      icon: <DollarLineIcon className="w-6 h-6 text-gray-600" />,
+      enabled: true,
+      availableIn: ['pos', 'admin'],
+      description: method.description ?? undefined,
+      isCustom: true,
+      sortOrder: 100 + method.sortOrder,
+      offlineId: method.id,
+      meta: {
+        requiresReference: method.requiresReference,
+        allowChangeTracking: method.allowChangeTracking,
+        instructions: method.instructions ?? undefined,
+      }
+    }));
+
+  return [...base, ...offlineConfigs].sort((a, b) => a.sortOrder - b.sortOrder);
 };
 
 export const getPaymentMethodById = (id: string): PaymentMethodConfig | undefined => {

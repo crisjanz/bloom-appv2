@@ -595,20 +595,24 @@ export const useOrderManagement = (orderId?: string) => {
 export const useCustomerOrderHistory = (customerId?: string) => {
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(false)
-  const { orderService } = useOrderService()
 
   const loadOrderHistory = useCallback(async (customerIdToLoad: string) => {
     setLoading(true)
     try {
-      const customerOrders = await orderService.findByCustomer(customerIdToLoad)
-      setOrders(customerOrders)
+      // Fetch orders where customer is EITHER buyer OR recipient
+      const response = await fetch(`/api/customers/${customerIdToLoad}/orders`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch customer orders')
+      }
+      const result = await response.json()
+      setOrders(result.orders || [])
     } catch (err) {
       console.error('Error loading customer order history:', err)
       setOrders([])
     } finally {
       setLoading(false)
     }
-  }, [orderService])
+  }, [])
 
   // Auto-load when customerId changes
   useEffect(() => {
@@ -631,17 +635,22 @@ export const useCustomerOrderHistory = (customerId?: string) => {
       }
     }
 
-    const totalSpent = orders.reduce((sum, order) => sum + order.totalAmount.amount, 0)
+    // Backend returns paymentAmount as cents (number), not totalAmount.amount
+    const totalSpent = orders.reduce((sum, order: any) => {
+      const amount = order.paymentAmount || 0
+      return sum + amount
+    }, 0)
     const averageOrderValue = totalSpent / orders.length
-    const lastOrderDate = orders[0]?.orderDate // Assuming orders are sorted by date desc
-    
+    const lastOrderDate = orders[0]?.createdAt // Backend uses createdAt, not orderDate
+
     // Find most common order type
-    const typeCount = orders.reduce((acc, order) => {
-      acc[order.orderType] = (acc[order.orderType] || 0) + 1
+    const typeCount = orders.reduce((acc, order: any) => {
+      const type = order.type || 'DELIVERY' // Backend uses 'type' field
+      acc[type] = (acc[type] || 0) + 1
       return acc
-    }, {} as Record<OrderType, number>)
+    }, {} as Record<string, number>)
     const favoriteOrderType = Object.entries(typeCount)
-      .sort(([,a], [,b]) => b - a)[0]?.[0] as OrderType | null
+      .sort(([,a], [,b]) => b - a)[0]?.[0] || null
 
     return {
       totalOrders: orders.length,

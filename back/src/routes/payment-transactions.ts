@@ -58,23 +58,70 @@ router.post('/', async (req, res) => {
 });
 
 /**
- * GET /api/payment-transactions/:transactionNumber
- * Get a payment transaction by its PT-XXXX number
+ * GET /api/payment-transactions
+ * List payment transactions with filters and pagination
  */
-router.get('/:transactionNumber', async (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const { transactionNumber } = req.params;
-    
-    const transaction = await transactionService.getTransaction(transactionNumber);
-    
-    if (!transaction) {
-      return res.status(404).json({ error: 'Transaction not found' });
-    }
-    
-    res.json(transaction);
+    const {
+      page = '1',
+      limit = '25',
+      startDate,
+      endDate,
+      status,
+      provider,
+      channel,
+      search,
+      paymentMethod
+    } = req.query;
+
+    const parsedPage = parseInt(page as string, 10);
+    const parsedLimit = parseInt(limit as string, 10);
+
+    const result = await transactionService.searchTransactions({
+      page: Number.isNaN(parsedPage) || parsedPage < 1 ? 1 : parsedPage,
+      limit: Number.isNaN(parsedLimit) || parsedLimit < 1 ? 25 : Math.min(parsedLimit, 100),
+      startDate: typeof startDate === 'string' ? startDate : undefined,
+      endDate: typeof endDate === 'string' ? endDate : undefined,
+      status: typeof status === 'string' && status !== 'ALL' ? status : undefined,
+      provider: typeof provider === 'string' && provider !== 'ALL' ? provider : undefined,
+      channel: typeof channel === 'string' && channel !== 'ALL' ? channel : undefined,
+      search: typeof search === 'string' ? search : undefined,
+      paymentMethod: typeof paymentMethod === 'string' ? paymentMethod : undefined
+    });
+
+    res.json(result);
   } catch (error) {
-    console.error('Error fetching transaction:', error);
-    res.status(500).json({ error: 'Failed to fetch transaction' });
+    console.error('Error fetching payment transactions:', error);
+    res.status(500).json({ error: 'Failed to fetch payment transactions' });
+  }
+});
+
+/**
+ * GET /api/payment-transactions/export
+ * Export payment transactions as CSV
+ */
+router.get('/export', async (req, res) => {
+  try {
+    const { startDate, endDate, status, provider, channel, search, paymentMethod } = req.query;
+
+    const csv = await transactionService.exportTransactions({
+      startDate: typeof startDate === 'string' ? startDate : undefined,
+      endDate: typeof endDate === 'string' ? endDate : undefined,
+      status: typeof status === 'string' && status !== 'ALL' ? status : undefined,
+      provider: typeof provider === 'string' && provider !== 'ALL' ? provider : undefined,
+      channel: typeof channel === 'string' && channel !== 'ALL' ? channel : undefined,
+      search: typeof search === 'string' ? search : undefined,
+      paymentMethod: typeof paymentMethod === 'string' ? paymentMethod : undefined
+    });
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=payment-transactions-${timestamp}.csv`);
+    res.send(csv);
+  } catch (error) {
+    console.error('Error exporting payment transactions:', error);
+    res.status(500).json({ error: 'Failed to export payment transactions' });
   }
 });
 
@@ -165,6 +212,27 @@ router.post('/generate-number', async (req, res) => {
   } catch (error) {
     console.error('Error generating transaction number:', error);
     res.status(500).json({ error: 'Failed to generate transaction number' });
+  }
+});
+
+/**
+ * GET /api/payment-transactions/:transactionNumber
+ * Get a payment transaction by its PT-XXXX number
+ */
+router.get('/:transactionNumber', async (req, res) => {
+  try {
+    const { transactionNumber } = req.params;
+    
+    const transaction = await transactionService.getTransaction(transactionNumber);
+    
+    if (!transaction) {
+      return res.status(404).json({ error: 'Transaction not found' });
+    }
+    
+    res.json(transaction);
+  } catch (error) {
+    console.error('Error fetching transaction:', error);
+    res.status(500).json({ error: 'Failed to fetch transaction' });
   }
 });
 

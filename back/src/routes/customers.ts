@@ -655,6 +655,62 @@ router.get("/:id/messages", async (req, res) => {
   }
 });
 
+// GET /api/customers/:id/orders - get all orders (as buyer OR recipient)
+router.get("/:id/orders", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Fetch orders where customer is EITHER the buyer OR the recipient
+    const orders = await prisma.order.findMany({
+      where: {
+        OR: [
+          { customerId: id },           // Orders purchased by this customer
+          { recipientCustomerId: id }   // Orders received by this customer
+        ]
+      },
+      include: {
+        customer: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true
+          }
+        },
+        recipientCustomer: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            phone: true
+          }
+        },
+        orderItems: {
+          select: {
+            id: true,
+            customName: true,
+            unitPrice: true,
+            quantity: true,
+            rowTotal: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    res.json({
+      success: true,
+      orders
+    });
+  } catch (err) {
+    console.error("Failed to fetch customer orders:", err);
+    res.status(500).json({ error: "Failed to load customer orders" });
+  }
+});
+
 // GET customer by ID (with addresses) - MUST BE LAST!
 router.get("/:id", async (req, res) => {
   const { id } = req.params;

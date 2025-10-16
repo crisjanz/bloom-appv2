@@ -1,4 +1,6 @@
 import prisma from '../lib/prisma';
+import { Prisma } from '@prisma/client';
+import { format } from 'date-fns';
 
 export interface CreateTransactionData {
   customerId: string;
@@ -14,7 +16,7 @@ export interface CreateTransactionData {
 }
 
 export interface PaymentMethodData {
-  type: 'CASH' | 'CARD' | 'GIFT_CARD' | 'STORE_CREDIT' | 'CHECK' | 'COD';
+  type: 'CASH' | 'CARD' | 'GIFT_CARD' | 'STORE_CREDIT' | 'CHECK' | 'COD' | 'HOUSE_ACCOUNT' | 'OFFLINE';
   provider: 'STRIPE' | 'SQUARE' | 'INTERNAL';
   amount: number;
   providerTransactionId?: string;
@@ -23,6 +25,54 @@ export interface PaymentMethodData {
   cardBrand?: string;
   giftCardNumber?: string;
   checkNumber?: string;
+  offlineMethodId?: string;
+}
+
+export interface TransactionQueryFilters {
+  startDate?: string;
+  endDate?: string;
+  status?: string;
+  provider?: string;
+  channel?: string;
+  search?: string;
+  paymentMethod?: string;
+}
+
+export interface TransactionSearchResult {
+  transactions: any[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    hasMore: boolean;
+  };
+  summary: {
+    totalCount: number;
+    totalAmount: number;
+    totalTax: number;
+    totalTips: number;
+    totalRefunded: number;
+    netAmount: number;
+    averageAmount: number;
+    statusBreakdown: Array<{
+      status: string;
+      count: number;
+      amount: number;
+    }>;
+    providerBreakdown: Array<{
+      key: string;
+      type: string;
+      provider: string | null;
+      label: string;
+      count: number;
+      amount: number;
+    }>;
+    channelBreakdown: Array<{
+      channel: string;
+      count: number;
+      amount: number;
+    }>;
+  };
 }
 
 class TransactionService {
@@ -97,7 +147,8 @@ class TransactionService {
               cardLast4: method.cardLast4,
               cardBrand: method.cardBrand,
               giftCardNumber: method.giftCardNumber,
-              checkNumber: method.checkNumber
+              checkNumber: method.checkNumber,
+              offlineMethodId: method.offlineMethodId
             }
           })
         )
@@ -189,6 +240,224 @@ class TransactionService {
   }
 
   /**
+   * Search transactions with filtering, pagination, and summary data
+   */
+  async searchTransactions(filters: TransactionQueryFilters & { page?: number; limit?: number }): Promise<TransactionSearchResult> {
+    const page = !filters.page || filters.page < 1 ? 1 : filters.page;
+    const limit = !filters.limit || filters.limit < 1 ? 25 : Math.min(filters.limit, 100);
+    const skip = (page - 1) * limit;
+
+    const where = this.buildTransactionWhere(filters);
+
+    const [
+      transactions,
+      totalCount,
+      aggregates,
+      statusBreakdown,
+      providerBreakdown,
+      channelBreakdown,
+      refundAggregate
+    ] = await Promise.all([
+      prisma.paymentTransaction.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        include: {
+          customer: true,
+          employee: true,
+          paymentMethods: {
+            include: {
+              offlineMethod: true
+            }
+          },
+          orderPayments: {
+            include: {
+              order: true
+            }
+          },
+          refunds: {
+            include: {
+              refundMethods: true
+            }
+          }
+        }
+      }),
+      prisma.paymentTransaction.count({ where }),
+      prisma.paymentTransaction.aggregate({
+        where,
+        _sum: {
+          totalAmount: true,
+          taxAmount: true,
+          tipAmount: true
+        }
+      }),
+      prisma.paymentTransaction.groupBy({
+        where,
+        by: ['status'],
+        _count: { _all: true },
+        _sum: { totalAmount: true }
+      }),
+      prisma.paymentMethod.groupBy({
+        where: {
+          transaction: where
+        },
+        by: ['type', 'provider'],
+        _count: { _all: true },
+        _sum: { amount: true }
+      }),
+      prisma.paymentTransaction.groupBy({
+        where,
+        by: ['channel'],
+        _count: { _all: true },
+        _sum: { totalAmount: true }
+      }),
+      prisma.refund.aggregate({
+        where: {
+          transaction: where
+        },
+        _sum: {
+          amount: true
+        }
+      })
+    ]);
+
+    const totalAmount = aggregates._sum.totalAmount ?? 0;
+    const totalTax = aggregates._sum.taxAmount ?? 0;
+    const totalTips = aggregates._sum.tipAmount ?? 0;
+    const totalRefunded = refundAggregate._sum.amount ?? 0;
+    const averageAmount = totalCount > 0 ? totalAmount / totalCount : 0;
+
+    return {
+      transactions,
+      pagination: {
+        page,
+        limit,
+        total: totalCount,
+        hasMore: skip + transactions.length < totalCount
+      },
+      summary: {
+        totalCount,
+        totalAmount,
+        totalTax,
+        totalTips,
+        totalRefunded,
+        netAmount: totalAmount - totalRefunded,
+        averageAmount,
+        statusBreakdown: statusBreakdown.map((entry) => ({
+          status: entry.status,
+          count: entry._count?._all ?? 0,
+          amount: entry._sum?.totalAmount ?? 0
+        })),
+        providerBreakdown: providerBreakdown.map((entry) => ({
+          key: this.createProviderKey(entry.type, entry.provider),
+          type: entry.type,
+          provider: entry.provider ?? null,
+          label: this.formatPaymentMethodLabel(entry.type, entry.provider),
+          count: entry._count?._all ?? 0,
+          amount: entry._sum?.amount ?? 0
+        })),
+        channelBreakdown: channelBreakdown.map((entry) => ({
+          channel: entry.channel,
+          count: entry._count?._all ?? 0,
+          amount: entry._sum?.totalAmount ?? 0
+        }))
+      }
+    };
+  }
+
+  /**
+   * Export transactions as CSV for reporting
+   */
+  async exportTransactions(filters: TransactionQueryFilters): Promise<string> {
+    const where = this.buildTransactionWhere(filters);
+
+    const transactions = await prisma.paymentTransaction.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        customer: true,
+        employee: true,
+        paymentMethods: {
+          include: {
+            offlineMethod: true
+          }
+        },
+        orderPayments: {
+          include: {
+            order: true
+          }
+        },
+        refunds: {
+          include: {
+            refundMethods: true
+          }
+        }
+      }
+    });
+
+    const headers = [
+      'Transaction Number',
+      'Created At',
+      'Status',
+      'Channel',
+      'Customer Name',
+      'Customer Email',
+      'Customer Phone',
+      'Employee',
+      'Total Amount',
+      'Tax Amount',
+      'Tip Amount',
+      'Total Refunded',
+      'Payment Methods',
+      'Orders',
+      'Notes'
+    ];
+
+    const rows = transactions.map((transaction) => {
+      const customerName = transaction.customer
+        ? [transaction.customer.firstName, transaction.customer.lastName].filter(Boolean).join(' ').trim()
+        : '';
+
+      const paymentMethods = transaction.paymentMethods
+        .map((method) => {
+          const label = this.formatPaymentMethodLabel(method.type, method.provider);
+          return `${label}: ${method.amount.toFixed(2)}`;
+        })
+        .join('; ');
+
+      const orders = transaction.orderPayments
+        .map((orderPayment) => {
+          const orderNumber = orderPayment.order?.orderNumber;
+          return orderNumber ? `#${orderNumber}` : orderPayment.orderId;
+        })
+        .join('; ');
+
+      const refundedTotal = transaction.refunds.reduce((sum, refund) => sum + refund.amount, 0);
+
+      return [
+        transaction.transactionNumber,
+        format(transaction.createdAt, 'yyyy-MM-dd HH:mm'),
+        transaction.status,
+        transaction.channel,
+        customerName,
+        transaction.customer?.email ?? '',
+        transaction.customer?.phone ?? '',
+        transaction.employee?.name ?? '',
+        transaction.totalAmount.toFixed(2),
+        transaction.taxAmount.toFixed(2),
+        transaction.tipAmount.toFixed(2),
+        refundedTotal.toFixed(2),
+        paymentMethods,
+        orders,
+        transaction.notes ?? ''
+      ].map((value) => this.escapeCsvValue(value)).join(',');
+    });
+
+    return [headers.join(','), ...rows].join('\n');
+  }
+
+  /**
    * Process a refund for a transaction
    */
   async processRefund(transactionId: string, refundData: {
@@ -263,6 +532,190 @@ class TransactionService {
     return `RF-${paddedNumber}`;
   }
 
+  private buildTransactionWhere(filters: TransactionQueryFilters): Prisma.PaymentTransactionWhereInput {
+    const where: Prisma.PaymentTransactionWhereInput = {};
+    const andConditions: Prisma.PaymentTransactionWhereInput[] = [];
+
+    if (filters.status && filters.status.toUpperCase() !== 'ALL') {
+      andConditions.push({ status: filters.status.toUpperCase() as any });
+    }
+
+    if (filters.channel && filters.channel.toUpperCase() !== 'ALL') {
+      andConditions.push({ channel: filters.channel.toUpperCase() as any });
+    }
+
+    if (filters.startDate || filters.endDate) {
+      const createdAt: Prisma.DateTimeFilter = {};
+
+      if (filters.startDate) {
+        const start = new Date(filters.startDate);
+        if (!Number.isNaN(start.getTime())) {
+          start.setHours(0, 0, 0, 0);
+          createdAt.gte = start;
+        }
+      }
+
+      if (filters.endDate) {
+        const end = new Date(filters.endDate);
+        if (!Number.isNaN(end.getTime())) {
+          end.setHours(23, 59, 59, 999);
+          createdAt.lte = end;
+        }
+      }
+
+      if (Object.keys(createdAt).length > 0) {
+        andConditions.push({ createdAt });
+      }
+    }
+
+    if (filters.provider && filters.provider.toUpperCase() !== 'ALL') {
+      andConditions.push({
+        paymentMethods: {
+          some: {
+            provider: filters.provider.toUpperCase() as any
+          }
+        }
+      });
+    }
+
+    if (filters.paymentMethod && filters.paymentMethod.trim().length > 0) {
+      const value = filters.paymentMethod.trim();
+      const offlinePrefix = 'offline:';
+
+      if (value.toLowerCase().startsWith(offlinePrefix)) {
+        const offlineId = value.slice(offlinePrefix.length);
+        if (offlineId) {
+          andConditions.push({
+            paymentMethods: {
+              some: {
+                offlineMethodId: offlineId
+              }
+            }
+          });
+        }
+      } else {
+        const type = value.toUpperCase();
+        andConditions.push({
+          paymentMethods: {
+            some: {
+              type: type as any
+            }
+          }
+        });
+      }
+    }
+
+    if (filters.search && filters.search.trim().length > 0) {
+      const term = filters.search.trim();
+      const numericTerm = parseInt(term.replace(/\D/g, ''), 10);
+
+      const searchConditions: Prisma.PaymentTransactionWhereInput[] = [
+        {
+          transactionNumber: {
+            contains: term,
+            mode: 'insensitive'
+          }
+        },
+        {
+          customer: {
+            is: {
+              OR: [
+                { firstName: { contains: term, mode: 'insensitive' } },
+                { lastName: { contains: term, mode: 'insensitive' } },
+                { email: { contains: term, mode: 'insensitive' } },
+                { phone: { contains: term, mode: 'insensitive' } }
+              ]
+            }
+          }
+        },
+        {
+          employee: {
+            is: {
+              name: {
+                contains: term,
+                mode: 'insensitive'
+              }
+            }
+          }
+        }
+      ];
+
+      if (!Number.isNaN(numericTerm)) {
+        searchConditions.push({
+          orderPayments: {
+            some: {
+              order: {
+                orderNumber: numericTerm
+              }
+            }
+          }
+        });
+      }
+
+      andConditions.push({
+        OR: searchConditions
+      });
+    }
+
+    if (andConditions.length > 0) {
+      where.AND = andConditions;
+    }
+
+    return where;
+  }
+
+  private formatPaymentMethodLabel(type: string, provider?: string | null): string {
+    const normalizedType = (type || 'UNKNOWN').toUpperCase();
+    const normalizedProvider = (provider || '').toUpperCase();
+
+    const typeLabels: Record<string, string> = {
+      CARD: 'Card',
+      CASH: 'Cash',
+      GIFT_CARD: 'Gift Card',
+      STORE_CREDIT: 'Store Credit',
+      CHECK: 'Check',
+      COD: 'Collect on Delivery',
+      HOUSE_ACCOUNT: 'House Account',
+      OFFLINE: 'Offline',
+      UNKNOWN: 'Unknown'
+    };
+
+    const providerLabels: Record<string, string> = {
+      STRIPE: 'Stripe',
+      SQUARE: 'Square',
+      INTERNAL: 'In-House',
+      UNKNOWN: 'Unknown'
+    };
+
+    const baseLabel =
+      typeLabels[normalizedType] ?? normalizedType.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
+
+    if (!normalizedProvider || normalizedProvider === 'INTERNAL') {
+      return baseLabel;
+    }
+
+    const providerLabel = providerLabels[normalizedProvider] ?? normalizedProvider.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
+    return `${baseLabel} (${providerLabel})`;
+  }
+
+  private createProviderKey(type: string, provider?: string | null): string {
+    const normalizedType = (type || 'UNKNOWN').toUpperCase();
+    const normalizedProvider = (provider || 'INTERNAL').toUpperCase();
+    if (normalizedProvider === 'INTERNAL') {
+      return normalizedType;
+    }
+    return `${normalizedType}__${normalizedProvider}`;
+  }
+
+  private escapeCsvValue(value: string): string {
+    const needsEscaping = /[",\n]/.test(value);
+    if (!needsEscaping) {
+      return value;
+    }
+
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+
   /**
    * Get transaction history for a customer
    */
@@ -270,7 +723,11 @@ class TransactionService {
     return await prisma.paymentTransaction.findMany({
       where: { customerId },
       include: {
-        paymentMethods: true,
+        paymentMethods: {
+          include: {
+            offlineMethod: true
+          }
+        },
         orderPayments: {
           include: {
             order: true

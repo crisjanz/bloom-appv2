@@ -204,7 +204,7 @@ const OrderEditPage: React.FC = () => {
           setPaymentAdjustmentData({
             oldTotal,
             newTotal,
-            originalPaymentMethod: order?.paymentMethod || 'Credit Card',
+            originalPaymentMethod: 'Payment Transaction',
             originalCardLast4: '1234' // TODO: Get from actual order data
           });
           setShowPaymentAdjustment(true);

@@ -33,6 +33,10 @@ Todos are grouped by feature and sorted by priority within each group. Partially
   - ✅ Implemented customer creation/linking for both payment providers
   - ✅ Created consistent UI for saved payment methods across providers
   - ✅ Added real-time saved card loading when customer information is available
+- [x] **Build Payments Settings admin with offline method management** (Completed 2025-07-06)
+  - ✅ New `/settings/payments` page for Stripe, Square, PayPal credential management with encryption warnings
+  - ✅ Backend `/api/settings/payments/*` endpoints with encrypted secret storage via `CONFIG_ENCRYPTION_KEY`
+  - ✅ Custom offline payment methods with POS/phone visibility toggles, reference requirements, and drag order controls
 - [/] Build SplitPaymentView for multi-payment handling (Needs testing).
 - [x] Add GiftCardModal for gift card redemption interface (Phase 3).
 - [x] **Implement grid-based TakeOrderPage interface for phone orders** (Completed 2025-06-17)
@@ -201,6 +205,10 @@ Todos are grouped by feature and sorted by priority within each group. Partially
   - ✅ Built `SalesReportPage` with date presets, filters, KPI cards, Apex trend chart, and paginated order table
   - ✅ Built `TaxExportPage` with validated range selector, totals preview, detailed order table, and CSV export workflow
   - ✅ Updated router and sidebar navigation so reports are available from the admin shell
+- [x] **Add PT Transactions report list** (Completed 2025-06-28)
+  - ✅ Created `/reports/transactions` admin page focused on searchable, filterable PT-XXXX transaction table
+  - ✅ Implemented backend `/api/payment-transactions` listing endpoint with pagination, provider/channel/status filters, and CSV export route
+  - ✅ Added transaction report hook/service layer for reuse and wired navigation entry under Reports
 
 ## Settings System
 ### High Priority

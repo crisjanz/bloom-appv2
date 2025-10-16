@@ -640,6 +640,7 @@ const PaymentSection: React.FC<Props> = ({
         setFormError={setFormError}
         onConfirm={handlePaymentConfirm}
         isOverlay={isOverlay}
+        customer={customerState.customer}
       />
       <GiftCardHandoffModal
         open={showGiftCardHandoff}
@@ -689,15 +690,31 @@ const mapTakeOrderPaymentToAPI = (payment: any) => {
     case 'check':
       return {
         ...baseMethod,
-        checkNumber: payment.metadata?.checkNumber
+        checkNumber: payment.metadata?.checkNumber || payment.metadata?.reference,
+        providerMetadata: payment.metadata?.reference ? { reference: payment.metadata.reference } : undefined
+      };
+    case 'house_account':
+      return {
+        ...baseMethod,
+        providerMetadata: payment.metadata?.reference ? { reference: payment.metadata.reference } : undefined
       };
     case 'cod':
-    case 'cash':
-    case 'wire':
-    case 'house_account':
-      return baseMethod;
+      return {
+        ...baseMethod,
+        providerMetadata: payment.metadata?.reference ? { reference: payment.metadata.reference } : undefined
+      };
     default:
-      return baseMethod;
+      if (payment.method.startsWith('offline:')) {
+        return {
+          ...baseMethod,
+          offlineMethodId: payment.metadata?.offlineMethodId,
+          providerMetadata: payment.metadata?.reference ? { reference: payment.metadata.reference } : undefined
+        };
+      };
+      return {
+        ...baseMethod,
+        providerMetadata: payment.metadata?.reference ? { reference: payment.metadata.reference } : undefined
+      };
   }
 };
 
@@ -711,10 +728,13 @@ const mapPaymentMethodType = (method: string): string => {
     'store_credit': 'STORE_CREDIT',
     'check': 'CHECK',
     'cod': 'COD',
-    'wire': 'CHECK', // Wire transfers treated as checks for now
-    'house_account': 'STORE_CREDIT' // House account treated as store credit
+    'house_account': 'HOUSE_ACCOUNT'
   };
   
+  if (method.startsWith('offline:') || method === 'wire') {
+    return 'OFFLINE';
+  }
+
   return methodMap[method] || 'CASH';
 };
 

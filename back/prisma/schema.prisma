@@ -567,25 +567,69 @@ model MessageSuggestion {
   message String
 }
 
+enum PaymentProviderMode {
+  TERMINAL
+  MANUAL
+  HYBRID
+}
+
 model PaymentSettings {
-  id              String   @id @default(cuid())
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                   String             @id @default(cuid())
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  defaultCardProvider  PaymentProvider?
 
   // Stripe Settings
-  stripeMode      String   @default("terminal") // "manual" or "terminal"
-  stripePublicKey String
-  stripeSecretKey String
-  stripeTerminalId String?
+  stripeEnabled        Boolean            @default(false)
+  stripeMode           PaymentProviderMode @default(TERMINAL)
+  stripePublicKey      String?
+  stripeSecretKey      String?            // Encrypted, masked in API responses
+  stripeTerminalId     String?
+  stripeAccountId      String?
 
   // Square Settings
-  squareMode       String   @default("terminal") // "manual" or "terminal"
-  squareAppId      String
-  squareAccessToken String
-  squareLocationId  String
-  squareTerminalId  String?
+  squareEnabled        Boolean            @default(false)
+  squareMode           PaymentProviderMode @default(TERMINAL)
+  squareAppId          String?
+  squareAccessToken    String?            // Encrypted, masked in API responses
+  squareLocationId     String?
+  squareTerminalId     String?
+
+  // PayPal Settings
+  paypalEnabled        Boolean            @default(false)
+  paypalEnvironment    String?            // "sandbox" | "live"
+  paypalClientId       String?
+  paypalClientSecret   String?            // Encrypted, masked in API responses
+
+  // Global payment behaviour
+  allowSplitPayments   Boolean            @default(true)
+  allowOfflineNotes    Boolean            @default(true)
+  codEnabled           Boolean            @default(false)
+  houseAccountEnabled  Boolean            @default(false)
+  checkEnabled         Boolean            @default(false)
 
   @@map("payment_settings")
+}
+
+model OfflinePaymentMethod {
+  id                  String   @id @default(cuid())
+  name                String
+  code                String   @unique
+  description         String?
+  instructions        String?
+  isActive            Boolean  @default(true)
+  visibleOnPos        Boolean  @default(true)
+  visibleOnTakeOrder  Boolean  @default(true)
+  requiresReference   Boolean  @default(false)
+  allowChangeTracking Boolean  @default(false)
+  sortOrder           Int      @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  paymentMethods      PaymentMethod[]
+
+  @@map("offline_payment_methods")
 }
 
 model StoreSettings {
@@ -819,11 +863,14 @@ enum PaymentMethodType {
   STORE_CREDIT
   CHECK
   COD
+  HOUSE_ACCOUNT
+  OFFLINE
 }
 
 enum PaymentProvider {
   STRIPE
   SQUARE
+  PAYPAL
   INTERNAL
 }
 
@@ -876,6 +923,7 @@ model PaymentMethod {
   type                    PaymentMethodType
   provider                PaymentProvider
   amount                  Float
+  offlineMethodId         String?
   
   // Provider-specific data
   providerTransactionId   String?            // Stripe payment_intent_id, Square payment_id, etc.
@@ -891,6 +939,7 @@ model PaymentMethod {
   processedAt            DateTime           @default(now())
   
   transaction            PaymentTransaction @relation(fields: [transactionId], references: [id])
+  offlineMethod          OfflinePaymentMethod? @relation(fields: [offlineMethodId], references: [id])
   
   @@map("payment_methods")
 }

@@ -5,6 +5,7 @@ import {
   HomeAddressCard,
   AdditionalAddressesCard,
 } from "@app/components/customers/cards";
+import OrderHistoryCard from "@app/components/customers/cards/OrderHistoryCard";
 import { ParsedAddress } from "@shared/utils/googlePlaces";
 import { Customer, Address } from "@shared/types/customer"; // 🆕 Import shared types
 
@@ -241,6 +242,11 @@ export default function CustomerFormPage() {
             onUpdateAddress={handleUpdateAddress}
             onDeleteAddress={handleDeleteAddress}
           />
+        )}
+
+        {/* Order History Card - Only show in edit mode */}
+        {isEditMode && customer.id && (
+          <OrderHistoryCard customerId={customer.id} />
         )}
       </div>
     </>

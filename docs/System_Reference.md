@@ -187,9 +187,11 @@ Enterprise-level payment processing with PT-XXXX transaction numbering, multi-pr
 - Split payment design (multiple payment methods within one PT)
 
 **Payment Providers:**
-- **Stripe:** Website sales, saved cards
-- **Square:** POS/phone orders, terminal integration
+- **Stripe:** Website sales, saved cards, reader terminals
+- **Square:** POS & phone orders, Square Terminal support
+- **PayPal:** Planned for website checkout (stored credentials via settings)
 - **Internal:** Gift card system, house accounts
+- **Offline:** Custom bank transfer / manual tenders defined in Payment Settings
 
 **Channel Support:**
 - POS Direct (walk-in sales)
@@ -215,12 +217,23 @@ model PaymentTransaction {
 **PaymentMethod:**
 ```prisma
 model PaymentMethod {
-  id            String
-  transactionId String
-  type          PaymentMethodType  // CASH, CARD, CHECK, GIFT_CARD, etc.
-  provider      String?            // stripe, square
-  amount        Decimal
-  metadata      Json?
+  id                    String              @id @default(uuid())
+  transactionId         String
+  type                  PaymentMethodType   // CASH, CARD, GIFT_CARD, etc.
+  provider              PaymentProvider     // STRIPE, SQUARE, PAYPAL, INTERNAL
+  amount                Float
+  offlineMethodId       String?
+  providerTransactionId String?
+  providerMetadata      Json?
+  cardLast4             String?
+  cardBrand             String?
+  giftCardNumber        String?
+  checkNumber           String?
+  status                String             @default("completed")
+  processedAt           DateTime           @default(now())
+
+  transaction           PaymentTransaction @relation(fields: [transactionId], references: [id])
+  offlineMethod         OfflinePaymentMethod? @relation(fields: [offlineMethodId], references: [id])
 }
 ```
 
@@ -237,6 +250,34 @@ model SavedPaymentMethod {
   expiryYear     Int
 }
 ```
+
+**OfflinePaymentMethod:**
+```prisma
+model OfflinePaymentMethod {
+  id                 String   @id @default(cuid())
+  name               String
+  code               String   @unique
+  description        String?
+  instructions       String?
+  isActive           Boolean  @default(true)
+  visibleOnPos       Boolean  @default(true)
+  visibleOnTakeOrder Boolean  @default(true)
+  requiresReference  Boolean  @default(false)
+  allowChangeTracking Boolean @default(false)
+  sortOrder          Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  paymentMethods     PaymentMethod[]
+}
+```
+
+#### Payment Settings Admin
+
+- Admin route: `/settings/payments` (Stripe, Square, PayPal, and offline setup)
+- Backend endpoints exposed under `/api/settings/payments/*`
+- Secrets encrypted with `CONFIG_ENCRYPTION_KEY` (AES-256-GCM); set this env var before storing live keys
+- Offline payment methods power manual tenders (wire transfers, e-transfers, etc.) with POS/phone toggles and reference requirements
 
 #### Key Features
 
@@ -1408,18 +1449,25 @@ enum TransactionStatus {
 #### PaymentMethod
 ```prisma
 model PaymentMethod {
-  id              String
-  transactionId   String
-  transaction     PaymentTransaction @relation(fields: [transactionId], references: [id])
+  id                    String              @id @default(uuid())
+  transactionId         String
+  transaction           PaymentTransaction @relation(fields: [transactionId], references: [id])
 
-  type            PaymentMethodType
-  provider        String?           // stripe, square
-  amount          Decimal
+  type                  PaymentMethodType
+  provider              PaymentProvider
+  amount                Float
+  offlineMethodId       String?
 
-  // Provider-specific data
-  metadata        Json?
+  providerTransactionId String?
+  providerMetadata      Json?
+  cardLast4             String?
+  cardBrand             String?
+  giftCardNumber        String?
+  checkNumber           String?
+  status                String             @default("completed")
+  processedAt           DateTime           @default(now())
 
-  createdAt       DateTime          @default(now())
+  offlineMethod         OfflinePaymentMethod? @relation(fields: [offlineMethodId], references: [id])
 }
 
 enum PaymentMethodType {
@@ -1427,8 +1475,8 @@ enum PaymentMethodType {
   CARD
   CHECK
   GIFT_CARD
-  HOUSE_ACCOUNT
-  OTHER
+  STORE_CREDIT
+  COD
 }
 ```
 
@@ -2011,6 +2059,9 @@ TZ=America/Vancouver  # CRITICAL: Must be Vancouver timezone
 # Stripe
 STRIPE_SECRET_KEY=sk_live_...
 STRIPE_PUBLISHABLE_KEY=pk_live_...
+
+# Payment credential storage (new payments settings UI)
+CONFIG_ENCRYPTION_KEY=your-32-byte-secret
 
 # Square
 SQUARE_ACCESS_TOKEN=...

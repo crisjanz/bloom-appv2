@@ -9,6 +9,8 @@ import NotificationModal from "./NotificationModal";
 import GiftCardActivationModal from "../../orders/payment/GiftCardActivationModal";
 import GiftCardHandoffModal from "../../orders/payment/GiftCardHandoffModal";
 import { orderContainsGiftCards, getGiftCardItems } from "@shared/utils/giftCardHelpers";
+import ManualPaymentModal from "./ManualPaymentModal";
+import type { PaymentMethodConfig } from "@shared/utils/paymentMethods";
 
 type PaymentView = 'methods' | 'split' | 'completion';
 
@@ -23,6 +25,15 @@ type CompletionData = {
     customerName?: string;
     total: number;
   }>;
+};
+
+type ManualPaymentState = {
+  methodId: string;
+  label: string;
+  offlineId?: string;
+  requiresReference?: boolean;
+  referenceLabel?: string;
+  instructions?: string;
 };
 
 type Props = {
@@ -86,6 +97,8 @@ const PaymentController: FC<Props> = ({
   const [showGiftCardHandoff, setShowGiftCardHandoff] = useState(false);
   const [giftCardNumbers, setGiftCardNumbers] = useState<any[]>([]);
   const [activatedGiftCards, setActivatedGiftCards] = useState<any[]>([]);
+  const [selectedMethodId, setSelectedMethodId] = useState<string>('');
+  const [manualPaymentConfig, setManualPaymentConfig] = useState<ManualPaymentState | null>(null);
 
   if (!open) return null;
 
@@ -101,31 +114,76 @@ const PaymentController: FC<Props> = ({
     });
   }
 
+  // Store the selected payment method while waiting for gift card activation
+  const [pendingPaymentMethod, setPendingPaymentMethod] = useState<PaymentMethodConfig | null>(null);
+
+  const processPaymentMethod = (methodConfig: PaymentMethodConfig) => {
+    const method = methodConfig.id;
+
+    if (method === 'split') {
+      setCurrentView('split');
+      return;
+    }
+
+    if (method === 'cash') {
+      setShowCashModal(true);
+      return;
+    }
+
+    if (method === 'credit' || method === 'debit') {
+      setShowCardModal(true);
+      return;
+    }
+
+    if (method === 'house_account' || method === 'cod' || method === 'check' || method.startsWith('offline:')) {
+      let referenceLabel = 'Reference';
+      let requiresReference = false;
+      let instructions = methodConfig.meta?.instructions || methodConfig.description;
+
+      if (method === 'check') {
+        referenceLabel = 'Check Number';
+        requiresReference = true;
+      } else if (method === 'house_account') {
+        referenceLabel = 'Account Reference';
+      } else if (method === 'cod') {
+        referenceLabel = 'Delivery Notes';
+      }
+
+      if (methodConfig.meta?.requiresReference) {
+        requiresReference = true;
+      }
+
+      setManualPaymentConfig({
+        methodId: method,
+        label: methodConfig.label,
+        offlineId: methodConfig.offlineId,
+        requiresReference,
+        referenceLabel,
+        instructions,
+      });
+      return;
+    }
+
+    console.warn('Unknown payment method selected:', methodConfig);
+  };
+
   // Handle payment method selection from grid
-  const handleMethodSelect = (method: string) => {
-    console.log('🎁 Payment method selected:', method);
+  const handleMethodSelect = (methodConfig: PaymentMethodConfig) => {
+    console.log('🎁 Payment method selected:', methodConfig.id);
     console.log('🎁 Has gift cards:', hasGiftCards);
     console.log('🎁 Gift card numbers collected:', giftCardNumbers.length);
+    setSelectedMethodId(methodConfig.id);
     
     // Check if we need gift card activation first
     if (hasGiftCards && giftCardNumbers.length === 0) {
       console.log('🎁 Showing gift card activation modal');
-      setPendingPaymentMethod(method); // Store the selected payment method
+      setPendingPaymentMethod(methodConfig); // Store the selected payment method
       setShowGiftCardActivation(true);
       return;
     }
 
-    if (method === 'split') {
-      setCurrentView('split');
-    } else if (method === 'cash') {
-      setShowCashModal(true);
-    } else if (method === 'credit') {
-      setShowCardModal(true);
-    }
+    processPaymentMethod(methodConfig);
   };
-
-  // Store the selected payment method while waiting for gift card activation
-  const [pendingPaymentMethod, setPendingPaymentMethod] = useState<string | null>(null);
 
   // Handle gift card activation completion
   const handleGiftCardActivationComplete = (cardData: any[]) => {
@@ -135,16 +193,8 @@ const PaymentController: FC<Props> = ({
     
     // Continue with the original payment method selection
     if (pendingPaymentMethod) {
-      console.log('🎁 Continuing with payment method:', pendingPaymentMethod);
-      
-      if (pendingPaymentMethod === 'split') {
-        setCurrentView('split');
-      } else if (pendingPaymentMethod === 'cash') {
-        setShowCashModal(true);
-      } else if (pendingPaymentMethod === 'credit') {
-        setShowCardModal(true);
-      }
-      
+      console.log('🎁 Continuing with payment method:', pendingPaymentMethod.id);
+      processPaymentMethod(pendingPaymentMethod);
       setPendingPaymentMethod(null); // Clear the pending method
     }
   };
@@ -297,6 +347,10 @@ const PaymentController: FC<Props> = ({
           amount: pm.amount
         };
 
+        const metadata = pm.details?.reference
+          ? { reference: pm.details.reference }
+          : undefined;
+
         // Add method-specific data
         if (pm.method === 'credit' || pm.method === 'debit') {
           return {
@@ -313,7 +367,24 @@ const PaymentController: FC<Props> = ({
         } else if (pm.method === 'check') {
           return {
             ...baseMethod,
-            checkNumber: pm.details?.checkNumber
+            checkNumber: pm.details?.checkNumber || pm.details?.reference,
+            providerMetadata: metadata
+          };
+        } else if (pm.method === 'house_account') {
+          return {
+            ...baseMethod,
+            providerMetadata: metadata
+          };
+        } else if (pm.method === 'cod') {
+          return {
+            ...baseMethod,
+            providerMetadata: metadata
+          };
+        } else if (pm.method.startsWith('offline:')) {
+          return {
+            ...baseMethod,
+            offlineMethodId: pm.details?.offlineMethodId,
+            providerMetadata: metadata
           };
         }
 
@@ -428,6 +499,31 @@ const PaymentController: FC<Props> = ({
     createPaymentTransaction(paymentMethods);
   };
 
+  const handleManualPaymentComplete = ({ amount, reference }: { amount: number; reference?: string }) => {
+    if (!manualPaymentConfig) return;
+
+    const paymentDetails: any = {};
+    if (reference) {
+      paymentDetails.reference = reference;
+      if (manualPaymentConfig.methodId === 'check') {
+        paymentDetails.checkNumber = reference;
+      }
+    }
+    if (manualPaymentConfig.offlineId) {
+      paymentDetails.offlineMethodId = manualPaymentConfig.offlineId;
+    }
+
+    createPaymentTransaction([
+      {
+        method: manualPaymentConfig.methodId,
+        amount,
+        details: paymentDetails,
+      },
+    ]);
+
+    setManualPaymentConfig(null);
+  };
+
   // Handle split payment completion
   const handleSplitPaymentComplete = (paymentMethods: Array<{ method: string; amount: number; details?: any }>) => {
     createPaymentTransaction(paymentMethods);
@@ -525,7 +621,7 @@ const PaymentController: FC<Props> = ({
         )}
 
         <PaymentMethodGrid
-          selectedMethod=""
+          selectedMethod={selectedMethodId}
           onSelect={handleMethodSelect}
           total={total}
           couponCode={couponCode}
@@ -559,6 +655,17 @@ const PaymentController: FC<Props> = ({
           customerName={customer?.firstName && customer?.lastName ? `${customer.firstName} ${customer.lastName}` : customer?.firstName || customer?.lastName}
           onComplete={(paymentData) => handleSinglePaymentComplete('credit', paymentData)}
           onCancel={() => setShowCardModal(false)}
+        />
+
+        <ManualPaymentModal
+          open={manualPaymentConfig !== null}
+          methodLabel={manualPaymentConfig?.label ?? ''}
+          defaultAmount={total}
+          requireReference={manualPaymentConfig?.requiresReference ?? false}
+          referenceLabel={manualPaymentConfig?.referenceLabel ?? 'Reference'}
+          instructions={manualPaymentConfig?.instructions}
+          onSubmit={handleManualPaymentComplete}
+          onCancel={() => setManualPaymentConfig(null)}
         />
       </div>
       );
@@ -683,9 +790,14 @@ const mapPaymentMethodType = (method: string): string => {
     'gift_card': 'GIFT_CARD',
     'store_credit': 'STORE_CREDIT',
     'check': 'CHECK',
-    'cod': 'COD'
+    'cod': 'COD',
+    'house_account': 'HOUSE_ACCOUNT'
   };
   
+  if (method.startsWith('offline:')) {
+    return 'OFFLINE';
+  }
+
   return methodMap[method] || 'CASH';
 };
 

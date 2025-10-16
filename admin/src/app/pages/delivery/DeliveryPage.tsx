@@ -414,9 +414,11 @@ const DeliveryPage: React.FC = () => {
       {/* Customer */}
       <td className="px-4 py-3">
         <div className="text-sm text-gray-900 dark:text-white font-medium">
-          {order.customer.firstName} {order.customer.lastName}
+          {order.customer
+            ? `${order.customer.firstName ?? ''} ${order.customer.lastName ?? ''}`.trim() || 'Guest'
+            : 'Guest'}
         </div>
-        {order.customer.phone && (
+        {order.customer?.phone && (
           <div className="text-xs text-gray-500 dark:text-gray-400">
             {order.customer.phone}
           </div>

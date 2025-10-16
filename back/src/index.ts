@@ -30,12 +30,14 @@ import {
   getActiveHoliday 
 } from './routes/settings/holidays';
 import taxRatesRouter from './routes/settings/tax-rates';
+import paymentSettingsRouter from './routes/settings/payments';
 import emailRouter from './routes/email';
 import smsRouter from './routes/sms';
 import notificationsRouter from './routes/notifications';
 import stripeRouter from './routes/stripe';
 import squareRouter from './routes/square';
 import eventsRouter from './routes/events';
+import reportsRouter from './routes/reports';
 
 dotenv.config();
 
@@ -73,6 +75,7 @@ app.post('/api/settings/delivery-charges', saveDeliveryCharges);
 app.use('/api/gift-cards', giftCardsRouter);
 app.use('/api/orders', ordersRouter);
 app.use('/api/payment-transactions', paymentTransactionsRouter);
+app.use('/api/settings/payments', paymentSettingsRouter);
 app.get('/api/settings/pos-tabs', getPOSTabs);
 app.post('/api/settings/pos-tabs', savePOSTabs);
 app.use('/api/settings/tax-rates', taxRatesRouter);
@@ -83,6 +86,7 @@ app.use('/api/notifications', notificationsRouter);
 app.use('/api/stripe', stripeRouter);
 app.use('/api/square', squareRouter);
 app.use('/api/events', eventsRouter);
+app.use('/api/reports', reportsRouter);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'Backend is alive!' });
