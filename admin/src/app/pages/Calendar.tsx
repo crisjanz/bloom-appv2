@@ -48,14 +48,81 @@ const Calendar: React.FC = () => {
     Warning: "warning",
   };
 
-  // Convert order data to calendar events whenever ordersByDate changes
+  // Combined effect: Generate ALL calendar events (background, orders, manual)
   useEffect(() => {
-    const orderEvents: CalendarEvent[] = [];
+    const allCalendarEvents: CalendarEvent[] = [];
 
+    // 1. Generate background events (holidays + closed days)
+    if (visibleDateRange && businessHours) {
+      const { start, end } = visibleDateRange;
+      const currentDate = new Date(start);
+
+      while (currentDate <= end) {
+        const dateString = formatDate(currentDate);
+        const holiday = getHolidayForDate(dateString);
+
+        if (holiday) {
+          // Holiday event (either closed or special hours)
+          if (holiday.isOpen && holiday.openTime && holiday.closeTime) {
+            // Open with special hours - orange background
+            allCalendarEvents.push({
+              id: `holiday-${dateString}`,
+              title: `${holiday.name} ${holiday.openTime}-${holiday.closeTime}`,
+              start: dateString,
+              allDay: true,
+              display: 'background',
+              backgroundColor: '#fed7aa', // orange-200
+              extendedProps: {
+                calendar: 'warning',
+                eventType: 'holiday',
+                holidayName: holiday.name,
+                isOpen: true,
+                specialHours: `${holiday.openTime}-${holiday.closeTime}`
+              }
+            });
+          } else {
+            // Closed holiday - red background
+            allCalendarEvents.push({
+              id: `holiday-${dateString}`,
+              title: `${holiday.name} - Closed`,
+              start: dateString,
+              allDay: true,
+              display: 'background',
+              backgroundColor: '#fee2e2', // red-100
+              extendedProps: {
+                calendar: 'danger',
+                eventType: 'holiday',
+                holidayName: holiday.name,
+                isOpen: false
+              }
+            });
+          }
+        } else if (isDateClosed(dateString)) {
+          // Regular closed day (e.g., Sunday) - light red background
+          allCalendarEvents.push({
+            id: `closed-${dateString}`,
+            title: 'Closed',
+            start: dateString,
+            allDay: true,
+            display: 'background',
+            backgroundColor: '#fef2f2', // red-50
+            extendedProps: {
+              calendar: 'danger',
+              eventType: 'closed'
+            }
+          });
+        }
+
+        // Move to next day
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+    }
+
+    // 2. Generate order events
     ordersByDate.forEach((dateData, date) => {
       // Add pickup event if there are any pickups
       if (dateData.pickup.pending > 0 || dateData.pickup.completed > 0) {
-        orderEvents.push({
+        allCalendarEvents.push({
           id: `pickup-${date}`,
           title: 'Pickup',
           start: date,
@@ -72,7 +139,7 @@ const Calendar: React.FC = () => {
 
       // Add delivery event if there are any deliveries
       if (dateData.delivery.pending > 0 || dateData.delivery.completed > 0) {
-        orderEvents.push({
+        allCalendarEvents.push({
           id: `delivery-${date}`,
           title: 'Delivery',
           start: date,
@@ -88,89 +155,12 @@ const Calendar: React.FC = () => {
       }
     });
 
-    // Combine order events with manual events
-    setAllEvents([...orderEvents, ...manualEvents]);
-  }, [ordersByDate, manualEvents]);
+    // 3. Add manual events
+    allCalendarEvents.push(...manualEvents);
 
-  // Generate background events for closed days and holidays
-  useEffect(() => {
-    if (!visibleDateRange || !businessHours) return;
-
-    const backgroundEvents: CalendarEvent[] = [];
-    const { start, end } = visibleDateRange;
-
-    // Generate events for each day in visible range
-    const currentDate = new Date(start);
-    while (currentDate <= end) {
-      const dateString = formatDate(currentDate);
-      const holiday = getHolidayForDate(dateString);
-
-      if (holiday) {
-        // Holiday event (either closed or special hours)
-        if (holiday.isOpen && holiday.openTime && holiday.closeTime) {
-          // Open with special hours - orange background
-          backgroundEvents.push({
-            id: `holiday-${dateString}`,
-            title: `${holiday.name} ${holiday.openTime}-${holiday.closeTime}`,
-            start: dateString,
-            allDay: true,
-            display: 'background',
-            backgroundColor: '#fed7aa', // orange-200
-            extendedProps: {
-              calendar: 'warning',
-              eventType: 'holiday',
-              holidayName: holiday.name,
-              isOpen: true,
-              specialHours: `${holiday.openTime}-${holiday.closeTime}`
-            }
-          });
-        } else {
-          // Closed holiday - red background
-          backgroundEvents.push({
-            id: `holiday-${dateString}`,
-            title: `${holiday.name} - Closed`,
-            start: dateString,
-            allDay: true,
-            display: 'background',
-            backgroundColor: '#fee2e2', // red-100
-            extendedProps: {
-              calendar: 'danger',
-              eventType: 'holiday',
-              holidayName: holiday.name,
-              isOpen: false
-            }
-          });
-        }
-      } else if (isDateClosed(dateString)) {
-        // Regular closed day (e.g., Sunday) - light red background
-        backgroundEvents.push({
-          id: `closed-${dateString}`,
-          title: 'Closed',
-          start: dateString,
-          allDay: true,
-          display: 'background',
-          backgroundColor: '#fef2f2', // red-50
-          extendedProps: {
-            calendar: 'danger',
-            eventType: 'closed'
-          }
-        });
-      }
-
-      // Move to next day
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
-
-    // Combine all events: background events + order events + manual events
-    setAllEvents((prevEvents) => {
-      // Filter out old background events, keep order/manual events
-      const nonBackgroundEvents = prevEvents.filter(e =>
-        e.extendedProps.eventType !== 'holiday' &&
-        e.extendedProps.eventType !== 'closed'
-      );
-      return [...backgroundEvents, ...nonBackgroundEvents];
-    });
-  }, [visibleDateRange, businessHours, holidays, isDateClosed, getHolidayForDate]);
+    // Set all events at once
+    setAllEvents(allCalendarEvents);
+  }, [visibleDateRange, businessHours, holidays, ordersByDate, manualEvents, isDateClosed, getHolidayForDate]);
 
   // Helper function to format date
   const formatDate = (date: Date): string => {
