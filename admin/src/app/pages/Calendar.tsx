@@ -3,20 +3,26 @@ import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
-import { EventInput, DateSelectArg, EventClickArg } from "@fullcalendar/core";
+import { EventInput, DateSelectArg, EventClickArg, DatesSetArg } from "@fullcalendar/core";
 import { Modal } from "@shared/ui/components/ui/modal";
 import { useModal } from "@shared/hooks/useModal";
 import PageMeta from "@shared/ui/common/PageMeta";
 import { useBusinessTimezone } from "@shared/hooks/useBusinessTimezone";
+import { useCalendarOrders } from "@domains/orders/hooks/useCalendarOrders";
 
 interface CalendarEvent extends EventInput {
   extendedProps: {
     calendar: string;
+    eventType?: 'order' | 'manual'; // Track event type
+    orderType?: 'pickup' | 'delivery'; // For order events
+    pendingCount?: number;
+    completedCount?: number;
   };
 }
 
 const Calendar: React.FC = () => {
   const { getBusinessDateString } = useBusinessTimezone();
+  const { ordersByDate, loading, fetchOrdersForMonth } = useCalendarOrders();
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(
     null
   );
@@ -24,7 +30,8 @@ const Calendar: React.FC = () => {
   const [eventStartDate, setEventStartDate] = useState("");
   const [eventEndDate, setEventEndDate] = useState("");
   const [eventLevel, setEventLevel] = useState("");
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [manualEvents, setManualEvents] = useState<CalendarEvent[]>([]); // Separate manual events
+  const [allEvents, setAllEvents] = useState<CalendarEvent[]>([]); // Combined events for display
   const calendarRef = useRef<FullCalendar>(null);
   const { isOpen, openModal, closeModal } = useModal();
 
@@ -35,37 +42,67 @@ const Calendar: React.FC = () => {
     Warning: "warning",
   };
 
+  // Convert order data to calendar events whenever ordersByDate changes
   useEffect(() => {
-    // Initialize with some events
-    if (getBusinessDateString) {
-      const today = getBusinessDateString(new Date());
-      const tomorrow = getBusinessDateString(new Date(Date.now() + 86400000));
-      const dayAfter = getBusinessDateString(new Date(Date.now() + 172800000));
-      const dayAfterEnd = getBusinessDateString(new Date(Date.now() + 259200000));
-      
-      setEvents([
-        {
-          id: "1",
-          title: "Event Conf.",
-          start: today,
-          extendedProps: { calendar: "Danger" },
-        },
-        {
-          id: "2",
-          title: "Meeting",
-          start: tomorrow,
-          extendedProps: { calendar: "Success" },
-        },
-        {
-          id: "3",
-          title: "Workshop",
-          start: dayAfter,
-          end: dayAfterEnd,
-          extendedProps: { calendar: "Primary" },
-        },
-      ]);
-    }
-  }, [getBusinessDateString]);
+    const orderEvents: CalendarEvent[] = [];
+
+    ordersByDate.forEach((dateData, date) => {
+      // Add pickup event if there are any pickups
+      if (dateData.pickup.pending > 0 || dateData.pickup.completed > 0) {
+        orderEvents.push({
+          id: `pickup-${date}`,
+          title: 'Pickup',
+          start: date,
+          allDay: true,
+          extendedProps: {
+            calendar: 'primary',
+            eventType: 'order',
+            orderType: 'pickup',
+            pendingCount: dateData.pickup.pending,
+            completedCount: dateData.pickup.completed,
+          },
+        });
+      }
+
+      // Add delivery event if there are any deliveries
+      if (dateData.delivery.pending > 0 || dateData.delivery.completed > 0) {
+        orderEvents.push({
+          id: `delivery-${date}`,
+          title: 'Delivery',
+          start: date,
+          allDay: true,
+          extendedProps: {
+            calendar: 'primary',
+            eventType: 'order',
+            orderType: 'delivery',
+            pendingCount: dateData.delivery.pending,
+            completedCount: dateData.delivery.completed,
+          },
+        });
+      }
+    });
+
+    // Combine order events with manual events
+    setAllEvents([...orderEvents, ...manualEvents]);
+  }, [ordersByDate, manualEvents]);
+
+  // Handle calendar month/view changes - fetch orders for visible date range
+  const handleDatesSet = (dateInfo: DatesSetArg) => {
+    const startDate = dateInfo.start;
+    const year = startDate.getFullYear();
+    const month = startDate.getMonth();
+
+    console.log('Calendar datesSet - fetching orders for:', { year, month: month + 1 });
+    // Fetch orders for this month
+    fetchOrdersForMonth(year, month);
+  };
+
+  // Initial load - fetch current month orders
+  useEffect(() => {
+    const now = new Date();
+    console.log('Calendar initial load - fetching current month orders');
+    fetchOrdersForMonth(now.getFullYear(), now.getMonth());
+  }, [fetchOrdersForMonth]);
 
   const handleDateSelect = (selectInfo: DateSelectArg) => {
     resetModalFields();
@@ -76,6 +113,14 @@ const Calendar: React.FC = () => {
 
   const handleEventClick = (clickInfo: EventClickArg) => {
     const event = clickInfo.event;
+
+    // Only allow editing manual events, not order events
+    if (event.extendedProps.eventType === 'order') {
+      // TODO: Future enhancement - navigate to filtered orders page
+      console.log('Order event clicked:', event.extendedProps);
+      return;
+    }
+
     setSelectedEvent(event as unknown as CalendarEvent);
     setEventTitle(event.title);
     setEventStartDate(event.start?.toISOString().split("T")[0] || "");
@@ -86,8 +131,8 @@ const Calendar: React.FC = () => {
 
   const handleAddOrUpdateEvent = () => {
     if (selectedEvent) {
-      // Update existing event
-      setEvents((prevEvents) =>
+      // Update existing manual event
+      setManualEvents((prevEvents) =>
         prevEvents.map((event) =>
           event.id === selectedEvent.id
             ? {
@@ -95,22 +140,22 @@ const Calendar: React.FC = () => {
                 title: eventTitle,
                 start: eventStartDate,
                 end: eventEndDate,
-                extendedProps: { calendar: eventLevel },
+                extendedProps: { calendar: eventLevel, eventType: 'manual' },
               }
             : event
         )
       );
     } else {
-      // Add new event
+      // Add new manual event
       const newEvent: CalendarEvent = {
         id: Date.now().toString(),
         title: eventTitle,
         start: eventStartDate,
         end: eventEndDate,
         allDay: true,
-        extendedProps: { calendar: eventLevel },
+        extendedProps: { calendar: eventLevel, eventType: 'manual' },
       };
-      setEvents((prevEvents) => [...prevEvents, newEvent]);
+      setManualEvents((prevEvents) => [...prevEvents, newEvent]);
     }
     closeModal();
     resetModalFields();
@@ -141,11 +186,12 @@ const Calendar: React.FC = () => {
               center: "title",
               right: "dayGridMonth,timeGridWeek,timeGridDay",
             }}
-            events={events}
+            events={allEvents}
             selectable={true}
             select={handleDateSelect}
             eventClick={handleEventClick}
             eventContent={renderEventContent}
+            datesSet={handleDatesSet}
             customButtons={{
               addEventButton: {
                 text: "Add Event +",
@@ -278,7 +324,35 @@ const Calendar: React.FC = () => {
 };
 
 const renderEventContent = (eventInfo: any) => {
-  const colorClass = `fc-bg-${eventInfo.event.extendedProps.calendar.toLowerCase()}`;
+  const { extendedProps } = eventInfo.event;
+
+  // Render order events with completion status badges
+  if (extendedProps.eventType === 'order') {
+    const pendingCount = extendedProps.pendingCount || 0;
+    const completedCount = extendedProps.completedCount || 0;
+    const orderType = extendedProps.orderType || '';
+
+    return (
+      <div className="flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium w-full">
+        <span className="text-gray-700 dark:text-gray-300">{orderType === 'pickup' ? 'Pickup' : 'Delivery'}</span>
+        <div className="flex items-center gap-1 ml-auto">
+          {pendingCount > 0 && (
+            <span className="inline-flex items-center rounded bg-red-100 px-1.5 py-0.5 text-xs font-semibold text-red-700 dark:bg-red-900 dark:text-red-200">
+              {pendingCount}
+            </span>
+          )}
+          {completedCount > 0 && (
+            <span className="inline-flex items-center rounded bg-green-100 px-1.5 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-900 dark:text-green-200">
+              ✓{completedCount}
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Render manual events with original styling
+  const colorClass = `fc-bg-${extendedProps.calendar?.toLowerCase() || 'primary'}`;
   return (
     <div
       className={`event-fc-color flex fc-event-main ${colorClass} p-1 rounded-sm`}
