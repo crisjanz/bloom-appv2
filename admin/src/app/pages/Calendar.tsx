@@ -9,20 +9,25 @@ import { useModal } from "@shared/hooks/useModal";
 import PageMeta from "@shared/ui/common/PageMeta";
 import { useBusinessTimezone } from "@shared/hooks/useBusinessTimezone";
 import { useCalendarOrders } from "@domains/orders/hooks/useCalendarOrders";
+import { useBusinessCalendar } from "@domains/orders/hooks/useBusinessCalendar";
 
 interface CalendarEvent extends EventInput {
   extendedProps: {
     calendar: string;
-    eventType?: 'order' | 'manual'; // Track event type
+    eventType?: 'order' | 'manual' | 'holiday' | 'closed'; // Track event type
     orderType?: 'pickup' | 'delivery'; // For order events
     pendingCount?: number;
     completedCount?: number;
+    holidayName?: string; // For holiday events
+    isOpen?: boolean; // For holiday events with special hours
+    specialHours?: string; // For holiday events
   };
 }
 
 const Calendar: React.FC = () => {
   const { getBusinessDateString } = useBusinessTimezone();
   const { ordersByDate, loading, fetchOrdersForMonth } = useCalendarOrders();
+  const { businessHours, holidays, isDateClosed, getHolidayForDate } = useBusinessCalendar();
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(
     null
   );
@@ -32,6 +37,7 @@ const Calendar: React.FC = () => {
   const [eventLevel, setEventLevel] = useState("");
   const [manualEvents, setManualEvents] = useState<CalendarEvent[]>([]); // Separate manual events
   const [allEvents, setAllEvents] = useState<CalendarEvent[]>([]); // Combined events for display
+  const [visibleDateRange, setVisibleDateRange] = useState<{ start: Date; end: Date } | null>(null);
   const calendarRef = useRef<FullCalendar>(null);
   const { isOpen, openModal, closeModal } = useModal();
 
@@ -86,6 +92,94 @@ const Calendar: React.FC = () => {
     setAllEvents([...orderEvents, ...manualEvents]);
   }, [ordersByDate, manualEvents]);
 
+  // Generate background events for closed days and holidays
+  useEffect(() => {
+    if (!visibleDateRange || !businessHours) return;
+
+    const backgroundEvents: CalendarEvent[] = [];
+    const { start, end } = visibleDateRange;
+
+    // Generate events for each day in visible range
+    const currentDate = new Date(start);
+    while (currentDate <= end) {
+      const dateString = formatDate(currentDate);
+      const holiday = getHolidayForDate(dateString);
+
+      if (holiday) {
+        // Holiday event (either closed or special hours)
+        if (holiday.isOpen && holiday.openTime && holiday.closeTime) {
+          // Open with special hours - orange background
+          backgroundEvents.push({
+            id: `holiday-${dateString}`,
+            title: `${holiday.name} ${holiday.openTime}-${holiday.closeTime}`,
+            start: dateString,
+            allDay: true,
+            display: 'background',
+            backgroundColor: '#fed7aa', // orange-200
+            extendedProps: {
+              calendar: 'warning',
+              eventType: 'holiday',
+              holidayName: holiday.name,
+              isOpen: true,
+              specialHours: `${holiday.openTime}-${holiday.closeTime}`
+            }
+          });
+        } else {
+          // Closed holiday - red background
+          backgroundEvents.push({
+            id: `holiday-${dateString}`,
+            title: `${holiday.name} - Closed`,
+            start: dateString,
+            allDay: true,
+            display: 'background',
+            backgroundColor: '#fee2e2', // red-100
+            extendedProps: {
+              calendar: 'danger',
+              eventType: 'holiday',
+              holidayName: holiday.name,
+              isOpen: false
+            }
+          });
+        }
+      } else if (isDateClosed(dateString)) {
+        // Regular closed day (e.g., Sunday) - light red background
+        backgroundEvents.push({
+          id: `closed-${dateString}`,
+          title: 'Closed',
+          start: dateString,
+          allDay: true,
+          display: 'background',
+          backgroundColor: '#fef2f2', // red-50
+          extendedProps: {
+            calendar: 'danger',
+            eventType: 'closed'
+          }
+        });
+      }
+
+      // Move to next day
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    // Combine all events: background events + order events + manual events
+    setAllEvents((prevEvents) => {
+      // Filter out old background events, keep order/manual events
+      const nonBackgroundEvents = prevEvents.filter(e =>
+        e.extendedProps.eventType !== 'holiday' &&
+        e.extendedProps.eventType !== 'closed'
+      );
+      return [...backgroundEvents, ...nonBackgroundEvents];
+    });
+  }, [visibleDateRange, businessHours, holidays, isDateClosed, getHolidayForDate]);
+
+  // Helper function to format date
+  const formatDate = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // Handle calendar month/view changes - fetch orders for visible date range
   const handleDatesSet = (dateInfo: DatesSetArg) => {
     const startDate = dateInfo.start;
@@ -93,14 +187,31 @@ const Calendar: React.FC = () => {
     const month = startDate.getMonth();
 
     console.log('Calendar datesSet - fetching orders for:', { year, month: month + 1 });
+
+    // Store visible date range for background events
+    setVisibleDateRange({
+      start: dateInfo.start,
+      end: dateInfo.end
+    });
+
     // Fetch orders for this month
     fetchOrdersForMonth(year, month);
   };
 
-  // Initial load - fetch current month orders
+  // Initial load - fetch current month orders and set visible range
   useEffect(() => {
     const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
     console.log('Calendar initial load - fetching current month orders');
+
+    // Set initial visible range
+    setVisibleDateRange({
+      start: monthStart,
+      end: monthEnd
+    });
+
     fetchOrdersForMonth(now.getFullYear(), now.getMonth());
   }, [fetchOrdersForMonth]);
 
