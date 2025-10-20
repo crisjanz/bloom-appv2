@@ -1,0 +1,44 @@
+# PaymentService.ts Refactoring - Code Extraction Log
+Date: 2025-10-19
+
+## Functions/Code Extracted to Adapters:
+
+### Extracted to StripePaymentAdapter.ts:
+- Lines 245-281: processStripePayment() method
+- Lines 621-683: callStripeAPI() [DUPLICATE - removed, uses existing stripeService]
+
+### Extracted to SquarePaymentAdapter.ts:
+- Lines 286-310: processSquarePayment() method
+- Lines 685-756: callSquareAPI() [DUPLICATE - removed, uses existing stripeService]
+
+### Extracted to GiftCardStoreCreditAdapter.ts:
+- Lines 347-369: processGiftCardPayment() method
+- Lines 758-765: validateAndChargeGiftCard() [DUPLICATE - removed, uses giftCardService]
+
+### Extracted to OfflinePaymentAdapter.ts:
+- Lines 313-342: processCashPayment() method
+- Lines 374-419: processPayPalPayment() method (future implementation)
+- Lines 777-816: callPayPalAPI() method (moved to adapter)
+
+### Modified in PaymentService.ts:
+- Lines 202-240: processPaymentMethod() - Now delegates to adapters
+- Lines 426-460: processGiftCard() - Updated to use existing giftCardService.activateGiftCard()
+- Lines 767-775: activateGiftCard() [DUPLICATE - removed, uses giftCardService]
+
+## Duplicate Code Eliminated (154 lines total):
+- callStripeAPI wrapper: 64 lines
+- callSquareAPI wrapper: 72 lines
+- validateAndChargeGiftCard mock: 8 lines
+- activateGiftCard mock: 10 lines
+
+## Files Created:
+1. /admin/src/domains/payments/adapters/IPaymentAdapter.ts
+2. /admin/src/domains/payments/adapters/StripePaymentAdapter.ts
+3. /admin/src/domains/payments/adapters/SquarePaymentAdapter.ts
+4. /admin/src/domains/payments/adapters/GiftCardStoreCreditAdapter.ts
+5. /admin/src/domains/payments/adapters/OfflinePaymentAdapter.ts
+
+## Result:
+- Original: 817 lines
+- After refactor: ~280 lines (66% reduction)
+- Total across all files: ~690 lines (15% overall reduction)
