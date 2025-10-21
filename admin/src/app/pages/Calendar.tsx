@@ -118,8 +118,18 @@ const Calendar: React.FC = () => {
       }
     }
 
-    // 2. Generate order events
+    // 2. Generate order events (only for visible date range)
+    const visibleStartStr = visibleDateRange ? formatDate(visibleDateRange.start) : null;
+    const visibleEndStr = visibleDateRange ? formatDate(visibleDateRange.end) : null;
+
     ordersByDate.forEach((dateData, date) => {
+      // Skip orders outside visible date range
+      if (visibleStartStr && visibleEndStr) {
+        if (date < visibleStartStr || date > visibleEndStr) {
+          return;
+        }
+      }
+
       // Add pickup event if there are any pickups
       if (dateData.pickup.pending > 0 || dateData.pickup.completed > 0) {
         allCalendarEvents.push({
@@ -176,8 +186,6 @@ const Calendar: React.FC = () => {
     const year = startDate.getFullYear();
     const month = startDate.getMonth();
 
-    console.log('Calendar datesSet - fetching orders for:', { year, month: month + 1 });
-
     // Store visible date range for background events
     setVisibleDateRange({
       start: dateInfo.start,
@@ -193,8 +201,6 @@ const Calendar: React.FC = () => {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
-    console.log('Calendar initial load - fetching current month orders');
 
     // Set initial visible range
     setVisibleDateRange({

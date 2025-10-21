@@ -120,7 +120,17 @@ export const useCalendarOrders = (): CalendarOrdersResult => {
         }
       })
 
-      setOrdersByDate(grouped)
+      // Merge with existing data instead of replacing
+      setOrdersByDate(prevMap => {
+        const newMap = new Map(prevMap);
+
+        // Add/update all dates from this month's fetch
+        grouped.forEach((dateData, date) => {
+          newMap.set(date, dateData);
+        });
+
+        return newMap;
+      })
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch calendar orders'
       setError(message)
