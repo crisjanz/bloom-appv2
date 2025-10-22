@@ -376,51 +376,65 @@ function mapAddressType(ftdAddressType: string | undefined): AddressType | null 
 // Auto-create Bloom order from accepted FTD order
 async function autoCreateBloomOrder(ftdOrder: any) {
   try {
-    // 1. Find or create customer
-    let customer = null;
+    // 1. Get or create SENDER customer (Sending Florist)
+    // Use unique phone format: ftd-{floristCode} for easy lookup
+    const floristCode = ftdOrder.sendingFloristCode || 'unknown';
+    const floristPhone = `ftd-${floristCode}`;
 
-    // Only search by phone if we have a valid phone number
+    let senderCustomer = await prisma.customer.findFirst({
+      where: { phone: floristPhone }
+    });
+
+    if (!senderCustomer) {
+      senderCustomer = await prisma.customer.create({
+        data: {
+          firstName: 'FTD Florist',
+          lastName: `#${floristCode}`,
+          phone: floristPhone,
+          email: null,
+          notes: `FTD sending florist code: ${floristCode}`,
+        }
+      });
+      console.log(`👤 Created FTD sending florist customer: #${floristCode}`);
+    }
+
+    // 2. Find or create RECIPIENT customer (the person receiving the flowers)
+    let recipientCustomer = null;
+
     if (ftdOrder.recipientPhone) {
-      customer = await prisma.customer.findFirst({
+      // Try to find existing customer by phone
+      recipientCustomer = await prisma.customer.findFirst({
         where: {
           phone: ftdOrder.recipientPhone,
         }
       });
 
       // If not found, create new customer with recipient info
-      if (!customer) {
-        customer = await prisma.customer.create({
+      if (!recipientCustomer) {
+        recipientCustomer = await prisma.customer.create({
           data: {
-            firstName: ftdOrder.recipientFirstName || 'Wire-In',
-            lastName: ftdOrder.recipientLastName || 'Customer',
+            firstName: ftdOrder.recipientFirstName || 'Recipient',
+            lastName: ftdOrder.recipientLastName || '',
             phone: ftdOrder.recipientPhone,
             email: ftdOrder.recipientEmail,
           }
         });
-        console.log(`👤 Created customer for FTD order: ${customer.firstName} ${customer.lastName}`);
+        console.log(`👤 Created recipient customer: ${recipientCustomer.firstName} ${recipientCustomer.lastName} (${recipientCustomer.phone})`);
       }
-    }
-
-    // If still no customer (no phone provided), use default wire-in customer
-    if (!customer) {
-      customer = await prisma.customer.findFirst({
-        where: { phone: 'wire-in-default' }
+    } else {
+      // No phone provided - create anonymous recipient
+      recipientCustomer = await prisma.customer.create({
+        data: {
+          firstName: ftdOrder.recipientFirstName || 'Recipient',
+          lastName: ftdOrder.recipientLastName || '',
+          phone: null,
+          email: ftdOrder.recipientEmail,
+        }
       });
-
-      if (!customer) {
-        customer = await prisma.customer.create({
-          data: {
-            firstName: 'FTD Wire-In',
-            lastName: 'Orders',
-            phone: 'wire-in-default',
-            email: null,
-          }
-        });
-        console.log(`👤 Created default wire-in customer: ${customer.firstName} ${customer.lastName}`);
-      }
+      console.log(`👤 Created recipient customer without phone: ${recipientCustomer.firstName} ${recipientCustomer.lastName}`);
     }
 
-    // 2. Create recipient address
+    // 3. Create recipient address
     const recipientAddress = await prisma.address.create({
       data: {
         firstName: ftdOrder.recipientFirstName || '',
@@ -433,19 +447,19 @@ async function autoCreateBloomOrder(ftdOrder: any) {
         country: ftdOrder.country || 'CA',
         phone: ftdOrder.recipientPhone,
         addressType: ftdOrder.addressType || AddressType.RESIDENCE,
-        customerId: customer.id,
+        customerId: recipientCustomer.id,
       }
     });
 
-    // 3. Create Bloom order
+    // 4. Create Bloom order
     const bloomOrder = await prisma.order.create({
       data: {
         type: 'DELIVERY',
         status: 'PAID', // FTD orders are pre-paid
         orderSource: 'WIREIN',
-        customerId: customer.id,
+        customerId: senderCustomer.id, // Sender = Sending Florist
         deliveryAddressId: recipientAddress.id,
-        recipientCustomerId: customer.id,
+        recipientCustomerId: recipientCustomer.id, // Recipient = actual recipient
         deliveryDate: ftdOrder.deliveryDate,
         deliveryTime: ftdOrder.deliveryTime,
         cardMessage: ftdOrder.cardMessage,
