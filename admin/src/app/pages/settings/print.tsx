@@ -1,4 +1,4 @@
-import PageBreadcrumb from "@shared/ui/common/PageBreadcrumb";
+import PageBreadcrumb from "@shared/ui/common/PageBreadCrumb";
 import ComponentCard from "@shared/ui/common/ComponentCard";
 
 import TicketLayoutCard from "@app/components/settings/print/TicketLayoutCard";

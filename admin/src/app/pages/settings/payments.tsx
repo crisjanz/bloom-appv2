@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import PageBreadcrumb from "@shared/ui/common/PageBreadcrumb";
+import PageBreadcrumb from "@shared/ui/common/PageBreadCrumb";
 import StripeCard from "@app/components/settings/payments/StripeCard";
 import SquareCard from "@app/components/settings/payments/SquareCard";
 import PaypalCard from "@app/components/settings/payments/PaypalCard";
