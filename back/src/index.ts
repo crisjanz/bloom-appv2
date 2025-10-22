@@ -38,11 +38,11 @@ import stripeRouter from './routes/stripe';
 import squareRouter from './routes/square';
 import eventsRouter from './routes/events';
 import reportsRouter from './routes/reports';
-import ftdOrdersRouter from './routes/ftd/orders';
-import ftdSettingsRouter from './routes/ftd/settings';
+// import ftdOrdersRouter from './routes/ftd/orders';
+// import ftdSettingsRouter from './routes/ftd/settings';
 import imagesRouter from './routes/images';
-import { startFtdMonitor } from './services/ftdMonitor';
-import { startTokenRefreshSchedule } from './services/ftdAuthService';
+// import { startFtdMonitor } from './services/ftdMonitor';
+// import { startTokenRefreshSchedule } from './services/ftdAuthService';
 
 dotenv.config();
 
@@ -102,8 +102,8 @@ app.use('/api/stripe', stripeRouter);
 app.use('/api/square', squareRouter);
 app.use('/api/events', eventsRouter);
 app.use('/api/reports', reportsRouter);
-app.use('/api/ftd/orders', ftdOrdersRouter);
-app.use('/api/ftd/settings', ftdSettingsRouter);
+// app.use('/api/ftd/orders', ftdOrdersRouter);
+// app.use('/api/ftd/settings', ftdSettingsRouter);
 app.use('/api/images', imagesRouter);
 
 app.get('/api/health', (req, res) => {
@@ -120,10 +120,10 @@ const PORT = Number(process.env.PORT) || 4000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Custom backend running on http://localhost:${PORT}`);
 
-  // Start FTD integration services
-  console.log("🌸 Initializing FTD Wire Order Integration...");
-  startFtdMonitor().catch(err => {
-    console.error("Failed to start FTD monitor:", err.message);
-  });
-  startTokenRefreshSchedule();
+  // Start FTD integration services (commented out for initial deployment)
+  // console.log("🌸 Initializing FTD Wire Order Integration...");
+  // startFtdMonitor().catch(err => {
+  //   console.error("Failed to start FTD monitor:", err.message);
+  // });
+  // startTokenRefreshSchedule();
 });
