@@ -9,10 +9,25 @@ let refreshInterval: NodeJS.Timeout | null = null;
 export async function refreshFtdToken(): Promise<boolean> {
   console.log("🔄 Attempting to refresh FTD auth token...");
 
+  // Skip auto-refresh if disabled (e.g., Chromium not available on Render)
+  if (process.env.DISABLE_FTD_AUTO_REFRESH === 'true') {
+    console.log("⏭️  FTD auto-refresh disabled - using saved token (manual refresh via Settings > FTD)");
+    return false;
+  }
+
   try {
     const browser = await puppeteer.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--single-process',
+        '--disable-gpu'
+      ],
       timeout: 60000,
     });
 
@@ -274,7 +289,13 @@ export async function refreshFtdToken(): Promise<boolean> {
     return false;
 
   } catch (err: any) {
-    console.error("❌ FTD token refresh error:", err.message);
+    if (err.message.includes('Could not find Chrome')) {
+      console.error("❌ Chromium not available - FTD auto-refresh disabled");
+      console.log("ℹ️  Token refresh must be done manually via Settings > FTD");
+      console.log("💡 To enable auto-refresh, set DISABLE_FTD_AUTO_REFRESH=true in environment variables");
+    } else {
+      console.error("❌ FTD token refresh error:", err.message);
+    }
     return false;
   }
 }
