@@ -6,10 +6,10 @@ import { calculateTax } from '../utils/taxCalculator';
 
 const router = express.Router();
 const prisma = new PrismaClient();
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Supabase is being migrated to Cloudflare R2
+const supabase = process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
+  ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+  : null;
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -55,9 +55,9 @@ router.get('/list', async (req, res) => {
             ]
           }
         },
-        // Search by recipient name
+        // Search by recipient customer name
         {
-          recipient: {
+          recipientCustomer: {
             OR: [
               {
                 firstName: {
@@ -90,19 +90,26 @@ router.get('/list', async (req, res) => {
             phone: true
           }
         },
-        recipient: {
+        recipientCustomer: {
           select: {
             id: true,
             firstName: true,
             lastName: true,
-            company: true,
-            phone: true,
+            email: true,
+            phone: true
+          }
+        },
+        deliveryAddress: {
+          select: {
+            id: true,
+            label: true,
             address1: true,
             address2: true,
             city: true,
             province: true,
             postalCode: true,
-            country: true
+            country: true,
+            addressType: true
           }
         },
         orderItems: {
@@ -154,7 +161,13 @@ router.get('/:id', async (req, res) => {
       where: { id },
       include: {
         customer: true,
-        recipient: true,
+        recipientCustomer: {
+          include: {
+            homeAddress: true,
+            addresses: true
+          }
+        },
+        deliveryAddress: true,
         orderItems: true,
         employee: {
           select: {
@@ -240,7 +253,13 @@ router.put('/:id/update', async (req, res) => {
         where: { id },
         include: {
           customer: true,
-          recipient: true
+          recipientCustomer: {
+            include: {
+              homeAddress: true,
+              addresses: true
+            }
+          },
+          deliveryAddress: true
         }
       });
 
@@ -266,44 +285,13 @@ router.put('/:id/update', async (req, res) => {
         // Note: No need to update order.customerId as it's still the same customer
       }
 
-      // Handle recipient/address updates
-      if (updateData.recipient) {
-        if (currentOrder.recipientId && updateData.updateDatabase) {
-          // Update the existing address record
-          await tx.address.update({
-            where: { id: currentOrder.recipientId },
-            data: {
-              firstName: updateData.recipient.firstName,
-              lastName: updateData.recipient.lastName,
-              company: updateData.recipient.company || '',
-              phone: updateData.recipient.phone,
-              address1: updateData.recipient.address1,
-              address2: updateData.recipient.address2 || '',
-              city: updateData.recipient.city,
-              province: updateData.recipient.province,
-              postalCode: updateData.recipient.postalCode,
-              country: updateData.recipient.country || 'CA',
-            }
-          });
-        } else if (!currentOrder.recipientId) {
-          // Create new address if none exists
-          const newAddress = await tx.address.create({
-            data: {
-              firstName: updateData.recipient.firstName,
-              lastName: updateData.recipient.lastName,
-              company: updateData.recipient.company || '',
-              phone: updateData.recipient.phone,
-              address1: updateData.recipient.address1,
-              address2: updateData.recipient.address2 || '',
-              city: updateData.recipient.city,
-              province: updateData.recipient.province,
-              postalCode: updateData.recipient.postalCode,
-              country: updateData.recipient.country || 'CA',
-              customerId: currentOrder.customerId, // Link to customer
-            }
-          });
-          orderUpdateData.recipientId = newAddress.id;
-        }
+      // Handle recipient updates - Recipients are now managed via Customer API
+      // Orders can update their recipientCustomerId and deliveryAddressId references
+      if (updateData.recipientCustomerId !== undefined) {
+        orderUpdateData.recipientCustomerId = updateData.recipientCustomerId;
+      }
+      if (updateData.deliveryAddressId !== undefined) {
+        orderUpdateData.deliveryAddressId = updateData.deliveryAddressId;
       }
 
       // Handle delivery details updates (both flat and nested under 'delivery' section)
@@ -393,7 +381,13 @@ router.put('/:id/update', async (req, res) => {
         where: { id },
         include: {
           customer: true,
-          recipient: true,
+          recipientCustomer: {
+            include: {
+              homeAddress: true,
+              addresses: true
+            }
+          },
+          deliveryAddress: true,
           orderItems: true,
           employee: {
             select: {
@@ -441,25 +435,12 @@ router.post('/create', async (req, res) => {
     const createdOrders = [];
 
     for (const orderData of orders) {
-      // Create recipient address if delivery
-      let recipientId = null;
-      if (orderData.orderType === 'DELIVERY') {
-        const recipient = await prisma.address.create({
-          data: {
-            firstName: orderData.recipientFirstName,
-            lastName: orderData.recipientLastName,
-            company: orderData.recipientCompany || '',
-            phone: orderData.recipientPhone,
-            address1: orderData.recipientAddress.address1,
-            address2: orderData.recipientAddress.address2 || '',
-            city: orderData.recipientAddress.city,
-            province: orderData.recipientAddress.province,
-            postalCode: orderData.recipientAddress.postalCode,
-            country: orderData.recipientAddress.country || 'CA',
-            customerId: customerId, // Link to customer
-          }
-        });
-        recipientId = recipient.id;
+      // Use Customer-based recipient system (recipientCustomerId + deliveryAddressId)
+      let recipientCustomerId = orderData.recipientCustomerId || null;
+      let deliveryAddressId = orderData.deliveryAddressId || null;
+
+      if (orderData.orderType === 'DELIVERY' && !recipientCustomerId) {
+        console.warn('⚠️ Delivery order created without recipient - recipient should be managed via customer API');
       }
 
       // Calculate totals
@@ -493,7 +474,8 @@ router.post('/create', async (req, res) => {
           type: orderData.orderType,
           status: OrderStatus.PAID, // ✅ Use enum instead of string
           customerId,
-          recipientId,
+          recipientCustomerId,
+          deliveryAddressId,
           cardMessage: orderData.cardMessage || null,
           specialInstructions: orderData.deliveryInstructions || null,
           deliveryDate: orderData.deliveryDate ? new Date(orderData.deliveryDate) : null,
@@ -509,7 +491,13 @@ router.post('/create', async (req, res) => {
         },
         include: {
           orderItems: true,
-          recipient: true,
+          recipientCustomer: {
+            include: {
+              homeAddress: true,
+              addresses: true
+            }
+          },
+          deliveryAddress: true,
           customer: true
         }
       });
@@ -546,25 +534,12 @@ router.post('/save-draft', async (req, res) => {
     const draftOrders = [];
 
     for (const orderData of orders) {
-      // Same logic as above but with DRAFT status
-      let recipientId = null;
-      if (orderData.orderType === 'DELIVERY') {
-        const recipient = await prisma.address.create({
-          data: {
-            firstName: orderData.recipientFirstName,
-            lastName: orderData.recipientLastName,
-            company: orderData.recipientCompany || '',
-            phone: orderData.recipientPhone,
-            address1: orderData.recipientAddress.address1,
-            address2: orderData.recipientAddress.address2 || '',
-            city: orderData.recipientAddress.city,
-            province: orderData.recipientAddress.province,
-            postalCode: orderData.recipientAddress.postalCode,
-            country: orderData.recipientAddress.country || 'CA',
-            customerId: customerId, // Link to customer
-          }
-        });
-        recipientId = recipient.id;
+      // Use Customer-based recipient system (recipientCustomerId + deliveryAddressId)
+      let recipientCustomerId = orderData.recipientCustomerId || null;
+      let deliveryAddressId = orderData.deliveryAddressId || null;
+
+      if (orderData.orderType === 'DELIVERY' && !recipientCustomerId) {
+        console.warn('⚠️ Delivery order draft created without recipient - recipient should be managed via customer API');
       }
 
       // Calculate totals (same as above)
@@ -595,7 +570,8 @@ router.post('/save-draft', async (req, res) => {
           type: orderData.orderType,
           status: OrderStatus.DRAFT, // ✅ Use enum for DRAFT too
           customerId,
-          recipientId,
+          recipientCustomerId,
+          deliveryAddressId,
           cardMessage: orderData.cardMessage || null,
           specialInstructions: orderData.deliveryInstructions || null,
           deliveryDate: orderData.deliveryDate ? new Date(orderData.deliveryDate) : null,
@@ -611,7 +587,13 @@ router.post('/save-draft', async (req, res) => {
         },
         include: {
           orderItems: true,
-          recipient: true,
+          recipientCustomer: {
+            include: {
+              homeAddress: true,
+              addresses: true
+            }
+          },
+          deliveryAddress: true,
           customer: true
         }
       });

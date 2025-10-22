@@ -3,10 +3,11 @@ import { createClient } from '@supabase/supabase-js';
 import multer from 'multer';
 import prisma from '../lib/prisma';
 
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Supabase is being migrated to Cloudflare R2
+// Make optional for now to prevent startup crashes
+const supabase = process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
+  ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+  : null;
 
 const upload = multer({ storage: multer.memoryStorage() });
 const router = Router();
