@@ -21,6 +21,7 @@ export async function getStoreInfo(req: Request, res: Response) {
         country: "CA",
         taxId: "",
         currency: "CAD",
+        timezone: "America/Vancouver",
         logoUrl: ""
       });
     }
@@ -53,6 +54,7 @@ export async function saveStoreInfo(req: Request, res: Response) {
         country: data.country,
         taxId: data.taxId,
         currency: data.currency,
+        timezone: data.timezone || "America/Vancouver",
         logoUrl: data.logoUrl,
       },
       create: {
@@ -66,6 +68,7 @@ export async function saveStoreInfo(req: Request, res: Response) {
         country: data.country || "CA",
         taxId: data.taxId,
         currency: data.currency || "CAD",
+        timezone: data.timezone || "America/Vancouver",
         logoUrl: data.logoUrl,
       },
     });
