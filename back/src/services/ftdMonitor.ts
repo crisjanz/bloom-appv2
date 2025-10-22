@@ -271,6 +271,14 @@ async function processFtdOrder(ftdData: any): Promise<'new' | 'updated' | 'uncha
       console.error("Failed to send notification:", err.message);
     });
 
+    // 🤖 AUTO-CREATE BLOOM ORDER if new order is already ACCEPTED
+    if (newOrder.status === FtdOrderStatus.ACCEPTED) {
+      console.log(`🎯 Auto-creating Bloom order for new ACCEPTED FTD ${newOrder.externalId}...`);
+      await autoCreateBloomOrder(newOrder).catch(err => {
+        console.error("Failed to auto-create Bloom order:", err.message);
+      });
+    }
+
     return 'new';
 
   } else {
@@ -286,6 +294,15 @@ async function processFtdOrder(ftdData: any): Promise<'new' | 'updated' | 'uncha
           ftdRawData: ftdData,
         },
       });
+
+      // 🤖 BACKFILL: If ACCEPTED but no Bloom order yet, create one
+      if (existing.status === FtdOrderStatus.ACCEPTED && !existing.linkedOrderId) {
+        console.log(`🎯 Backfill: Creating Bloom order for existing ACCEPTED FTD ${existing.externalId}...`);
+        await autoCreateBloomOrder(existing).catch(err => {
+          console.error("Failed to backfill Bloom order:", err.message);
+        });
+      }
+
       return 'unchanged';
     }
 
