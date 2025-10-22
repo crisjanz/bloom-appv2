@@ -21,7 +21,6 @@ router.put('/:id/update', async (req, res) => {
         where: { id },
         include: {
           customer: true,
-          recipient: true,
           recipientCustomer: {
             include: {
               homeAddress: true,
@@ -52,68 +51,13 @@ router.put('/:id/update', async (req, res) => {
         });
       }
 
-      // Handle recipient/address updates
-      if (updateData.recipient) {
-        if (currentOrder.recipientId && updateData.updateDatabase) {
-          // Update the existing address record
-          await tx.address.update({
-              where: { id: currentOrder.recipientId },
-              data: {
-                firstName: updateData.recipient.firstName,
-                lastName: updateData.recipient.lastName,
-                company: updateData.recipient.company || '',
-                phone: updateData.recipient.phone,
-                address1: updateData.recipient.address1,
-                address2: updateData.recipient.address2 || '',
-                city: updateData.recipient.city,
-                province: updateData.recipient.province,
-                postalCode: updateData.recipient.postalCode,
-                country: updateData.recipient.country || 'CA',
-              }
-            });
-
-            // Also update the customer's address database
-            // This ensures the customer's recipient list is kept in sync
-            if (updateData.recipient.customerId) {
-              // The address is already linked to the customer via customerId
-              // So the update above already updated the customer's address database
-              // But we can also update the customer's main contact info if this matches their home address
-              const customer = await tx.customer.findUnique({
-                where: { id: updateData.recipient.customerId },
-                include: { homeAddress: true }
-              });
-
-              // If this address is the customer's home address, update their main contact info too
-              if (customer?.homeAddressId === currentOrder.recipientId) {
-                await tx.customer.update({
-                  where: { id: updateData.recipient.customerId },
-                  data: {
-                    firstName: updateData.recipient.firstName,
-                    lastName: updateData.recipient.lastName,
-                    phone: updateData.recipient.phone,
-                  }
-                });
-              }
-            }
-        } else if (!currentOrder.recipientId) {
-          // Create new address if none exists
-          const newAddress = await tx.address.create({
-            data: {
-              firstName: updateData.recipient.firstName,
-              lastName: updateData.recipient.lastName,
-              company: updateData.recipient.company || '',
-              phone: updateData.recipient.phone,
-              address1: updateData.recipient.address1,
-              address2: updateData.recipient.address2 || '',
-              city: updateData.recipient.city,
-              province: updateData.recipient.province,
-              postalCode: updateData.recipient.postalCode,
-              country: updateData.recipient.country || 'CA',
-              customerId: currentOrder.customerId, // Link to customer
-            }
-          });
-          orderUpdateData.recipientId = newAddress.id;
-        }
+      // Handle recipient updates - Recipients are now managed via Customer API
+      // Orders can update their recipientCustomerId and deliveryAddressId references
+      if (updateData.recipientCustomerId !== undefined) {
+        orderUpdateData.recipientCustomerId = updateData.recipientCustomerId;
+      }
+      if (updateData.deliveryAddressId !== undefined) {
+        orderUpdateData.deliveryAddressId = updateData.deliveryAddressId;
       }
 
       // Handle delivery details updates (both flat and nested under 'delivery' section)
@@ -220,7 +164,6 @@ if (updateData.orderItems || updateData.recalculateTotal) {
         where: { id },
         include: {
           customer: true,
-          recipient: true,
           recipientCustomer: {
             include: {
               homeAddress: true,

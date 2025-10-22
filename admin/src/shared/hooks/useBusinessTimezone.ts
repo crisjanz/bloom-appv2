@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 interface BusinessTimezone {
   timezone: string | null;
@@ -35,7 +35,7 @@ export const useBusinessTimezone = (): BusinessTimezone => {
     fetchTimezone();
   }, []);
 
-  const formatDate = (date: Date | string, options?: Intl.DateTimeFormatOptions) => {
+  const formatDate = useCallback((date: Date | string, options?: Intl.DateTimeFormatOptions) => {
     if (!timezone) return '';
     
     const dateObj = typeof date === 'string' ? new Date(date) : date;
@@ -60,9 +60,9 @@ export const useBusinessTimezone = (): BusinessTimezone => {
       console.error('Error formatting date:', error, date);
       return typeof date === 'string' ? date : dateObj.toLocaleDateString();
     }
-  };
+  }, [timezone]);
 
-  const parseToBusinessDate = (dateString: string): Date => {
+  const parseToBusinessDate = useCallback((dateString: string): Date => {
     if (!timezone) return new Date(dateString);
     
     // Parse date string (YYYY-MM-DD) in business timezone
@@ -70,9 +70,9 @@ export const useBusinessTimezone = (): BusinessTimezone => {
     
     // Create date in business timezone (avoids UTC conversion)
     return new Date(year, month - 1, day);
-  };
+  }, [timezone]);
 
-  const getBusinessDateString = (date: Date): string => {
+  const getBusinessDateString = useCallback((date: Date): string => {
     if (!timezone || !date || isNaN(date.getTime())) {
       return new Date().toISOString().split('T')[0];
     }
@@ -90,7 +90,7 @@ export const useBusinessTimezone = (): BusinessTimezone => {
     }
     
     return date.toISOString().split('T')[0];
-  };
+  }, [timezone, formatDate]);
 
   return {
     timezone,

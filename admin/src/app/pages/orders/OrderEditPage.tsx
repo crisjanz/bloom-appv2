@@ -8,7 +8,7 @@ import OrderSections from '@app/components/orders/edit/OrderSections';
 import { Order } from '@app/components/orders/types';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
 // MIGRATION: Use domain hook for order management
-import { useOrderManagement } from '@domains/orders/hooks/useOrderService';
+import { useOrderManagement } from '@domains/orders/hooks/useOrderManagement';
 
 // Import all modal components
 import CustomerEditModal from '@app/components/orders/edit/modals/CustomerEditModal';
@@ -74,7 +74,10 @@ const OrderEditPage: React.FC = () => {
         setEditingCustomer({ ...order.customer });
         break;
       case 'recipient':
-        setEditingRecipient(order.recipient ? { ...order.recipient } : {
+        // Use deliveryAddress from NEW system
+        setEditingRecipient(order.deliveryAddress ? {
+          ...order.deliveryAddress
+        } : {
           firstName: '',
           lastName: '',
           company: '',

@@ -1,6 +1,4 @@
 // src/pages/TakeOrderPage.tsx
-import PageBreadcrumb from "@shared/ui/common/PageBreadCrumb";
-import PageMeta from "@shared/ui/common/PageMeta";
 import { useState, useEffect } from "react";
 import CustomerCard from "@app/components/orders/CustomerCard";
 import MessageSuggestions from "@app/components/orders/MessageSuggestions";
@@ -9,8 +7,11 @@ import OrderDetailsCard from "@app/components/orders/OrderDetailsCard";
 import PaymentSection from "@app/components/orders/payment/PaymentSection";
 import { usePaymentCalculations } from "@domains/payments/hooks/usePaymentCalculations";
 // MIGRATION: Using bridge file temporarily (will be replaced with direct domain imports)
-import { useCustomerSearch, useSelectedCustomer } from "@domains/customers/hooks/useCustomerService.ts";
-import { useOrderState } from '@shared/hooks/useOrderState';
+import {
+  useCustomerSearch,
+  useSelectedCustomer,
+} from "@domains/customers/hooks/useCustomerService.ts";
+import { useOrderState } from "@shared/hooks/useOrderState";
 
 type Props = {
   isOverlay?: boolean;
@@ -19,25 +20,31 @@ type Props = {
   initialCustomer?: any;
 };
 
-export default function TakeOrderPage({ 
-  isOverlay = false, 
-  onComplete, 
+export default function TakeOrderPage({
+  isOverlay = false,
+  onComplete,
   onCancel,
-  initialCustomer
+  initialCustomer,
 }: Props) {
   // 🔹 Employee State
   const [employee, setEmployee] = useState("");
-  const [employeeList, setEmployeeList] = useState<{ id: string; name: string; type: string }[]>([]);
+  const [employeeList, setEmployeeList] = useState<
+    { id: string; name: string; type: string }[]
+  >([]);
   const [formError, setFormError] = useState<string | null>(null);
-  const [orderSource, setOrderSource] = useState<"phone" | "walkin" | "wirein" | "website" | "pos">("phone");
-  
+  const [orderSource, setOrderSource] = useState<
+    "phone" | "walkin" | "wirein" | "wireout" | "website" | "pos"
+  >("phone");
+
   // 🔹 Discount state
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [manualDiscount, setManualDiscount] = useState(0);
   const [manualDiscountType, setManualDiscountType] = useState<"$" | "%">("$");
   const [giftCardDiscount, setGiftCardDiscount] = useState(0);
   const [automaticDiscount, setAutomaticDiscount] = useState(0);
-  const [appliedAutomaticDiscounts, setAppliedAutomaticDiscounts] = useState<any[]>([]);
+  const [appliedAutomaticDiscounts, setAppliedAutomaticDiscounts] = useState<
+    any[]
+  >([]);
 
   const cleanPhoneNumber = (value: string) => {
     if (value.startsWith("+")) {
@@ -55,14 +62,21 @@ export default function TakeOrderPage({
   const [savedRecipients, setSavedRecipients] = useState<any[]>([]);
 
   // 🔥 Custom Hooks - MIGRATED to Customer Domain
-  const { query: customerQuery, setQuery: setCustomerQuery, results: customerResults, isSearching, clearSearch } = useCustomerSearch();
-  const { selectedCustomer, setSelectedCustomer, clearCustomer, hasCustomer } = useSelectedCustomer(initialCustomer);
+  const {
+    query: customerQuery,
+    setQuery: setCustomerQuery,
+    results: customerResults,
+    isSearching,
+    clearSearch,
+  } = useCustomerSearch();
+  const { selectedCustomer, setSelectedCustomer, clearCustomer, hasCustomer } =
+    useSelectedCustomer(initialCustomer);
   const orderState = useOrderState();
 
   // Debug: Check what selectedCustomer actually contains
   if (selectedCustomer) {
-    console.log('🔍 TakeOrder selectedCustomer:', selectedCustomer);
-    console.log('  Has ID?:', !!selectedCustomer.id, selectedCustomer.id);
+    console.log("🔍 TakeOrder selectedCustomer:", selectedCustomer);
+    console.log("  Has ID?:", !!selectedCustomer.id, selectedCustomer.id);
   }
 
   // Legacy compatibility layer for existing code
@@ -76,7 +90,9 @@ export default function TakeOrderPage({
     },
     setCustomer: setSelectedCustomer,
     customerId: selectedCustomer?.id || null,
-    customerName: selectedCustomer ? `${selectedCustomer.firstName} ${selectedCustomer.lastName}` : null,
+    customerName: selectedCustomer
+      ? `${selectedCustomer.firstName} ${selectedCustomer.lastName}`
+      : null,
     setCustomerId: (id: string | null) => {
       if (id) {
         // Would need to load customer by ID - for now just keep simple
@@ -100,27 +116,35 @@ export default function TakeOrderPage({
   // ✅ Helper function to calculate items total properly
   const calculateItemsTotal = () => {
     return orderState.orders.reduce((sum, order) => {
-      return sum + order.customProducts.reduce((pSum, p) => {
-        const price = parseFloat(p.price) || 0;
-        const qty = parseInt(p.qty) || 0;
-        return pSum + (price * qty);
-      }, 0);
+      return (
+        sum +
+        order.customProducts.reduce((pSum, p) => {
+          const price = parseFloat(p.price) || 0;
+          const qty = parseInt(p.qty) || 0;
+          return pSum + price * qty;
+        }, 0)
+      );
     }, 0);
   };
 
   // ✅ Calculate manual discount amount with proper parsing
   const itemsTotal = calculateItemsTotal();
-  const manualDiscountAmount = manualDiscountType === "%" 
-    ? (itemsTotal + totalDeliveryFee) * manualDiscount / 100
-    : manualDiscount;
-  
-  const totalDiscount = manualDiscountAmount + couponDiscount + giftCardDiscount + automaticDiscount;
+  const manualDiscountAmount =
+    manualDiscountType === "%"
+      ? ((itemsTotal + totalDeliveryFee) * manualDiscount) / 100
+      : manualDiscount;
+
+  const totalDiscount =
+    manualDiscountAmount +
+    couponDiscount +
+    giftCardDiscount +
+    automaticDiscount;
 
   const { itemTotal, subtotal, gst, pst, grandTotal } = usePaymentCalculations(
     orderState.orders,
     totalDeliveryFee,
     totalDiscount,
-    "$" // Always $ since we calculate the amount above
+    "$", // Always $ since we calculate the amount above
   );
 
   // 🔧 Effects
@@ -136,7 +160,7 @@ export default function TakeOrderPage({
       .then((res) => res.json())
       .then((data) => setMessageSuggestions(data))
       .catch((err) =>
-        console.error("Failed to load message suggestions:", err)
+        console.error("Failed to load message suggestions:", err),
       );
   }, []);
 
@@ -145,14 +169,14 @@ export default function TakeOrderPage({
     if (isOverlay && onComplete) {
       // If transferData is provided (from "Send to POS"), use it directly
       if (transferData) {
-        console.log('🔄 Passing POS transfer data:', transferData);
+        console.log("🔄 Passing POS transfer data:", transferData);
         onComplete(transferData);
         return;
       }
-      
+
       // Otherwise, regular POS overlay mode - return order data to POS
       const orderData = {
-        type: 'delivery_order',
+        type: "delivery_order",
         customer: customerState.customer,
         orders: orderState.orders,
         totals: {
@@ -161,15 +185,15 @@ export default function TakeOrderPage({
           discount: totalDiscount,
           gst,
           pst,
-          grandTotal
+          grandTotal,
         },
         employee,
-        orderSource: isOverlay ? 'pos' : orderSource,
-        description: `${orderState.orders[0]?.deliveryType === 'pickup' ? 'Pickup' : 'Delivery'} Order - ${customerState.customer.firstName} ${customerState.customer.lastName}`,
-        displayName: `${orderState.orders[0]?.deliveryType === 'pickup' ? 'Pickup' : 'Delivery'} Order`,
-        total: grandTotal
+        orderSource: isOverlay ? "pos" : orderSource,
+        description: `${orderState.orders[0]?.deliveryType === "pickup" ? "Pickup" : "Delivery"} Order - ${customerState.customer.firstName} ${customerState.customer.lastName}`,
+        displayName: `${orderState.orders[0]?.deliveryType === "pickup" ? "Pickup" : "Delivery"} Order`,
+        total: grandTotal,
       };
-      
+
       onComplete(orderData);
     } else {
       // Standalone page mode - normal order completion
@@ -191,21 +215,18 @@ export default function TakeOrderPage({
   };
 
   return (
-    <div className={isOverlay ? "" : "mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10"}>
-      {!isOverlay && (
-        <>
-          <PageMeta title="Take Order" />
-          <PageBreadcrumb pageTitle="Take Order" />
-        </>
-      )}
-
+    <div
+      className={
+        isOverlay ? "" : "mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10"
+      }
+    >
       <div className="space-y-6">
         {/* Employee Selection */}
         <OrderDetailsCard
           employee={employee}
           setEmployee={setEmployee}
           employeeList={employeeList}
-          orderSource={isOverlay ? 'pos' : orderSource}
+          orderSource={isOverlay ? "pos" : orderSource}
           setOrderSource={setOrderSource}
           formData={{
             customer: customerState.customer,
@@ -216,7 +237,7 @@ export default function TakeOrderPage({
             couponCode: "",
             subscribe: false,
             sendEmailReceipt: false,
-            orderSource: isOverlay ? 'pos' : orderSource,
+            orderSource: isOverlay ? "pos" : orderSource,
           }}
           onSaveDraft={(draftData) => {
             if (draftData.customer) {
@@ -264,7 +285,7 @@ export default function TakeOrderPage({
                 .then((res) => res.json())
                 .then((data) => customerState.setSavedRecipients(data || []))
                 .catch((err) =>
-                  console.error("Failed to refresh recipients:", err)
+                  console.error("Failed to refresh recipients:", err),
                 );
             }
           }}
@@ -282,7 +303,7 @@ export default function TakeOrderPage({
           grandTotal={grandTotal}
           totalDeliveryFee={totalDeliveryFee}
           employee={employee}
-          orderSource={isOverlay ? 'pos' : orderSource}
+          orderSource={isOverlay ? "pos" : orderSource}
           cleanPhoneNumber={cleanPhoneNumber}
           couponDiscount={couponDiscount}
           setCouponDiscount={setCouponDiscount}

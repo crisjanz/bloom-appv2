@@ -78,9 +78,9 @@ router.get('/list', async (req, res) => {
             ]
           }
         },
-        // Search by recipient name
+        // Search by recipient customer name
         {
-          recipient: {
+          recipientCustomer: {
             OR: [
               {
                 firstName: {
@@ -113,19 +113,26 @@ router.get('/list', async (req, res) => {
             phone: true
           }
         },
-        recipient: {
+        recipientCustomer: {
           select: {
             id: true,
             firstName: true,
             lastName: true,
-            company: true,
-            phone: true,
+            email: true,
+            phone: true
+          }
+        },
+        deliveryAddress: {
+          select: {
+            id: true,
+            label: true,
             address1: true,
             address2: true,
             city: true,
             province: true,
             postalCode: true,
-            country: true
+            country: true,
+            addressType: true
           }
         },
         orderItems: {

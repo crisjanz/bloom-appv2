@@ -300,10 +300,8 @@ model Address {
   customer   Customer? @relation("MyAddresses", fields: [customerId], references: [id])
   customerId String?
 
-  homeOf                Customer? @relation("HomeAddress")
-  ordersAsRecipient     Order[]   @relation("OrderRecipient")
-  ordersAsPickup        Order[]   @relation("PickupPerson")
-  ordersDeliveredHere   Order[]   @relation("DeliveryAddress")
+  homeOf              Customer? @relation("HomeAddress")
+  ordersDeliveredHere Order[]   @relation("DeliveryAddress")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt  // Add @default(now()) here
@@ -323,20 +321,13 @@ model Order {
   customer   Customer? @relation("BuyerOrders", fields: [customerId], references: [id])
   customerId String?
 
-  // OLD: Kept for backward compatibility during migration
-  recipient   Address? @relation("OrderRecipient", fields: [recipientId], references: [id])
-  recipientId String?
-
-  // NEW: Recipient as Customer
+  // Recipient as Customer (customer-to-customer relationships)
   recipientCustomer   Customer? @relation("RecipientOrders", fields: [recipientCustomerId], references: [id])
   recipientCustomerId String?
 
-  // NEW: Delivery address from recipient's addresses
+  // Delivery address from recipient's addresses
   deliveryAddress   Address? @relation("DeliveryAddress", fields: [deliveryAddressId], references: [id])
   deliveryAddressId String?
-
-  pickupPerson   Address? @relation("PickupPerson", fields: [pickupPersonId], references: [id])
-  pickupPersonId String?
 
   employee     Employee? @relation("EmployeeOrders", fields: [employeeId], references: [id])
   employeeId   String?
@@ -371,6 +362,9 @@ model Order {
 
   // Payment transaction links
   orderPayments OrderPayment[]
+
+  // FTD wire order links
+  ftdOrders     FtdOrder[]     @relation("FtdLinkedOrder")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1216,3 +1210,106 @@ model EventPayment {
 // === POS CART SYSTEM ===
 // REMOVED: Cart system reverted to local state management for better performance
 // Draft orders now use the existing Order model with status = DRAFT
+
+// === FTD WIRE ORDER INTEGRATION ===
+
+enum FtdOrderStatus {
+  NEEDS_ACTION
+  ACCEPTED
+  IN_DESIGN
+  READY
+  OUT_FOR_DELIVERY
+  DELIVERED
+  REJECTED
+  CANCELLED
+}
+
+model FtdOrder {
+  id                String        @id @default(uuid())
+
+  // === FTD IDENTIFIERS ===
+  externalId        String        @unique  // "F7841Y-5036-6100081565683178"
+  ftdOrderNumber    Int?                   // 1124
+  status            FtdOrderStatus @default(NEEDS_ACTION)
+
+  // === RECIPIENT INFO ===
+  recipientFirstName  String?
+  recipientLastName   String?
+  recipientPhone      String?
+  recipientEmail      String?
+
+  // === DELIVERY ADDRESS ===
+  address1          String?
+  address2          String?
+  city              String?
+  province          String?
+  postalCode        String?
+  country           String        @default("CA")
+  addressType       AddressType?  // Map FTD "Residence"→RESIDENCE, "Business"→BUSINESS
+
+  // === DELIVERY DETAILS ===
+  deliveryDate      DateTime?
+  deliveryTime      String?
+  deliveryInstructions String?
+
+  // === ORDER CONTENT ===
+  cardMessage       String?
+  occasion          String?
+  productDescription String?       // "Vase Arrangement with Bear and Chocolates"
+  productCode       String?        // "ARR"
+
+  // === PRICING ===
+  totalAmount       Float?
+
+  // === FTD REPORTING ===
+  sendingFloristCode String?       // For reports (eros_details.sender)
+
+  // === BLOOM INTEGRATION ===
+  linkedOrderId     String?
+  linkedOrder       Order?         @relation("FtdLinkedOrder", fields: [linkedOrderId], references: [id])
+  needsApproval     Boolean        @default(false) // True when auto-created, false after manual review
+
+  // === NOTIFICATIONS ===
+  notificationSent  Boolean        @default(false)
+  notificationSentAt DateTime?
+
+  // === TRACKING ===
+  lastCheckedAt     DateTime       @default(now())
+
+  // === RAW DATA (everything else stored here) ===
+  ftdRawData        Json?          // Full FTD response
+
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@map("ftd_orders")
+  @@index([status])
+  @@index([deliveryDate])
+  @@index([sendingFloristCode])
+  @@index([externalId])
+}
+
+model FtdSettings {
+  id                String   @id @default(cuid())
+
+  // === API CONFIGURATION ===
+  apiKey            String   // FTD API key
+  shopId            String   // Your FTD shop ID (71-0215AA)
+  authToken         String?  // Current ep-authorization token
+  tokenRefreshedAt  DateTime?
+
+  // === POLLING CONFIGURATION ===
+  pollingEnabled    Boolean  @default(true)
+  pollingInterval   Int      @default(240) // seconds (4 minutes)
+  lastSyncTime      DateTime? // Last successful sync time for delta polling
+
+  // === NOTIFICATION SETTINGS ===
+  notifyOnNewOrder  Boolean  @default(true)
+  notifyPhoneNumber String?  // Override default Twilio number
+  notifyEmail       String?
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("ftd_settings")
+}

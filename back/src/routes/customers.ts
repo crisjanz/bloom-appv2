@@ -302,16 +302,10 @@ router.post("/merge", async (req, res) => {
           totalAddressesMerged++;
         }
 
-        // Update orders that use this address as recipient
+        // Update orders that use this address for delivery
         await prisma.order.updateMany({
-          where: { recipientId: addr.id },
-          data: { recipientId: addressIdToUse }
-        });
-
-        // Update orders that use this address as pickup person
-        await prisma.order.updateMany({
-          where: { pickupPersonId: addr.id },
-          data: { pickupPersonId: addressIdToUse }
+          where: { deliveryAddressId: addr.id },
+          data: { deliveryAddressId: addressIdToUse }
         });
       }
 

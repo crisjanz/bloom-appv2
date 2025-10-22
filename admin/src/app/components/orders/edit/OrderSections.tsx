@@ -79,26 +79,42 @@ const OrderSections: React.FC<OrderSectionsProps> = ({ order, onEdit }) => {
             <PencilIcon className="w-4 h-4" />
           </button>
         </div>
-        {order.type === 'DELIVERY' && order.recipient ? (
+        {order.type === 'DELIVERY' && (order.deliveryAddress || order.recipientCustomer) ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Recipient:</span>
               <div className="text-gray-900 dark:text-white">
-                {order.recipient.firstName} {order.recipient.lastName}
-                {order.recipient.company && <div className="text-sm text-gray-500">({order.recipient.company})</div>}
+                {order.deliveryAddress ? (
+                  <>
+                    {order.deliveryAddress.firstName} {order.deliveryAddress.lastName}
+                    {order.deliveryAddress.company && <div className="text-sm text-gray-500">({order.deliveryAddress.company})</div>}
+                  </>
+                ) : order.recipientCustomer ? (
+                  <>
+                    {order.recipientCustomer.firstName} {order.recipientCustomer.lastName}
+                  </>
+                ) : null}
               </div>
             </div>
             <div>
               <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Phone:</span>
-              <div className="text-gray-900 dark:text-white">{order.recipient.phone}</div>
+              <div className="text-gray-900 dark:text-white">
+                {order.deliveryAddress?.phone || order.recipientCustomer?.phone}
+              </div>
             </div>
             <div className="md:col-span-2">
               <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Address:</span>
               <div className="text-gray-900 dark:text-white">
-                {order.recipient.address1}
-                {order.recipient.address2 && <>, {order.recipient.address2}</>}
-                <br />
-                {order.recipient.city}, {order.recipient.province} {order.recipient.postalCode}
+                {order.deliveryAddress ? (
+                  <>
+                    {order.deliveryAddress.address1}
+                    {order.deliveryAddress.address2 && <>, {order.deliveryAddress.address2}</>}
+                    <br />
+                    {order.deliveryAddress.city}, {order.deliveryAddress.province} {order.deliveryAddress.postalCode}
+                  </>
+                ) : (
+                  <span className="text-gray-500">No address available</span>
+                )}
               </div>
             </div>
           </div>

@@ -17,7 +17,7 @@ import Select from '@shared/ui/forms/Select';
 import PageBreadcrumb from '@shared/ui/common/PageBreadCrumb';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
 // MIGRATION: Use domain hook for better order management
-import { useOrderLists } from '@domains/orders/hooks/useOrderService';
+import { useOrderLists } from '@domains/orders/hooks/useOrderLists';
 
 import type { OrderStatus, OrderType } from '@shared/utils/orderStatusHelpers';
 
@@ -340,8 +340,11 @@ const OrdersListPage: React.FC = () => {
                       </TableCell>
 
                       <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                        {order.recipient 
-                          ? `${order.recipient.firstName} ${order.recipient.lastName}`
+                        {/* Use recipientCustomer or deliveryAddress from NEW system */}
+                        {order.recipientCustomer
+                          ? `${order.recipientCustomer.firstName} ${order.recipientCustomer.lastName}`
+                          : order.deliveryAddress
+                          ? `${order.deliveryAddress.firstName} ${order.deliveryAddress.lastName}`
                           : order.type === 'PICKUP' ? 'Pickup' : '—'
                         }
                       </TableCell>

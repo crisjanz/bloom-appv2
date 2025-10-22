@@ -28,8 +28,6 @@ type OrderEntry = {
     qty: string;
     tax: boolean;
   }[];
-  shortcutQuery: string;
-  filteredShortcuts: any[];
   // Recipient tracking fields for 3-option workflow
   selectedRecipientId?: string;
   recipientDataChanged: boolean;
@@ -66,8 +64,6 @@ const createEmptyOrder = (): OrderEntry => ({
   customProducts: [
     { description: "", category: "", price: "", qty: "1", tax: true },
   ],
-  shortcutQuery: "",
-  filteredShortcuts: [],
   // Initialize new recipient tracking fields
   selectedRecipientId: undefined,
   recipientDataChanged: false,

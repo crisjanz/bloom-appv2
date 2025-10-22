@@ -38,8 +38,6 @@ type OrderEntry = {
     qty: string;
     tax: boolean;
   }[];
-  shortcutQuery: string;
-  filteredShortcuts: any[];
   // Recipient tracking fields for 3-option workflow
   selectedRecipientId?: string;
   recipientDataChanged: boolean;
@@ -120,8 +118,6 @@ export default function MultiOrderTabs({
           tax: true,
         },
       ],
-      shortcutQuery: "",
-      filteredShortcuts: [],
       recipientDataChanged: false,
       // NEW: Initialize customer-based recipient fields
       recipientCustomer: undefined,
@@ -274,10 +270,6 @@ export default function MultiOrderTabs({
           setRecipientAddressType={(val) => updateOrder(activeTab, "recipientAddressType", val)}
           recipientAddressLabel={order.recipientAddressLabel} // NEW
           setRecipientAddressLabel={(val) => updateOrder(activeTab, "recipientAddressLabel", val)} // NEW
-          shortcutQuery={order.shortcutQuery}
-          setShortcutQuery={(val) => updateOrder(activeTab, "shortcutQuery", val)}
-          filteredShortcuts={order.filteredShortcuts}
-          setFilteredShortcuts={(val) => updateOrder(activeTab, "filteredShortcuts", val)}
           savedRecipients={savedRecipients}
           customerId={customerId || undefined}
           onRecipientSaved={onRecipientSaved}

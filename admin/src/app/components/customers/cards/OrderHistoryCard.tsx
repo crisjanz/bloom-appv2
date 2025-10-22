@@ -1,4 +1,4 @@
-import { useCustomerOrderHistory } from "@/domains/orders/hooks/useOrderService";
+import { useCustomerOrderHistory } from "@/domains/orders/hooks/useCustomerOrders";
 import ComponentCard from "@shared/ui/common/ComponentCard";
 import {
   Table,

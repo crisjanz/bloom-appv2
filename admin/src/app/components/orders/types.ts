@@ -29,14 +29,21 @@ export interface Order {
     email: string;
     phone: string;
   };
-  recipient?: {
+  recipientCustomer?: {
     id: string;
     firstName: string;
     lastName: string;
-    company: string;
+    email: string;
+    phone: string;
+  };
+  deliveryAddress?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    company?: string;
     phone: string;
     address1: string;
-    address2: string;
+    address2?: string;
     city: string;
     province: string;
     postalCode: string;

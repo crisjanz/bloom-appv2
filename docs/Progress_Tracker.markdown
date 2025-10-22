@@ -462,6 +462,24 @@ Todos are grouped by feature and sorted by priority within each group. Partially
 ### Low Priority
 - [ ] Optimize database queries for performance.
 
+## FTD Wire Order Integration
+### High Priority
+- [x] **Complete FTD Wire Order Integration** (Completed 2025-10-18)
+  - ✅ Database schema with FtdOrder and FtdSettings models
+  - ✅ Puppeteer-based token auto-refresh (every 6 hours)
+  - ✅ Smart token reuse (only refreshes when needed)
+  - ✅ Background polling service with delta sync (every 4 minutes)
+  - ✅ Auto-create Bloom orders when FTD status → ACCEPTED
+  - ✅ Auto-update Bloom orders when FTD status → DELIVERED
+  - ✅ SMS/Email notifications via Twilio/SendGrid
+  - ✅ FTD Orders dashboard with status/date filters
+  - ✅ FTD Approve Orders page for reviewing auto-created orders
+  - ✅ FTD Live page (Mercury HQ iframe integration)
+  - ✅ Manual full sync option for recovery after downtime
+  - ✅ Efficient delta sync to minimize API calls
+  - ✅ Production-ready with proper error handling
+  - Files: `/back/src/services/ftdMonitor.ts`, `/back/src/services/ftdAuthService.ts`, `/admin/src/app/pages/ftd/*`
+
 ## Future Expansion
 ### Low Priority
 - [ ] Develop café POS interface with ticket number system.

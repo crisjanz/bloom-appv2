@@ -20,7 +20,7 @@ import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
 import { getStatusOptions } from '@shared/utils/orderStatusHelpers';
 import { useNavigate } from 'react-router';
 // MIGRATION: Use domain hook for delivery management
-import { useDeliveryManagement } from '@domains/orders/hooks/useOrderService';
+import { useDeliveryManagement } from '@domains/orders/hooks/useDeliveryManagement';
 
 // Temporary types until domain layer is fully implemented
 type DeliveryOrder = {
@@ -427,17 +427,19 @@ const DeliveryPage: React.FC = () => {
 
       {/* Recipient/Address */}
       <td className="px-4 py-3">
-        {order.type === 'DELIVERY' && order.recipient ? (
+        {order.type === 'DELIVERY' && (order.deliveryAddress || order.recipientCustomer) ? (
           <div>
             <div className="text-sm text-gray-900 dark:text-white font-medium">
-              {order.recipient.firstName} {order.recipient.lastName}
+              {order.deliveryAddress?.firstName || order.recipientCustomer?.firstName} {order.deliveryAddress?.lastName || order.recipientCustomer?.lastName}
             </div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">
-              {order.recipient.address1}
-              {order.recipient.address2 && <>, {order.recipient.address2}</>}
-              <br />
-              {order.recipient.city}, {order.recipient.province} {order.recipient.postalCode}
-            </div>
+            {order.deliveryAddress && (
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                {order.deliveryAddress.address1}
+                {order.deliveryAddress.address2 && <>, {order.deliveryAddress.address2}</>}
+                <br />
+                {order.deliveryAddress.city}, {order.deliveryAddress.province} {order.deliveryAddress.postalCode}
+              </div>
+            )}
           </div>
         ) : (
           <span className="text-sm text-gray-500 dark:text-gray-400">In-store pickup</span>

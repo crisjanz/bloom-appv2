@@ -2,7 +2,7 @@ import { useState, ChangeEvent, DragEvent } from 'react';
 import { SaveIcon } from '@shared/assets/icons';
 import Label from '@shared/ui/forms/Label';
 // MIGRATION: Use domain hook for image operations
-import { useOrderImages } from '@domains/orders/hooks/useOrderService';
+import { useOrderImages } from '@domains/orders/hooks/useOrderImages';
 
 interface ImagesEditModalProps {
   images: string[];

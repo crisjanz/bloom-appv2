@@ -15,7 +15,8 @@ router.get('/:id', async (req, res) => {
       where: { id },
       include: {
         customer: true,
-        recipient: true,
+        recipientCustomer: true,
+        deliveryAddress: true,
         orderItems: true,
         employee: {
           select: {
