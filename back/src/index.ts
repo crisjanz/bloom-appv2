@@ -81,14 +81,40 @@ async function ensureOrderSchema() {
 }
 
 // CORS configuration
+const defaultOrigins = [
+  'https://www.hellobloom.ca',
+  'https://hellobloom.ca',
+  'https://admin.hellobloom.ca',
+  'http://localhost:5173',
+];
+
+const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS?.split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean) ?? defaultOrigins);
+
 app.use(cors({
-  origin: [
-    'https://www.hellobloom.ca',
-    'https://hellobloom.ca',
-    'http://localhost:5173' // Development
-  ],
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    console.warn(`❌ Blocked CORS origin: ${origin}`);
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
+app.options('*', cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    console.warn(`❌ Blocked CORS origin (preflight): ${origin}`);
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 app.use(express.json()); 
