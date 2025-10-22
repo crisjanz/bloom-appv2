@@ -8,6 +8,28 @@ Render doesn't have Chrome/Chromium, so automatic token refresh fails. This scri
 
 ---
 
+## ⚙️ One-Time Setup
+
+**Set your production database URL:**
+
+```bash
+# Open your shell profile
+nano ~/.zshrc  # or ~/.bash_profile for bash
+
+# Add this line (replace with your actual database URL from Render):
+export PROD_DATABASE_URL="postgresql://bloom_user:PASSWORD@dpg-xxxxx.oregon-postgres.render.com/bloom_db_imh1"
+
+# Save and reload
+source ~/.zshrc
+```
+
+**Where to get the URL:**
+1. Go to Render dashboard
+2. Click your PostgreSQL database
+3. Copy "External Database URL"
+
+---
+
 ## 🚀 Quick Start (Easy Way)
 
 **Just double-click:**

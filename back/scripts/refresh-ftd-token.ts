@@ -10,9 +10,19 @@ import puppeteer from "puppeteer";
 import { PrismaClient } from "@prisma/client";
 import * as readline from 'readline';
 
-// Connect to PRODUCTION database
-const DATABASE_URL = process.env.PROD_DATABASE_URL ||
-  "postgresql://bloom_user:tRy9azO6w7xHZ3zo4L1ItvzPEoqbrrjD@dpg-d3s34truibrs73ek1ang-a.oregon-postgres.render.com/bloom_db_imh1";
+// Connect to PRODUCTION database from environment variable
+const DATABASE_URL = process.env.PROD_DATABASE_URL;
+
+if (!DATABASE_URL) {
+  console.error("\n❌ Error: PROD_DATABASE_URL environment variable not set");
+  console.log("\nTo fix this:");
+  console.log("1. Get your database URL from Render dashboard");
+  console.log("2. Add to your shell profile (~/.zshrc or ~/.bash_profile):");
+  console.log('   export PROD_DATABASE_URL="postgresql://..."');
+  console.log("3. Restart terminal or run: source ~/.zshrc");
+  console.log("\n");
+  process.exit(1);
+}
 
 const prisma = new PrismaClient({
   datasources: {
