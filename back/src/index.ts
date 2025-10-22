@@ -49,6 +49,37 @@ dotenv.config();
 const app = express();
 const prisma = new PrismaClient();
 
+async function ensureOrderSchema() {
+  try {
+    const columns = await prisma.$queryRaw<Array<{ column_name: string }>>`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = current_schema()
+        AND table_name = 'Order'
+    `;
+
+    const existingColumns = new Set(columns.map((c) => c.column_name));
+    const statements: string[] = [];
+
+    if (!existingColumns.has('recipientId')) {
+      statements.push(`ALTER TABLE "Order" ADD COLUMN "recipientId" TEXT;`);
+    }
+    if (!existingColumns.has('recipientCustomerId')) {
+      statements.push(`ALTER TABLE "Order" ADD COLUMN "recipientCustomerId" TEXT;`);
+    }
+    if (!existingColumns.has('deliveryAddressId')) {
+      statements.push(`ALTER TABLE "Order" ADD COLUMN "deliveryAddressId" TEXT;`);
+    }
+
+    for (const statement of statements) {
+      await prisma.$executeRawUnsafe(statement);
+      console.log(`✅ Executed schema patch: ${statement}`);
+    }
+  } catch (error) {
+    console.error('Failed to verify or patch Order schema:', error);
+  }
+}
+
 // CORS configuration
 app.use(cors({
   origin: [
@@ -115,15 +146,24 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-const PORT = Number(process.env.PORT) || 4000;
+async function startServer() {
+  await ensureOrderSchema();
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Custom backend running on http://localhost:${PORT}`);
+  const PORT = Number(process.env.PORT) || 4000;
 
-  // Start FTD integration services (commented out for initial deployment)
-  // console.log("🌸 Initializing FTD Wire Order Integration...");
-  // startFtdMonitor().catch(err => {
-  //   console.error("Failed to start FTD monitor:", err.message);
-  // });
-  // startTokenRefreshSchedule();
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Custom backend running on http://localhost:${PORT}`);
+
+    // Start FTD integration services (commented out for initial deployment)
+    // console.log("🌸 Initializing FTD Wire Order Integration...");
+    // startFtdMonitor().catch(err => {
+    //   console.error("Failed to start FTD monitor:", err.message);
+    // });
+    // startTokenRefreshSchedule();
+  });
+}
+
+startServer().catch((error) => {
+  console.error('Backend failed to start:', error);
+  process.exit(1);
 });
