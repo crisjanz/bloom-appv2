@@ -1,0 +1,13 @@
+{
+  "name": "ftd-token-refresh-standalone",
+  "version": "1.0.0",
+  "description": "Standalone FTD token refresh script for Bloom",
+  "main": "standalone-ftd-refresh.js",
+  "scripts": {
+    "refresh": "node standalone-ftd-refresh.js"
+  },
+  "dependencies": {
+    "puppeteer": "^22.0.0",
+    "pg": "^8.11.0"
+  }
+}
