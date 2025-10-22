@@ -38,13 +38,28 @@ import stripeRouter from './routes/stripe';
 import squareRouter from './routes/square';
 import eventsRouter from './routes/events';
 import reportsRouter from './routes/reports';
+import ftdOrdersRouter from './routes/ftd/orders';
+import ftdSettingsRouter from './routes/ftd/settings';
+import imagesRouter from './routes/images';
+import { startFtdMonitor } from './services/ftdMonitor';
+import { startTokenRefreshSchedule } from './services/ftdAuthService';
 
 dotenv.config();
 
 const app = express();
 const prisma = new PrismaClient();
 
-app.use(cors());
+// CORS configuration
+app.use(cors({
+  origin: [
+    'https://www.hellobloom.ca',
+    'https://hellobloom.ca',
+    'http://localhost:5173' // Development
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 app.use(express.json()); 
 
 app.use('/api/discounts', discountsRouter); // Unified discounts system
@@ -87,13 +102,28 @@ app.use('/api/stripe', stripeRouter);
 app.use('/api/square', squareRouter);
 app.use('/api/events', eventsRouter);
 app.use('/api/reports', reportsRouter);
+app.use('/api/ftd/orders', ftdOrdersRouter);
+app.use('/api/ftd/settings', ftdSettingsRouter);
+app.use('/api/images', imagesRouter);
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'Backend is alive!' });
+  res.json({
+    status: 'Backend is alive!',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV,
+    timezone: process.env.TZ
+  });
 });
 
 const PORT = Number(process.env.PORT) || 4000;
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Custom backend running on http://localhost:${PORT}`);
+
+  // Start FTD integration services
+  console.log("🌸 Initializing FTD Wire Order Integration...");
+  startFtdMonitor().catch(err => {
+    console.error("Failed to start FTD monitor:", err.message);
+  });
+  startTokenRefreshSchedule();
 });

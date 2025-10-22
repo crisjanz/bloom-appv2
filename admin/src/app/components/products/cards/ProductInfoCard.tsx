@@ -3,7 +3,7 @@ import InputField from "@shared/ui/forms/input/InputField";
 import ComponentCard from "@shared/ui/common/ComponentCard";
 import Textarea from "@shared/ui/forms/input/TextArea";
 import ImageCropModal from "@shared/ui/components/ui/modal/ImageCropModal";
-import { uploadImage, deleteImage, fileToDataURL } from "@shared/utils/imageUploadService";
+import { uploadImage, deleteImage, fileToDataURL } from "@shared/utils/cloudflareR2Service";
 
 type Props = {
   title: string;
