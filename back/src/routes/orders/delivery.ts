@@ -121,9 +121,19 @@ router.get('/delivery', async (req, res) => {
           phone: true
         }
       },
-      recipient: {
+      recipientCustomer: {
         select: {
           id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          phone: true
+        }
+      },
+      deliveryAddress: {
+        select: {
+          id: true,
+          label: true,
           firstName: true,
           lastName: true,
           company: true,
