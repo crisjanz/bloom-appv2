@@ -64,7 +64,6 @@ const navItems: NavItem[] = [
     icon: <TruckIcon />,
     path: "/ftd-orders",
     subItems: [
-      { name: "Approve Orders", path: "/ftd-approve", pro: false, icon: <GridIcon /> },
       { name: "FTD Live", path: "/ftd-live", pro: false, icon: <LinkIcon /> },
     ],
   },

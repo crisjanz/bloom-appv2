@@ -372,6 +372,9 @@ model Order {
   // Payment transaction links
   orderPayments OrderPayment[]
 
+  // FTD wire order link (reverse relation)
+  ftdOrder      FtdOrder?  @relation("FtdLinkedOrder")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1241,4 +1244,77 @@ model FtdSettings {
   updatedAt         DateTime @updatedAt
 
   @@map("ftd_settings")
+}
+
+enum FtdOrderStatus {
+  NEEDS_ACTION
+  ACCEPTED
+  IN_DESIGN
+  READY
+  OUT_FOR_DELIVERY
+  DELIVERED
+  REJECTED
+  CANCELLED
+}
+
+model FtdOrder {
+  id                String        @id @default(uuid())
+
+  // === FTD IDENTIFIERS ===
+  externalId        String        @unique  // "F7841Y-5036-6100081565683178"
+  ftdOrderNumber    Int?                   // 1124
+  status            FtdOrderStatus @default(NEEDS_ACTION)
+
+  // === RECIPIENT INFO (from detail endpoint, source of truth) ===
+  recipientFirstName  String?
+  recipientLastName   String?
+  recipientPhone      String?
+  recipientEmail      String?
+
+  // === DELIVERY ADDRESS ===
+  address1          String?
+  address2          String?
+  city              String?
+  province          String?
+  postalCode        String?
+  country           String        @default("CA")
+  addressType       AddressType?
+
+  // === DELIVERY DETAILS ===
+  deliveryDate      DateTime?
+  deliveryTime      String?
+  deliveryInstructions String?
+
+  // === ORDER CONTENT ===
+  cardMessage       String?
+  occasion          String?
+  productDescription String?
+  productCode       String?
+
+  // === PRICING ===
+  totalAmount       Float?
+
+  // === FTD REPORTING ===
+  sendingFloristCode String?
+
+  // === BLOOM INTEGRATION ===
+  linkedOrderId     String?  @unique
+  linkedOrder       Order?   @relation("FtdLinkedOrder", fields: [linkedOrderId], references: [id])
+  needsApproval     Boolean  @default(false) // True when auto-created, false after manual review
+
+  // === TRACKING ===
+  detailedFetchedAt DateTime?       // When was detail payload last fetched
+  lastCheckedAt     DateTime        @default(now()) // When was status last checked (every 4 min)
+
+  // === RAW DATA (everything else stored here) ===
+  ftdRawData        Json?           // Full FTD detail payload
+
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@map("ftd_orders")
+  @@index([status])
+  @@index([deliveryDate])
+  @@index([sendingFloristCode])
+  @@index([externalId])
 }

@@ -57,7 +57,6 @@ import TaxExportPage from "./pages/reports/TaxExportPage";
 import TransactionsReportPage from "./pages/reports/TransactionsReportPage";
 import FtdOrdersPage from "./pages/ftd/FtdOrdersPage";
 import FtdLivePage from "./pages/ftd/FtdLivePage";
-import FtdApprovePage from "./pages/ftd/FtdApprovePage";
 
 export default function App() {
   return (
@@ -126,7 +125,6 @@ export default function App() {
 
             {/* FTD Wire Orders routes */}
             <Route path="ftd-orders" element={<FtdOrdersPage />} />
-            <Route path="ftd-approve" element={<FtdApprovePage />} />
             <Route path="ftd-live" element={<FtdLivePage />} />
 
             {/* Reports */}

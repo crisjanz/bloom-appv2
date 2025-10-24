@@ -5,6 +5,7 @@ export interface FtdOrder {
   externalStatus?: string | null;
   externalReference?: string | null;
   needsExternalUpdate: boolean;
+  ftdOrderId?: string; // ID of the FtdOrder record for manual refresh
   importedPayload?: any;
   deliveryDate?: string | null;
   deliveryTime?: string | null;

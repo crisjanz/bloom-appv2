@@ -4,6 +4,8 @@ import { FtdOrder, FtdOrderStats } from '../types/ftdTypes';
 export function useFtdOrders(filters?: {
   status?: string;
   needsUpdate?: boolean;
+  deliveryDate?: string;
+  search?: string;
 }) {
   const [orders, setOrders] = useState<FtdOrder[]>([]);
   const [stats, setStats] = useState<FtdOrderStats | null>(null);
@@ -18,6 +20,8 @@ export function useFtdOrders(filters?: {
       const params = new URLSearchParams();
       if (filters?.status) params.append('status', filters.status);
       if (filters?.needsUpdate) params.append('needsUpdate', 'true');
+      if (filters?.deliveryDate) params.append('deliveryDate', filters.deliveryDate);
+      if (filters?.search) params.append('search', filters.search);
 
       const res = await fetch(`/api/ftd/orders?${params}`);
       const data = await res.json();
@@ -78,7 +82,7 @@ export function useFtdOrders(filters?: {
     }, 2 * 60 * 1000);
 
     return () => clearInterval(interval);
-  }, [filters?.status, filters?.needsUpdate]);
+  }, [filters?.status, filters?.needsUpdate, filters?.deliveryDate, filters?.search]);
 
   return {
     orders,

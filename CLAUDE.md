@@ -1,5 +1,12 @@
 # Bloom App - Claude Code Instructions
 
+## ⚡ Response Style (IMPORTANT)
+**Be concise and token-efficient:**
+- Respond directly without lengthy explanations
+- **Never show code examples in discussions** - only show code when making actual changes
+- Skip summaries, emojis, and verbose formatting unless explicitly requested
+- Get straight to the solution
+
 ## 📚 Documentation
 **All project tracking in `/docs` folder:**
 - `/docs/Progress_Tracker.markdown` - Feature implementation status
