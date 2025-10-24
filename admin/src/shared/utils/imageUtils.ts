@@ -1,4 +1,4 @@
-// Utility functions for Supabase image optimization
+// Utility functions for legacy Supabase image optimization
 export const getOptimizedImageUrl = (
   originalUrl: string, 
   options: {

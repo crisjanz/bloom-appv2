@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import Cropper from 'react-easy-crop';
-import { Area, Point } from 'react-easy-crop/types';
+import type { Area, Point } from 'react-easy-crop';
 
 interface ImageCropModalProps {
   image: string;
@@ -32,7 +32,7 @@ const ImageCropModal = ({ image, onCropComplete, onCancel }: ImageCropModalProps
   const createImage = (url: string): Promise<HTMLImageElement> =>
     new Promise((resolve, reject) => {
       const image = new Image();
-      image.crossOrigin = 'anonymous'; // Enable CORS for Supabase images
+      image.crossOrigin = 'anonymous'; // Enable CORS for CDN images
       image.addEventListener('load', () => resolve(image));
       image.addEventListener('error', (error) => reject(error));
       image.src = url;

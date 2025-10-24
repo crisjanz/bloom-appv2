@@ -100,7 +100,7 @@ export default function GiftCardsPage() {
   };
 
   const getTypeBadgeColor = (type: string) => {
-    return type === 'DIGITAL' ? 'info' : 'secondary';
+    return type === 'DIGITAL' ? 'info' : 'dark';
   };
 
   const handleViewDetails = (card: GiftCard) => {

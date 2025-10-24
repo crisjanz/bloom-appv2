@@ -70,7 +70,7 @@ const TaxCard = () => {
       const submitData = {
         ...formData,
         rate: parseFloat(formData.rate.toString()),
-        isActive: formData.isActive === true || formData.isActive === 'true',
+        isActive: formData.isActive,
         sortOrder: editingTax ? formData.sortOrder : Math.max(...taxRates.map(t => t.sortOrder), 0) + 1
       };
 
@@ -267,7 +267,7 @@ const TaxCard = () => {
               <InputField
                 type="number"
                 id="rate"
-                step="0.01"
+                step={0.01}
                 min="0"
                 max="100"
                 value={formData.rate}

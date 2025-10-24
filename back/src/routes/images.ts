@@ -1,8 +1,6 @@
 import express from 'express';
 import multer from 'multer';
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
-import crypto from 'crypto';
-import path from 'path';
+import { uploadToR2, deleteFromR2 } from '../utils/r2Client';
 
 const router = express.Router();
 
@@ -22,19 +20,6 @@ const upload = multer({
   },
 });
 
-// Configure S3 client for Cloudflare R2
-const s3Client = new S3Client({
-  region: 'auto',
-  endpoint: `https://${process.env.CLOUDFLARE_R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  credentials: {
-    accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY!,
-  },
-});
-
-const BUCKET_NAME = process.env.CLOUDFLARE_R2_BUCKET_NAME || 'upload';
-const PUBLIC_URL = process.env.CLOUDFLARE_R2_PUBLIC_URL || 'https://cdn.hellobloom.ca';
-
 /**
  * Upload image to R2
  * POST /api/images/upload
@@ -46,21 +31,12 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     }
 
     const folder = req.body.folder || 'general';
-    const fileExt = path.extname(req.file.originalname);
-    const fileName = `${crypto.randomUUID()}${fileExt}`;
-    const key = `${folder}/${fileName}`;
-
-    // Upload to R2
-    const command = new PutObjectCommand({
-      Bucket: BUCKET_NAME,
-      Key: key,
-      Body: req.file.buffer,
-      ContentType: req.file.mimetype,
+    const { key, url } = await uploadToR2({
+      folder,
+      buffer: req.file.buffer,
+      mimeType: req.file.mimetype,
+      originalName: req.file.originalname,
     });
-
-    await s3Client.send(command);
-
-    const url = `${PUBLIC_URL}/${key}`;
 
     res.json({
       success: true,
@@ -89,12 +65,7 @@ router.delete('/delete', async (req, res) => {
       return res.status(400).json({ message: 'No image key provided' });
     }
 
-    const command = new DeleteObjectCommand({
-      Bucket: BUCKET_NAME,
-      Key: key,
-    });
-
-    await s3Client.send(command);
+    await deleteFromR2(key);
 
     res.json({
       success: true,

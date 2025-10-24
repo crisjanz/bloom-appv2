@@ -3,10 +3,22 @@
  * All domain repositories extend this for consistent data access patterns
  */
 
-import { Repository, DomainEntity, QueryFilter, PaginatedResult, Result, NotFoundError } from '../../types/common'
+import { DomainEntity, QueryFilter, PaginatedResult, Result, NotFoundError, SearchOptions } from '../../types/common'
 import { ApiService, ApiError } from '../api/ApiService'
 
-export abstract class BaseRepository<T extends DomainEntity> implements Repository<T> {
+const unwrapResult = <R>(result: Result<R, ApiError>, fallbackMessage: string): R => {
+  if (result.success) {
+    return result.data
+  }
+
+  if ('error' in result && result.error) {
+    throw result.error
+  }
+
+  throw new ApiError(fallbackMessage, 500)
+}
+
+export abstract class BaseRepository<T extends DomainEntity> {
   protected abstract readonly endpoint: string
   protected abstract readonly entityName: string
 
@@ -20,11 +32,7 @@ export abstract class BaseRepository<T extends DomainEntity> implements Reposito
       ? await ApiService.put<T>(`${this.endpoint}/${entity.id}`, entity)
       : await ApiService.post<T>(this.endpoint, entity)
 
-    if (!result.success) {
-      throw result.error
-    }
-
-    return result.data
+    return unwrapResult(result, `Failed to save ${this.entityName}`)
   }
 
   /**
@@ -33,14 +41,19 @@ export abstract class BaseRepository<T extends DomainEntity> implements Reposito
   async findById(id: string): Promise<T | null> {
     const result = await ApiService.get<T | null>(`${this.endpoint}/${id}`)
 
-    if (!result.success) {
-      if (result.error.status === 404) {
-        return null
-      }
+    if (result.success) {
+      return result.data
+    }
+
+    if ('error' in result && result.error?.status === 404) {
+      return null
+    }
+
+    if ('error' in result && result.error) {
       throw result.error
     }
 
-    return result.data
+    throw new ApiError(`Failed to fetch ${this.entityName}`, 500)
   }
 
   /**
@@ -57,14 +70,13 @@ export abstract class BaseRepository<T extends DomainEntity> implements Reposito
   /**
    * Find all entities
    */
-  async findAll(): Promise<T[]> {
-    const result = await ApiService.get<T[]>(this.endpoint)
-
-    if (!result.success) {
-      throw result.error
-    }
-
-    return result.data
+  async findAll(options: SearchOptions = {}): Promise<T[]> {
+    const queryParams = new URLSearchParams()
+    if (options.page) queryParams.set('page', options.page.toString())
+    if (options.limit) queryParams.set('limit', options.limit.toString())
+    const url = queryParams.toString() ? `${this.endpoint}?${queryParams.toString()}` : this.endpoint
+    const result = await ApiService.get<T[]>(url)
+    return unwrapResult(result, `Failed to fetch ${this.entityName}`)
   }
 
   /**
@@ -88,12 +100,7 @@ export abstract class BaseRepository<T extends DomainEntity> implements Reposito
 
     const url = `${this.endpoint}?${queryParams.toString()}`
     const result = await ApiService.get<PaginatedResult<T>>(url)
-
-    if (!result.success) {
-      throw result.error
-    }
-
-    return result.data
+    return unwrapResult(result, `Failed to fetch ${this.entityName}`)
   }
 
   /**
@@ -101,10 +108,7 @@ export abstract class BaseRepository<T extends DomainEntity> implements Reposito
    */
   async delete(id: string): Promise<void> {
     const result = await ApiService.delete(`${this.endpoint}/${id}`)
-
-    if (!result.success) {
-      throw result.error
-    }
+    unwrapResult(result, `Failed to delete ${this.entityName}`)
   }
 
   /**
@@ -134,12 +138,8 @@ export abstract class BaseRepository<T extends DomainEntity> implements Reposito
 
     const url = `${this.endpoint}/count?${queryParams.toString()}`
     const result = await ApiService.get<{ count: number }>(url)
-
-    if (!result.success) {
-      throw result.error
-    }
-
-    return result.data.count
+    const data = unwrapResult(result, `Failed to count ${this.entityName}`)
+    return data.count
   }
 
   /**
@@ -147,12 +147,7 @@ export abstract class BaseRepository<T extends DomainEntity> implements Reposito
    */
   async saveMany(entities: Partial<T>[]): Promise<T[]> {
     const result = await ApiService.post<T[]>(`${this.endpoint}/batch`, { entities })
-
-    if (!result.success) {
-      throw result.error
-    }
-
-    return result.data
+    return unwrapResult(result, `Failed to save ${this.entityName}`)
   }
 
   async deleteMany(ids: string[]): Promise<void> {
@@ -160,9 +155,7 @@ export abstract class BaseRepository<T extends DomainEntity> implements Reposito
       body: JSON.stringify({ ids })
     })
 
-    if (!result.success) {
-      throw result.error
-    }
+    unwrapResult(result, `Failed to delete ${this.entityName}`)
   }
 
   /**
@@ -183,12 +176,7 @@ export abstract class BaseRepository<T extends DomainEntity> implements Reposito
     }
 
     const result = await ApiService.get<R>(url)
-
-    if (!result.success) {
-      throw result.error
-    }
-
-    return result.data
+    return unwrapResult(result, `Failed to fetch ${this.entityName}`)
   }
 
   /**
@@ -205,10 +193,6 @@ export abstract class BaseRepository<T extends DomainEntity> implements Reposito
       ? await ApiService.post<R>(url, data)
       : await ApiService.put<R>(url, data)
 
-    if (!result.success) {
-      throw result.error
-    }
-
-    return result.data
+    return unwrapResult(result, `Failed to mutate ${this.entityName}`)
   }
 }

@@ -51,6 +51,14 @@ interface Event {
   };
 }
 
+interface PaymentSummary {
+  totalPaid: number;
+  totalDue: number;
+  balance: number;
+  received: number;
+  remaining: number;
+}
+
 const EventPaymentsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -65,14 +73,14 @@ const EventPaymentsPage: React.FC = () => {
   const eventLoading = loading;
   const eventError = error;
   const paymentsLoading = loading;
-  const paymentSummary = { totalPaid: 0, totalDue: 0, balance: 0 };
+  let paymentSummary: PaymentSummary = { totalPaid: 0, totalDue: 0, balance: 0, received: 0, remaining: 0 };
   
-  const loadEvent = async () => {
-    console.log('Loading event:', id);
+  const loadEvent = async (eventId: string) => {
+    console.log('Loading event:', eventId);
   };
   
-  const loadPayments = async () => {
-    console.log('Loading payments for event:', id);
+  const loadPayments = async (eventId: string) => {
+    console.log('Loading payments for event:', eventId);
   };
   
   const addPayment = async (paymentData: any) => {
@@ -97,15 +105,14 @@ const EventPaymentsPage: React.FC = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (id) {
-      // MIGRATION: Use domain hooks to load event and payments
-      loadEvent(id).catch((error) => {
-        console.error('Failed to load event:', error);
-        navigate('/events');
-      });
-      loadPayments(id);
-    }
-  }, [id, loadEvent, loadPayments, navigate]);
+    if (!id) return;
+
+    loadEvent(id).catch((error) => {
+      console.error('Failed to load event:', error);
+      navigate('/events');
+    });
+    loadPayments(id);
+  }, [id, navigate]);
 
   const handleInputChange = (field: string, value: string) => {
     setPaymentForm(prev => ({ ...prev, [field]: value }));
@@ -247,11 +254,22 @@ const EventPaymentsPage: React.FC = () => {
 
   // MIGRATION: Use payment summary from domain hook
   const finalAmount = event.finalAmount || event.quotedAmount || 0;
+  const totalPaid = payments
+    .filter(payment => payment.status === 'RECEIVED')
+    .reduce((sum, payment) => sum + payment.amount, 0);
+  const remaining = finalAmount - totalPaid;
+  paymentSummary = {
+    totalPaid,
+    totalDue: finalAmount,
+    balance: remaining,
+    received: totalPaid,
+    remaining,
+  };
 
   return (
     <div className="p-4">
       <PageBreadcrumb 
-        pageName={`Event Payments - #${event.eventNumber}`}
+        pageTitle={`Event Payments - #${event.eventNumber}`}
         links={[
           { name: 'Events', href: '/events' },
           { name: `#${event.eventNumber}`, href: `/events/${event.id}` }
@@ -417,7 +435,7 @@ const EventPaymentsPage: React.FC = () => {
                   <InputField
                     label="Amount *"
                     type="number"
-                    step="0.01"
+                    step={0.01}
                     min="0"
                     placeholder="0.00"
                     value={paymentForm.amount}

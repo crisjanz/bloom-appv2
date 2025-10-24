@@ -17,22 +17,48 @@ import Label from '@shared/ui/forms/Label';
 import Button from '@shared/ui/components/ui/button/Button';
 import StatusSelect from '@shared/ui/forms/StatusSelect';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
-import { getStatusOptions } from '@shared/utils/orderStatusHelpers';
+import { getStatusOptions, OrderType as FulfillmentOrderType } from '@shared/utils/orderStatusHelpers';
 import { useNavigate } from 'react-router';
 // MIGRATION: Use domain hook for delivery management
 import { useDeliveryManagement } from '@domains/orders/hooks/useDeliveryManagement';
+import { OrderStatus as DomainOrderStatus } from '@domains/orders/entities/Order';
 
 // Temporary types until domain layer is fully implemented
+type DeliveryPerson = {
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+};
+
+type DeliveryAddress = {
+  firstName?: string;
+  lastName?: string;
+  company?: string;
+  phone?: string;
+  address1?: string;
+  address2?: string;
+  city?: string;
+  province?: string;
+  postalCode?: string;
+};
+
 type DeliveryOrder = {
   id: string;
   orderNumber: string;
   status: string;
-  customer: any;
-  recipient: any;
+  type: FulfillmentOrderType | string;
+  customer?: DeliveryPerson | null;
+  recipientCustomer?: DeliveryPerson | null;
+  deliveryAddress?: DeliveryAddress | null;
   deliveryDate: string;
-  deliveryTime: string;
-  items: any[];
-  total: number;
+  deliveryTime?: string;
+  items: Array<{
+    id?: string;
+    name?: string;
+    quantity?: number;
+  }>;
+  paymentAmount?: number;
+  total?: number;
 };
 
 type DeliveryData = {
@@ -40,6 +66,9 @@ type DeliveryData = {
   deliveryTime: string;
   notes?: string;
 };
+
+const normalizeOrderType = (type: DeliveryOrder['type']): FulfillmentOrderType =>
+  type === 'PICKUP' ? 'PICKUP' : 'DELIVERY';
 
 // MIGRATION: Order and DeliveryData interfaces now come from domain layer
 
@@ -216,7 +245,12 @@ const DeliveryPage: React.FC = () => {
 
     const today = getBusinessDateString(new Date());
 
-    const flatPickr = flatpickr('#date-selector', {
+    const inputElement = document.querySelector<HTMLInputElement>('#date-selector');
+    if (!inputElement) {
+      return;
+    }
+
+    const flatPickr = flatpickr(inputElement, {
       mode: 'single',
       static: false,
       monthSelectorType: 'static',
@@ -260,7 +294,7 @@ const DeliveryPage: React.FC = () => {
       },
     });
 
-    flatpickrRef.current = flatPickr;
+    flatpickrRef.current = Array.isArray(flatPickr) ? flatPickr[0] : flatPickr;
 
     return () => {
       if (flatpickrRef.current) {
@@ -319,7 +353,7 @@ const DeliveryPage: React.FC = () => {
   // MIGRATION: Handle status updates using domain hook
   const handleStatusUpdate = async (orderId: string, newStatus: string) => {
     try {
-      await updateOrderStatus(orderId, newStatus);
+      await updateOrderStatus(orderId, newStatus as DomainOrderStatus);
 
       // Reload all orders after status update
       const today = getBusinessDateString(new Date());
@@ -391,8 +425,17 @@ const DeliveryPage: React.FC = () => {
   const OrderRow: React.FC<{ order: DeliveryOrder; section: 'delivery' | 'pickup' | 'completed' }> = ({ 
     order, 
     section 
-  }) => (
-    <tr 
+  }) => {
+    const normalizedType = normalizeOrderType(order.type);
+    const amountCents =
+      typeof order.paymentAmount === 'number'
+        ? order.paymentAmount
+        : typeof order.total === 'number'
+        ? Math.round(order.total * 100)
+        : 0;
+
+    return (
+      <tr 
       key={order.id} 
       onClick={() => handleRowClick(order.id)}
       className="hover:bg-gray-50 dark:hover:bg-gray-800 border-b border-gray-200 dark:border-gray-700 cursor-pointer"
@@ -427,7 +470,7 @@ const DeliveryPage: React.FC = () => {
 
       {/* Recipient/Address */}
       <td className="px-4 py-3">
-        {order.type === 'DELIVERY' && (order.deliveryAddress || order.recipientCustomer) ? (
+        {normalizedType === 'DELIVERY' && (order.deliveryAddress || order.recipientCustomer) ? (
           <div>
             <div className="text-sm text-gray-900 dark:text-white font-medium">
               {order.deliveryAddress?.firstName || order.recipientCustomer?.firstName} {order.deliveryAddress?.lastName || order.recipientCustomer?.lastName}
@@ -460,27 +503,28 @@ const DeliveryPage: React.FC = () => {
       {/* Amount */}
       <td className="px-4 py-3">
         <span className="text-sm font-medium text-gray-900 dark:text-white">
-          ${(order.paymentAmount / 100).toFixed(2)}
+          ${(amountCents / 100).toFixed(2)}
         </span>
       </td>
 
       {/* Status Select */}
       <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
         <StatusSelect
-          options={getStatusOptions(order.type)}
+          options={getStatusOptions(normalizedType)}
           value={order.status}
           onChange={(newStatus) => handleStatusUpdate(order.id, newStatus)}
-          orderType={order.type}
+          orderType={normalizedType}
           placeholder="Change Status"
         />
       </td>
-    </tr>
-  );
+      </tr>
+    );
+  };
 
   return (
     <div className="p-4">
       {/* Breadcrumb */}
-      <PageBreadcrumb pageName="Delivery Management" />
+      <PageBreadcrumb pageTitle="Delivery Management" />
 
       {/* Page Header */}
       <div className="mb-6">

@@ -35,11 +35,15 @@ export class ReportService {
       `${BASE_ENDPOINT}/sales/summary${query}`
     );
 
-    if (!result.success) {
+    if (result.success) {
+      return result.data;
+    }
+
+    if ('error' in result && result.error) {
       throw result.error;
     }
 
-    return result.data;
+    throw new Error('Failed to fetch sales summary');
   }
 
   static async getSalesOrders(
@@ -50,11 +54,15 @@ export class ReportService {
       `${BASE_ENDPOINT}/sales/orders${query}`
     );
 
-    if (!result.success) {
+    if (result.success) {
+      return result.data;
+    }
+
+    if ('error' in result && result.error) {
       throw result.error;
     }
 
-    return result.data;
+    throw new Error('Failed to fetch sales orders');
   }
 
   static async getTaxExport(
@@ -65,10 +73,14 @@ export class ReportService {
       `${BASE_ENDPOINT}/tax/export${query}`
     );
 
-    if (!result.success) {
+    if (result.success) {
+      return result.data;
+    }
+
+    if ('error' in result && result.error) {
       throw result.error;
     }
 
-    return result.data;
+    throw new Error('Failed to export tax report');
   }
 }

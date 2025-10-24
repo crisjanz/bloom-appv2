@@ -24,10 +24,10 @@ type EventStatus = 'INQUIRY' | 'QUOTE_REQUESTED' | 'QUOTE_SENT' | 'QUOTE_APPROVE
 interface Event {
   id: string;
   eventNumber: number;
-  eventType: EventType;
+  eventType: EventType | string;
   eventName: string;
   description?: string;
-  status: EventStatus;
+  status: EventStatus | string;
   eventDate: string;
   venue: string;
   quotedAmount?: number;
@@ -71,9 +71,9 @@ const statusOptions = [
   { value: "REJECTED", label: "Rejected" },
 ];
 
-const EventStatusBadge: React.FC<{ status: EventStatus }> = ({ status }) => {
-  const getStatusColor = (status: EventStatus) => {
-    switch (status) {
+const EventStatusBadge: React.FC<{ status: EventStatus | string }> = ({ status }) => {
+  const getStatusColor = (value: EventStatus | string) => {
+    switch (value) {
       case 'INQUIRY':
       case 'QUOTE_REQUESTED':
         return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
@@ -96,8 +96,8 @@ const EventStatusBadge: React.FC<{ status: EventStatus }> = ({ status }) => {
     }
   };
 
-  const getStatusLabel = (status: EventStatus) => {
-    return statusOptions.find(option => option.value === status)?.label || status;
+  const getStatusLabel = (value: EventStatus | string) => {
+    return statusOptions.find(option => option.value === value)?.label || value;
   };
 
   return (
@@ -107,7 +107,7 @@ const EventStatusBadge: React.FC<{ status: EventStatus }> = ({ status }) => {
   );
 };
 
-const EventTypeIcon: React.FC<{ type: EventType }> = ({ type }) => {
+const EventTypeIcon: React.FC<{ type: EventType | string }> = ({ type }) => {
   const icons = {
     WEDDING: '💒',
     CORPORATE: '🏢',
@@ -117,7 +117,7 @@ const EventTypeIcon: React.FC<{ type: EventType }> = ({ type }) => {
     GRADUATION: '🎓',
     OTHER: '🎉',
   };
-  return <span className="text-lg">{icons[type]}</span>;
+  return <span className="text-lg">{icons[type as EventType] ?? '🎉'}</span>;
 };
 
 const EventsListPage: React.FC = () => {
@@ -189,7 +189,7 @@ const EventsListPage: React.FC = () => {
 
   return (
     <div className="p-4">
-      <PageBreadcrumb pageName="Events" />
+      <PageBreadcrumb pageTitle="Events" />
       
       <ComponentCard>
         {/* Header */}

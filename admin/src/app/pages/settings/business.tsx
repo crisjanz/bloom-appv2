@@ -11,7 +11,7 @@ import EmployeeListCard from "@app/components/settings/business/EmployeeListCard
 
 const BusinessPage = () => (
   <div className="space-y-6">
-    <PageBreadcrumb pageName="Business Settings" />
+    <PageBreadcrumb pageTitle="Business Settings" />
     <h2 className="text-2xl font-semibold text-black dark:text-white">Business Settings</h2>
     <StoreInfoCard />
     <BusinessHoursCard />

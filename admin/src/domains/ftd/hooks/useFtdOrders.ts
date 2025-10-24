@@ -3,9 +3,7 @@ import { FtdOrder, FtdOrderStats } from '../types/ftdTypes';
 
 export function useFtdOrders(filters?: {
   status?: string;
-  from?: string;
-  to?: string;
-  sendingFlorist?: string;
+  needsUpdate?: boolean;
 }) {
   const [orders, setOrders] = useState<FtdOrder[]>([]);
   const [stats, setStats] = useState<FtdOrderStats | null>(null);
@@ -19,9 +17,7 @@ export function useFtdOrders(filters?: {
 
       const params = new URLSearchParams();
       if (filters?.status) params.append('status', filters.status);
-      if (filters?.from) params.append('from', filters.from);
-      if (filters?.to) params.append('to', filters.to);
-      if (filters?.sendingFlorist) params.append('sendingFlorist', filters.sendingFlorist);
+      if (filters?.needsUpdate) params.append('needsUpdate', 'true');
 
       const res = await fetch(`/api/ftd/orders?${params}`);
       const data = await res.json();
@@ -57,9 +53,11 @@ export function useFtdOrders(filters?: {
       const data = await res.json();
 
       if (data.success) {
-        setOrders(data.orders);
+        await fetchOrders();
+        await fetchStats();
         return true;
       }
+      setError(data.error || 'Failed to update orders');
       return false;
     } catch (err) {
       console.error('Update failed:', err);
@@ -80,7 +78,7 @@ export function useFtdOrders(filters?: {
     }, 2 * 60 * 1000);
 
     return () => clearInterval(interval);
-  }, [filters?.status, filters?.from, filters?.to, filters?.sendingFlorist]);
+  }, [filters?.status, filters?.needsUpdate]);
 
   return {
     orders,

@@ -1,54 +1,60 @@
 import express from "express";
-import { PrismaClient } from "@prisma/client";
-import { fetchFtdOrders } from "../../services/ftdMonitor";
+import axios from "axios";
+import { PrismaClient, OrderExternalSource, OrderStatus } from "@prisma/client";
+import { fetchFtdOrders, normalizeFtdPayload } from "../../services/ftdMonitor";
 
 const router = express.Router();
 const prisma = new PrismaClient();
 
-// Get orders needing approval (MUST come before /:id route)
-router.get("/needs-approval", async (req, res) => {
+const NEEDS_ACTION_STATUSES = new Set([
+  "NEW",
+  "VIEWED",
+  "PENDING",
+  "SENT",
+  "FORWARDED",
+  "PRINTED"
+]);
+
+const ACCEPTED_STATUSES = new Set(["ACKNOWLEDGED", "ACKNOWLEDGE_PRINT"]);
+const DELIVERED_STATUSES = new Set(["DELIVERED"]);
+
+// Get orders needing review (drafts or flagged updates)
+router.get("/needs-approval", async (_req, res) => {
   try {
-    const orders = await prisma.ftdOrder.findMany({
+    const orders = await prisma.order.findMany({
       where: {
-        needsApproval: true,
-        linkedOrderId: { not: null },
+        externalSource: OrderExternalSource.FTD,
+        needsExternalUpdate: true
       },
       include: {
-        linkedOrder: {
-          include: {
-            customer: true,
-            deliveryAddress: true,
-            orderItems: true,
-          }
-        }
+        customer: true,
+        recipientCustomer: true,
+        deliveryAddress: true,
+        orderItems: true
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: "desc" }
     });
 
     res.json({ success: true, orders });
   } catch (error: any) {
-    console.error("Error fetching approval orders:", error);
+    console.error("Error fetching FTD approvals:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// Get FTD order statistics
-router.get("/stats/summary", async (req, res) => {
+// Stats endpoint
+router.get("/stats/summary", async (_req, res) => {
   try {
-    const statuses = await prisma.ftdOrder.groupBy({
-      by: ['status'],
-      _count: true,
+    const orders = await prisma.order.findMany({
+      where: { externalSource: OrderExternalSource.FTD },
+      select: { externalStatus: true, paymentAmount: true }
     });
 
-    const totalOrders = await prisma.ftdOrder.count();
-    const needsAction = statuses.find(s => s.status === 'NEEDS_ACTION')?._count || 0;
-    const accepted = statuses.find(s => s.status === 'ACCEPTED')?._count || 0;
-    const delivered = statuses.find(s => s.status === 'DELIVERED')?._count || 0;
-
-    const totalRevenue = await prisma.ftdOrder.aggregate({
-      where: { status: 'DELIVERED' },
-      _sum: { totalAmount: true },
-    });
+    const totalOrders = orders.length;
+    const needsAction = orders.filter((o) => o.externalStatus && NEEDS_ACTION_STATUSES.has(o.externalStatus)).length;
+    const accepted = orders.filter((o) => o.externalStatus && ACCEPTED_STATUSES.has(o.externalStatus)).length;
+    const delivered = orders.filter((o) => o.externalStatus && DELIVERED_STATUSES.has(o.externalStatus)).length;
+    const totalRevenue = orders.reduce((sum, o) => sum + (o.paymentAmount || 0), 0);
 
     res.json({
       success: true,
@@ -57,8 +63,8 @@ router.get("/stats/summary", async (req, res) => {
         needsAction,
         accepted,
         delivered,
-        totalRevenue: totalRevenue._sum.totalAmount || 0,
-        byStatus: statuses,
+        totalRevenue,
+        byStatus: []
       }
     });
   } catch (error: any) {
@@ -67,39 +73,30 @@ router.get("/stats/summary", async (req, res) => {
   }
 });
 
-// Get all FTD orders with filters
+// List orders
 router.get("/", async (req, res) => {
   try {
-    const { status, from, to, sendingFlorist } = req.query;
+    const { status, needsUpdate } = req.query;
 
-    const where: any = {};
+    const where: any = { externalSource: OrderExternalSource.FTD };
 
     if (status) {
-      where.status = status;
+      where.externalStatus = status;
     }
 
-    if (from || to) {
-      where.deliveryDate = {};
-      if (from) where.deliveryDate.gte = new Date(from as string + 'T00:00:00');
-      if (to) where.deliveryDate.lte = new Date(to as string + 'T23:59:59');
+    if (needsUpdate === "true") {
+      where.needsExternalUpdate = true;
     }
 
-    if (sendingFlorist) {
-      where.sendingFloristCode = sendingFlorist;
-    }
-
-    const orders = await prisma.ftdOrder.findMany({
+    const orders = await prisma.order.findMany({
       where,
       include: {
-        linkedOrder: {
-          select: {
-            id: true,
-            orderNumber: true,
-            status: true,
-          }
-        }
+        customer: true,
+        recipientCustomer: true,
+        deliveryAddress: true,
+        orderItems: true
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: "desc" }
     });
 
     res.json({ success: true, orders });
@@ -109,20 +106,17 @@ router.get("/", async (req, res) => {
   }
 });
 
-// Get single FTD order
+// Single order
 router.get("/:id", async (req, res) => {
   try {
-    const order = await prisma.ftdOrder.findUnique({
+    const order = await prisma.order.findUnique({
       where: { id: req.params.id },
       include: {
-        linkedOrder: {
-          include: {
-            customer: true,
-            deliveryAddress: true,
-            orderItems: true,
-          }
-        }
-      },
+        customer: true,
+        recipientCustomer: true,
+        deliveryAddress: true,
+        orderItems: true
+      }
     });
 
     if (!order) {
@@ -136,7 +130,7 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// Update FTD order status (local tracking only, does NOT update FTD)
+// Update order status manually
 router.put("/:id/status", async (req, res) => {
   try {
     const { status } = req.body;
@@ -145,9 +139,15 @@ router.put("/:id/status", async (req, res) => {
       return res.status(400).json({ success: false, error: "Status is required" });
     }
 
-    const order = await prisma.ftdOrder.update({
+    const order = await prisma.order.update({
       where: { id: req.params.id },
       data: { status },
+      include: {
+        customer: true,
+        recipientCustomer: true,
+        deliveryAddress: true,
+        orderItems: true
+      }
     });
 
     res.json({ success: true, order });
@@ -157,76 +157,119 @@ router.put("/:id/status", async (req, res) => {
   }
 });
 
-// Link FTD order to Bloom order
+// Link an existing Bloom order to an FTD payload
 router.post("/:id/link", async (req, res) => {
   try {
-    const { orderId } = req.body;
-
-    if (!orderId) {
-      return res.status(400).json({ success: false, error: "Order ID is required" });
+    const { externalId } = req.body;
+    if (!externalId) {
+      return res.status(400).json({ success: false, error: "externalId is required" });
     }
 
-    const ftdOrder = await prisma.ftdOrder.update({
+    const payload = await fetchSingleFtdPayload(externalId);
+    if (!payload) {
+      return res.status(404).json({ success: false, error: `FTD order ${externalId} not found` });
+    }
+
+    const order = await prisma.order.update({
       where: { id: req.params.id },
-      data: { linkedOrderId: orderId },
+      data: {
+        externalSource: OrderExternalSource.FTD,
+        externalReference: payload.externalId,
+        importedPayload: payload.raw,
+        externalStatus: payload.status,
+        needsExternalUpdate: true
+      },
+      include: {
+        customer: true,
+        recipientCustomer: true,
+        deliveryAddress: true,
+        orderItems: true
+      }
     });
 
-    res.json({ success: true, ftdOrder });
+    res.json({ success: true, order });
   } catch (error: any) {
     console.error("Error linking FTD order:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// Force refresh FTD orders (manual update button)
-router.post("/update", async (req, res) => {
+// Manual sync trigger
+router.post("/update", async (_req, res) => {
   try {
-    console.log("🔄 Manual FTD update requested (FULL SYNC - bypassing business hours)");
-
-    // Trigger immediate FULL sync (not delta), bypass business hours check
-    await fetchFtdOrders(true, true); // forceFullSync = true, bypassBusinessHours = true
-
-    // Return updated orders
-    const orders = await prisma.ftdOrder.findMany({
-      include: {
-        linkedOrder: {
-          select: {
-            id: true,
-            orderNumber: true,
-            status: true,
-          }
-        }
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    res.json({
-      success: true,
-      message: "FTD orders updated (full sync)",
-      orders
-    });
+    await fetchFtdOrders(true, true);
+    res.json({ success: true, message: "FTD orders updated (full sync)" });
   } catch (error: any) {
     console.error("Error updating FTD orders:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// Mark order as approved
+// Acknowledge order updates
 router.post("/:id/approve", async (req, res) => {
   try {
-    const ftdOrder = await prisma.ftdOrder.update({
+    const order = await prisma.order.update({
       where: { id: req.params.id },
-      data: { needsApproval: false },
+      data: { needsExternalUpdate: false },
       include: {
-        linkedOrder: true,
+        customer: true,
+        recipientCustomer: true,
+        deliveryAddress: true,
+        orderItems: true
       }
     });
-
-    res.json({ success: true, ftdOrder });
+    res.json({ success: true, order });
   } catch (error: any) {
-    console.error("Error approving FTD order:", error);
+    console.error("Error acknowledging FTD order:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
+async function fetchSingleFtdPayload(externalId: string) {
+  const settings = await prisma.ftdSettings.findFirst();
+  if (!settings) {
+    throw new Error("FTD settings not configured");
+  }
+
+  const token = settings.authToken;
+  if (!token) {
+    throw new Error("FTD auth token missing; refresh token first");
+  }
+
+  const headers = {
+    Authorization: `apiKey ${settings.apiKey}`,
+    "ep-authorization": token,
+    Origin: "https://mercuryhq.com",
+    Referer: "https://mercuryhq.com/",
+    "X-Timezone": "America/Vancouver",
+    "client-context": '{"siteId":"mercuryos"}',
+    "request-context": `{"authGroupName":"ADMIN_ROLE","memberCodes":["${settings.shopId}"],"shopGroups":["IN YOUR VASE FLOWERS"],"roles":["ADMIN"]}`,
+    "Content-Type": "application/json",
+    "User-Agent":
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
+  };
+
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - 30);
+
+  const url = `https://pt.ftdi.com/e/p/mercury/${settings.shopId}/orders?startDate=${startDate
+    .toISOString()
+    .split("T")[0]}&status=&endDate=&deltaOrders=false&listingFilter=DELIVERY_DATE&listingPage=orders`;
+
+  const response = await axios.get(url, { headers, timeout: 30000 });
+  const orders = response.data || [];
+  const match = orders.find(
+    (order: any) =>
+      order.messageNumber === externalId ||
+      order.external_id === externalId ||
+      order.orderNumber === externalId
+  );
+
+  if (!match) {
+    return null;
+  }
+
+  return normalizeFtdPayload(match);
+}
 
 export default router;

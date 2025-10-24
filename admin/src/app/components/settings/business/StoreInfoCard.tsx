@@ -207,7 +207,6 @@ const StoreInfoCard = () => {
     onAddressSelect={handleAddressSelect}
     onChange={(value) => handleInputChange('address', value)}
     value={formData.address} // This line was missing!
-    defaultValue={formData.address}
     placeholder="Enter store address"
   />
 </div>

@@ -8,7 +8,7 @@ import POSTabsCard from '@app/components/settings/pos/POSTabsCard';
 
 const PosPage = () => (
   <div className="space-y-6">
-    <PageBreadcrumb pageName="Pos Settings" />
+    <PageBreadcrumb pageTitle="Pos Settings" />
     <h2 className="text-2xl font-semibold text-black dark:text-white">Pos Settings</h2>
     <GridProductsCard />
 <POSTabsCard />

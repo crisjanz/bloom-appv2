@@ -5,7 +5,7 @@ import TBDCard from "@app/components/settings/events/TBDCard";
 
 const EventsPage = () => (
   <div className="space-y-6">
-    <PageBreadcrumb pageName="Events Settings" />
+    <PageBreadcrumb pageTitle="Events Settings" />
     <h2 className="text-2xl font-semibold text-black dark:text-white">Events Settings</h2>
     <TBDCard />
   </div>

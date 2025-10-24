@@ -1,16 +1,11 @@
 import express from 'express';
 import { PrismaClient, OrderStatus } from '@prisma/client';
-import { createClient } from '@supabase/supabase-js';
 import multer from 'multer';
 import { calculateTax } from '../utils/taxCalculator';
+import { uploadToR2 } from '../utils/r2Client';
 
 const router = express.Router();
 const prisma = new PrismaClient();
-// Supabase is being migrated to Cloudflare R2
-const supabase = process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
-  ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
-  : null;
-
 const upload = multer({ storage: multer.memoryStorage() });
 
 // Get all orders with filtering and search
@@ -202,27 +197,17 @@ router.get('/:id', async (req, res) => {
 router.post('/upload-images', upload.array('images'), async (req, res) => {
   try {
     let imageUrls: string[] = [];
-    const files = (req as any).files as Express.Multer.File[];
+    const files = (req as any).files as Express.Multer.File[] | undefined;
     
     if (files && files.length > 0) {
       for (const file of files) {
-        const filePath = `orders/${Date.now()}-${file.originalname}`;
-        const { error } = await supabase.storage
-          .from('images')
-          .upload(filePath, file.buffer, {
-            contentType: file.mimetype,
-          });
-
-        if (error) {
-          console.error('Supabase upload error:', error);
-          throw error;
-        }
-
-        const { data: publicUrlData } = supabase.storage
-          .from('images')
-          .getPublicUrl(filePath);
-        
-        imageUrls.push(publicUrlData.publicUrl);
+        const { url } = await uploadToR2({
+          folder: 'orders',
+          buffer: file.buffer,
+          mimeType: file.mimetype,
+          originalName: file.originalname,
+        });
+        imageUrls.push(url);
       }
     }
 

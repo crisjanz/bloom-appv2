@@ -5,10 +5,10 @@ import { Link } from "react-router-dom";
 
 const DiscountsPage = () => (
   <div className="space-y-6">
-    <PageBreadcrumb pageName="Discounts Settings" />
+    <PageBreadcrumb pageTitle="Discounts Settings" />
     <h2 className="text-2xl font-semibold text-black dark:text-white">Discounts Settings</h2>
     
-    <ComponentCard title="Unified Discount System" subtitle="Manage all discount types in one place">
+    <ComponentCard title="Unified Discount System" desc="Manage all discount types in one place">
       <div className="text-center py-8">
         <div className="w-16 h-16 bg-[#597485] rounded-full flex items-center justify-center mx-auto mb-4">
           <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -33,7 +33,7 @@ const DiscountsPage = () => (
       </div>
     </ComponentCard>
 
-    <ComponentCard title="Legacy Coupon System" subtitle="Deprecated - migrate to unified discounts">
+    <ComponentCard title="Legacy Coupon System" desc="Deprecated - migrate to unified discounts">
       <div className="text-center py-6 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
         <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-800 rounded-full flex items-center justify-center mx-auto mb-3">
           <svg className="w-6 h-6 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

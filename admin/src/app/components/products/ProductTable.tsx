@@ -24,7 +24,8 @@ type Product = {
   category: Category;
   variants: Variant[];
   isActive: boolean;
-  image?: string[];
+  images?: string[];
+  image?: string;
 };
 
 type Props = {
@@ -33,6 +34,7 @@ type Props = {
 
 const ProductTable: FC<Props> = ({ products }) => {
   const navigate = useNavigate();
+  const fallbackImage = "https://cdn-icons-png.flaticon.com/512/4139/4139981.png";
 
   const handleView = (id: string) => {
     navigate(`/products/view/${id}`);
@@ -93,16 +95,12 @@ const ProductTable: FC<Props> = ({ products }) => {
                 <TableCell className="px-5 py-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 overflow-hidden rounded-md border-0 border-gray-300 dark:border-gray-700">
-  <img
-    src={
-      (product.images && product.images.length > 0) 
-        ? product.images[0] // Use first image from images array
-        : "https://cdn-icons-png.flaticon.com/512/4139/4139981.png"
-    }
-    alt={product.name}
-    className="h-full w-full object-cover border-0"
-  />
-</div>
+                        <img
+                          src={product.images?.[0] ?? product.image ?? fallbackImage}
+                          alt={product.name}
+                          className="h-full w-full object-cover border-0"
+                        />
+                      </div>
                     <span className="font-medium text-gray-800 dark:text-white">
                       {product.name}
                     </span>

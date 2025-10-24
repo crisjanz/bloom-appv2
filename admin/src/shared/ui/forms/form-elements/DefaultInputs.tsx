@@ -8,6 +8,8 @@ import DatePicker from "../date-picker.tsx";
 
 export default function DefaultInputs() {
   const [showPassword, setShowPassword] = useState(false);
+  const [deliveryDate, setDeliveryDate] = useState('');
+  const [deliveryTime, setDeliveryTime] = useState('');
   const options = [
     { value: "marketing", label: "Marketing" },
     { value: "template", label: "Template" },
@@ -62,7 +64,12 @@ export default function DefaultInputs() {
             id="date-picker"
             label="Date Picker Input"
             placeholder="Select a date"
-            onChange={(e) => setDeliveryDate(e.target.value)}
+            defaultDate={deliveryDate || undefined}
+            onChange={(selectedDates, dateStr) => {
+              if (Array.isArray(selectedDates) && selectedDates.length > 0) {
+                setDeliveryDate(dateStr);
+              }
+            }}
           />
         </div>
 
@@ -73,7 +80,8 @@ export default function DefaultInputs() {
               type="time"
               id="tm"
               name="tm"
-              onChange={(value) => setDeliveryTime(value)}
+              value={deliveryTime}
+              onChange={(event) => setDeliveryTime(event.target.value)}
             />
             <span className="absolute text-gray-500 -translate-y-1/2 pointer-events-none right-3 top-1/2 dark:text-gray-400">
               <TimeIcon className="size-6" />

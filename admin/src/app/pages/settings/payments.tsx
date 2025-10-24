@@ -296,7 +296,7 @@ const PaymentsPage = () => {
 
   return (
     <div className="space-y-6">
-      <PageBreadcrumb pageName="Payments Settings" />
+      <PageBreadcrumb pageTitle="Payments Settings" />
       <h2 className="text-2xl font-semibold text-black dark:text-white">Payments Settings</h2>
 
       {error && (

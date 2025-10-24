@@ -6,7 +6,7 @@ import BackupRestoreCard from "@app/components/settings/misc/BackupRestoreCard";
 
 const MiscPage = () => (
   <div className="space-y-6">
-    <PageBreadcrumb pageName="Misc Settings" />
+    <PageBreadcrumb pageTitle="Misc Settings" />
     <h2 className="text-2xl font-semibold text-black dark:text-white">Misc Settings</h2>
     <TagManagerCard />
     <BackupRestoreCard />

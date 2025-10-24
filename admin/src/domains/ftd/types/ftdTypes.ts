@@ -1,66 +1,50 @@
-export enum FtdOrderStatus {
-  NEEDS_ACTION = "NEEDS_ACTION",
-  ACCEPTED = "ACCEPTED",
-  IN_DESIGN = "IN_DESIGN",
-  READY = "READY",
-  OUT_FOR_DELIVERY = "OUT_FOR_DELIVERY",
-  DELIVERED = "DELIVERED",
-  REJECTED = "REJECTED",
-  CANCELLED = "CANCELLED",
-}
-
 export interface FtdOrder {
   id: string;
-  externalId: string;
-  ftdOrderNumber?: number;
-  status: FtdOrderStatus;
-
-  // Recipient
-  recipientFirstName?: string;
-  recipientLastName?: string;
-  recipientPhone?: string;
-  recipientEmail?: string;
-
-  // Address
-  address1?: string;
-  address2?: string;
-  city?: string;
-  province?: string;
-  postalCode?: string;
-  country: string;
-  addressType?: string;
-
-  // Delivery
-  deliveryDate?: string;
-  deliveryTime?: string;
-  deliveryInstructions?: string;
-
-  // Content
-  cardMessage?: string;
-  occasion?: string;
-  productDescription?: string;
-  productCode?: string;
-
-  // Pricing
-  totalAmount?: number;
-
-  // Reporting
-  sendingFloristCode?: string;
-
-  // Integration
-  linkedOrderId?: string;
-  linkedOrder?: {
+  orderNumber: number;
+  status: string;
+  externalStatus?: string | null;
+  externalReference?: string | null;
+  needsExternalUpdate: boolean;
+  importedPayload?: any;
+  deliveryDate?: string | null;
+  deliveryTime?: string | null;
+  cardMessage?: string | null;
+  specialInstructions?: string | null;
+  occasion?: string | null;
+  paymentAmount: number;
+  customer?: {
     id: string;
-    orderNumber: number;
-    status: string;
-  };
-
-  // Notifications
-  notificationSent: boolean;
-  notificationSentAt?: string;
-
-  // Timestamps
-  lastCheckedAt: string;
+    firstName: string | null;
+    lastName: string | null;
+    phone: string | null;
+    email: string | null;
+  } | null;
+  recipientCustomer?: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    phone: string | null;
+    email: string | null;
+  } | null;
+  deliveryAddress?: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    address1: string | null;
+    address2: string | null;
+    city: string | null;
+    province: string | null;
+    postalCode: string | null;
+    country: string | null;
+    phone: string | null;
+  } | null;
+  orderItems: Array<{
+    id: string;
+    customName: string | null;
+    unitPrice: number;
+    quantity: number;
+    rowTotal: number;
+  }>;
   createdAt: string;
   updatedAt: string;
 }
@@ -71,8 +55,5 @@ export interface FtdOrderStats {
   accepted: number;
   delivered: number;
   totalRevenue: number;
-  byStatus: Array<{
-    status: string;
-    _count: number;
-  }>;
+  byStatus?: Array<{ status: string; count: number }>;
 }

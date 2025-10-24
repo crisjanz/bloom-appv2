@@ -291,7 +291,7 @@ console.log("🎯 Test distance calculated:", mockDistance);
                       onChange={(e) => handleSettingChange('freeDeliveryMinimum', parseFloat(e.target.value) || undefined)}
                       placeholder="50.00"
                       min="0"
-                      step="0.01"
+                      step={0.01}
                     />
                   </div>
 
@@ -304,7 +304,7 @@ console.log("🎯 Test distance calculated:", mockDistance);
                       onChange={(e) => handleSettingChange('maxDeliveryRadius', parseFloat(e.target.value) || undefined)}
                       placeholder="25"
                       min="0"
-                      step="0.1"
+                      step={0.1}
                     />
                   </div>
                 </div>
@@ -467,7 +467,7 @@ console.log("🎯 Test distance calculated:", mockDistance);
                       value={newZone.minDistance.toString()}
                       onChange={(e) => setNewZone(prev => ({ ...prev, minDistance: parseFloat(e.target.value) || 0 }))}
                       min="0"
-                      step="0.1"
+                      step={0.1}
                     />
                   </div>
 
@@ -480,7 +480,7 @@ console.log("🎯 Test distance calculated:", mockDistance);
                       onChange={(e) => setNewZone(prev => ({ ...prev, maxDistance: parseFloat(e.target.value) || null }))}
                       placeholder="Leave empty for unlimited"
                       min="0"
-                      step="0.1"
+                      step={0.1}
                     />
                   </div>
                 </div>
@@ -493,7 +493,7 @@ console.log("🎯 Test distance calculated:", mockDistance);
                     value={newZone.fee.toString()}
                     onChange={(e) => setNewZone(prev => ({ ...prev, fee: parseFloat(e.target.value) || 0 }))}
                     min="0"
-                    step="0.01"
+                    step={0.01}
                   />
                 </div>
 

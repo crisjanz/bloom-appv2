@@ -34,11 +34,11 @@ export default function DiscountsPage() {
     <div className="bg-whiten dark:bg-boxdark min-h-screen">
       <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
         <PageMeta title="Discounts" />
-        <PageBreadcrumb pageName="Discounts" />
+        <PageBreadcrumb pageTitle="Discounts" />
 
         <ComponentCard 
           title="Discount Manager" 
-          subtitle="Manage all your discounts and coupons in one place"
+          desc="Manage all your discounts and coupons in one place"
         >
           {/* Header with Add Button */}
           <div className="flex items-center justify-end mb-6">

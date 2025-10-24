@@ -8,7 +8,7 @@ import PrintServerCard from "@app/components/settings/print/PrintServerCard";
 
 const PrintPage = () => (
   <div className="space-y-6">
-    <PageBreadcrumb pageName="Print Settings" />
+    <PageBreadcrumb pageTitle="Print Settings" />
     <h2 className="text-2xl font-semibold text-black dark:text-white">Print Settings</h2>
     <TicketLayoutCard />
     <PrintersCard />

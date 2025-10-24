@@ -255,7 +255,7 @@ const EventDetailPage: React.FC = () => {
   return (
     <div className="p-4">
       <PageBreadcrumb 
-        pageName={`Event #${event.eventNumber}`}
+        pageTitle={`Event #${event.eventNumber}`}
         links={[{ name: 'Events', href: '/events' }]}
       />
 

@@ -31,6 +31,18 @@ interface BusinessHours {
   sundayEnabled: boolean;
 }
 
+const days = [
+  { key: 'monday', label: 'Monday' },
+  { key: 'tuesday', label: 'Tuesday' },
+  { key: 'wednesday', label: 'Wednesday' },
+  { key: 'thursday', label: 'Thursday' },
+  { key: 'friday', label: 'Friday' },
+  { key: 'saturday', label: 'Saturday' },
+  { key: 'sunday', label: 'Sunday' },
+] as const;
+
+type DayKey = typeof days[number]["key"];
+
 const BusinessHoursCard = () => {
   const [formData, setFormData] = useState<BusinessHours>({
     timezone: "America/Vancouver",
@@ -58,16 +70,6 @@ const BusinessHoursCard = () => {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-
-  const days = [
-    { key: 'monday', label: 'Monday' },
-    { key: 'tuesday', label: 'Tuesday' },
-    { key: 'wednesday', label: 'Wednesday' },
-    { key: 'thursday', label: 'Thursday' },
-    { key: 'friday', label: 'Friday' },
-    { key: 'saturday', label: 'Saturday' },
-    { key: 'sunday', label: 'Sunday' },
-  ];
 
 const timezones = [
   { value: "America/Vancouver", label: "Pacific Time (Vancouver)" },
@@ -152,22 +154,35 @@ const timezones = [
     }
   };
 
-  const copyHoursToAll = (sourceDay: string) => {
+  const copyHoursToAll = (sourceDay: DayKey) => {
     const openField = `${sourceDay}Open` as keyof BusinessHours;
     const closeField = `${sourceDay}Close` as keyof BusinessHours;
     const enabledField = `${sourceDay}Enabled` as keyof BusinessHours;
-    
-    const updates: Partial<BusinessHours> = {};
-    
-    days.forEach(day => {
-      if (day.key !== sourceDay) {
-        updates[`${day.key}Open` as keyof BusinessHours] = formData[openField] as string;
-        updates[`${day.key}Close` as keyof BusinessHours] = formData[closeField] as string;
-        updates[`${day.key}Enabled` as keyof BusinessHours] = formData[enabledField] as boolean;
-      }
-    });
 
-    setFormData(prev => ({ ...prev, ...updates }));
+    const openValue = formData[openField];
+    const closeValue = formData[closeField];
+    const enabledValue = formData[enabledField];
+
+    if (typeof openValue !== "string" || typeof closeValue !== "string" || typeof enabledValue !== "boolean") {
+      return;
+    }
+
+    setFormData(prev => {
+      const updated: BusinessHours = { ...prev };
+      const assign = <K extends keyof BusinessHours>(key: K, value: BusinessHours[K]) => {
+        updated[key] = value;
+      };
+
+      days.forEach(day => {
+        if (day.key !== sourceDay) {
+          assign(`${day.key}Open` as keyof BusinessHours, openValue);
+          assign(`${day.key}Close` as keyof BusinessHours, closeValue);
+          assign(`${day.key}Enabled` as keyof BusinessHours, enabledValue);
+        }
+      });
+
+      return updated;
+    });
   };
 
   if (isLoading) {

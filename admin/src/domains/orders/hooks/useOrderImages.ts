@@ -1,9 +1,10 @@
 /**
  * React Hook for Order Image Upload
- * Handles uploading order images with polling for background processing
+ * Handles uploading order images directly to Cloudflare R2
  */
 
 import { useState, useCallback } from 'react'
+import { uploadImage as uploadToR2 } from '@shared/utils/cloudflareR2Service'
 
 interface UploadResult {
   success: boolean;
@@ -27,70 +28,18 @@ export const useOrderImages = () => {
         };
       }
 
-      // Create FormData to send files
-      const formData = new FormData();
-      files.forEach((file) => {
-        formData.append('images', file);
-      });
+      console.log(`🖼️ Uploading ${files.length} order image(s) to Cloudflare R2...`);
 
-      console.log(`🖼️ Uploading ${files.length} order images...`);
+      const uploads = await Promise.all(
+        files.map((file) => uploadToR2(file, 'orders'))
+      );
 
-      // Start upload
-      const uploadResponse = await fetch('/api/orders/upload-images', {
-        method: 'POST',
-        body: formData,
-      });
+      console.log(`✅ Upload completed with ${uploads.length} image(s)`);
 
-      if (!uploadResponse.ok) {
-        throw new Error(`Upload failed: ${uploadResponse.statusText}`);
-      }
-
-      const uploadResult = await uploadResponse.json();
-
-      if (!uploadResult.success) {
-        throw new Error(uploadResult.error || 'Upload failed');
-      }
-
-      const { uploadId } = uploadResult;
-      console.log(`📤 Upload started with ID: ${uploadId}`);
-
-      // Poll for completion since upload happens in background
-      let attempts = 0;
-      const maxAttempts = 30; // 30 seconds timeout
-
-      while (attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
-
-        const statusResponse = await fetch(`/api/orders/upload-status/${uploadId}`);
-
-        if (!statusResponse.ok) {
-          throw new Error(`Status check failed: ${statusResponse.statusText}`);
-        }
-
-        const status = await statusResponse.json();
-
-        if (!status.success) {
-          throw new Error(status.error || 'Status check failed');
-        }
-
-        if (status.status === 'completed') {
-          console.log(`✅ Upload completed with ${status.imageUrls?.length || 0} images`);
-          return {
-            success: true,
-            imageUrls: status.imageUrls || []
-          };
-        }
-
-        if (status.status === 'failed') {
-          throw new Error(status.error || 'Upload failed');
-        }
-
-        // Still uploading, continue polling
-        attempts++;
-        console.log(`⏳ Upload in progress... (${attempts}/${maxAttempts})`);
-      }
-
-      throw new Error('Upload timeout - took longer than 30 seconds');
+      return {
+        success: true,
+        imageUrls: uploads
+      };
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown upload error';

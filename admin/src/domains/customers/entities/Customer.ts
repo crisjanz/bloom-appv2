@@ -158,6 +158,11 @@ export interface UpdateCustomerData extends Partial<CreateCustomerData> {
   status?: EntityStatus
   loyaltyPoints?: number
   accountBalance?: number
+  subscriptions?: string[]
+  orderCount?: number
+  totalSpent?: number
+  averageOrderValue?: number
+  lastOrderDate?: Date
 }
 
 // Customer search criteria

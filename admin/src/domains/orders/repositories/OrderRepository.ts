@@ -4,8 +4,8 @@
  */
 
 import { BaseRepository } from '@shared/infrastructure/database/BaseRepository'
-import { Order, OrderStatus, OrderSearchCriteria, OrderStats, FulfillmentType, OrderType, PaymentStatus } from '../entities/Order'
-import { Money } from '@shared/types/common'
+import { Order, OrderStatus, OrderSearchCriteria, OrderStats, FulfillmentType, OrderType, PaymentStatus, UpdateOrderData } from '../entities/Order'
+import { Money, PaginatedResult } from '@shared/types/common'
 
 export class OrderRepository extends BaseRepository<Order> {
   protected readonly endpoint = '/api/orders'
@@ -118,7 +118,7 @@ export class OrderRepository extends BaseRepository<Order> {
   /**
    * Update order - uses the /update endpoint
    */
-  async update(id: string, updates: Partial<Order>): Promise<Order> {
+  async update(id: string, updates: Partial<Order> | UpdateOrderData): Promise<Order> {
     // Map frontend status to backend status before sending to API
     const backendUpdates = { ...updates }
     if (updates.status) {
@@ -132,30 +132,57 @@ export class OrderRepository extends BaseRepository<Order> {
   /**
    * Override findMany to use the /list endpoint since backend doesn't have base GET /orders
    */
-  async findMany(filter: any = {}): Promise<Order[]> {
+  async findMany(filter: any = {}): Promise<PaginatedResult<Order>> {
     const params = new URLSearchParams()
-    
-    // Convert filter to backend parameters
+
     if (filter.limit) params.set('limit', filter.limit.toString())
     if (filter.offset) params.set('offset', filter.offset.toString())
-    
-    // Handle status filtering
-    if (filter.where?.status?.in) {
-      // For multiple statuses, delegate to findByStatus method
-      return await this.findByStatus(filter.where.status.in)
-    }
-    if (filter.where?.status) {
-      const backendStatus = this.mapStatusToBackend(filter.where.status)
-      params.set('status', backendStatus)
-    }
-    // If no status filter, get all orders (don't set status parameter)
 
-    // Call the orders list endpoint and handle the API response structure
-    const result = await this.customQuery<{success: boolean, orders: any[], pagination?: any}>('list', Object.fromEntries(params))
+    const statusFilter: OrderStatus[] | undefined = filter.where?.status?.in
+      ? filter.where.status.in
+      : filter.where?.status
+      ? [filter.where.status]
+      : undefined
 
-    // Extract and transform the orders array from the API response
-    const orders = result.orders || []
-    return orders.map(order => this.transformOrder(order))
+    if (statusFilter && statusFilter.length > 1) {
+      const combined = await this.findByStatus(statusFilter)
+      return {
+        data: combined,
+        items: combined,
+        total: combined.length,
+        totalCount: combined.length,
+        page: 1,
+        limit: combined.length,
+        totalPages: 1,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      }
+    }
+
+    if (statusFilter && statusFilter.length === 1) {
+      const backendStatuses = [...new Set(statusFilter.map(status => this.mapStatusToBackend(status)))]
+      params.set('status', backendStatuses.join(','))
+    }
+
+    const result = await this.customQuery<{success: boolean, orders: any[], pagination?: any}>(
+      'list',
+      Object.fromEntries(params)
+    )
+
+    const orders = (result.orders || []).map(order => this.transformOrder(order))
+    const pagination = result.pagination ?? {}
+
+    return {
+      data: orders,
+      items: orders,
+      total: pagination.total ?? orders.length,
+      totalCount: pagination.total ?? orders.length,
+      page: pagination.page ?? 1,
+      limit: pagination.limit ?? orders.length,
+      totalPages: pagination.totalPages ?? 1,
+      hasNextPage: pagination.hasNextPage ?? false,
+      hasPreviousPage: pagination.hasPreviousPage ?? false,
+    }
   }
 
   /**
@@ -168,10 +195,20 @@ export class OrderRepository extends BaseRepository<Order> {
     if (criteria.query) {
       params.set('search', criteria.query)
     }
-    if (criteria.status) {
-      // Map frontend status to backend status
-      const backendStatus = this.mapStatusToBackend(criteria.status)
-      params.set('status', backendStatus)
+    if (criteria.status && criteria.status.length > 1) {
+      const unique = [...new Set(criteria.status)]
+      const results = await Promise.all(
+        unique.map(status => this.search({
+          ...criteria,
+          status: [status],
+        }))
+      )
+      return this.dedupeOrders(results.flat())
+    }
+
+    if (criteria.status && criteria.status.length === 1) {
+      const backendStatuses = [...new Set(criteria.status.map(status => this.mapStatusToBackend(status)))]
+      params.set('status', backendStatuses[0])
     }
     if (criteria.orderDateFrom) {
       params.set('orderDateFrom', criteria.orderDateFrom.toISOString().split('T')[0])
@@ -206,10 +243,11 @@ export class OrderRepository extends BaseRepository<Order> {
   async findByOrderNumber(orderNumber: string): Promise<Order | null> {
     // In real implementation, this would query the database
     // For now, we'll use the base implementation
-    const orders = await this.findMany({ 
+    const result = await this.findMany({ 
       where: { orderNumber },
       limit: 1 
     })
+    const orders = result.items ?? result.data ?? []
     return orders[0] || null
   }
 
@@ -217,12 +255,13 @@ export class OrderRepository extends BaseRepository<Order> {
    * Find orders by customer with pagination
    */
   async findByCustomer(customerId: string, limit = 10, offset = 0): Promise<Order[]> {
-    return await this.findMany({
+    const result = await this.findMany({
       where: { customerId },
       orderBy: { field: 'orderDate', direction: 'DESC' },
       limit,
       offset
     })
+    return result.items ?? result.data ?? []
   }
 
   /**
@@ -257,10 +296,11 @@ export class OrderRepository extends BaseRepository<Order> {
    * Get the most recent order (for order number generation)
    */
   async getLastOrder(): Promise<Order | null> {
-    const orders = await this.findMany({
+    const result = await this.findMany({
       orderBy: { field: 'orderNumber', direction: 'DESC' },
       limit: 1
     })
+    const orders = result.items ?? result.data ?? []
     return orders[0] || null
   }
 
@@ -482,10 +522,11 @@ export class OrderRepository extends BaseRepository<Order> {
     totalValue: Money
     averageOrderValue: Money
   }>> {
-    const orders = await this.findMany({
+    const paginated = await this.findMany({
       where: { paymentStatus: PaymentStatus.PAID },
       orderBy: { field: 'orderDate', direction: 'DESC' }
     })
+    const orders = paginated.items ?? paginated.data ?? []
 
     // Group by customer
     const customerOrders = orders.reduce((acc, order) => {
@@ -521,6 +562,18 @@ export class OrderRepository extends BaseRepository<Order> {
   }
 
   // ===== UTILITY METHODS =====
+
+  private dedupeOrders(orders: Order[]): Order[] {
+    const seen = new Set<string>()
+    const unique: Order[] = []
+    for (const order of orders) {
+      if (!seen.has(order.id)) {
+        seen.add(order.id)
+        unique.push(order)
+      }
+    }
+    return unique
+  }
 
   private calculateAverageProcessingTime(completedOrders: Order[]): number {
     if (completedOrders.length === 0) return 0

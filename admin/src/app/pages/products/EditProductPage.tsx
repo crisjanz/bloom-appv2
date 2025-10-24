@@ -26,7 +26,7 @@ const EditProductPage = () => {
     if (!id) return;
 
     try {
-      // Images are already uploaded to Supabase, just send the URLs
+      // Images are already uploaded to Cloudflare R2, just send the URLs
       console.log('🟢 Sending PUT request to:', `/api/products/${id}`);
       const response = await fetch(`/api/products/${id}`, {
         method: 'PUT',
@@ -88,7 +88,7 @@ const EditProductPage = () => {
       <div className="bg-whiten dark:bg-boxdark min-h-screen relative">
         <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
           <PageMeta title="Edit Product" />
-          <PageBreadcrumb pageName="Edit Product" />
+          <PageBreadcrumb pageTitle="Edit Product" />
           <div className="text-center mt-10">
             <p className="text-lg text-gray-600 dark:text-gray-400">Product not found.</p>
           </div>
@@ -101,7 +101,7 @@ const EditProductPage = () => {
     <div className="bg-whiten dark:bg-boxdark min-h-screen relative">
       <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
         <PageMeta title="Edit Product" />
-        <PageBreadcrumb pageName="Edit Product" />
+        <PageBreadcrumb pageTitle="Edit Product" />
         <div className="mt-6">
           <ProductForm initialData={product} onSubmit={handleSubmit} />
         </div>

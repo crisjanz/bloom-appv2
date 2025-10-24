@@ -1,7 +1,10 @@
 import { useState } from "react";
 
 interface SwitchProps {
-  label: string;
+  id?: string;
+  name?: string;
+  label?: string;
+  ariaLabel?: string;
   checked?: boolean; // Controlled mode
   defaultChecked?: boolean; // Uncontrolled mode
   disabled?: boolean;
@@ -10,7 +13,10 @@ interface SwitchProps {
 }
 
 const Switch: React.FC<SwitchProps> = ({
+  id,
+  name,
   label,
+  ariaLabel,
   checked,
   defaultChecked = false,
   disabled = false,
@@ -55,14 +61,40 @@ const Switch: React.FC<SwitchProps> = ({
             : "translate-x-0 bg-white",
         };
 
+  const switchId = id ?? name;
+  const computedAriaLabel = !label ? ariaLabel : undefined;
+
   return (
     <label
-      className={`flex cursor-pointer select-none items-center gap-3 text-sm font-medium ${
+      htmlFor={switchId}
+      className={`flex select-none items-center gap-3 text-sm font-medium ${
         disabled ? "text-gray-400" : "text-gray-700 dark:text-gray-400"
-      }`}
-      onClick={handleToggle} // Toggle when the label itself is clicked
+      } ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}
     >
-      <div className="relative">
+      <input
+        id={switchId}
+        name={name}
+        type="checkbox"
+        checked={currentChecked}
+        onChange={handleToggle}
+        disabled={disabled}
+        className="sr-only"
+        aria-label={computedAriaLabel}
+      />
+      <div
+        role="switch"
+        aria-checked={currentChecked}
+        aria-label={computedAriaLabel}
+        tabIndex={disabled ? -1 : 0}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            handleToggle();
+          }
+        }}
+        className="relative focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/70 rounded-full"
+        onClick={handleToggle}
+      >
         <div
           className={`block transition duration-150 ease-linear h-6 w-11 rounded-full ${
             disabled
@@ -74,7 +106,7 @@ const Switch: React.FC<SwitchProps> = ({
           className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full shadow-theme-sm duration-150 ease-linear transform ${switchColors.knob}`}
         ></div>
       </div>
-      {label}
+      {label && <span>{label}</span>}
     </label>
   );
 };

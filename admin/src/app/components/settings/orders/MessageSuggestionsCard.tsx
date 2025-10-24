@@ -172,13 +172,7 @@ export default function MessageSuggestionsCard() {
                 placeholder="Message"
                 rows={4}
                 value={message}
-                onChange={(valueOrEvent) => {
-                  if (typeof valueOrEvent === "string") {
-                    setMessage(valueOrEvent);
-                  } else if (valueOrEvent && valueOrEvent.target) {
-                    setMessage(valueOrEvent.target.value);
-                  }
-                }}
+                onChange={(value) => setMessage(value)}
                 className="input-primary"
               />
               <Button className="btn-primary w-fit" onClick={handleAdd}>

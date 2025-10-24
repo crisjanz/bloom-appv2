@@ -7,13 +7,14 @@ type OrderEntry = {
   recipientPhone: string;
   recipientAddress: {
     address1: string;
-    address2: string;
+    address2?: string;
     city: string;
     province: string;
     postalCode: string;
     country?: string;
   };
   recipientAddressType: string;
+  recipientAddressLabel?: string;
   orderType: "DELIVERY" | "PICKUP";
   deliveryDate: string;
   deliveryTime: string;
@@ -38,6 +39,9 @@ type OrderEntry = {
     address1: string;
     city: string;
   };
+  recipientCustomer?: any;
+  recipientCustomerId?: string;
+  selectedAddressId?: string;
 };
 
 const createEmptyOrder = (): OrderEntry => ({
@@ -54,6 +58,7 @@ const createEmptyOrder = (): OrderEntry => ({
     country: "CA",
   },
   recipientAddressType: "RESIDENCE",
+  recipientAddressLabel: "",
   orderType: "DELIVERY",
   deliveryDate: "",
   deliveryTime: "",
@@ -68,6 +73,9 @@ const createEmptyOrder = (): OrderEntry => ({
   selectedRecipientId: undefined,
   recipientDataChanged: false,
   originalRecipientData: undefined,
+  recipientCustomer: undefined,
+  recipientCustomerId: undefined,
+  selectedAddressId: undefined,
 });
 
 export const useOrderState = () => {

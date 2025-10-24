@@ -265,7 +265,7 @@ export default function EmployeeSettingsCard() {
           <Select
             id="edit-type"
             value={editType}
-            onChange={(option) => setEditType(option.value)}
+            onChange={(value) => setEditType(value)}
             className="select-input"
             options={employeeTypeOptions}
           />

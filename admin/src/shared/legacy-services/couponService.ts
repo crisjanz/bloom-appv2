@@ -1,7 +1,52 @@
 // src/services/couponService.ts
-import type { Coupon, CouponValidationResult, CouponFormData, CouponSource } from '../types/coupon';
+import type { Coupon, CouponValidationResult, CouponFormData, CouponSource, DiscountType } from '../types/coupon';
 
 const API_BASE_URL = '/api';
+
+const normaliseDiscountType = (value: any): DiscountType => {
+  if (value === 'PERCENTAGE' || value === 'FIXED_AMOUNT' || value === 'FREE_SHIPPING') {
+    return value;
+  }
+  return 'PERCENTAGE';
+};
+
+const toDate = (value: any | null | undefined): Date | undefined => {
+  if (!value) return undefined;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? undefined : date;
+};
+
+const toNumberArray = (values: any): string[] => {
+  if (!Array.isArray(values)) return [];
+  return values.map((item) => String(item));
+};
+
+const mapDiscountToCoupon = (discount: any, fallbackCode: string): Coupon => {
+  const createdAt = toDate(discount?.createdAt) ?? new Date();
+  const updatedAt = toDate(discount?.updatedAt) ?? createdAt;
+
+  return {
+    id: String(discount?.id ?? fallbackCode),
+    code: String(discount?.code ?? fallbackCode),
+    name: String(discount?.name ?? fallbackCode),
+    description: typeof discount?.description === 'string' ? discount.description : undefined,
+    discountType: normaliseDiscountType(discount?.discountType),
+    value: Number(discount?.value ?? 0),
+    usageLimit: discount?.usageLimit != null ? Number(discount.usageLimit) : undefined,
+    usageCount: Number(discount?.usageCount ?? 0),
+    perCustomerLimit: discount?.perCustomerLimit != null ? Number(discount.perCustomerLimit) : undefined,
+    startDate: toDate(discount?.startDate),
+    endDate: toDate(discount?.endDate),
+    minimumOrder: discount?.minimumOrder != null ? Number(discount.minimumOrder) : undefined,
+    applicableProducts: toNumberArray(discount?.applicableProducts),
+    applicableCategories: toNumberArray(discount?.applicableCategories),
+    posOnly: Boolean(discount?.posOnly),
+    webOnly: Boolean(discount?.webOnly),
+    enabled: discount?.enabled !== false,
+    createdAt,
+    updatedAt,
+  };
+};
 
 // Validation Service
 export const validateCoupon = async (
@@ -39,13 +84,7 @@ export const validateCoupon = async (
     if (result.valid && result.discount) {
       return {
         valid: true,
-        coupon: {
-          id: result.discount.id,
-          name: result.discount.name,
-          code: code.trim(),
-          discountType: result.discount.discountType,
-          value: result.discount.value
-        },
+        coupon: mapDiscountToCoupon(result.discount, code.trim()),
         discountAmount: result.discountAmount || 0
       };
     } else {
@@ -106,7 +145,8 @@ export const fetchCoupons = async (): Promise<Coupon[]> => {
     if (!response.ok) {
       throw new Error('Failed to fetch coupons');
     }
-    return await response.json();
+    const data = await response.json();
+    return Array.isArray(data) ? data.map((discount) => mapDiscountToCoupon(discount, discount.code ?? discount.id ?? '')) : [];
   } catch (error) {
     console.error('Error fetching coupons:', error);
     throw error;
@@ -128,7 +168,8 @@ export const createCoupon = async (data: CouponFormData): Promise<Coupon> => {
       throw new Error(error.error || 'Failed to create coupon');
     }
 
-    return await response.json();
+    const payload = await response.json();
+    return mapDiscountToCoupon(payload, payload.code ?? payload.id ?? data.code);
   } catch (error) {
     console.error('Error creating coupon:', error);
     throw error;
@@ -150,7 +191,8 @@ export const updateCoupon = async (id: string, data: Partial<CouponFormData>): P
       throw new Error(error.error || 'Failed to update coupon');
     }
 
-    return await response.json();
+    const payload = await response.json();
+    return mapDiscountToCoupon(payload, payload.code ?? id);
   } catch (error) {
     console.error('Error updating coupon:', error);
     throw error;

@@ -15,12 +15,51 @@ import {
   ConsentRecord,
   isWalkInCustomer,
   hasValidEmail,
-  hasValidPhone
+  hasValidPhone,
+  CustomerPreferences
 } from '../entities/Customer'
 import { CustomerRepository } from '../repositories/CustomerRepository'
-import { DomainService, ValidationResult, ValidationError, EntityStatus, Result } from '@shared/types/common'
+import { ValidationResult, ValidationError, EntityStatus } from '@shared/types/common'
 
-export class CustomerService implements DomainService<Customer> {
+const defaultPreferences = (): CustomerPreferences => ({
+  emailNotifications: true,
+  smsNotifications: false,
+  phoneCallsAllowed: true,
+  promotionalEmails: false,
+  birthdayOffers: false,
+  seasonalPromotions: false,
+  favoriteFlowers: [],
+  favoriteColors: [],
+});
+
+const mergePreferences = (
+  base?: Customer['preferences'],
+  overrides?: Partial<CustomerPreferences>
+): CustomerPreferences => {
+  const basePrefs = base ?? defaultPreferences();
+  if (!overrides) {
+    return {
+      ...basePrefs,
+      favoriteFlowers: [...(basePrefs.favoriteFlowers ?? [])],
+      favoriteColors: [...(basePrefs.favoriteColors ?? [])],
+    };
+  }
+
+  return {
+    ...basePrefs,
+    ...overrides,
+    favoriteFlowers: overrides.favoriteFlowers ?? [...(basePrefs.favoriteFlowers ?? [])],
+    favoriteColors: overrides.favoriteColors ?? [...(basePrefs.favoriteColors ?? [])],
+    allergies: overrides.allergies ?? basePrefs.allergies,
+    preferredDeliveryTime: overrides.preferredDeliveryTime ?? basePrefs.preferredDeliveryTime,
+    deliveryInstructions: overrides.deliveryInstructions ?? basePrefs.deliveryInstructions,
+    language: overrides.language ?? basePrefs.language,
+    currency: overrides.currency ?? basePrefs.currency,
+    theme: overrides.theme ?? basePrefs.theme,
+  };
+};
+
+export class CustomerService {
   constructor(
     private customerRepository: CustomerRepository
   ) {}
@@ -41,8 +80,10 @@ export class CustomerService implements DomainService<Customer> {
     await this.checkForDuplicates(data)
 
     // Create customer with defaults
+    const { preferences: prefInput, homeAddress, ...rest } = data
+
     const customerData: Partial<Customer> = {
-      ...data,
+      ...rest,
       customerType: data.customerType || CustomerType.INDIVIDUAL,
       status: EntityStatus.ACTIVE,
       loyaltyPoints: 0,
@@ -51,7 +92,10 @@ export class CustomerService implements DomainService<Customer> {
       totalSpent: 0,
       createdAt: new Date(),
       updatedAt: new Date(),
-      id: this.generateCustomerId()
+      id: this.generateCustomerId(),
+      preferences: mergePreferences(undefined, prefInput),
+      addresses: homeAddress ? [{ ...homeAddress }] : undefined,
+      subscriptions: [],
     }
 
     const customer = await this.customerRepository.save(customerData)
@@ -81,12 +125,22 @@ export class CustomerService implements DomainService<Customer> {
       throw new Error(`Validation failed: ${validation.errors.map(e => e.message).join(', ')}`)
     }
 
-    const updatedCustomer = await this.customerRepository.save({
+    const { preferences: prefUpdate, homeAddress, ...rest } = data
+
+    const updatePreferences = prefUpdate
+      ? mergePreferences(existingCustomer.preferences, prefUpdate)
+      : existingCustomer.preferences ?? defaultPreferences();
+
+    const updatePayload: Partial<Customer> = {
       ...existingCustomer,
-      ...data,
+      ...rest,
       id,
-      updatedAt: new Date()
-    })
+      updatedAt: new Date(),
+      preferences: updatePreferences,
+      addresses: homeAddress ? [{ ...homeAddress }] : existingCustomer.addresses,
+    };
+
+    const updatedCustomer = await this.customerRepository.save(updatePayload)
 
     // Track significant changes
     await this.trackProfileChanges(existingCustomer, updatedCustomer)
@@ -249,7 +303,7 @@ export class CustomerService implements DomainService<Customer> {
 
     const updatedCustomer = await this.update(customerId, { 
       subscriptions,
-      customerType: CustomerType.SUBSCRIPTION 
+      customerType: CustomerType.SUBSCRIPTION,
     })
 
     await this.addActivity(customerId, CustomerActivityType.SUBSCRIPTION_STARTED, `Subscription ${subscriptionId} started`)

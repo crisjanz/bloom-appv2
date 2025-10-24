@@ -7,6 +7,9 @@ interface Option {
 }
 
 interface SelectProps {
+  id?: string;
+  name?: string;
+  label?: string;
   options: Option[];
   placeholder?: string;
   onChange: (value: string) => void;
@@ -17,6 +20,9 @@ interface SelectProps {
 }
 
 const Select: React.FC<SelectProps> = ({
+  id,
+  name,
+  label,
   options,
   placeholder = "Select an option",
   onChange,
@@ -38,7 +44,16 @@ const Select: React.FC<SelectProps> = ({
   };
 
   return (
-    <div className="relative">
+    <div className="flex flex-col gap-2">
+      {label && (
+        <label
+          htmlFor={id}
+          className="text-sm font-medium text-gray-700 dark:text-gray-300"
+        >
+          {label}
+        </label>
+      )}
+      <div className="relative">
       <select
         className={`h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 pr-11 text-sm shadow-sm placeholder:text-gray-400 focus:outline-none focus:ring-3 focus:ring-[#597485]/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 ${
           currentValue
@@ -48,6 +63,8 @@ const Select: React.FC<SelectProps> = ({
         value={currentValue}
         onChange={handleChange}
         disabled={disabled}
+        id={id}
+        name={name}
         style={{
           borderColor: currentValue ? '#597485' : undefined
         }}
@@ -84,6 +101,7 @@ const Select: React.FC<SelectProps> = ({
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
+      </div>
       </div>
     </div>
   );

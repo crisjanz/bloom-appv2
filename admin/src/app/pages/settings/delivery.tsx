@@ -8,7 +8,7 @@ import DeliveryTaxCard from "@app/components/settings/delivery/DeliveryTaxCard";
 
 const DeliveryPage = () => (
   <div className="space-y-6">
-    <PageBreadcrumb pageName="Delivery Settings" />
+    <PageBreadcrumb pageTitle="Delivery Settings" />
     <h2 className="text-2xl font-semibold text-black dark:text-white">Delivery Settings</h2>
     <DeliveryPickupTimesCard />
     <DeliveryChargesCard />

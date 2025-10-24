@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ComponentCard from "@shared/ui/common/ComponentCard";
 import InputField from "@shared/ui/forms/input/InputField";
@@ -240,7 +240,7 @@ export default function CategoriesPage() {
             </span>
             
             {/* Small level badge */}
-            <Badge size="sm" color={depth === 0 ? "primary" : depth === 1 ? "success" : "neutral"}>
+            <Badge size="sm" color={depth === 0 ? "primary" : depth === 1 ? "success" : "dark"}>
               L{category.level}
             </Badge>
           </div>
@@ -300,14 +300,14 @@ export default function CategoriesPage() {
           </TableCell>
 
           <TableCell className="px-5 py-4">
-            <Badge size="sm" color={depth === 0 ? "primary" : depth === 1 ? "success" : "neutral"}>
+            <Badge size="sm" color={depth === 0 ? "primary" : depth === 1 ? "success" : "dark"}>
               Level {category.level}
             </Badge>
           </TableCell>
 
           <TableCell className="px-5 py-4">
             <div className="flex items-center gap-2">
-              <Badge size="sm" color="neutral">
+              <Badge size="sm" color="light">
                 {category._count?.products || 0}
               </Badge>
               {loadingProducts === category.id && (
@@ -321,7 +321,7 @@ export default function CategoriesPage() {
 
           <TableCell className="px-5 py-4">
             {category.children && category.children.length > 0 ? (
-              <Badge size="sm" color="secondary">
+              <Badge size="sm" color="dark">
                 {category.children.length}
               </Badge>
             ) : (

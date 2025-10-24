@@ -7,6 +7,7 @@ import ComponentCard from '@shared/ui/common/ComponentCard';
 type Category = {
   id: string;
   name: string;
+  depth?: number;
 };
 
 type Props = {

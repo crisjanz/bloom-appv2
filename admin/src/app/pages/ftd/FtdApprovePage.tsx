@@ -1,26 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-interface FtdOrder {
-  id: string;
-  externalId: string;
-  recipientFirstName: string | null;
-  recipientLastName: string | null;
-  deliveryDate: string | null;
-  totalAmount: number | null;
-  linkedOrder: {
-    id: string;
-    orderNumber: number;
-    deliveryDate: string | null;
-    orderItems: Array<{
-      id: string;
-      customName: string | null;
-      unitPrice: number;
-      quantity: number;
-      rowTotal: number;
-    }>;
-  };
-}
+import { FtdOrder } from '../../../domains/ftd/types/ftdTypes';
 
 export default function FtdApprovePage() {
   const [orders, setOrders] = useState<FtdOrder[]>([]);
@@ -50,48 +30,126 @@ export default function FtdApprovePage() {
     navigate(`/orders/${orderId}/edit`);
   };
 
-  const handleApprove = async (ftdOrderId: string) => {
+  const handleMarkReviewed = async (orderId: string) => {
     try {
-      const res = await fetch(`/api/ftd/orders/${ftdOrderId}/approve`, {
+      const res = await fetch(`/api/ftd/orders/${orderId}/approve`, {
         method: 'POST',
       });
       const data = await res.json();
       if (data.success) {
-        // Remove from list
-        setOrders(orders.filter(o => o.id !== ftdOrderId));
+        setOrders((prev) => prev.filter((order) => order.id !== orderId));
       }
     } catch (error) {
-      console.error('Failed to approve order:', error);
+      console.error('Failed to mark order as reviewed:', error);
     }
+  };
+
+const renderFtdDetails = (order: FtdOrder) => {
+  const payload = order.importedPayload || {};
+  const deliveryInfo = payload.deliveryInfo || payload.delivery_info || {};
+  const recipient = payload.recipientInfo || payload.recipient || {};
+  const price = payload.totals?.total ?? payload.price?.find((p: any) => p.name === 'orderTotal')?.value ?? order.paymentAmount;
+  const cardMessage = payload.cardMessage || payload.card_message || order.cardMessage;
+  const instructions = deliveryInfo.deliveryInstructions || deliveryInfo.delivery_instructions;
+  const productDescription = payload.productDescription || payload.products?.[0]?.product_description;
+
+  return (
+    <div className="space-y-3">
+      <h4 className="text-sm font-semibold text-gray-900 dark:text-white">FTD Details</h4>
+      <div className="text-xs text-gray-600 dark:text-gray-300 space-y-2">
+          <div>
+            <p className="font-semibold text-gray-700 dark:text-gray-200">Status</p>
+            <p>{order.externalStatus || '—'}</p>
+          </div>
+          <div>
+            <p className="font-semibold text-gray-700 dark:text-gray-200">Recipient</p>
+            <p>{`${recipient.firstName || ''} ${recipient.lastName || ''}`.trim() || '—'}</p>
+            <p>{recipient.phone || '—'}</p>
+          </div>
+          <div>
+            <p className="font-semibold text-gray-700 dark:text-gray-200">Delivery</p>
+            <p>{deliveryInfo.deliveryDate || '—'}</p>
+            <p>{deliveryInfo.deliveryTimeWindow || '—'}</p>
+          </div>
+          <div>
+            <p className="font-semibold text-gray-700 dark:text-gray-200">Product</p>
+            <p className="line-clamp-3">{productDescription || '—'}</p>
+          </div>
+          <div>
+            <p className="font-semibold text-gray-700 dark:text-gray-200">Card Message</p>
+            <p className="whitespace-pre-wrap">{cardMessage || '—'}</p>
+          </div>
+          <div>
+            <p className="font-semibold text-gray-700 dark:text-gray-200">Instructions</p>
+            <p className="whitespace-pre-wrap">{instructions || '—'}</p>
+          </div>
+          <div>
+            <p className="font-semibold text-gray-700 dark:text-gray-200">Amount</p>
+            <p>${Number(price || 0).toFixed(2)}</p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderBloomDetails = (order: FtdOrder) => {
+    return (
+      <div className="space-y-3">
+        <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Bloom Order</h4>
+        <div className="text-xs text-gray-600 dark:text-gray-300 space-y-2">
+          <div>
+            <p className="font-semibold text-gray-700 dark:text-gray-200">Order #</p>
+            <p>#{order.orderNumber}</p>
+          </div>
+          <div>
+            <p className="font-semibold text-gray-700 dark:text-gray-200">Status</p>
+            <p>{order.status}</p>
+          </div>
+          <div>
+            <p className="font-semibold text-gray-700 dark:text-gray-200">Customer</p>
+            <p>
+              {order.customer
+                ? `${order.customer.firstName ?? ''} ${order.customer.lastName ?? ''}`.trim() || '—'
+                : '—'}
+            </p>
+          </div>
+          <div>
+            <p className="font-semibold text-gray-700 dark:text-gray-200">Delivery</p>
+            <p>{order.deliveryDate ? new Date(order.deliveryDate).toLocaleString() : '—'}</p>
+            <p>{order.deliveryAddress ? `${order.deliveryAddress.address1 || ''} ${order.deliveryAddress.city || ''}`.trim() : ''}</p>
+          </div>
+          <div>
+            <p className="font-semibold text-gray-700 dark:text-gray-200">Items</p>
+            <ul className="space-y-1">
+              {order.orderItems.length === 0 ? (
+                <li>—</li>
+              ) : (
+                order.orderItems.map((item) => (
+                  <li key={item.id}>
+                    {item.quantity}x {item.customName || 'Custom Item'} — ${(item.unitPrice / 100).toFixed(2)}
+                  </li>
+                ))
+              )}
+            </ul>
+          </div>
+          <div>
+            <p className="font-semibold text-gray-700 dark:text-gray-200">Notes</p>
+            <p className="whitespace-pre-wrap">{order.specialInstructions || '—'}</p>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
     <div className="p-6">
-      {/* Header */}
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-black dark:text-white">
-          FTD Orders - Approval Queue
-        </h1>
+        <h1 className="text-3xl font-bold text-black dark:text-white">FTD Orders - Review Queue</h1>
         <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-          Review and adjust auto-created Bloom orders before production
+          Compare FTD details with the Bloom order before fulfilling.
         </p>
       </div>
 
-      {/* Info Banner */}
-      <div className="bg-orange-50 dark:bg-orange-500/10 border border-orange-200 dark:border-orange-500/20 rounded-xl p-4 mb-6">
-        <div className="flex items-start gap-3">
-          <svg className="w-5 h-5 text-orange-600 dark:text-orange-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-          </svg>
-          <div className="flex-1">
-            <p className="text-sm text-orange-900 dark:text-orange-200">
-              <strong>Workflow:</strong> Click "Edit Order" to adjust products and pricing → Save changes → Click "Mark as Approved" to remove from this queue.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Orders List */}
       {loading ? (
         <div className="text-center py-12 text-gray-500">Loading orders...</div>
       ) : orders.length === 0 ? (
@@ -99,92 +157,44 @@ export default function FtdApprovePage() {
           <svg className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            All Caught Up!
-          </h3>
-          <p className="text-gray-600 dark:text-gray-400">
-            No FTD orders need approval at this time.
-          </p>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">All caught up!</h3>
+          <p className="text-gray-600 dark:text-gray-400">No FTD orders need review right now.</p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-5">
           {orders.map((order) => (
             <div
               key={order.id}
-              className="bg-white dark:bg-boxdark rounded-xl border border-stroke dark:border-strokedark overflow-hidden"
+              className="bg-white dark:bg-boxdark rounded-xl border border-stroke dark:border-strokedark p-6"
             >
-              <div className="p-6">
-                {/* Header */}
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-lg font-semibold text-black dark:text-white">
-                        Bloom Order #{order.linkedOrder.orderNumber}
-                      </h3>
-                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400">
-                        Needs Review
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      FTD Order: {order.externalId}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleEditOrder(order.linkedOrder.id)}
-                      className="px-4 py-2 bg-[#597485] hover:bg-[#4e6575] text-white rounded-lg text-sm font-medium transition-colors"
-                    >
-                      Edit Order
-                    </button>
-                    <button
-                      onClick={() => handleApprove(order.id)}
-                      className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors"
-                    >
-                      Mark as Approved
-                    </button>
-                  </div>
+              <div className="flex flex-col lg:flex-row gap-6">
+                <div className="flex-1 lg:border-r lg:border-gray-200 lg:dark:border-white/10 lg:pr-6">
+                  {renderBloomDetails(order)}
                 </div>
-
-                {/* Order Details */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                  <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Recipient</p>
-                    <p className="text-sm font-medium text-black dark:text-white">
-                      {order.recipientFirstName} {order.recipientLastName}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Delivery Date</p>
-                    <p className="text-sm font-medium text-black dark:text-white">
-                      {order.deliveryDate
-                        ? new Date(order.deliveryDate).toLocaleDateString()
-                        : 'Not set'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">FTD Total</p>
-                    <p className="text-sm font-medium text-black dark:text-white">
-                      ${order.totalAmount?.toFixed(2) || '0.00'}
-                    </p>
-                  </div>
+                <div className="flex-1 lg:pl-6">
+                  {renderFtdDetails(order)}
                 </div>
+              </div>
 
-                {/* Order Items */}
-                <div className="bg-gray-50 dark:bg-meta-4 rounded-lg p-4">
-                  <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Current Order Items:
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-white/10">
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Last updated: {new Date(order.updatedAt).toLocaleString()}
                   </p>
-                  {order.linkedOrder.orderItems.length === 0 ? (
-                    <p className="text-sm text-gray-500">No items</p>
-                  ) : (
-                    <ul className="space-y-1">
-                      {order.linkedOrder.orderItems.map((item) => (
-                        <li key={item.id} className="text-sm text-gray-700 dark:text-gray-300">
-                          {item.quantity}x {item.customName} - ${(item.unitPrice / 100).toFixed(2)}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleEditOrder(order.id)}
+                    className="px-4 py-2 bg-[#597485] hover:bg-[#4e6575] text-white rounded-lg text-sm font-medium transition-colors"
+                  >
+                    Edit Bloom Order
+                  </button>
+                  <button
+                    onClick={() => handleMarkReviewed(order.id)}
+                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors"
+                  >
+                    Mark Reviewed
+                  </button>
                 </div>
               </div>
             </div>

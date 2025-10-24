@@ -37,7 +37,7 @@ export const useOrderLists = () => {
       // Convert status filter to search criteria
       const searchCriteria: OrderSearchCriteria = {}
       if (criteria.status && criteria.status !== 'ALL') {
-        searchCriteria.status = criteria.status as OrderStatus
+        searchCriteria.status = [criteria.status as OrderStatus]
       }
       if (criteria.search) {
         searchCriteria.query = criteria.search

@@ -9,7 +9,7 @@ import AddOnGroupsCard from "@app/components/settings/orders/AddOnGroupsCard";
 
 const OrdersPage = () => (
   <div className="space-y-6">
-    <PageBreadcrumb pageName="Orders Settings" />
+    <PageBreadcrumb pageTitle="Orders Settings" />
     <h2 className="text-2xl font-semibold text-black dark:text-white">Orders Settings</h2>
     <GeneralSettingsCard />
     <MessageSuggestionsCard />

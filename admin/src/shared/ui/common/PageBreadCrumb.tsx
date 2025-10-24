@@ -3,6 +3,8 @@ import { useMemo } from "react";
 
 interface BreadcrumbProps {
   customBreadcrumbs?: Array<{ label: string; path: string }>;
+  pageTitle?: string;
+  links?: Array<{ name: string; href: string }>;
 }
 
 // Move the function outside the component to avoid hoisting issues
@@ -53,14 +55,29 @@ const formatSegmentLabel = (segment: string, pathSegments: string[], index: numb
   return labelMap[segment] || segment.charAt(0).toUpperCase() + segment.slice(1);
 };
 
-const PageBreadcrumb: React.FC<BreadcrumbProps> = ({ customBreadcrumbs }) => {
+const PageBreadcrumb: React.FC<BreadcrumbProps> = ({ customBreadcrumbs, pageTitle, links }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
   const breadcrumbItems = useMemo(() => {
-    // If custom breadcrumbs are provided, use them
-    if (customBreadcrumbs) {
-      return customBreadcrumbs;
+    const applyPageTitle = (items: Array<{ label: string; path: string }>) => {
+      if (pageTitle && items.length > 0) {
+        const updated = [...items];
+        const lastIndex = updated.length - 1;
+        updated[lastIndex] = { ...updated[lastIndex], label: pageTitle };
+        return updated;
+      }
+      return items;
+    };
+
+    const explicitBreadcrumbs = customBreadcrumbs
+      ? customBreadcrumbs
+      : links
+      ? links.map(({ name, href }) => ({ label: name, path: href }))
+      : null;
+
+    if (explicitBreadcrumbs) {
+      return applyPageTitle(explicitBreadcrumbs);
     }
 
     // Auto-generate breadcrumbs from current path
@@ -74,8 +91,8 @@ const PageBreadcrumb: React.FC<BreadcrumbProps> = ({ customBreadcrumbs }) => {
       items.push({ label, path });
     });
 
-    return items;
-  }, [location.pathname, customBreadcrumbs]);
+    return applyPageTitle(items);
+  }, [location.pathname, customBreadcrumbs, links, pageTitle]);
 
   const handleGoBack = () => {
     // Go back one level in the URL hierarchy

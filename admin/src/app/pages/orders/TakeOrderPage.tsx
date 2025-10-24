@@ -189,8 +189,8 @@ export default function TakeOrderPage({
         },
         employee,
         orderSource: isOverlay ? "pos" : orderSource,
-        description: `${orderState.orders[0]?.deliveryType === "pickup" ? "Pickup" : "Delivery"} Order - ${customerState.customer.firstName} ${customerState.customer.lastName}`,
-        displayName: `${orderState.orders[0]?.deliveryType === "pickup" ? "Pickup" : "Delivery"} Order`,
+        description: `${orderState.orders[0]?.orderType === "PICKUP" ? "Pickup" : "Delivery"} Order - ${customerState.customer.firstName} ${customerState.customer.lastName}`,
+        displayName: `${orderState.orders[0]?.orderType === "PICKUP" ? "Pickup" : "Delivery"} Order`,
         total: grandTotal,
       };
 

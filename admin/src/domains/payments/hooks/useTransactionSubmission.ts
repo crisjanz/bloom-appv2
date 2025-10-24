@@ -19,10 +19,12 @@ export type PaymentPayload = {
   metadata?: Record<string, any>;
 };
 
+export type GiftCardType = 'PHYSICAL' | 'DIGITAL';
+
 export type GiftCardData = {
   cardNumber: string;
   amount: number;
-  type?: string;
+  type?: GiftCardType;
   recipientName?: string;
   recipientEmail?: string;
 };
@@ -281,10 +283,10 @@ export const useTransactionSubmission = () => {
       // Handle gift card activation
       if (giftCardNumbers.length > 0) {
         const { purchaseGiftCards } = await import('@shared/legacy-services/giftCardService');
-        const cards = giftCardNumbers.map((card) => ({
+        const cards = giftCardNumbers.map<{ cardNumber?: string; amount: number; type: GiftCardType; recipientName?: string; recipientEmail?: string }>((card) => ({
           cardNumber: card.cardNumber,
           amount: card.amount,
-          type: card.type || 'PHYSICAL',
+          type: card.type === 'DIGITAL' ? 'DIGITAL' : 'PHYSICAL',
           recipientName: card.recipientName || customerDisplayName || 'Walk-in Customer',
           recipientEmail: card.recipientEmail,
         }));

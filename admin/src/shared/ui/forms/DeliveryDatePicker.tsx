@@ -218,7 +218,7 @@ export default function DeliveryDatePicker({
     
     const today = getBusinessDateString(new Date());
     
-    const flatPickr = flatpickr(`#${id}`, {
+    const instance = flatpickr(`#${id}`, {
       mode: "single",
       static: false,
       monthSelectorType: "static",
@@ -271,7 +271,7 @@ onDayCreate: function(dObj, dStr, fp, dayElem) {
       },
     });
 
-    flatpickrRef.current = flatPickr;
+    flatpickrRef.current = Array.isArray(instance) ? instance[0] : instance;
 
     return () => {
       if (flatpickrRef.current) {

@@ -97,7 +97,7 @@ const HolidaysCard = () => {
         },
         body: JSON.stringify({
           ...formData,
-          isOpen: formData.isOpen === true || formData.isOpen === 'true',
+          isOpen: formData.isOpen,
         }),
       });
 

@@ -1,5 +1,5 @@
 // src/components/orders/MultiOrderTabs.tsx
-import { useEffect } from "react";
+import { useEffect, Dispatch, SetStateAction } from "react";
 import ComponentCard from "@shared/ui/common/ComponentCard";
 import RecipientCard from "./RecipientCard";
 import DeliveryCard from "./DeliveryCard";
@@ -23,7 +23,7 @@ type OrderEntry = {
   recipientPhone: string;
   recipientAddress: Address;
   recipientAddressType: string;
-  recipientAddressLabel: string; // NEW: Custom address label
+  recipientAddressLabel?: string; // NEW: Custom address label
   orderType: "DELIVERY" | "PICKUP";
   deliveryDate: string;
   deliveryTime: string;
@@ -56,7 +56,7 @@ type OrderEntry = {
 
 type Props = {
   orders: OrderEntry[];
-  setOrders: (val: OrderEntry[]) => void;
+  setOrders: Dispatch<SetStateAction<OrderEntry[]>>;
   activeTab: number;
   setActiveTab: (val: number) => void;
   setShowSuggestions: (val: boolean) => void;

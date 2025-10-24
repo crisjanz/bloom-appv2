@@ -5,6 +5,7 @@ import {
   getStatusDisplayText, 
   getStatusColor 
 } from '@shared/utils/orderStatusHelpers';
+import type { OrderSource as DomainOrderSource } from '@domains/orders/entities/Order';
 
 export interface Order {
   id: string;
@@ -56,6 +57,7 @@ export interface Order {
     quantity: number;
     rowTotal: number;
   }>;
+  orderSource?: DomainOrderSource;
   images?: string[];
   taxBreakdown?: Array<{
     name: string;

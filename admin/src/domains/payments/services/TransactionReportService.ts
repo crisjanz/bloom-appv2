@@ -30,11 +30,15 @@ export class TransactionReportService {
     const query = buildQueryString(filters);
     const result = await ApiService.get<TransactionReportResponse>(`${BASE_ENDPOINT}${query}`);
 
-    if (!result.success) {
+    if (result.success) {
+      return result.data;
+    }
+
+    if ('error' in result && result.error) {
       throw result.error;
     }
 
-    return result.data;
+    throw new Error('Failed to fetch transactions');
   }
 
   static async exportTransactions(filters: TransactionReportFilters): Promise<Blob> {

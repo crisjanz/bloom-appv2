@@ -3,12 +3,12 @@
  * Business logic for order management across all channels (POS, delivery, events, subscriptions)
  */
 
-import { DomainService, Result } from '@shared/types/common'
-import { Order, OrderItem, OrderStatus, OrderType, FulfillmentType, OrderPriority, PaymentStatus, CreateOrderData, UpdateOrderData, OrderSearchCriteria, OrderStats, canTransitionTo } from '../entities/Order'
+import { Order, OrderItem, OrderStatus, OrderType, FulfillmentType, OrderPriority, PaymentStatus, CreateOrderData, UpdateOrderData, OrderSearchCriteria, OrderStats, canTransitionTo, DeliveryInfo, PickupInfo, OrderSource } from '../entities/Order'
+import { Channel } from '@shared/types/common'
 import { OrderRepository } from '../repositories/OrderRepository'
 import { Customer } from '../../customers/entities/Customer'
 
-export class OrderService implements DomainService<Order> {
+export class OrderService {
   constructor(private orderRepository: OrderRepository) {}
 
   // ===== CORE CRUD OPERATIONS =====
@@ -23,23 +23,24 @@ export class OrderService implements DomainService<Order> {
     // Create customer snapshot
     const customerSnapshot = await this.createCustomerSnapshot(orderData.customerId)
     
-    const order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'> = {
+    const order: Omit<Order, 'id'> = {
       // Order identification
       orderNumber,
       internalId: `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      
+
       // Relationships
       customerId: orderData.customerId,
       employeeId: orderData.source === 'pos' ? 'current-employee-id' : undefined, // TODO: Get from auth context
-      
+
       // Classification
       orderType: orderData.orderType,
+      orderSource: orderData.orderSource ?? OrderSource.PHONE,
       channel: this.determineChannel(orderData.source),
       status: orderData.paymentTransactionId ? OrderStatus.PAID : OrderStatus.PENDING_PAYMENT,
-      
+
       // Contents
       items: this.processOrderItems(orderData.items),
-      
+
       // Financial information
       subtotal: financials.subtotal,
       taxBreakdown: financials.taxBreakdown,
@@ -47,23 +48,23 @@ export class OrderService implements DomainService<Order> {
       deliveryFee: financials.deliveryFee,
       tips: { amount: 0, currency: 'CAD' },
       totalAmount: financials.totalAmount,
-      
+
       // Fulfillment
       fulfillmentType: orderData.fulfillmentType,
-      deliveryInfo: orderData.deliveryInfo,
-      pickupInfo: orderData.pickupInfo,
-      
+      deliveryInfo: orderData.deliveryInfo as DeliveryInfo | undefined,
+      pickupInfo: orderData.pickupInfo as PickupInfo | undefined,
+
       // Payment
       paymentTransactionId: orderData.paymentTransactionId,
       paymentStatus: orderData.paymentTransactionId ? PaymentStatus.PAID : PaymentStatus.PENDING,
       paidAt: orderData.paymentTransactionId ? new Date() : undefined,
-      
+
       // Scheduling
       orderDate: new Date(),
       requestedDeliveryDate: orderData.requestedDeliveryDate,
       scheduledDeliveryDate: undefined,
       completedAt: undefined,
-      
+
       // Communication
       cardMessage: orderData.cardMessage,
       specialInstructions: orderData.specialInstructions,
@@ -76,14 +77,17 @@ export class OrderService implements DomainService<Order> {
       tags: orderData.tags || [],
       priority: orderData.priority || OrderPriority.NORMAL,
       source: orderData.source,
-      
+
       // Analytics
       acquisitionChannel: this.determineAcquisitionChannel(orderData.source),
       campaignId: orderData.campaignId,
-      referralCode: undefined // TODO: Extract from customer or campaign
+      referralCode: undefined, // TODO: Extract from customer or campaign
+
+      createdAt: new Date(),
+      updatedAt: new Date(),
     }
 
-    return await this.orderRepository.create(order)
+    return await this.orderRepository.save(order)
   }
 
   async findById(id: string): Promise<Order | null> {
@@ -387,12 +391,20 @@ export class OrderService implements DomainService<Order> {
     return (lastNumber + 1).toString()
   }
 
-  private determineChannel(source?: string) {
+  private determineChannel(source?: string): Channel {
     switch (source) {
-      case 'pos': return 'POS'
-      case 'website': return 'WEBSITE'
-      case 'phone': return 'PHONE'
-      default: return 'POS'
+      case 'pos':
+        return Channel.POS
+      case 'website':
+        return Channel.WEBSITE
+      case 'phone':
+        return Channel.PHONE
+      case 'email':
+        return Channel.EMAIL
+      case 'sms':
+        return Channel.SMS
+      default:
+        return Channel.POS
     }
   }
 

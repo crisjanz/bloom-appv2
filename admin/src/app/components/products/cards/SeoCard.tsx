@@ -26,7 +26,7 @@ const SeoCard: FC<Props> = ({ seoTitle, seoDescription, onChange }) => (
         label="Meta Description"
         name="seoDescription"
         value={seoDescription}
-        onChange={(e) => onChange("seoDescription", e.target.value)}
+        onChange={(value) => onChange("seoDescription", value)}
         placeholder="This product features fresh tulips perfect for spring. Order now for local delivery in Prince George."
         rows={4}
       />

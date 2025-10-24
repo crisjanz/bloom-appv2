@@ -1,16 +1,93 @@
 import axios from "axios";
-import { PrismaClient, AddressType, FtdOrderStatus, FtdSettings } from "@prisma/client";
+import {
+  PrismaClient,
+  AddressType,
+  OrderStatus,
+  OrderExternalSource,
+  Prisma
+} from "@prisma/client";
 import { sendFtdOrderNotification } from "./ftdNotification";
 import { isWithinBusinessHours } from "../utils/businessHours";
 
 const prisma = new PrismaClient();
+const axiosClient = axios.create();
 
 let currentToken = "";
 let isPolling = false;
 let pollingInterval: NodeJS.Timeout | null = null;
 
+type OrderRecord = Awaited<ReturnType<typeof prisma.order.findUnique>>;
+
+const NEEDS_ACTION_STATUSES = new Set([
+  "NEW",
+  "VIEWED",
+  "PENDING",
+  "SENT",
+  "FORWARDED",
+  "PRINTED"
+]);
+
+const ACCEPTED_STATUSES = new Set([
+  "ACKNOWLEDGED",
+  "ACKNOWLEDGE_PRINT"
+]);
+
+const IN_DESIGN_STATUSES = new Set(["DESIGN", "DESIGNED"]);
+const OUT_FOR_DELIVERY_STATUSES = new Set([
+  "DS_REQUESTED",
+  "DS_REQUEST_PENDING",
+  "OUT_FOR_DELIVERY"
+]);
+const DELIVERED_STATUSES = new Set(["DELIVERED"]);
+const CANCELLED_STATUSES = new Set(["REJECTED", "CANCELLED", "ERROR", "FORFEITED"]);
+
+type SyncResult = "new" | "updated" | "unchanged";
+
+interface NormalizedFtdPayload {
+  raw: any;
+  externalId: string;
+  detailExternalId: string | null;
+  status: string;
+  total: number;
+  totals: {
+    total: number;
+    fees: number;
+    taxes: number;
+    products: number;
+  };
+  priceBreakdown: Record<string, number>;
+  deliveryDate: Date | null;
+  deliveryTime: string | null;
+  recipient: {
+    firstName: string | null;
+    lastName: string | null;
+    phone: string | null;
+    email: string | null;
+  };
+  address: {
+    address1: string | null;
+    address2: string | null;
+    city: string | null;
+    province: string | null;
+    postalCode: string | null;
+    country: string;
+  };
+  sendingFloristCode: string | null;
+  cardMessage: string | null;
+  deliveryInstructions: string | null;
+  occasion: string | null;
+  createdBy?: string | null;
+  productDescription: string;
+  products: Array<{
+    description: string;
+    totalPrice: number;
+    fillPrice: number | null;
+    productId: string | null;
+  }>;
+  payloadHash: string;
+}
+
 export async function startFtdMonitor() {
-  // Load settings
   const settings = await prisma.ftdSettings.findFirst();
 
   if (!settings) {
@@ -25,22 +102,17 @@ export async function startFtdMonitor() {
 
   currentToken = settings.authToken || "";
 
-  // Clear any existing interval
   if (pollingInterval) {
     clearInterval(pollingInterval);
   }
 
-  // Start polling
   console.log(`🌸 FTD Monitor started - polling every ${settings.pollingInterval}s (business hours only)`);
 
-  // Check business hours before initial fetch
   const isOpen = await isWithinBusinessHours();
-
-  // Only do initial fetch if:
-  // 1. Within business hours, AND
-  // 2. Last sync was more than polling interval ago (avoid redundant API calls on restart)
-  const shouldInitialFetch = isOpen && (!settings.lastSyncTime ||
-    (Date.now() - settings.lastSyncTime.getTime() > settings.pollingInterval * 1000));
+  const shouldInitialFetch =
+    isOpen &&
+    (!settings.lastSyncTime ||
+      Date.now() - settings.lastSyncTime.getTime() > settings.pollingInterval * 1000);
 
   if (shouldInitialFetch) {
     console.log("🔄 Running initial FTD sync...");
@@ -48,10 +120,12 @@ export async function startFtdMonitor() {
   } else if (!isOpen) {
     console.log("⏸️  Skipping initial fetch - outside business hours");
   } else {
-    console.log(`⏭️  Skipping initial fetch - last sync was recent (${Math.floor((Date.now() - settings.lastSyncTime!.getTime()) / 1000)}s ago)`);
+    const secondsAgo = Math.floor(
+      (Date.now() - settings.lastSyncTime!.getTime()) / 1000
+    );
+    console.log(`⏭️  Skipping initial fetch - last sync was recent (${secondsAgo}s ago)`);
   }
 
-  // Set up recurring fetch (business hours check happens inside fetchFtdOrders)
   pollingInterval = setInterval(fetchFtdOrders, settings.pollingInterval * 1000);
   isPolling = true;
 }
@@ -65,9 +139,11 @@ export async function stopFtdMonitor() {
   console.log("🛑 FTD Monitor stopped");
 }
 
-export async function fetchFtdOrders(forceFullSync: boolean = false, bypassBusinessHours: boolean = false) {
+export async function fetchFtdOrders(
+  forceFullSync: boolean = false,
+  bypassBusinessHours: boolean = false
+) {
   try {
-    // Check business hours (unless this is a manual sync)
     if (!bypassBusinessHours && !forceFullSync) {
       const isOpen = await isWithinBusinessHours();
       if (!isOpen) {
@@ -82,9 +158,7 @@ export async function fetchFtdOrders(forceFullSync: boolean = false, bypassBusin
       return;
     }
 
-    // Use token from database if available (in case it was refreshed)
     const tokenToUse = settings.authToken || currentToken;
-
     if (!tokenToUse) {
       console.error("❌ No auth token available. Please refresh token first.");
       return;
@@ -93,48 +167,58 @@ export async function fetchFtdOrders(forceFullSync: boolean = false, bypassBusin
     console.log(`🔑 Using token: ${tokenToUse.substring(0, 50)}...`);
 
     const headers = {
-      "Authorization": `apiKey ${settings.apiKey}`,
+      Authorization: `apiKey ${settings.apiKey}`,
       "ep-authorization": tokenToUse,
-      "Origin": "https://mercuryhq.com",
-      "Referer": "https://mercuryhq.com/",
+      Origin: "https://mercuryhq.com",
+      Referer: "https://mercuryhq.com/",
       "X-Timezone": "America/Vancouver",
       "client-context": '{"siteId":"mercuryos"}',
       "request-context": `{"authGroupName":"ADMIN_ROLE","memberCodes":["${settings.shopId}"],"shopGroups":["IN YOUR VASE FLOWERS"],"roles":["ADMIN"]}`,
       "Content-Type": "application/json",
-      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+      "User-Agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
     };
 
-    // Build status query parameter with all FTD statuses
     const statuses = [
-      'NEW', 'VIEWED', 'ACKNOWLEDGED', 'PENDING', 'SENT', 'FORWARDED', 'PRINTED',
-      'DS_REQUESTED', 'DS_REQUEST_PENDING', 'ACKNOWLEDGE_PRINT', 'DESIGN', 'DESIGNED',
-      'OUT_FOR_DELIVERY', 'REJECTED', 'CANCELLED', 'DELIVERED', 'ERROR', 'FORFEITED'
-    ].join(',');
+      "NEW",
+      "VIEWED",
+      "ACKNOWLEDGED",
+      "PENDING",
+      "SENT",
+      "FORWARDED",
+      "PRINTED",
+      "DS_REQUESTED",
+      "DS_REQUEST_PENDING",
+      "ACKNOWLEDGE_PRINT",
+      "DESIGN",
+      "DESIGNED",
+      "OUT_FOR_DELIVERY",
+      "REJECTED",
+      "CANCELLED",
+      "DELIVERED",
+      "ERROR",
+      "FORFEITED"
+    ].join(",");
 
-    // Use delta sync unless force full sync requested (manual update button)
     const useDeltaSync = !forceFullSync && !!settings.lastSyncTime;
 
-    // Format lastSyncTime without milliseconds (Mercury HQ format: 2025-10-18T01:49:46Z)
-    let lastSyncTime = '';
+    let lastSyncTime = "";
     if (settings.lastSyncTime && useDeltaSync) {
-      lastSyncTime = settings.lastSyncTime.toISOString().split('.')[0] + 'Z';
+      lastSyncTime = settings.lastSyncTime.toISOString().split(".")[0] + "Z";
     }
 
-    // For initial sync or full sync, get last 30 days
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - 30);
-    const startDateStr = startDate.toISOString().split('T')[0];
+    const startDateStr = startDate.toISOString().split("T")[0];
 
-    // Build API URL with delta sync parameters
-    // URL-encode the lastSyncTime parameter
     const encodedLastSyncTime = encodeURIComponent(lastSyncTime);
     const apiUrl = `https://pt.ftdi.com/e/p/mercury/${settings.shopId}/orders?startDate=${startDateStr}&status=${statuses}&endDate=&deltaOrders=${useDeltaSync}&lastSyncTime=${encodedLastSyncTime}&listingFilter=DELIVERY_DATE&listingPage=orders`;
 
-    if (forceFullSync) {
-      console.log(`🔄 Fetching FTD orders (FULL SYNC - manual update)`);
-    } else {
-      console.log(`🔄 Fetching FTD orders (deltaSync: ${useDeltaSync}, lastSync: ${lastSyncTime || 'never'})`);
-    }
+    console.log(
+      forceFullSync
+        ? "🔄 Fetching FTD orders (FULL SYNC - manual update)"
+        : `🔄 Fetching FTD orders (deltaSync: ${useDeltaSync}, lastSync: ${lastSyncTime || "never"})`
+    );
 
     const res = await axios.get(apiUrl, { headers, timeout: 30000 });
 
@@ -144,30 +228,30 @@ export async function fetchFtdOrders(forceFullSync: boolean = false, bypassBusin
     }
 
     const orders = res.data;
-    console.log(`📦 Fetched ${orders.length} FTD orders from API ${useDeltaSync ? '(delta sync)' : '(full sync)'}`);
+    console.log(
+      `📦 Fetched ${orders.length} FTD orders from API ${
+        useDeltaSync ? "(delta sync)" : "(full sync)"
+      }`
+    );
 
     let newCount = 0;
     let updatedCount = 0;
 
     for (const ftdOrder of orders) {
       const result = await processFtdOrder(ftdOrder, settings);
-      if (result === 'new') newCount++;
-      if (result === 'updated') updatedCount++;
+      if (result === "new") newCount++;
+      if (result === "updated") updatedCount++;
     }
 
     if (newCount > 0 || updatedCount > 0) {
       console.log(`✅ Processed ${newCount} new, ${updatedCount} updated FTD orders`);
     }
 
-    // Update lastSyncTime for delta polling
     await prisma.ftdSettings.updateMany({
-      data: {
-        lastSyncTime: new Date(),
-      },
+      data: { lastSyncTime: new Date() }
     });
-
   } catch (err: any) {
-    if (err.code === 'ECONNABORTED') {
+    if (err.code === "ECONNABORTED") {
       console.error("⏱️  FTD API request timeout");
     } else {
       console.error("❌ FTD fetch error:", err.message);
@@ -175,264 +259,554 @@ export async function fetchFtdOrders(forceFullSync: boolean = false, bypassBusin
   }
 }
 
-async function processFtdOrder(ftdData: any, settings: FtdSettings): Promise<'new' | 'updated' | 'unchanged'> {
-  const newStatus = mapFtdStatus(ftdData.status);
-
-  // Use messageNumber as the unique external ID
-  const externalId = ftdData.messageNumber || ftdData.external_id;
+async function processFtdOrder(ftdData: any, settings: { shopId: string }): Promise<SyncResult> {
+  const normalized = await enrichPayloadWithDetails(ftdData, settings.shopId);
+  const { externalId } = normalized;
 
   if (!externalId) {
-    console.warn('⚠️ FTD order missing messageNumber, skipping');
-    return 'unchanged';
+    console.warn("⚠️ FTD order missing messageNumber, skipping");
+    return "unchanged";
   }
 
-  const { data: orderData, orderTotal, productDesc } = mapFtdDataToOrderFields(ftdData, externalId, newStatus);
-  const isOutgoing = isOutgoingFtdOrder(ftdData, settings?.shopId);
+  if (isOutgoingFtdOrder(ftdData, settings.shopId)) {
+    console.log(`↩️ Skipping outgoing FTD order ${externalId}`);
+    return "unchanged";
+  }
 
-  const existing = await prisma.ftdOrder.findUnique({
-    where: { externalId },
+  const existingOrder = await prisma.order.findUnique({
+    where: { externalReference: externalId }
   });
 
-  if (!existing) {
-    console.log('📝 Creating order with data:', {
-      externalId,
-      firstName: orderData.recipientFirstName,
-      lastName: orderData.recipientLastName,
-      city: orderData.city,
-      orderTotal,
-      productDesc: (productDesc || '').substring(0, 50),
-      isOutgoing,
-    });
-
-    let newOrder = await prisma.ftdOrder.create({
-      data: {
-        externalId,
-        ...orderData,
-        ftdRawData: ftdData,
-        lastCheckedAt: new Date(),
-      },
-    });
-
-    console.log(`✨ New FTD order: ${newOrder.externalId} (${newOrder.status})${isOutgoing ? " [Outgoing]" : ""}`);
-
-    if (isOutgoing) {
-      const linkedOrderId = await tryAutoLinkBloomOrder(newOrder);
-      if (linkedOrderId) {
-        newOrder = (await prisma.ftdOrder.findUnique({ where: { id: newOrder.id } })) || newOrder;
-      } else {
-        console.log(`↩️ Outgoing FTD ${newOrder.externalId} captured. Link manually if needed.`);
-      }
-    } else {
-      await sendFtdOrderNotification(newOrder).catch(err => {
-        console.error("Failed to send notification:", err.message);
-      });
-
-      if (newOrder.status === FtdOrderStatus.ACCEPTED) {
-        console.log(`🎯 Auto-creating Bloom order for new ACCEPTED FTD ${newOrder.externalId}...`);
-        await autoCreateBloomOrder(newOrder).catch(err => {
-          console.error("Failed to auto-create Bloom order:", err.message);
-        });
-      }
-    }
-
-    return 'new';
+  if (!existingOrder) {
+    await createBloomOrderFromFtd(normalized);
+    await sendFtdOrderNotification(buildNotificationPayload(normalized));
+    return "new";
   }
 
-  const oldStatus = existing.status;
-  const statusChanged = oldStatus !== newStatus;
-  const dataChanged = hasOrderFieldChanges(existing, orderData);
-
-  let updatedOrder;
-
-  if (statusChanged || dataChanged) {
-    updatedOrder = await prisma.ftdOrder.update({
-      where: { id: existing.id },
-      data: {
-        ...orderData,
-        ftdRawData: ftdData,
-        lastCheckedAt: new Date(),
-      },
-    });
-
-    if (statusChanged) {
-      console.log(`🔄 FTD order ${existing.externalId}: ${oldStatus} → ${newStatus}`);
-    } else {
-      console.log(`✏️  Updated FTD order ${existing.externalId} details (status ${newStatus})`);
-    }
-  } else {
-    updatedOrder = await prisma.ftdOrder.update({
-      where: { id: existing.id },
-      data: {
-        lastCheckedAt: new Date(),
-        ftdRawData: ftdData,
-      },
-    });
-  }
-
-  if (isOutgoing) {
-    if (!updatedOrder.linkedOrderId) {
-      const linkedOrderId = await tryAutoLinkBloomOrder(updatedOrder);
-      if (linkedOrderId) {
-        updatedOrder = (await prisma.ftdOrder.findUnique({ where: { id: updatedOrder.id } })) || updatedOrder;
-      }
-    }
-  } else if (!updatedOrder.linkedOrderId && newStatus === FtdOrderStatus.ACCEPTED) {
-    const action = statusChanged ? "Auto-creating" : "Backfill: Creating";
-    console.log(`🎯 ${action} Bloom order for FTD ${updatedOrder.externalId}...`);
-    await autoCreateBloomOrder(updatedOrder).catch(err => {
-      console.error("Failed to auto-create Bloom order:", err.message);
-    });
-    updatedOrder = (await prisma.ftdOrder.findUnique({ where: { id: updatedOrder.id } })) || updatedOrder;
-  }
-
-  if (updatedOrder.linkedOrderId &&
-      oldStatus !== FtdOrderStatus.DELIVERED &&
-      newStatus === FtdOrderStatus.DELIVERED) {
-    console.log(`✅ Auto-updating Bloom order for FTD ${updatedOrder.externalId}...`);
-    await autoUpdateBloomOrderStatus(updatedOrder.linkedOrderId, 'COMPLETED').catch(err => {
-      console.error("Failed to update Bloom order status:", err.message);
-    });
-  }
-
-  return statusChanged || dataChanged ? 'updated' : 'unchanged';
+  return await reconcileExistingOrder(existingOrder, normalized);
 }
 
-function mapFtdDataToOrderFields(ftdData: any, externalId: string, status: FtdOrderStatus) {
-  const orderTotal = ftdData.price?.find((p: any) => p.name === 'orderTotal')?.value ?? 0;
+async function enrichPayloadWithDetails(ftdData: any, shopId: string) {
+  const detailExternalId =
+    ftdData.external_id ||
+    ftdData.orderItemId ||
+    ftdData.messageNumber ||
+    ftdData.orderNumber;
 
-  const productDesc = ftdData.lineItems
-    ?.map((item: any) => {
-      const desc = item.productName || item.productCode || item.productFirstChoiceDescription || 'FTD Product';
-      if (typeof desc === "string" && desc.includes('ons: Select Size')) {
-        return item.productCode || 'FTD Wire Order';
-      }
-      return desc;
-    })
-    .join(', ') || 'FTD Wire Order';
+  const detailed = await fetchDetailedPayload(detailExternalId, shopId);
+  if (detailed) {
+    return normalizeFtdPayload({
+      ...ftdData,
+      ...detailed,
+      __detailedPayload: detailed
+    });
+  }
+  return normalizeFtdPayload(ftdData);
+}
 
-  const orderData = {
-    status,
-    ftdOrderNumber: parseFtdOrderNumber(ftdData, externalId),
+async function createBloomOrderFromFtd(payload: NormalizedFtdPayload) {
+  const floristCustomer = await getOrCreateFloristCustomer(payload.sendingFloristCode);
+  const recipientCustomer = await getOrCreateRecipientCustomer(payload);
 
-    recipientFirstName: ftdData.recipientInfo?.firstName ?? null,
-    recipientLastName: ftdData.recipientInfo?.lastName ?? null,
-    recipientPhone: ftdData.recipientInfo?.phone ?? null,
-    recipientEmail: ftdData.recipientInfo?.email ?? null,
+  const totals = payload.totals;
+  const priceBreakdown = payload.priceBreakdown;
+  const orderTotal = totals.total || payload.total;
+  const fees = totals.fees || 0;
+  const taxes = totals.taxes || 0;
+  const discount = Math.max(0, (priceBreakdown.orderTotal ?? orderTotal) - orderTotal);
 
-    address1: ftdData.recipientInfo?.addressLine1 ?? null,
-    address2: ftdData.recipientInfo?.addressLine2 ?? null,
-    city: ftdData.recipientInfo?.city ?? null,
-    province: ftdData.recipientInfo?.state ?? null,
-    postalCode: ftdData.recipientInfo?.zip ?? null,
-    country: ftdData.recipientInfo?.country || "CA",
-    addressType: mapAddressType(ftdData.recipientInfo?.addressType),
+  const deliveryAddress = await prisma.address.create({
+    data: {
+      firstName: payload.recipient.firstName || "",
+      lastName: payload.recipient.lastName || "",
+      address1: payload.address.address1 || "",
+      address2: payload.address.address2,
+      city: payload.address.city || "",
+      province: payload.address.province || "",
+      postalCode: payload.address.postalCode || "",
+      country: payload.address.country,
+      phone: payload.recipient.phone,
+      addressType: AddressType.RESIDENCE,
+      customerId: recipientCustomer.id
+    }
+  });
 
-    deliveryDate: getDeliveryDate(ftdData.deliveryInfo?.deliveryDate),
-    deliveryTime: null,
-    deliveryInstructions: ftdData.deliveryInfo?.deliveryInstructions ?? null,
+  const orderStatus = deriveOrderStatusFromFtd(payload.status);
 
-    cardMessage: ftdData.cardMessage ?? null,
-    occasion: ftdData.deliveryInfo?.occasion ?? null,
-    productDescription: productDesc,
-    productCode: ftdData.orderItemId ?? null,
+  const order = await prisma.order.create({
+    data: {
+      type: "DELIVERY",
+      status: orderStatus,
+      orderSource: "WIREIN",
+      customerId: floristCustomer.id,
+      recipientCustomerId: recipientCustomer.id,
+      deliveryAddressId: deliveryAddress.id,
+      deliveryDate: payload.deliveryDate,
+      deliveryTime: payload.deliveryTime,
+      cardMessage: payload.cardMessage,
+      specialInstructions: payload.deliveryInstructions,
+      occasion: payload.occasion,
+      deliveryFee: fees,
+      paymentAmount: orderTotal,
+      discount,
+      totalTax: taxes,
+      orderItems: {
+        create: payload.products.map((item) => {
+          const lineTotal = item.totalPrice || payload.total;
+          const quantity = itemQuantityFromPayload(item);
+          const unitPrice = lineTotal / quantity;
+          return {
+            customName: item.description || payload.productDescription || "FTD Wire Order",
+            unitPrice: Math.round(unitPrice * 100),
+            quantity,
+            rowTotal: Math.round(lineTotal * 100)
+          };
+        })
+      },
+      externalSource: OrderExternalSource.FTD,
+      externalReference: payload.externalId,
+      importedPayload: payload.raw,
+      externalStatus: payload.status,
+      needsExternalUpdate: true
+    }
+  });
 
-    totalAmount: orderTotal,
-    sendingFloristCode: ftdData.sendingMember?.memberCode ?? null,
+  console.log(
+    `✨ Created Bloom order #${order.orderNumber} from FTD ${payload.externalId} (${payload.status})`
+  );
+}
+
+async function reconcileExistingOrder(
+  existingOrder: OrderRecord,
+  payload: NormalizedFtdPayload
+): Promise<SyncResult> {
+  if (!existingOrder) {
+    return "unchanged";
+  }
+
+  const hashedPayload = {
+    ...payload.raw,
+    __hash: payload.payloadHash
+  } as any;
+
+  const previousPayload = existingOrder.importedPayload as any | null;
+  const previousHash =
+    previousPayload && typeof previousPayload.__hash === "string"
+      ? previousPayload.__hash
+      : null;
+  const payloadChanged = previousHash !== payload.payloadHash;
+  const statusChanged = existingOrder.externalStatus !== payload.status;
+
+  const updates: Prisma.OrderUpdateInput = {};
+
+  if (payloadChanged || statusChanged) {
+    updates.importedPayload = hashedPayload;
+    updates.needsExternalUpdate = true;
+    updates.externalStatus = payload.status;
+  }
+
+  if (statusChanged) {
+    const nextStatus = deriveOrderStatusFromFtd(payload.status);
+    if (nextStatus !== existingOrder.status) {
+      updates.status = nextStatus;
+    }
+  }
+
+  if (!existingOrder.cardMessage && payload.cardMessage) {
+    updates.cardMessage = payload.cardMessage;
+  }
+
+  if (!existingOrder.specialInstructions && payload.deliveryInstructions) {
+    updates.specialInstructions = payload.deliveryInstructions;
+  }
+
+  if (!existingOrder.occasion && payload.occasion) {
+    updates.occasion = payload.occasion;
+  }
+
+  if (!existingOrder.deliveryTime && payload.deliveryTime) {
+    updates.deliveryTime = payload.deliveryTime;
+  }
+
+  if (!existingOrder.deliveryDate && payload.deliveryDate) {
+    updates.deliveryDate = payload.deliveryDate;
+  }
+
+  if (Object.keys(updates).length > 0) {
+    const updated = await prisma.order.update({
+      where: { id: existingOrder.id },
+      data: updates
+    });
+
+    if (payloadChanged) {
+      await sendFtdOrderNotification(buildNotificationPayload(payload, true));
+      console.log(
+        `✏️  FTD order ${payload.externalId} changed. Flagged Bloom order #${updated.orderNumber} for review.`
+      );
+    } else if (statusChanged) {
+      console.log(
+        `🔄 FTD order ${payload.externalId} status ${existingOrder.externalStatus} → ${payload.status}`
+      );
+    }
+
+    return "updated";
+  }
+
+  return "unchanged";
+}
+
+function deriveOrderStatusFromFtd(ftdStatus: string): OrderStatus {
+  if (NEEDS_ACTION_STATUSES.has(ftdStatus)) {
+    return OrderStatus.DRAFT;
+  }
+  if (ACCEPTED_STATUSES.has(ftdStatus)) {
+    return OrderStatus.PAID;
+  }
+  if (IN_DESIGN_STATUSES.has(ftdStatus)) {
+    return OrderStatus.IN_DESIGN;
+  }
+  if (OUT_FOR_DELIVERY_STATUSES.has(ftdStatus)) {
+    return OrderStatus.OUT_FOR_DELIVERY;
+  }
+  if (DELIVERED_STATUSES.has(ftdStatus)) {
+    return OrderStatus.COMPLETED;
+  }
+  if (CANCELLED_STATUSES.has(ftdStatus)) {
+    return OrderStatus.CANCELLED;
+  }
+  return OrderStatus.DRAFT;
+}
+
+function normalizeFtdPayload(ftdData: any): NormalizedFtdPayload {
+  const detailedPayload = ftdData.__detailedPayload || ftdData;
+  const detailExternalId =
+    detailedPayload.external_id ||
+    detailedPayload.orderItemId ||
+    ftdData.external_id ||
+    ftdData.orderItemId ||
+    ftdData.messageNumber ||
+    ftdData.orderNumber;
+  const cardMessage =
+    cleanMessage(
+      detailedPayload.card_message ||
+        detailedPayload.cardMessage ||
+        detailedPayload.deliveryInfo?.cardMessage
+    ) || null;
+  const recipientSection = detailedPayload.recipient || detailedPayload.recipientInfo || {};
+  const addressSection = recipientSection.address || {};
+
+  const externalId: string =
+    ftdData.messageNumber ||
+    ftdData.orderNumber ||
+    detailedPayload.messageNumber ||
+    (typeof detailExternalId === "string" ? detailExternalId : "");
+
+  const totalAmount =
+    detailedPayload.totals?.total ??
+    ftdData.price?.find((p: any) => p.name === "orderTotal")?.value ??
+    0;
+
+  const deliveryDateString =
+    detailedPayload.fulfillment_date || ftdData.deliveryInfo?.deliveryDate;
+  const deliveryDate = deliveryDateString
+    ? new Date(`${deliveryDateString}T00:00:00`)
+    : null;
+
+  const recipientInfo = {
+    firstName:
+      cleanName(
+        recipientSection.first_name ||
+          recipientSection.firstName ||
+          ftdData.recipientInfo?.firstName
+      ) ?? null,
+    lastName:
+      cleanName(
+        recipientSection.last_name ||
+          recipientSection.lastName ||
+          ftdData.recipientInfo?.lastName
+      ) ?? null,
+    phone: recipientSection.phone || ftdData.recipientInfo?.phone || null,
+    email: recipientSection.email || ftdData.recipientInfo?.email || null
   };
 
-  return { data: orderData, orderTotal, productDesc };
-}
+  const productDescription = buildProductDescription(detailedPayload);
 
-function parseFtdOrderNumber(ftdData: any, externalId: string): number | null {
-  const directValue = ftdData.orderNumber ?? ftdData.ftdOrderNumber ?? null;
+  const totals = {
+    total: toNumber(detailedPayload.totals?.total, ftdData.price?.find((p: any) => p.name === "orderTotal")?.value ?? 0),
+    fees: toNumber(detailedPayload.totals?.fees, 0),
+    taxes: toNumber(detailedPayload.totals?.taxes, ftdData.totalTax?.amount ?? 0),
+    products: toNumber(detailedPayload.totals?.products, ftdData.lineItems?.reduce((sum: number, item: any) => sum + toNumber(item.lineItemAmounts?.find((a: any) => a.name === "retailProductAmount")?.value, 0), 0))
+  };
 
-  if (typeof directValue === "number" && !Number.isNaN(directValue)) {
-    return directValue;
-  }
-
-  if (typeof directValue === "string") {
-    const parsed = parseInt(directValue, 10);
-    if (!Number.isNaN(parsed)) {
-      return parsed;
+  const priceBreakdown: Record<string, number> = {};
+  (detailedPayload.price || ftdData.price || []).forEach((entry: any) => {
+    if (entry?.name) {
+      priceBreakdown[entry.name] = toNumber(entry.value, 0);
     }
-  }
-
-  if (typeof externalId === "string") {
-    for (const part of externalId.split('-')) {
-      const parsed = parseInt(part, 10);
-      if (!Number.isNaN(parsed)) {
-        return parsed;
-      }
-    }
-  }
-
-  return null;
-}
-
-function getDeliveryDate(rawDate?: string | null) {
-  if (!rawDate || typeof rawDate !== "string") {
-    return null;
-  }
-
-  const isoString = rawDate.includes('T') ? rawDate : `${rawDate}T00:00:00`;
-  const parsed = new Date(isoString);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
-function hasOrderFieldChanges(existing: any, newData: Record<string, any>) {
-  const fields = [
-    'ftdOrderNumber',
-    'recipientFirstName',
-    'recipientLastName',
-    'recipientPhone',
-    'recipientEmail',
-    'address1',
-    'address2',
-    'city',
-    'province',
-    'postalCode',
-    'country',
-    'addressType',
-    'deliveryDate',
-    'deliveryTime',
-    'deliveryInstructions',
-    'cardMessage',
-    'occasion',
-    'productDescription',
-    'productCode',
-    'totalAmount',
-    'sendingFloristCode',
-  ];
-
-  return fields.some((field) => {
-    const oldValue = existing[field];
-    const newValue = newData[field];
-
-    if (oldValue instanceof Date || newValue instanceof Date) {
-      const oldTime = oldValue ? new Date(oldValue).getTime() : null;
-      const newTime = newValue ? new Date(newValue).getTime() : null;
-      return oldTime !== newTime;
-    }
-
-    return oldValue !== newValue;
   });
+
+  const products = (detailedPayload.products || ftdData.lineItems || []).map((item: any) => ({
+    description:
+      item.product_description ||
+      item.productFirstChoiceDescription ||
+      item.productName ||
+      item.productCode ||
+      "FTD Wire Order",
+    totalPrice: toNumber(item.total_price, item.lineItemAmounts?.find((a: any) => a.name === "amountChargedToCustomer")?.value ?? totals.total),
+    fillPrice: item.fill_price !== undefined ? toNumber(item.fill_price, null) : null,
+    productId: item.product_id || item.productCode || null
+  }));
+
+  const payloadForStorage = {
+    ...ftdData,
+    card_message: cardMessage,
+    productDescription,
+    __syncedAt: new Date().toISOString()
+  };
+
+  return {
+    raw: {
+      ...payloadForStorage,
+      __hash: generatePayloadHash(payloadForStorage)
+    },
+    externalId,
+    detailExternalId: typeof detailExternalId === "string" ? detailExternalId : null,
+    status: ftdData.status,
+    total: totalAmount,
+    totals,
+    priceBreakdown,
+    deliveryDate,
+    deliveryTime: ftdData.deliveryInfo?.deliveryTimeWindow ?? null,
+    recipient: {
+      firstName: recipientInfo.firstName ?? null,
+      lastName: recipientInfo.lastName ?? null,
+      phone: recipientInfo.phone ?? null,
+      email: recipientInfo.email ?? null
+    },
+    address: {
+      address1:
+        addressSection.address_line1 ??
+        detailedPayload.recipientInfo?.addressLine1 ??
+        null,
+      address2:
+        addressSection.address_line2 ??
+        detailedPayload.recipientInfo?.addressLine2 ??
+        null,
+      city:
+        addressSection.city ??
+        detailedPayload.recipientInfo?.city ??
+        null,
+      province:
+        addressSection.state ??
+        detailedPayload.recipientInfo?.state ??
+        null,
+      postalCode:
+        addressSection.zip ??
+        detailedPayload.recipientInfo?.zip ??
+        null,
+      country:
+        (addressSection.country ?? detailedPayload.recipientInfo?.country) || "CA"
+    },
+    sendingFloristCode: ftdData.sendingMember?.memberCode ?? null,
+    cardMessage,
+    deliveryInstructions:
+      detailedPayload.delivery_instructions ??
+      ftdData.deliveryInfo?.deliveryInstructions ??
+      null,
+    occasion:
+      detailedPayload.occasion ?? ftdData.deliveryInfo?.occasion ?? null,
+    createdBy: detailedPayload.created_by_name || null,
+    productDescription,
+    products: products.length ? products : [
+      {
+        description: productDescription,
+        totalPrice: totalAmount,
+        fillPrice: null,
+        productId: null
+      }
+    ],
+    payloadHash: generatePayloadHash(payloadForStorage)
+  };
+}
+
+function buildProductDescription(ftdData: any): string {
+  return (
+    ftdData.lineItems
+      ?.map((item: any) => {
+        const desc =
+          item.productName ||
+          item.productCode ||
+          item.productFirstChoiceDescription ||
+          "FTD Product";
+        if (typeof desc === "string" && desc.includes("ons: Select Size")) {
+          return item.productCode || "FTD Wire Order";
+        }
+        return desc;
+      })
+      .join(", ") || "FTD Wire Order"
+  );
+}
+
+function itemQuantityFromPayload(item: any): number {
+  const quantity = toNumber(item.quantity, 1);
+  if (quantity <= 0) {
+    return 1;
+  }
+  return quantity;
+}
+
+function cleanName(value: any): string | null {
+  if (!value) return null;
+  return value.toString().trim().replace(/^[,\s]+|[,\s]+$/g, "") || null;
+}
+
+function cleanMessage(value: any): string | null {
+  if (!value) return null;
+  const text = value.toString().replace(/\r\n/g, "\n").trim();
+  return text || null;
+}
+
+function normalizePhoneNumber(phone?: string | null): string | null {
+  if (!phone) return null;
+  const digits = phone.replace(/\D/g, "");
+  if (!digits) return null;
+  if (digits.length === 11 && digits.startsWith("1")) {
+    return digits.slice(1);
+  }
+  return digits;
+}
+
+function toNumber(value: any, fallback: number | null = 0): number {
+  if (value === null || value === undefined) {
+    return fallback ?? 0;
+  }
+  const parsed = Number(value);
+  if (Number.isNaN(parsed)) {
+    return fallback ?? 0;
+  }
+  return parsed;
+}
+
+async function getOrCreateFloristCustomer(floristCode: string | null) {
+  const code = floristCode || "unknown";
+  const floristPhone = `ftd-${code}`;
+
+  let customer = await prisma.customer.findFirst({
+    where: { phone: floristPhone }
+  });
+
+  if (!customer) {
+    customer = await prisma.customer.create({
+      data: {
+        firstName: "FTD Florist",
+        lastName: `#${code}`,
+        phone: floristPhone,
+        notes: `FTD sending florist code: ${code}`
+      }
+    });
+    console.log(`👤 Created FTD sending florist customer: #${code}`);
+  }
+
+  return customer;
+}
+
+async function getOrCreateRecipientCustomer(payload: NormalizedFtdPayload) {
+  const { recipient } = payload;
+  const normalizedPhone = normalizePhoneNumber(recipient.phone);
+
+  let customer = null;
+
+  if (normalizedPhone) {
+    customer = await prisma.customer.findFirst({
+      where: {
+        OR: [
+          recipient.phone ? { phone: recipient.phone } : undefined,
+          { phone: normalizedPhone },
+          normalizedPhone.length >= 7
+            ? { phone: { endsWith: normalizedPhone.slice(-7) } }
+            : undefined
+        ].filter(Boolean) as any
+      }
+    });
+  }
+
+  if (!customer && recipient.firstName && recipient.lastName) {
+    const possibleMatches = await prisma.customer.findMany({
+      where: {
+        firstName: {
+          equals: recipient.firstName,
+          mode: "insensitive"
+        },
+        lastName: {
+          equals: recipient.lastName,
+          mode: "insensitive"
+        }
+      },
+      include: { addresses: true }
+    });
+
+    const normalizedCity = (payload.address.city || "").toLowerCase();
+    customer =
+      possibleMatches.find((match) =>
+        match.addresses.some(
+          (addr) => (addr.city || "").toLowerCase() === normalizedCity
+        )
+      ) || possibleMatches[0] || null;
+  }
+
+  if (customer) {
+    const updateData: Prisma.CustomerUpdateInput = {};
+    if (!customer.phone && normalizedPhone) {
+      updateData.phone = normalizedPhone;
+    }
+    if (!customer.email && recipient.email) {
+      updateData.email = recipient.email;
+    }
+    if (Object.keys(updateData).length > 0) {
+      customer = await prisma.customer.update({
+        where: { id: customer.id },
+        data: updateData
+      });
+    }
+    return customer;
+  }
+
+  const created = await prisma.customer.create({
+    data: {
+      firstName: recipient.firstName || "Recipient",
+      lastName: recipient.lastName || "",
+      phone: normalizedPhone,
+      email: recipient.email || undefined
+    }
+  });
+
+  console.log(
+    `👤 Created recipient customer: ${created.firstName} ${created.lastName}`
+  );
+
+  return created;
 }
 
 function isOutgoingFtdOrder(ftdData: any, shopId?: string | null) {
-  const direction = (ftdData?.direction || ftdData?.orderDirection || '').toString().toLowerCase();
-  if (direction === 'outgoing' || direction === 'sent') {
+  const directionHint = (ftdData?.direction || ftdData?.orderDirection || "")
+    .toString()
+    .toLowerCase();
+  if (directionHint === "outgoing" || directionHint === "sent") {
     return true;
   }
 
-  if (!shopId) {
-    return false;
-  }
+  if (!shopId) return false;
 
-  const normalize = (value: any) => value ? value.toString().trim().toUpperCase() : '';
+  const normalize = (value: any) =>
+    value ? value.toString().trim().toUpperCase() : "";
 
   const ourCode = normalize(shopId);
-  const sendingCode = normalize(ftdData?.sendingMember?.memberCode || ftdData?.sendingMemberCode);
-  const receivingCode = normalize(ftdData?.receivingMember?.memberCode || ftdData?.receivingMemberCode);
+  const sendingCode = normalize(
+    ftdData?.sendingMember?.memberCode || ftdData?.sendingMemberCode
+  );
+  const receivingCode = normalize(
+    ftdData?.receivingMember?.memberCode || ftdData?.receivingMemberCode
+  );
 
   if (sendingCode && sendingCode === ourCode) {
     if (!receivingCode || receivingCode !== ourCode) {
@@ -443,313 +817,33 @@ function isOutgoingFtdOrder(ftdData: any, shopId?: string | null) {
   return false;
 }
 
-async function tryAutoLinkBloomOrder(ftdOrder: any): Promise<string | null> {
-  if (ftdOrder.linkedOrderId) {
-    return ftdOrder.linkedOrderId;
+function generatePayloadHash(payload: any): string {
+  const stable = JSON.stringify(payload, Object.keys(payload).sort());
+  let hash = 0;
+  for (let i = 0; i < stable.length; i++) {
+    const chr = stable.charCodeAt(i);
+    hash = (hash << 5) - hash + chr;
+    hash |= 0;
   }
-
-  if (!ftdOrder.deliveryDate) {
-    return null;
-  }
-
-  const deliveryDate = new Date(ftdOrder.deliveryDate);
-  if (Number.isNaN(deliveryDate.getTime())) {
-    return null;
-  }
-
-  const dayStart = new Date(deliveryDate);
-  dayStart.setHours(0, 0, 0, 0);
-  const dayEnd = new Date(dayStart);
-  dayEnd.setDate(dayEnd.getDate() + 1);
-
-  const candidateOrders = await prisma.order.findMany({
-    where: {
-      type: 'DELIVERY',
-      orderSource: { not: 'WIREIN' },
-      deliveryDate: {
-        gte: dayStart,
-        lt: dayEnd,
-      },
-      ftdOrders: {
-        none: {},
-      },
-    },
-    include: {
-      recipientCustomer: true,
-      deliveryAddress: true,
-    },
-  });
-
-  if (candidateOrders.length === 0) {
-    return null;
-  }
-
-  const normalizedPhone = normalizePhone(ftdOrder.recipientPhone);
-
-  let chosenOrder = null;
-
-  if (normalizedPhone) {
-    const phoneMatches = candidateOrders.filter(order => {
-      const candidatePhone = normalizePhone(order.recipientCustomer?.phone);
-      return candidatePhone && candidatePhone === normalizedPhone;
-    });
-
-    if (phoneMatches.length === 1) {
-      chosenOrder = phoneMatches[0];
-    } else if (phoneMatches.length > 1) {
-      return null; // Ambiguous - let manual linking handle it
-    }
-  }
-
-  if (!chosenOrder) {
-    const normalizedFirst = normalizeString(ftdOrder.recipientFirstName);
-    const normalizedLast = normalizeString(ftdOrder.recipientLastName);
-
-    if (normalizedFirst || normalizedLast) {
-      let nameMatches = candidateOrders.filter(order => {
-        const customer = order.recipientCustomer;
-        const candidateFirst = normalizeString(customer?.firstName);
-        const candidateLast = normalizeString(customer?.lastName);
-
-        if (normalizedFirst && candidateFirst !== normalizedFirst) {
-          return false;
-        }
-        if (normalizedLast && candidateLast !== normalizedLast) {
-          return false;
-        }
-        return true;
-      });
-
-      if (nameMatches.length > 1) {
-        const city = normalizeString(ftdOrder.city);
-        if (city) {
-          nameMatches = nameMatches.filter(order => normalizeString(order.deliveryAddress?.city) === city);
-        }
-      }
-
-      if (nameMatches.length === 1) {
-        chosenOrder = nameMatches[0];
-      }
-    }
-  }
-
-  if (!chosenOrder) {
-    return null;
-  }
-
-  await prisma.ftdOrder.update({
-    where: { id: ftdOrder.id },
-    data: {
-      linkedOrderId: chosenOrder.id,
-      needsApproval: false,
-    },
-  });
-
-  console.log(`🔗 Linked outgoing FTD ${ftdOrder.externalId} to Bloom Order #${chosenOrder.orderNumber}`);
-  return chosenOrder.id;
+  return `h${hash}`;
 }
 
-function normalizePhone(phone?: string | null) {
-  if (!phone) return '';
-  const digits = phone.replace(/\D/g, '');
-  return digits.length >= 7 ? digits : '';
-}
-
-function normalizeString(value?: string | null) {
-  return value ? value.trim().toLowerCase() : '';
-}
-
-// Map FTD status to our enum (based on actual Mercury HQ statuses)
-function mapFtdStatus(ftdStatus: string): FtdOrderStatus {
-  const statusMap: Record<string, FtdOrderStatus> = {
-    // Needs Action (incoming orders)
-    'NEW': FtdOrderStatus.NEEDS_ACTION,
-    'VIEWED': FtdOrderStatus.NEEDS_ACTION,
-    'PENDING': FtdOrderStatus.NEEDS_ACTION,
-
-    // Accepted/Acknowledged
-    'ACKNOWLEDGED': FtdOrderStatus.ACCEPTED,
-    'SENT': FtdOrderStatus.ACCEPTED,
-    'FORWARDED': FtdOrderStatus.ACCEPTED,
-    'PRINTED': FtdOrderStatus.ACCEPTED,
-    'ACKNOWLEDGE_PRINT': FtdOrderStatus.ACCEPTED,
-
-    // In Design/Production
-    'DESIGN': FtdOrderStatus.IN_DESIGN,
-    'DESIGNED': FtdOrderStatus.READY,
-
-    // Delivery
-    'DS_REQUESTED': FtdOrderStatus.OUT_FOR_DELIVERY,
-    'DS_REQUEST_PENDING': FtdOrderStatus.OUT_FOR_DELIVERY,
-    'OUT_FOR_DELIVERY': FtdOrderStatus.OUT_FOR_DELIVERY,
-    'DELIVERED': FtdOrderStatus.DELIVERED,
-
-    // Rejected/Cancelled
-    'REJECTED': FtdOrderStatus.REJECTED,
-    'CANCELLED': FtdOrderStatus.CANCELLED,
-    'ERROR': FtdOrderStatus.CANCELLED,
-    'FORFEITED': FtdOrderStatus.CANCELLED,
+function buildNotificationPayload(
+  payload: NormalizedFtdPayload,
+  isUpdate: boolean = false
+) {
+  return {
+    externalId: payload.externalId,
+    recipientFirstName: payload.recipient.firstName,
+    recipientLastName: payload.recipient.lastName,
+    city: payload.address.city,
+    deliveryDate: payload.deliveryDate,
+    productDescription: payload.products[0]?.description || payload.productDescription,
+    totalAmount: payload.total,
+    cardMessage: payload.cardMessage,
+    deliveryInstructions: payload.deliveryInstructions,
+    isUpdate
   };
-
-  return statusMap[ftdStatus] || FtdOrderStatus.NEEDS_ACTION;
-}
-
-// Map FTD address type to Bloom AddressType
-function mapAddressType(ftdAddressType: string | undefined): AddressType | null {
-  if (!ftdAddressType) return AddressType.RESIDENCE;
-
-  const typeMap: Record<string, AddressType> = {
-    'Residence': AddressType.RESIDENCE,
-    'Business': AddressType.BUSINESS,
-    'Church': AddressType.CHURCH,
-    'School': AddressType.SCHOOL,
-    'Funeral Home': AddressType.FUNERAL_HOME,
-  };
-
-  return typeMap[ftdAddressType] || AddressType.RESIDENCE;
-}
-
-// Auto-create Bloom order from accepted FTD order
-async function autoCreateBloomOrder(ftdOrder: any) {
-  try {
-    // 1. Get or create SENDER customer (Sending Florist)
-    // Use unique phone format: ftd-{floristCode} for easy lookup
-    const floristCode = ftdOrder.sendingFloristCode || 'unknown';
-    const floristPhone = `ftd-${floristCode}`;
-
-    let senderCustomer = await prisma.customer.findFirst({
-      where: { phone: floristPhone }
-    });
-
-    if (!senderCustomer) {
-      senderCustomer = await prisma.customer.create({
-        data: {
-          firstName: 'FTD Florist',
-          lastName: `#${floristCode}`,
-          phone: floristPhone,
-          email: null,
-          notes: `FTD sending florist code: ${floristCode}`,
-        }
-      });
-      console.log(`👤 Created FTD sending florist customer: #${floristCode}`);
-    }
-
-    // 2. Find or create RECIPIENT customer (the person receiving the flowers)
-    let recipientCustomer = null;
-
-    if (ftdOrder.recipientPhone) {
-      // Try to find existing customer by phone
-      recipientCustomer = await prisma.customer.findFirst({
-        where: {
-          phone: ftdOrder.recipientPhone,
-        }
-      });
-
-      // If not found, create new customer with recipient info
-      if (!recipientCustomer) {
-        recipientCustomer = await prisma.customer.create({
-          data: {
-            firstName: ftdOrder.recipientFirstName || 'Recipient',
-            lastName: ftdOrder.recipientLastName || '',
-            phone: ftdOrder.recipientPhone,
-            email: ftdOrder.recipientEmail,
-          }
-        });
-        console.log(`👤 Created recipient customer: ${recipientCustomer.firstName} ${recipientCustomer.lastName} (${recipientCustomer.phone})`);
-      }
-    } else {
-      // No phone provided - create anonymous recipient
-      recipientCustomer = await prisma.customer.create({
-        data: {
-          firstName: ftdOrder.recipientFirstName || 'Recipient',
-          lastName: ftdOrder.recipientLastName || '',
-          phone: null,
-          email: ftdOrder.recipientEmail,
-        }
-      });
-      console.log(`👤 Created recipient customer without phone: ${recipientCustomer.firstName} ${recipientCustomer.lastName}`);
-    }
-
-    // 3. Create recipient address
-    const recipientAddress = await prisma.address.create({
-      data: {
-        firstName: ftdOrder.recipientFirstName || '',
-        lastName: ftdOrder.recipientLastName || '',
-        address1: ftdOrder.address1 || '',
-        address2: ftdOrder.address2,
-        city: ftdOrder.city || '',
-        province: ftdOrder.province || '',
-        postalCode: ftdOrder.postalCode || '',
-        country: ftdOrder.country || 'CA',
-        phone: ftdOrder.recipientPhone,
-        addressType: ftdOrder.addressType || AddressType.RESIDENCE,
-        customerId: recipientCustomer.id,
-      }
-    });
-
-    // 4. Create Bloom order
-    const bloomOrder = await prisma.order.create({
-      data: {
-        type: 'DELIVERY',
-        status: 'PAID', // FTD orders are pre-paid
-        orderSource: 'WIREIN',
-        customerId: senderCustomer.id, // Sender = Sending Florist
-        deliveryAddressId: recipientAddress.id,
-        recipientCustomerId: recipientCustomer.id, // Recipient = actual recipient
-        deliveryDate: ftdOrder.deliveryDate,
-        deliveryTime: ftdOrder.deliveryTime,
-        cardMessage: ftdOrder.cardMessage,
-        specialInstructions: ftdOrder.deliveryInstructions,
-        occasion: ftdOrder.occasion,
-        deliveryFee: 0, // FTD handles delivery fee
-        paymentAmount: ftdOrder.totalAmount || 0,
-        totalTax: 0,
-      }
-    });
-
-    // 4. Add order item (single product from FTD)
-    await prisma.orderItem.create({
-      data: {
-        orderId: bloomOrder.id,
-        customName: ftdOrder.productDescription || 'FTD Wire Order',
-        unitPrice: Math.round((ftdOrder.totalAmount || 0) * 100), // Convert to cents
-        quantity: 1,
-        rowTotal: Math.round((ftdOrder.totalAmount || 0) * 100),
-      }
-    });
-
-    // 5. Link FTD order to Bloom order and mark for approval
-    await prisma.ftdOrder.update({
-      where: { id: ftdOrder.id },
-      data: {
-        linkedOrderId: bloomOrder.id,
-        needsApproval: true  // Needs manual review for product/price adjustment
-      }
-    });
-
-    console.log(`✅ Created Bloom Order #${bloomOrder.orderNumber} from FTD ${ftdOrder.externalId} - NEEDS APPROVAL`);
-
-    return bloomOrder;
-
-  } catch (error: any) {
-    console.error('Failed to auto-create Bloom order:', error.message);
-    throw error;
-  }
-}
-
-// Auto-update Bloom order status
-async function autoUpdateBloomOrderStatus(bloomOrderId: string, newStatus: string) {
-  try {
-    const updated = await prisma.order.update({
-      where: { id: bloomOrderId },
-      data: { status: newStatus as any }
-    });
-
-    console.log(`✅ Updated Bloom Order #${updated.orderNumber} status to ${newStatus}`);
-  } catch (error: any) {
-    console.error('Failed to update Bloom order status:', error.message);
-    throw error;
-  }
 }
 
 // Update auth token (called by auth service)
@@ -762,6 +856,61 @@ export function setAuthToken(token: string) {
 export function getMonitorStatus() {
   return {
     isPolling,
-    currentToken: currentToken ? '••••••••' : null,
+    currentToken: currentToken ? "••••••••" : null
+  };
+}
+
+export type { NormalizedFtdPayload };
+export { normalizeFtdPayload };
+
+async function fetchDetailedPayload(externalId: string | undefined, shopId: string) {
+  if (!externalId) return null;
+  const settings = await prisma.ftdSettings.findFirst();
+  if (!settings || !settings.authToken) {
+    return null;
+  }
+
+  try {
+    const detailUrl = `https://pt.ftdi.com/e/p/mdf-order/api/${shopId}/orders`;
+    console.log(`🔍 Fetching detailed payload: ${detailUrl}?scope=listing&limit=1&external_id=${externalId}`);
+    const res = await axiosClient.get(
+      detailUrl,
+      {
+        params: {
+          scope: "listing",
+          limit: 1,
+          offset: 0,
+          external_id: externalId
+        },
+        headers: buildFtdHeaders(settings)
+      }
+    );
+
+    const data = res.data;
+    if (Array.isArray(data) && data.length > 0) {
+      return data[0];
+    }
+  } catch (error: any) {
+    console.error(
+      `Failed to fetch detailed payload for ${externalId}:`,
+      error.response?.status,
+      error.message
+    );
+  }
+
+  console.warn(`⚠️ Detailed payload not found for ${externalId}`);
+  return null;
+}
+
+function buildFtdHeaders(settings: { apiKey: string; authToken: string; shopId: string }) {
+  return {
+    Authorization: `apiKey ${settings.apiKey}`,
+    "ep-authorization": settings.authToken,
+    Origin: "https://mercuryhq.com",
+    Referer: "https://mercuryhq.com/",
+    "X-Timezone": "America/Vancouver",
+    "Content-Type": "application/json",
+    "client-context": '{"siteId":"mercuryos"}',
+    "request-context": `{"authGroupName":"ADMIN_ROLE","memberCodes":["${settings.shopId}"],"shopGroups":["IN YOUR VASE FLOWERS"],"roles":["ADMIN"]}`
   };
 }

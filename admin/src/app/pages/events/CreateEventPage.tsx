@@ -222,7 +222,7 @@ const CreateEventPage: React.FC = () => {
 
   return (
     <div className="p-4">
-      <PageBreadcrumb pageName="Create New Event" />
+      <PageBreadcrumb pageTitle="Create New Event" />
       
       <form onSubmit={handleSubmit}>
         <div className="space-y-6">
@@ -412,7 +412,7 @@ const CreateEventPage: React.FC = () => {
                   <InputField
                     label="Quoted Amount"
                     type="number"
-                    step="0.01"
+                    step={0.01}
                     placeholder="0.00"
                     value={formData.quotedAmount}
                     onChange={(e) => handleInputChange('quotedAmount', e.target.value)}
@@ -544,7 +544,7 @@ const CreateEventPage: React.FC = () => {
                             <Label>Unit Price</Label>
                             <input
                               type="number"
-                              step="0.01"
+                              step={0.01}
                               min="0"
                               value={item.unitPrice}
                               onChange={(e) => updateItem(item.id, 'unitPrice', parseFloat(e.target.value) || 0)}

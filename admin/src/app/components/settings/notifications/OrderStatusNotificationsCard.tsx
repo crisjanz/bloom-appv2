@@ -288,6 +288,7 @@ const OrderStatusNotificationsCard = () => {
               <Switch
                 checked={settings.globalEmailEnabled}
                 onChange={(checked) => updateGlobalSetting('globalEmailEnabled', checked)}
+                ariaLabel="Toggle global email notifications"
               />
             </div>
 
@@ -299,6 +300,7 @@ const OrderStatusNotificationsCard = () => {
               <Switch
                 checked={settings.globalSmsEnabled}
                 onChange={(checked) => updateGlobalSetting('globalSmsEnabled', checked)}
+                ariaLabel="Toggle global SMS notifications"
               />
             </div>
 
@@ -310,6 +312,7 @@ const OrderStatusNotificationsCard = () => {
               <Switch
                 checked={settings.businessHoursOnly}
                 onChange={(checked) => updateGlobalSetting('businessHoursOnly', checked)}
+                ariaLabel="Toggle business hours only notifications"
               />
             </div>
           </div>
@@ -351,6 +354,7 @@ const OrderStatusNotificationsCard = () => {
                             checked={status.customerEmailEnabled && settings.globalEmailEnabled}
                             onChange={(checked) => updateStatusNotification(status.id, 'customerEmailEnabled', checked)}
                             disabled={!settings.globalEmailEnabled}
+                            ariaLabel={`Toggle customer email notification for ${status.displayName}`}
                           />
                         </div>
                         <div className="flex items-center gap-2">
@@ -359,6 +363,7 @@ const OrderStatusNotificationsCard = () => {
                             checked={status.customerSmsEnabled && settings.globalSmsEnabled}
                             onChange={(checked) => updateStatusNotification(status.id, 'customerSmsEnabled', checked)}
                             disabled={!settings.globalSmsEnabled}
+                            ariaLabel={`Toggle customer SMS notification for ${status.displayName}`}
                           />
                         </div>
                       </div>
@@ -372,6 +377,7 @@ const OrderStatusNotificationsCard = () => {
                             checked={status.recipientEmailEnabled && settings.globalEmailEnabled}
                             onChange={(checked) => updateStatusNotification(status.id, 'recipientEmailEnabled', checked)}
                             disabled={!settings.globalEmailEnabled}
+                            ariaLabel={`Toggle recipient email notification for ${status.displayName}`}
                           />
                         </div>
                         <div className="flex items-center gap-2">
@@ -380,6 +386,7 @@ const OrderStatusNotificationsCard = () => {
                             checked={status.recipientSmsEnabled && settings.globalSmsEnabled}
                             onChange={(checked) => updateStatusNotification(status.id, 'recipientSmsEnabled', checked)}
                             disabled={!settings.globalSmsEnabled}
+                            ariaLabel={`Toggle recipient SMS notification for ${status.displayName}`}
                           />
                         </div>
                       </div>
@@ -432,7 +439,7 @@ const OrderStatusNotificationsCard = () => {
                               </label>
                               <TextArea
                                 value={status.customerEmailTemplate}
-                                onChange={(e) => updateStatusNotification(status.id, 'customerEmailTemplate', e.target.value)}
+                                onChange={(value) => updateStatusNotification(status.id, 'customerEmailTemplate', value)}
                                 placeholder="Enter email message template..."
                                 rows={3}
                               />
@@ -451,7 +458,7 @@ const OrderStatusNotificationsCard = () => {
                               </label>
                               <TextArea
                                 value={status.customerSmsTemplate}
-                                onChange={(e) => updateStatusNotification(status.id, 'customerSmsTemplate', e.target.value)}
+                                onChange={(value) => updateStatusNotification(status.id, 'customerSmsTemplate', value)}
                                 placeholder="Enter SMS message template..."
                                 rows={2}
                               />
@@ -488,7 +495,7 @@ const OrderStatusNotificationsCard = () => {
                               </label>
                               <TextArea
                                 value={status.recipientEmailTemplate}
-                                onChange={(e) => updateStatusNotification(status.id, 'recipientEmailTemplate', e.target.value)}
+                                onChange={(value) => updateStatusNotification(status.id, 'recipientEmailTemplate', value)}
                                 placeholder="Enter email message template..."
                                 rows={3}
                               />
@@ -507,7 +514,7 @@ const OrderStatusNotificationsCard = () => {
                               </label>
                               <TextArea
                                 value={status.recipientSmsTemplate}
-                                onChange={(e) => updateStatusNotification(status.id, 'recipientSmsTemplate', e.target.value)}
+                                onChange={(value) => updateStatusNotification(status.id, 'recipientSmsTemplate', value)}
                                 placeholder="Enter SMS message template..."
                                 rows={2}
                               />

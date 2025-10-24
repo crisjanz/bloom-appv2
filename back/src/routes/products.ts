@@ -1,13 +1,7 @@
 import { Router } from 'express';
-import { createClient } from '@supabase/supabase-js';
 import multer from 'multer';
 import prisma from '../lib/prisma';
-
-// Supabase is being migrated to Cloudflare R2
-// Make optional for now to prevent startup crashes
-const supabase = process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
-  ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
-  : null;
+import { uploadToR2, deleteFromR2 } from '../utils/r2Client';
 
 const upload = multer({ storage: multer.memoryStorage() });
 const router = Router();
@@ -23,24 +17,6 @@ const generateUUID = () => {
 router.get('/ping', (req, res) => {
   console.log('Ping route hit');
   res.json({ message: 'Pong' });
-});
-
-router.get('/test-supabase', async (req, res) => {
-  try {
-    console.log('Test-supabase route hit');
-    console.log('Supabase URL:', process.env.SUPABASE_URL);
-    console.log('Supabase Key:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'Set' : 'Missing');
-    const { data, error } = await supabase.storage.from('images').list();
-    if (error) {
-      console.error('Supabase error:', error);
-      throw error;
-    }
-    res.json({ buckets: data });
-  } catch (err: any) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error('Test route error:', err);
-    res.status(500).json({ error: message });
-  }
 });
 
 router.get('/search', async (req, res) => {
@@ -176,12 +152,39 @@ router.post('/', upload.array('images'), async (req, res) => {
       return res.status(400).json({ error: 'Title is required' });
     }
 
-    // Create product first without images for immediate response
-    const imageUrls: string[] = [];
-    const files = (req as any).files as Express.Multer.File[];
+    let imageUrls: string[] = [];
+    if (req.body.images) {
+      try {
+        const parsed = typeof req.body.images === 'string' ? JSON.parse(req.body.images) : req.body.images;
+        if (Array.isArray(parsed)) {
+          imageUrls = parsed.filter((url: unknown) => typeof url === 'string') as string[];
+        }
+      } catch (error) {
+        console.warn('⚠️ Failed to parse product images from request body, ignoring provided value.');
+      }
+    }
 
-    const optionGroups = optionGroupsJson ? JSON.parse(optionGroupsJson) : [];
-    const variants = variantsJson ? JSON.parse(variantsJson) : [];
+    const files = (req as any).files as Express.Multer.File[] | undefined;
+
+    if (files && files.length > 0) {
+      console.log(`📤 Uploading ${files.length} product image(s) to Cloudflare R2...`);
+      for (const file of files) {
+        const { url } = await uploadToR2({
+          folder: 'products',
+          buffer: file.buffer,
+          mimeType: file.mimetype,
+          originalName: file.originalname,
+        });
+        imageUrls.push(url);
+      }
+    }
+
+    const optionGroups = optionGroupsJson
+      ? (typeof optionGroupsJson === 'string' ? JSON.parse(optionGroupsJson) : optionGroupsJson)
+      : [];
+    const variants = variantsJson
+      ? (typeof variantsJson === 'string' ? JSON.parse(variantsJson) : variantsJson)
+      : [];
     const basePrice = parseFloat(price || '0') * 100;
 
     console.log('🔍 Variants data received:', {
@@ -272,31 +275,15 @@ router.post('/', upload.array('images'), async (req, res) => {
     console.log('✅ Product created successfully:', {
       productId: product.id,
       basePrice: basePrice / 100,
-      variantCount: variants.length
+      variantCount: variants.length,
+      imageCount: imageUrls.length,
     });
 
-    // Respond immediately to user
     res.status(201).json({ 
       id: product.id,
-      message: files && files.length > 0 ? `Product created. Uploading ${files.length} images in background...` : 'Product created successfully'
+      images: imageUrls,
+      message: 'Product created successfully'
     });
-
-    // Upload images in background and update product
-    if (files && files.length > 0) {
-      console.log(`📤 Starting background image upload for product ${product.id} (${files.length} files)`);
-      
-      uploadProductImages(files, product.id)
-        .then((uploadedUrls) => {
-          console.log(`✅ Background image upload completed for product ${product.id}:`, uploadedUrls);
-        })
-        .catch((error) => {
-          console.error(`❌ Background image upload failed for product ${product.id}:`, error);
-          // TODO: In production, you might want to:
-          // - Log to monitoring service
-          // - Store failure for retry
-          // - Send admin notification
-        });
-    }
   } catch (err: any) {
     console.error('Create product error:', err.message, err.stack);
     res.status(500).json({ error: err.message || 'Failed to create product' });
@@ -427,9 +414,16 @@ router.put('/:id', async (req, res) => {
       unavailableMessage: (unavailableMessage && unavailableMessage.trim() !== '') ? unavailableMessage : null,
     };
 
-    // Update images (already uploaded to Supabase via immediate upload)
-    if (images && Array.isArray(images)) {
-      updateData.images = images;
+    // Update images (already uploaded to Cloudflare R2 via immediate upload)
+    if (images) {
+      try {
+        const parsedImages = typeof images === 'string' ? JSON.parse(images) : images;
+        if (Array.isArray(parsedImages)) {
+          updateData.images = parsedImages;
+        }
+      } catch (parseError) {
+        console.warn('⚠️ Failed to parse product images during update, ignoring provided value.');
+      }
     }
 
     // Delete existing variants and their associated data
@@ -521,50 +515,6 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Background upload function for product images
-async function uploadProductImages(files: Express.Multer.File[], productId: string): Promise<string[]> {
-  const imageUrls: string[] = [];
-  
-  console.log(`📤 Starting background upload for product ${productId} (${files.length} files)`);
-  
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    const filePath = `products/${Date.now()}-${i}-${file.originalname}`;
-    
-    console.log(`📤 Uploading file ${i + 1}/${files.length}: ${filePath}`);
-    
-    const { error } = await supabase.storage
-      .from('images')
-      .upload(filePath, file.buffer, {
-        contentType: file.mimetype,
-        cacheControl: '3600', // Cache for 1 hour
-        upsert: false
-      });
-
-    if (error) {
-      console.error(`❌ Supabase upload error for file ${i + 1}:`, error);
-      throw error;
-    }
-
-    const { data: publicUrlData } = supabase.storage
-      .from('images')
-      .getPublicUrl(filePath);
-    
-    imageUrls.push(publicUrlData.publicUrl);
-    console.log(`✅ File ${i + 1}/${files.length} uploaded: ${publicUrlData.publicUrl}`);
-  }
-  
-  // Update the product with the uploaded image URLs
-  console.log(`🔄 Updating product ${productId} with ${imageUrls.length} image URLs`);
-  await prisma.product.update({
-    where: { id: productId },
-    data: { images: imageUrls }
-  });
-  
-  console.log(`✅ Product ${productId} updated with images successfully`);
-  return imageUrls;
-}
-
 // PATCH route for updating only images (immediate upload)
 router.patch('/:id/images', async (req, res) => {
   const { id } = req.params;
@@ -600,8 +550,9 @@ router.post('/images/upload', upload.single('image'), async (req, res) => {
     }
 
     // Validate folder
-    if (!folder || !['products', 'orders'].includes(folder)) {
-      return res.status(400).json({ error: 'Invalid folder. Must be "products" or "orders"' });
+    const allowedFolders = ['products', 'orders', 'events', 'general'];
+    if (!folder || !allowedFolders.includes(folder)) {
+      return res.status(400).json({ error: `Invalid folder. Must be one of ${allowedFolders.join(', ')}` });
     }
 
     // Validate file type
@@ -616,37 +567,16 @@ router.post('/images/upload', upload.single('image'), async (req, res) => {
       return res.status(400).json({ error: 'File too large. Maximum size is 10MB' });
     }
 
-    // Generate unique file name
-    const timestamp = Date.now();
-    const randomStr = Math.random().toString(36).substring(2, 9);
-    const extension = file.mimetype.split('/')[1];
-    const fileName = `${timestamp}-${randomStr}.${extension}`;
-    const filePath = `${folder}/${fileName}`;
+    const { url, key } = await uploadToR2({
+      folder,
+      buffer: file.buffer,
+      mimeType: file.mimetype,
+      originalName: file.originalname,
+    });
 
-    console.log('📤 Uploading image to Supabase:', filePath);
+    console.log('✅ Image uploaded to Cloudflare R2:', url);
 
-    // Upload to Supabase using secure service role key
-    const { error: uploadError } = await supabase.storage
-      .from('images')
-      .upload(filePath, file.buffer, {
-        contentType: file.mimetype,
-        cacheControl: '3600',
-        upsert: false,
-      });
-
-    if (uploadError) {
-      console.error('❌ Supabase upload error:', uploadError);
-      throw new Error(`Upload failed: ${uploadError.message}`);
-    }
-
-    // Get public URL
-    const { data: publicUrlData } = supabase.storage
-      .from('images')
-      .getPublicUrl(filePath);
-
-    console.log('✅ Image uploaded successfully:', publicUrlData.publicUrl);
-
-    res.json({ url: publicUrlData.publicUrl });
+    res.json({ url, key });
   } catch (error) {
     console.error('❌ Error uploading image:', error);
     res.status(500).json({
@@ -666,27 +596,21 @@ router.delete('/images', async (req, res) => {
     }
 
     // Validate folder
-    if (!folder || !['products', 'orders'].includes(folder)) {
-      return res.status(400).json({ error: 'Invalid folder. Must be "products" or "orders"' });
+    const allowedFolders = ['products', 'orders', 'events', 'general'];
+    if (!folder || !allowedFolders.includes(folder)) {
+      return res.status(400).json({ error: `Invalid folder. Must be one of ${allowedFolders.join(', ')}` });
     }
 
-    // Extract file name from URL
-    const urlParts = imageUrl.split('/');
-    const fileName = urlParts[urlParts.length - 1];
-    const filePath = `${folder}/${fileName}`;
+    const cdnBase = (process.env.CLOUDFLARE_R2_PUBLIC_URL || 'https://cdn.hellobloom.ca').replace(/\/$/, '');
+    const normalizedUrl = imageUrl.startsWith(cdnBase) ? imageUrl.slice(cdnBase.length + 1) : imageUrl;
+    const fileName = normalizedUrl.split('/').pop();
+    const key = folder && fileName ? `${folder}/${fileName}` : normalizedUrl;
 
-    console.log('🗑️ Deleting image from Supabase:', filePath);
+    console.log('🗑️ Deleting image from Cloudflare R2:', key);
 
-    const { error: deleteError } = await supabase.storage
-      .from('images')
-      .remove([filePath]);
+    await deleteFromR2(key);
 
-    if (deleteError) {
-      console.error('❌ Supabase delete error:', deleteError);
-      throw new Error(`Delete failed: ${deleteError.message}`);
-    }
-
-    console.log('✅ Image deleted successfully');
+    console.log('✅ Image deleted successfully from Cloudflare R2');
 
     res.json({ success: true });
   } catch (error) {

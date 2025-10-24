@@ -69,13 +69,12 @@ export const useTransactionReport = ({
   const updateFilters = useCallback(
     (updates: TransactionReportFilters, options: UpdateFilterOptions = { resetPage: true }) => {
       setFilters((prev) => {
-        const next: TransactionReportFilters = { ...prev };
+        const next: TransactionReportFilters = { ...prev, ...updates };
 
-        Object.entries(updates).forEach(([key, value]) => {
+        (Object.keys(next) as Array<keyof TransactionReportFilters>).forEach((key) => {
+          const value = next[key];
           if (value === undefined || value === null || value === '') {
-            delete next[key as keyof TransactionReportFilters];
-          } else {
-            next[key as keyof TransactionReportFilters] = value;
+            delete next[key];
           }
         });
 

@@ -8,7 +8,7 @@ import OrderStatusNotificationsCard from "@app/components/settings/notifications
 
 const NotificationsPage = () => (
   <div className="space-y-6">
-    <PageBreadcrumb pageName="Notifications Settings" />
+    <PageBreadcrumb pageTitle="Notifications Settings" />
     <h2 className="text-2xl font-semibold text-black dark:text-white">Notifications Settings</h2>
     <SMSGatewayCard />
     <EmailSettingsCard />

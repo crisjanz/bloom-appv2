@@ -106,7 +106,7 @@ const ProductInfoCard: FC<Props> = ({
     setIsUploading(true);
 
     try {
-      console.log('📤 Uploading cropped image to Supabase...');
+      console.log('📤 Uploading cropped image to Cloudflare R2...');
       const imageUrl = await uploadImage(croppedBlob, 'products');
       console.log('✅ Image uploaded:', imageUrl);
 
@@ -114,7 +114,7 @@ const ProductInfoCard: FC<Props> = ({
 
       // If re-cropping an existing image, delete the old one first
       if (editingExistingImage) {
-        console.log('🗑️ Deleting old image:', editingExistingImage);
+      console.log('🗑️ Deleting old image from Cloudflare R2:', editingExistingImage);
         await deleteImage(editingExistingImage, 'products');
         updatedImages = updatedImages.filter(img => img !== editingExistingImage);
         onImageDeleted(editingExistingImage);
@@ -148,7 +148,7 @@ const ProductInfoCard: FC<Props> = ({
     if (!confirm('Delete this image?')) return;
 
     try {
-      console.log('🗑️ Deleting image from Supabase...');
+      console.log('🗑️ Deleting image from Cloudflare R2...');
       await deleteImage(imageUrl, 'products');
       console.log('✅ Image deleted');
 

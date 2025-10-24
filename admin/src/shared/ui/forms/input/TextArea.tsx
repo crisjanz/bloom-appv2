@@ -1,6 +1,9 @@
 import React from "react";
 
 interface TextareaProps {
+  id?: string; // Identifier for linking label
+  name?: string; // Form name
+  label?: string; // Optional field label
   placeholder?: string; // Placeholder text
   rows?: number; // Number of rows
   value?: string; // Current value
@@ -12,6 +15,9 @@ interface TextareaProps {
 }
 
 const TextArea: React.FC<TextareaProps> = ({
+  id,
+  name,
+  label,
   placeholder = "Enter your message", // Default placeholder
   rows = 3, // Default number of rows
   value = "", // Default value
@@ -38,8 +44,19 @@ const TextArea: React.FC<TextareaProps> = ({
   }
 
   return (
-    <div className="relative">
+    <div className="flex flex-col gap-2">
+      {label && (
+        <label
+          htmlFor={id ?? name}
+          className="text-sm font-medium text-gray-700 dark:text-gray-300"
+        >
+          {label}
+        </label>
+      )}
+      <div className="relative">
       <textarea
+        id={id ?? name}
+        name={name}
         placeholder={placeholder}
         rows={rows}
         value={value}
@@ -56,6 +73,7 @@ const TextArea: React.FC<TextareaProps> = ({
           {hint}
         </p>
       )}
+      </div>
     </div>
   );
 };

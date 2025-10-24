@@ -387,6 +387,15 @@ export interface UpdateOrderData {
   scheduledDeliveryDate?: Date
   internalNotes?: string
   priority?: OrderPriority
+  paymentTransactionId?: string
+  paidAt?: Date
+  completedAt?: Date
+  subtotal?: Money
+  taxBreakdown?: TaxDetail[]
+  appliedDiscounts?: AppliedDiscount[]
+  deliveryFee?: Money
+  tips?: Money
+  totalAmount?: Money
 }
 
 // Order search and filtering
@@ -396,6 +405,8 @@ export interface OrderSearchCriteria {
   orderType?: OrderType[]
   fulfillmentType?: FulfillmentType[]
   paymentStatus?: PaymentStatus[]
+  limit?: number
+  offset?: number
   
   // Date ranges
   orderDateFrom?: Date
