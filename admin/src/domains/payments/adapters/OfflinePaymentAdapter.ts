@@ -102,8 +102,8 @@ export class OfflinePaymentAdapter implements IPaymentAdapter {
       status: PaymentMethodStatus.CAPTURED,
       receiptData: {
         transactionId: `CHECK-${transactionId}`,
-        checkNumber: paymentMethod.checkDetails?.checkNumber
-      }
+        checkNumber: (paymentMethod as any).checkDetails?.checkNumber
+      } as any
     }
   }
 
@@ -135,8 +135,8 @@ export class OfflinePaymentAdapter implements IPaymentAdapter {
       status: PaymentMethodStatus.CAPTURED,
       receiptData: {
         transactionId: `HOUSE-${transactionId}`,
-        accountReference: paymentMethod.houseAccountDetails?.accountNumber
-      }
+        accountReference: (paymentMethod as any).houseAccountDetails?.accountNumber
+      } as any
     }
   }
 
@@ -156,9 +156,9 @@ export class OfflinePaymentAdapter implements IPaymentAdapter {
       status: PaymentMethodStatus.CAPTURED,
       receiptData: {
         transactionId: `OFFLINE-${transactionId}`,
-        offlineMethodId: paymentMethod.offlineDetails?.methodId,
-        reference: paymentMethod.offlineDetails?.reference
-      }
+        offlineMethodId: (paymentMethod as any).offlineDetails?.methodId,
+        reference: (paymentMethod as any).offlineDetails?.reference
+      } as any
     }
   }
 
@@ -189,10 +189,10 @@ export class OfflinePaymentAdapter implements IPaymentAdapter {
         status: PaymentMethodStatus.CAPTURED,
         providerTransactionId: `paypal_${Date.now()}`,
         receiptData: {
-          payerId: paymentMethod.paypalDetails.payerId || `payer_${Date.now()}`,
+          payerId: (paymentMethod as any).paypalDetails?.payerId || `payer_${Date.now()}`,
           captureId: `paypal_${Date.now()}`,
           transactionId: `paypal_${Date.now()}`
-        }
+        } as any
       }
     } catch (error) {
       return {

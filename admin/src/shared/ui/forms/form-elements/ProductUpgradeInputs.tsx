@@ -28,7 +28,7 @@ export default function ProductInputs() {
 
 <div className="w-full px-2.5">
           <Label>Description</Label>
-          <TextArea placeholder="Enter Product Description" rows="6"/>
+          <TextArea placeholder="Enter Product Description" rows={6}/>
         </div>
 
           

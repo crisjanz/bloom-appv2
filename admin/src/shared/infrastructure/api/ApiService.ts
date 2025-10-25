@@ -137,6 +137,21 @@ export class ApiService {
   }
 
   /**
+   * PATCH request
+   */
+  static async patch<T>(
+    endpoint: string,
+    data: any,
+    options?: RequestOptions
+  ): Promise<Result<T, ApiError>> {
+    return this.call<T>(endpoint, {
+      ...options,
+      method: 'PATCH',
+      body: JSON.stringify(data)
+    })
+  }
+
+  /**
    * DELETE request
    */
   static async delete<T>(endpoint: string, options?: RequestOptions): Promise<Result<T, ApiError>> {

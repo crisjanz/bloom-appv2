@@ -37,6 +37,11 @@ export enum NotificationType {
   EVENT_QUOTE_SENT = 'EVENT_QUOTE_SENT',
   EVENT_QUOTE_APPROVED = 'EVENT_QUOTE_APPROVED',
   EVENT_INSTALLATION_SCHEDULED = 'EVENT_INSTALLATION_SCHEDULED',
+  EVENT_REMINDER = 'EVENT_REMINDER',
+  EVENT_INQUIRY_RECEIVED = 'EVENT_INQUIRY_RECEIVED',
+  EVENT_DEPOSIT_RECEIVED = 'EVENT_DEPOSIT_RECEIVED',
+  EVENT_COMPLETED = 'EVENT_COMPLETED',
+  EVENT_CANCELLED = 'EVENT_CANCELLED',
   
   // Payment notifications
   PAYMENT_RECEIVED = 'PAYMENT_RECEIVED',
@@ -67,7 +72,8 @@ export enum RecipientType {
   RECIPIENT = 'RECIPIENT', // Delivery recipient
   EMPLOYEE = 'EMPLOYEE',
   ADMIN = 'ADMIN',
-  SYSTEM = 'SYSTEM'
+  SYSTEM = 'SYSTEM',
+  VENDOR = 'VENDOR'
 }
 
 export enum TemplateEngine {
@@ -234,6 +240,17 @@ export interface NotificationSettings extends DomainEntity {
   eventNotifications: EventNotificationSettings
   marketingNotifications: MarketingNotificationSettings
 }
+
+type BusinessDayKey = Exclude<keyof NotificationSettings['businessHours'], 'timezone'>
+const BUSINESS_DAY_KEYS: BusinessDayKey[] = [
+  'sunday',
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday'
+]
 
 export interface OrderNotificationSettings {
   customerEmailEnabled: boolean
@@ -542,9 +559,12 @@ export class NotificationHelper {
   static isBusinessHours(settings: NotificationSettings): boolean {
     const now = new Date()
     const dayOfWeek = now.getDay() // 0 = Sunday, 1 = Monday, etc.
-    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-    const dayName = dayNames[dayOfWeek] as keyof typeof settings.businessHours
+    const dayName = BUSINESS_DAY_KEYS[dayOfWeek]
     
+    if (!dayName) {
+      return false
+    }
+
     const businessDay = settings.businessHours[dayName]
     if (!businessDay) return false
     

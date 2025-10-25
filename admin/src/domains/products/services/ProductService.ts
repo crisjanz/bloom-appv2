@@ -28,23 +28,27 @@ export class ProductService implements DomainService<Product> {
 
   // ===== CORE PRODUCT OPERATIONS =====
 
-  async create(data: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): Promise<Product> {
+  async create(data: CreateProductRequest): Promise<Product>
+  async create(data: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): Promise<Product>
+  async create(data: CreateProductRequest | Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): Promise<Product> {
+    const normalizedData = this.normalizeProductInput(data)
+
     // Validate product data
-    const validationResult = this.validateProductData(data)
+    const validationResult = this.validateProductData(normalizedData)
     if (!validationResult.isValid) {
       throw new Error(`Product validation failed: ${validationResult.errors.join(', ')}`)
     }
 
     // Ensure proper defaults
     const productData = {
-      ...data,
-      hasVariants: Boolean(data.variants?.length),
-      isActive: data.isActive ?? true,
-      posVisible: data.posVisible ?? true,
-      isTaxable: data.isTaxable ?? true,
-      inStock: data.inStock ?? true,
-      salesCount: 0,
-      revenue: 0
+      ...normalizedData,
+      hasVariants: normalizedData.hasVariants ?? Boolean(normalizedData.variants?.length),
+      isActive: normalizedData.isActive ?? true,
+      posVisible: normalizedData.posVisible ?? true,
+      isTaxable: normalizedData.isTaxable ?? true,
+      inStock: normalizedData.inStock ?? true,
+      salesCount: normalizedData.salesCount ?? 0,
+      revenue: normalizedData.revenue ?? 0
     }
 
     return await this.productRepository.save(productData as Product)
@@ -392,6 +396,20 @@ export class ProductService implements DomainService<Product> {
   }
 
   // ===== BUSINESS LOGIC HELPERS =====
+
+  private normalizeProductInput(
+    data: CreateProductRequest | Omit<Product, 'id' | 'createdAt' | 'updatedAt'>
+  ): Omit<Product, 'id' | 'createdAt' | 'updatedAt'> {
+    const hasVariants =
+      'hasVariants' in data
+        ? (data as Omit<Product, 'id' | 'createdAt' | 'updatedAt'>).hasVariants
+        : Boolean(data.variants?.length)
+
+    return {
+      ...data,
+      hasVariants
+    } as Omit<Product, 'id' | 'createdAt' | 'updatedAt'>
+  }
 
   /**
    * Calculate product with variant pricing

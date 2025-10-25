@@ -89,6 +89,10 @@ export class PaymentRepository extends BaseRepository<PaymentTransaction> {
     return allTransactions.filter(t => t.giftCards.length > 0)
   }
 
+  async update(id: string, updates: Partial<PaymentTransaction>): Promise<PaymentTransaction> {
+    return await this.save({ ...updates, id } as Partial<PaymentTransaction>)
+  }
+
   /**
    * Find failed transactions that can be retried
    */
@@ -372,7 +376,7 @@ export class PaymentRepository extends BaseRepository<PaymentTransaction> {
       retryCount: 0
     }
 
-    return await this.create(refundTransaction)
+    return await this.save(refundTransaction as Partial<PaymentTransaction>)
   }
 
   // ===== CLEANUP OPERATIONS =====

@@ -39,6 +39,7 @@ export interface Product extends DomainEntity {
   // Pricing and Tax
   isTaxable: boolean
   taxCategory?: string
+  displayPrice?: number
   
   // Metadata
   sku?: string
@@ -216,9 +217,7 @@ export interface UpdateProductRequest extends Partial<CreateProductRequest> {
   id: string
 }
 
-export interface UpdateVariantRequest extends Partial<CreateVariantRequest> {
-  id: string
-}
+export interface UpdateVariantRequest extends Partial<CreateVariantRequest> {}
 
 // ===== ANALYTICS INTERFACES =====
 

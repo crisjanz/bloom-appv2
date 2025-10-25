@@ -32,6 +32,7 @@ export default function SignInForm() {
     }
   };
 
+  const [isChecked, setIsChecked] = useState(false);
   return (
     <div className="flex flex-col flex-1">
       <div className="w-full max-w-md pt-10 mx-auto">
@@ -53,23 +54,27 @@ export default function SignInForm() {
               Enter your email and password to sign in!
             </p>
           </div>
-          <div>
             {error && (
               <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md dark:bg-red-900/20 dark:text-red-400 dark:border-red-800">
                 {error}
               </div>
             )}
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-200 dark:border-gray-800"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="p-2 text-gray-400 bg-white dark:bg-gray-900 sm:px-5 sm:py-2">
+                  Or
+                </span>
+              </div>
+            </div>
             <form onSubmit={handleSubmit}>
               <div className="space-y-6">
                 <div>
                   <Label>
                     Email <span className="text-error-500">*</span>{" "}
                   </Label>
-                  <Input
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="info@gmail.com"
-                  />
+                  <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="info@gmail.com" />
                 </div>
                 <div>
                   <Label>
@@ -77,9 +82,7 @@ export default function SignInForm() {
                   </Label>
                   <div className="relative">
                     <Input
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      type={showPassword ? "text" : "password"}
+                      value={password} onChange={(e) => setPassword(e.target.value)} type={showPassword ? "text" : "password"}
                       placeholder="Enter your password"
                     />
                     <span
@@ -109,15 +112,16 @@ export default function SignInForm() {
                   </Link>
                 </div>
                 <div>
-                  <Button type="submit" className="w-full" size="sm" disabled={isLoading}>
-                    {isLoading ? "Signing in..." : "Sign in"}
+                  <Button className="w-full" size="sm" disabled={isLoading}>
+                    Sign in
                   </Button>
                 </div>
               </div>
             </form>
+
             <div className="mt-5">
               <p className="text-sm font-normal text-center text-gray-700 dark:text-gray-400 sm:text-start">
-                Don&apos;t have an account?{" "}
+                Don&apos;t have an account? {""}
                 <Link
                   to="/signup"
                   className="text-brand-500 hover:text-brand-600 dark:text-brand-400"
@@ -128,7 +132,6 @@ export default function SignInForm() {
             </div>
           </div>
         </div>
-      </div>
-    </div>
+          </div>
   );
 }

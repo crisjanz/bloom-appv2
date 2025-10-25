@@ -127,6 +127,10 @@ export enum PaymentMethodType {
   CARD = 'CARD',
   CASH = 'CASH',
   GIFT_CARD = 'GIFT_CARD',
+  STORE_CREDIT = 'STORE_CREDIT',
+  CHECK = 'CHECK',
+  COD = 'COD',
+  HOUSE_ACCOUNT = 'HOUSE_ACCOUNT',
   PAYPAL = 'PAYPAL', // Future website integration
   DEBIT = 'DEBIT',
   CREDIT = 'CREDIT'
@@ -325,6 +329,7 @@ export interface PaymentCustomerData {
 
 export interface GiftCardRequest {
   amount: Money
+  cardNumber?: string
   customerName?: string
   customerEmail?: string
   deliveryMethod: GiftCardDeliveryMethod

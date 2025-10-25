@@ -40,5 +40,6 @@ export interface GiftCardRedeemResult {
   amountRedeemed?: number;
   remainingBalance?: number;
   cardNumber?: string;
+  transactionId?: string;
   error?: string;
 }

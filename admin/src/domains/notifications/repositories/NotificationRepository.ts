@@ -17,11 +17,13 @@ import {
   NotificationStatus,
   NotificationType
 } from '../entities/Notification'
-import { Repository, SearchOptions, PaginatedResult } from '@shared/types/common'
+import { Repository, SearchOptions, PaginatedResult, QueryFilter } from '@shared/types/common'
 
 // ===== REPOSITORY INTERFACES =====
 
-export interface INotificationRepository extends Repository<Notification> {
+export interface INotificationRepository extends Omit<Repository<Notification>, 'findAll' | 'findMany'> {
+  findAll(options?: SearchOptions): Promise<PaginatedResult<Notification>>
+  findMany(filter?: QueryFilter): Promise<PaginatedResult<Notification>>
   // Search and filtering
   search(filters: NotificationSearchFilters, options?: SearchOptions): Promise<NotificationSearchResult>
   findByRecipient(recipientType: string, recipientId: string, options?: SearchOptions): Promise<Notification[]>
@@ -51,7 +53,9 @@ export interface INotificationRepository extends Repository<Notification> {
   archiveCompletedNotifications(olderThanDays: number): Promise<number>
 }
 
-export interface INotificationTemplateRepository extends Repository<NotificationTemplate> {
+export interface INotificationTemplateRepository extends Omit<Repository<NotificationTemplate>, 'findAll' | 'findMany'> {
+  findAll(options?: SearchOptions): Promise<PaginatedResult<NotificationTemplate>>
+  findMany(filter?: QueryFilter): Promise<PaginatedResult<NotificationTemplate>>
   findByType(type: NotificationType): Promise<NotificationTemplate[]>
   findByChannel(channel: NotificationChannel): Promise<NotificationTemplate[]>
   findBySlug(slug: string): Promise<NotificationTemplate | null>
@@ -59,7 +63,9 @@ export interface INotificationTemplateRepository extends Repository<Notification
   getActiveTemplates(): Promise<NotificationTemplate[]>
 }
 
-export interface INotificationProviderRepository extends Repository<NotificationProvider> {
+export interface INotificationProviderRepository extends Omit<Repository<NotificationProvider>, 'findAll' | 'findMany'> {
+  findAll(options?: SearchOptions): Promise<PaginatedResult<NotificationProvider>>
+  findMany(filter?: QueryFilter): Promise<PaginatedResult<NotificationProvider>>
   findByChannel(channel: NotificationChannel): Promise<NotificationProvider[]>
   findPrimary(channel: NotificationChannel): Promise<NotificationProvider | null>
   findBySlug(slug: string): Promise<NotificationProvider | null>
@@ -76,12 +82,16 @@ export interface INotificationSettingsRepository {
   updateEventNotificationSettings(settings: any): Promise<void>
 }
 
-export interface INotificationLogRepository extends Repository<NotificationLog> {
+export interface INotificationLogRepository extends Omit<Repository<NotificationLog>, 'findAll' | 'findMany'> {
+  findAll(options?: SearchOptions): Promise<PaginatedResult<NotificationLog>>
+  findMany(filter?: QueryFilter): Promise<PaginatedResult<NotificationLog>>
   findByNotificationId(notificationId: string): Promise<NotificationLog[]>
   logEvent(notificationId: string, event: string, details?: string, providerResponse?: Record<string, any>): Promise<NotificationLog>
 }
 
-export interface INotificationBatchRepository extends Repository<NotificationBatch> {
+export interface INotificationBatchRepository extends Omit<Repository<NotificationBatch>, 'findAll' | 'findMany'> {
+  findAll(options?: SearchOptions): Promise<PaginatedResult<NotificationBatch>>
+  findMany(filter?: QueryFilter): Promise<PaginatedResult<NotificationBatch>>
   findByStatus(status: string): Promise<NotificationBatch[]>
   incrementSent(id: string): Promise<void>
   incrementDelivered(id: string): Promise<void>
@@ -111,7 +121,27 @@ export class NotificationRepository implements INotificationRepository {
     }
   }
 
-  async findMany(ids: string[]): Promise<Notification[]> {
+  async findMany(filter: QueryFilter = {}): Promise<PaginatedResult<Notification>> {
+    const params = new URLSearchParams()
+    if (filter.page) params.append('page', filter.page.toString())
+    if (filter.limit) params.append('limit', filter.limit.toString())
+    if (filter.sortBy) params.append('sortBy', filter.sortBy)
+    if (filter.sortOrder) params.append('sortOrder', filter.sortOrder)
+    if (filter.search) params.append('search', filter.search)
+    if (filter.filters) {
+      Object.entries(filter.filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params.append(key, String(value))
+        }
+      })
+    }
+
+    const query = params.toString()
+    const response = await this.apiClient.get(`/api/notifications${query ? `?${query}` : ''}`)
+    return response.data
+  }
+
+  async findManyByIds(ids: string[]): Promise<Notification[]> {
     const response = await this.apiClient.post('/api/notifications/batch', { ids })
     return response.data
   }
@@ -304,7 +334,27 @@ export class NotificationTemplateRepository implements INotificationTemplateRepo
     }
   }
 
-  async findMany(ids: string[]): Promise<NotificationTemplate[]> {
+  async findMany(filter: QueryFilter = {}): Promise<PaginatedResult<NotificationTemplate>> {
+    const params = new URLSearchParams()
+    if (filter.page) params.append('page', filter.page.toString())
+    if (filter.limit) params.append('limit', filter.limit.toString())
+    if (filter.sortBy) params.append('sortBy', filter.sortBy)
+    if (filter.sortOrder) params.append('sortOrder', filter.sortOrder)
+    if (filter.search) params.append('search', filter.search)
+    if (filter.filters) {
+      Object.entries(filter.filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params.append(key, String(value))
+        }
+      })
+    }
+
+    const query = params.toString()
+    const response = await this.apiClient.get(`/api/notification-templates${query ? `?${query}` : ''}`)
+    return response.data
+  }
+
+  async findManyByIds(ids: string[]): Promise<NotificationTemplate[]> {
     const response = await this.apiClient.post('/api/notification-templates/batch', { ids })
     return response.data
   }
@@ -383,7 +433,27 @@ export class NotificationProviderRepository implements INotificationProviderRepo
     }
   }
 
-  async findMany(ids: string[]): Promise<NotificationProvider[]> {
+  async findMany(filter: QueryFilter = {}): Promise<PaginatedResult<NotificationProvider>> {
+    const params = new URLSearchParams()
+    if (filter.page) params.append('page', filter.page.toString())
+    if (filter.limit) params.append('limit', filter.limit.toString())
+    if (filter.sortBy) params.append('sortBy', filter.sortBy)
+    if (filter.sortOrder) params.append('sortOrder', filter.sortOrder)
+    if (filter.search) params.append('search', filter.search)
+    if (filter.filters) {
+      Object.entries(filter.filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params.append(key, String(value))
+        }
+      })
+    }
+
+    const query = params.toString()
+    const response = await this.apiClient.get(`/api/notification-providers${query ? `?${query}` : ''}`)
+    return response.data
+  }
+
+  async findManyByIds(ids: string[]): Promise<NotificationProvider[]> {
     const response = await this.apiClient.post('/api/notification-providers/batch', { ids })
     return response.data
   }
@@ -496,7 +566,27 @@ export class NotificationLogRepository implements INotificationLogRepository {
     }
   }
 
-  async findMany(ids: string[]): Promise<NotificationLog[]> {
+  async findMany(filter: QueryFilter = {}): Promise<PaginatedResult<NotificationLog>> {
+    const params = new URLSearchParams()
+    if (filter.page) params.append('page', filter.page.toString())
+    if (filter.limit) params.append('limit', filter.limit.toString())
+    if (filter.sortBy) params.append('sortBy', filter.sortBy)
+    if (filter.sortOrder) params.append('sortOrder', filter.sortOrder)
+    if (filter.search) params.append('search', filter.search)
+    if (filter.filters) {
+      Object.entries(filter.filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params.append(key, String(value))
+        }
+      })
+    }
+
+    const query = params.toString()
+    const response = await this.apiClient.get(`/api/notification-logs${query ? `?${query}` : ''}`)
+    return response.data
+  }
+
+  async findManyByIds(ids: string[]): Promise<NotificationLog[]> {
     const response = await this.apiClient.post('/api/notification-logs/batch', { ids })
     return response.data
   }
@@ -556,7 +646,27 @@ export class NotificationBatchRepository implements INotificationBatchRepository
     }
   }
 
-  async findMany(ids: string[]): Promise<NotificationBatch[]> {
+  async findMany(filter: QueryFilter = {}): Promise<PaginatedResult<NotificationBatch>> {
+    const params = new URLSearchParams()
+    if (filter.page) params.append('page', filter.page.toString())
+    if (filter.limit) params.append('limit', filter.limit.toString())
+    if (filter.sortBy) params.append('sortBy', filter.sortBy)
+    if (filter.sortOrder) params.append('sortOrder', filter.sortOrder)
+    if (filter.search) params.append('search', filter.search)
+    if (filter.filters) {
+      Object.entries(filter.filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params.append(key, String(value))
+        }
+      })
+    }
+
+    const query = params.toString()
+    const response = await this.apiClient.get(`/api/notification-batches${query ? `?${query}` : ''}`)
+    return response.data
+  }
+
+  async findManyByIds(ids: string[]): Promise<NotificationBatch[]> {
     const response = await this.apiClient.post('/api/notification-batches/batch', { ids })
     return response.data
   }

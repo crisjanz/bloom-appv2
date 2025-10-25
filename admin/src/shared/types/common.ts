@@ -133,7 +133,7 @@ export interface DomainConfig {
 export class DomainError extends Error {
   constructor(
     message: string,
-    public code: string,
+    public code: string = 'DOMAIN_ERROR',
     public details?: Record<string, any>
   ) {
     super(message)

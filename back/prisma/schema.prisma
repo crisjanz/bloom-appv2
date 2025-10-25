@@ -366,7 +366,9 @@ model Order {
 
   // Dynamic tax breakdown - supports any number of tax rates
   taxBreakdown  Json    @default("[]") // Array of {name: string, rate: number, amount: number}
-  totalTax      Float   @default(0)    // Sum of all tax amounts
+  totalTax      Float   @default(0)
+  gst           Float   @default(0)
+  pst           Float   @default(0)    // Sum of all tax amounts
   paymentAmount Float   @default(0)
 
   // Payment transaction links
@@ -552,17 +554,21 @@ model AddressShortcut {
 }
 
 model Employee {
-  id        String        @id @default(cuid())
-  name      String
-  email     String?       
-  phone     String?
-  type      EmployeeType  @default(CASHIER)
-  isActive  Boolean       @default(true)
-  orders    Order[]       @relation("EmployeeOrders")
+  id                  String        @id @default(cuid())
+  name                String
+  email               String?       @unique
+  phone               String?
+  type                EmployeeType  @default(CASHIER)
+  isActive            Boolean       @default(true)
+  password            String?       // Hashed password for authentication
+  lastLogin           DateTime?     // Track login activity
+  failedLoginAttempts Int           @default(0)
+  accountLockedUntil  DateTime?
+  orders              Order[]       @relation("EmployeeOrders")
   paymentTransactions PaymentTransaction[] @relation("EmployeeTransactions")
-  refunds   Refund[]      @relation("EmployeeRefunds")
-  events    Event[]       // Wedding/event manager
-  eventPayments EventPayment[] // Event payment tracking
+  refunds             Refund[]      @relation("EmployeeRefunds")
+  events              Event[]       // Wedding/event manager
+  eventPayments       EventPayment[] // Event payment tracking
 }
 
 model MessageSuggestion {

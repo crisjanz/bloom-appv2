@@ -3,6 +3,8 @@ import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
 import { PrismaClient } from '@prisma/client';
+import authRouter from "./routes/auth";
+
 import productsRouter from './routes/products';
 import categoriesRouter from './routes/categories';
 import customersRouter from './routes/customers';
@@ -120,6 +122,8 @@ app.options('*', cors({
 app.use(express.json()); 
 
 app.use('/api/discounts', discountsRouter); // Unified discounts system
+app.use("/api/auth", authRouter);
+
 app.use("/api/shortcuts", addressShortcutRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/employees", employeeRoutes);

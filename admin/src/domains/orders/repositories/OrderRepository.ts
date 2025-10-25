@@ -97,11 +97,91 @@ export class OrderRepository extends BaseRepository<Order> {
    * Transform backend order data to frontend Order entity
    */
   private transformOrder(backendOrder: any): Order {
+    // Convert financial fields from Float to Money objects
+    const financialFields = {
+      subtotal: { amount: backendOrder.subtotal || 0, currency: 'CAD' },
+      deliveryFee: { amount: backendOrder.deliveryFee || 0, currency: 'CAD' },
+      tips: { amount: backendOrder.tips || 0, currency: 'CAD' },
+      totalAmount: { amount: backendOrder.totalAmount || backendOrder.paymentAmount || 0, currency: 'CAD' }
+    };
+
+    // Map customer data to customerSnapshot
+    const customerSnapshot = backendOrder.customer ? {
+      customerId: backendOrder.customer.id,
+      firstName: backendOrder.customer.firstName,
+      lastName: backendOrder.customer.lastName,
+      email: backendOrder.customer.email || undefined,
+      phone: backendOrder.customer.phone || undefined,
+      customerType: 'REGULAR'
+    } : undefined;
+
+    // Map delivery data to deliveryInfo
+    const deliveryInfo = backendOrder.deliveryAddress ? {
+      recipientName: `${backendOrder.recipientCustomer?.firstName || ''} ${backendOrder.recipientCustomer?.lastName || ''}`.trim(),
+      recipientPhone: backendOrder.recipientCustomer?.phone,
+      recipientEmail: backendOrder.recipientCustomer?.email,
+      deliveryAddress: {
+        id: backendOrder.deliveryAddress.id,
+        street1: backendOrder.deliveryAddress.address1,
+        street2: backendOrder.deliveryAddress.address2,
+        city: backendOrder.deliveryAddress.city,
+        province: backendOrder.deliveryAddress.province,
+        postalCode: backendOrder.deliveryAddress.postalCode,
+        country: backendOrder.deliveryAddress.country
+      },
+      requestedDate: backendOrder.deliveryDate ? new Date(backendOrder.deliveryDate) : undefined,
+      deliveryInstructions: backendOrder.specialInstructions
+    } : undefined;
+
+    // Map order items with Money objects
+    const items = (backendOrder.orderItems || []).map((item: any) => ({
+      id: item.id,
+      productId: item.productId || '',
+      name: item.customName,
+      unitPrice: { amount: item.unitPrice, currency: 'CAD' },
+      quantity: item.quantity,
+      totalPrice: { amount: item.rowTotal, currency: 'CAD' },
+      isTaxable: true,
+      isGiftCard: false,
+      isCustomItem: !item.productId,
+      addedAt: new Date()
+    }));
+
+    // Ensure DomainEntity fields are preserved
+    const domainEntityFields = {
+      id: backendOrder.id,
+      createdAt: backendOrder.createdAt instanceof Date
+        ? backendOrder.createdAt
+        : new Date(backendOrder.createdAt || Date.now()),
+      updatedAt: backendOrder.updatedAt instanceof Date
+        ? backendOrder.updatedAt
+        : new Date(backendOrder.updatedAt || Date.now())
+    };
+
     return {
-      ...backendOrder,
+      ...domainEntityFields,
+      ...financialFields,
+      orderNumber: backendOrder.orderNumber?.toString() || '',
+      internalId: backendOrder.id,
+      customerId: backendOrder.customerId,
+      employeeId: backendOrder.employeeId,
+      orderType: backendOrder.type,
+      channel: 'POS',
       status: this.mapStatusToFrontend(backendOrder.status, backendOrder.type),
-      fulfillmentType: backendOrder.type, // Backend 'type' (DELIVERY/PICKUP) maps to frontend 'fulfillmentType'
-      orderType: backendOrder.type // Also map to orderType for compatibility
+      orderSource: backendOrder.orderSource,
+      items,
+      taxBreakdown: Array.isArray(backendOrder.taxBreakdown)
+        ? backendOrder.taxBreakdown
+        : (backendOrder.taxBreakdown ? JSON.parse(backendOrder.taxBreakdown) : []),
+      appliedDiscounts: [],
+      fulfillmentType: backendOrder.type,
+      deliveryInfo,
+      paymentStatus: 'PAID',
+      orderDate: new Date(backendOrder.createdAt),
+      requestedDeliveryDate: backendOrder.deliveryDate ? new Date(backendOrder.deliveryDate) : undefined,
+      cardMessage: backendOrder.cardMessage,
+      specialInstructions: backendOrder.specialInstructions,
+      customerSnapshot
     } as Order
   }
 
@@ -632,40 +712,45 @@ export class OrderRepository extends BaseRepository<Order> {
   }
 
   private createQueryBuilder() {
-    // Mock query builder - in real implementation, use actual ORM
+    // Lightweight placeholder query builder used for analytics aggregation
+    const conditions: Array<{ field: string; operator: string; value: any }> = []
+    let orderBy: { field: string; direction: 'ASC' | 'DESC' } | null = null
+
+    const pushCondition = (field: string, operator: string, value: any) => {
+      conditions.push({ field, operator, value })
+    }
+
     return {
-      conditions: [] as any[],
-      _orderBy: null as any,
-      
-      where(field: string, operator?: any, value?: any) {
-        if (arguments.length === 2) {
-          // where(field, value)
-          this.conditions.push({ field, operator: '=', value: operator })
+      where(field: string, operatorOrValue: any, value?: any) {
+        if (value === undefined) {
+          pushCondition(field, '=', operatorOrValue)
         } else {
-          // where(field, operator, value)
-          this.conditions.push({ field, operator, value })
+          pushCondition(field, operatorOrValue, value)
         }
         return this
       },
-      
+
       whereIn(field: string, values: any[]) {
-        this.conditions.push({ field, operator: 'IN', value: values })
+        pushCondition(field, 'IN', values)
         return this
       },
-      
+
       whereJsonContains(field: string, value: any) {
-        this.conditions.push({ field, operator: 'JSON_CONTAINS', value })
+        pushCondition(field, 'JSON_CONTAINS', value)
         return this
       },
-      
+
       orderBy(field: string, direction: 'ASC' | 'DESC') {
-        this._orderBy = { field, direction }
+        orderBy = { field, direction }
         return this
       },
-      
+
       async execute(): Promise<Order[]> {
-        // Mock implementation - in reality, this would execute the SQL query
-        // For now, return empty array
+        // Placeholder implementation logs intent and returns empty set
+        console.warn('OrderRepository query builder execute() is a stub implementation.', {
+          conditions,
+          orderBy
+        })
         return []
       }
     }

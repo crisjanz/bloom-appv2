@@ -189,9 +189,14 @@ export abstract class BaseRepository<T extends DomainEntity> {
   ): Promise<R> {
     const url = `${this.endpoint}/${path}`
     
-    const result = method === 'POST' 
-      ? await ApiService.post<R>(url, data)
-      : await ApiService.put<R>(url, data)
+    let result
+    if (method === 'POST') {
+      result = await ApiService.post<R>(url, data)
+    } else if (method === 'PUT') {
+      result = await ApiService.put<R>(url, data)
+    } else {
+      result = await ApiService.patch<R>(url, data)
+    }
 
     return unwrapResult(result, `Failed to mutate ${this.entityName}`)
   }

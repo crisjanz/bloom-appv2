@@ -50,12 +50,6 @@ const navItems: NavItem[] = [
     ],
   },
   {
-    name: "Products",
-    icon: <BoxCubeIcon />,
-    path: "/products",
-  },
-
-  {
     name: "Customers",
     icon: <UserCircleIcon />,
     path: "/customers",

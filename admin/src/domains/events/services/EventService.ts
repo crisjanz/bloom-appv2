@@ -69,7 +69,6 @@ export class EventService implements DomainService<Event> {
         const itemData = eventData.items[i]
         await this.addEventItem(createdEvent.id, {
           ...itemData,
-          totalPrice: EventHelper.calculateItemTotal(itemData.quantity, itemData.unitPrice),
           isCompleted: false,
           sortOrder: i + 1
         })
@@ -93,7 +92,7 @@ export class EventService implements DomainService<Event> {
       throw new Error(`Event with id ${id} not found`)
     }
 
-    const updatedEvent = { ...existingEvent, ...updates, updatedAt: new Date().toISOString() }
+    const updatedEvent = { ...existingEvent, ...updates, updatedAt: new Date() }
     return await this.eventRepository.save(updatedEvent)
   }
 

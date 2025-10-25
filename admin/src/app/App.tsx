@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "./contexts/AuthContext";
 import GoogleMapsProvider from "@shared/ui/forms/GoogleMapsProvider";
 
 import SignIn from "./pages/AuthPages/SignIn";
@@ -19,6 +20,8 @@ import FormElements from "./pages/Forms/FormElements";
 import Blank from "./pages/Blank";
 import AppLayout from "@shared/ui/layout/AppLayout";
 import { ScrollToTop } from "@shared/ui/common/ScrollToTop";
+import ProtectedRoute from "@shared/ui/common/ProtectedRoute";
+import { EmployeeType } from "./contexts/AuthContext";
 import Home from "./pages/Dashboard/Home";
 import ProductsPage from "./pages/products/ProductsPage";
 import NewProductPage from "./pages/products/NewProductPage";
@@ -60,10 +63,11 @@ import FtdLivePage from "./pages/ftd/FtdLivePage";
 
 export default function App() {
   return (
-    <GoogleMapsProvider>
-      <Router>
-        <ScrollToTop />
-        <Routes>
+    <AuthProvider>
+      <GoogleMapsProvider>
+        <Router>
+          <ScrollToTop />
+          <Routes>
           {/* Public routes */}
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
@@ -73,7 +77,7 @@ export default function App() {
 	  <Route path="/pos/fullscreen" element={<FullscreenPOS />} />
 
           {/* Main dashboard layout */}
-          <Route path="/" element={<AppLayout />}>
+          <Route path="/" element={<ProtectedRoute requiredRoles={[EmployeeType.ADMIN]}><AppLayout /></ProtectedRoute>}>
             <Route index element={<Home />} />
             <Route path="profile" element={<UserProfiles />} />
             <Route path="calendar" element={<Calendar />} />
@@ -123,7 +127,7 @@ export default function App() {
             <Route path="events/:id" element={<EventDetailPage />} />
             <Route path="events/:id/payments" element={<EventPaymentsPage />} />
 
-            {/* FTD Wire Orders routes */}
+          {/* FTD Wire Orders routes */}
             <Route path="ftd-orders" element={<FtdOrdersPage />} />
             <Route path="ftd-live" element={<FtdLivePage />} />
 
@@ -148,9 +152,9 @@ export default function App() {
           </Route>
 
           {/* Fallback route */}
-          <Route path="*" element={<NotFound />} />
         </Routes>
       </Router>
     </GoogleMapsProvider>
+    </AuthProvider>
   );
 }

@@ -15,7 +15,8 @@ import {
   NotificationStatus,
   NotificationType,
   RecipientType,
-  NotificationHelper
+  NotificationHelper,
+  NotificationPriority
 } from '../entities/Notification'
 import { DomainError } from '@shared/types/common'
 
@@ -375,7 +376,7 @@ export class NotificationService implements INotificationService {
   }
 
   private async createNotification(request: SendNotificationRequest): Promise<Notification> {
-    let content = { subject: request.subject, body: request.message || '' }
+    let content: { subject?: string; body: string } = { subject: request.subject, body: request.message || '' }
 
     // Render template if provided
     if (request.templateId) {
@@ -385,7 +386,7 @@ export class NotificationService implements INotificationService {
     const notification: Omit<Notification, 'id' | 'createdAt' | 'updatedAt'> = {
       type: request.type,
       channel: request.channel,
-      priority: request.priority || 'NORMAL',
+      priority: request.priority ?? NotificationPriority.NORMAL,
       recipientType: request.recipientType,
       recipientId: request.recipientId,
       recipientEmail: request.recipientEmail,

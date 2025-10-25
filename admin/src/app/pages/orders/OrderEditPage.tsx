@@ -7,8 +7,67 @@ import OrderHeader from '@app/components/orders/edit/OrderHeader';
 import OrderSections from '@app/components/orders/edit/OrderSections';
 import { Order } from '@app/components/orders/types';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
+
+// Convert domain Order to frontend Order format
+const mapDomainOrderToFrontend = (domainOrder: DomainOrder): Order => {
+  return {
+    id: domainOrder.id,
+    orderNumber: parseInt(domainOrder.orderNumber),
+    status: domainOrder.status,
+    type: domainOrder.orderType as any, // TODO: Map domain OrderType to frontend OrderType
+    createdAt: domainOrder.createdAt 
+      ? (domainOrder.createdAt instanceof Date 
+          ? domainOrder.createdAt.toISOString() 
+          : new Date(domainOrder.createdAt).toISOString()) 
+      : new Date().toISOString(),
+    deliveryDate: domainOrder.requestedDeliveryDate?.toISOString().split('T')[0] || null,
+    deliveryTime: domainOrder.deliveryInfo?.scheduledTimeSlot?.toString() || null,
+    paymentAmount: domainOrder.totalAmount.amount,
+    deliveryFee: domainOrder.deliveryFee.amount,
+    discount: 0, // TODO: Calculate from appliedDiscounts
+    gst: 0, // TODO: Extract from taxBreakdown
+    pst: 0, // TODO: Extract from taxBreakdown
+    cardMessage: domainOrder.cardMessage || null,
+    specialInstructions: domainOrder.specialInstructions || null,
+    occasion: domainOrder.cardMessage || null, // Using cardMessage as occasion for now
+    customer: {
+      id: domainOrder.customerId,
+      firstName: domainOrder.customerSnapshot?.firstName || 'Unknown',
+      lastName: domainOrder.customerSnapshot?.lastName || 'Customer',
+      email: domainOrder.customerSnapshot?.email || '',
+      phone: domainOrder.customerSnapshot?.phone || '',
+    },
+    deliveryAddress: domainOrder.deliveryInfo ? {
+      id: domainOrder.deliveryInfo.deliveryAddress?.id || domainOrder.id,
+      firstName: domainOrder.deliveryInfo.recipientName?.split(' ')[0] || '',
+      lastName: domainOrder.deliveryInfo.recipientName?.split(' ').slice(1).join(' ') || '',
+      company: undefined,
+      phone: domainOrder.deliveryInfo.recipientPhone || '',
+      address1: domainOrder.deliveryInfo.deliveryAddress?.street1 || '',
+      address2: domainOrder.deliveryInfo.deliveryAddress?.street2,
+      city: domainOrder.deliveryInfo.deliveryAddress?.city || '',
+      province: domainOrder.deliveryInfo.deliveryAddress?.province || '',
+      postalCode: domainOrder.deliveryInfo.deliveryAddress?.postalCode || '',
+      country: domainOrder.deliveryInfo.deliveryAddress?.country || 'Canada',
+    } : undefined,
+    orderItems: domainOrder.items.map(item => ({
+      id: item.id,
+      customName: item.name,
+      unitPrice: item.unitPrice.amount,
+      quantity: item.quantity,
+      rowTotal: item.totalPrice?.amount ?? (item.unitPrice.amount * item.quantity),
+    })),
+    orderSource: domainOrder.orderSource,
+    images: [], // TODO: Map domain images
+    taxBreakdown: domainOrder.taxBreakdown.map(tax => ({
+      name: tax.taxType,
+      amount: tax.taxAmount.amount,
+    })),
+  };
+};
 // MIGRATION: Use domain hook for order management
 import { useOrderManagement } from '@domains/orders/hooks/useOrderManagement';
+import { Order as DomainOrder, OrderType as DomainOrderType } from '@domains/orders/entities/Order';
 
 // Import all modal components
 import CustomerEditModal from '@app/components/orders/edit/modals/CustomerEditModal';
@@ -33,7 +92,8 @@ const OrderEditPage: React.FC = () => {
   const { getBusinessDateString } = useBusinessTimezone();
   
   // MIGRATION: Use domain hook for order management
-  const { order, loading, saving, error, fetchOrder, updateOrderStatus, updateOrderField } = useOrderManagement(id);
+  const { order: domainOrder, loading, saving, error, fetchOrder, updateOrderStatus, updateOrderField } = useOrderManagement(id);
+  const order = domainOrder ? mapDomainOrderToFrontend(domainOrder) : null;
   const [activeModal, setActiveModal] = useState<string | null>(null);
   
   // Edit states
@@ -57,8 +117,9 @@ const OrderEditPage: React.FC = () => {
 
   // MIGRATION: Handle status change using domain hook
   const handleStatusChange = async (newStatus: string) => {
+    const status = newStatus as any; // TODO: Proper type casting
     try {
-      await updateOrderStatus(newStatus);
+      await updateOrderStatus(status);
       // Order is automatically refreshed by the domain hook
     } catch (error) {
       console.error('Error updating status:', error);
@@ -200,7 +261,7 @@ const OrderEditPage: React.FC = () => {
       console.log('Update result:', result);
       
       if (result) {
-        const newTotal = result.paymentAmount;
+        const newTotal = order?.paymentAmount || 0;
         
         // Check if payment adjustment is needed (for differences of $0.50 or more)
         if (Math.abs(newTotal - oldTotal) >= 50) {
@@ -280,7 +341,7 @@ const OrderEditPage: React.FC = () => {
             <div className="text-lg font-medium">Error Loading Order</div>
             <div className="text-sm">{error}</div>
             <button 
-              onClick={() => fetchOrder()}
+              onClick={() => fetchOrder(id || "")}
               className="mt-3 text-sm text-[#597485] hover:text-[#4e6575] underline"
             >
               Try again

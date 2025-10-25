@@ -239,7 +239,7 @@ export default function FtdOrdersPage() {
                       </div>
                     </td>
                     <td className="px-2 py-2 text-xs">
-                      <StatusBadge status={order.status} />
+                      <StatusBadge status={order.status as any} />
                     </td>
                     <td className="px-2 py-2 text-xs">
                       <div className="max-w-[120px] truncate" title={

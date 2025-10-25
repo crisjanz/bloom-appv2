@@ -102,11 +102,18 @@ const OrdersListPage: React.FC = () => {
     }).format(amount / 100);
   };
 
-  const formatDate = (dateString: string) => {
-    if (timezoneLoading) return dateString;
+  const getIsoString = (input: string | Date) => {
+    if (typeof input === 'string') {
+      return input;
+    }
+    return input.toISOString();
+  };
+
+  const formatDate = (dateInput: string | Date) => {
+    if (timezoneLoading) return getIsoString(dateInput);
 
     // Extract just the date part to avoid timezone conversion issues
-    const datePart = dateString.split('T')[0]; // Get YYYY-MM-DD part
+    const datePart = getIsoString(dateInput).split('T')[0]; // Get YYYY-MM-DD part
     const [year, month, day] = datePart.split('-').map(Number);
     const date = new Date(year, month - 1, day); // Create date in local timezone
 
@@ -118,11 +125,11 @@ const OrdersListPage: React.FC = () => {
   };
 
   // Format timestamp (for createdAt) - shows full date/time
-  const formatTimestamp = (timestamp: string) => {
-    if (timezoneLoading) return timestamp;
+  const formatTimestamp = (timestamp: string | Date) => {
+    if (timezoneLoading) return getIsoString(timestamp);
 
     // For timestamps, we want to show them in business timezone
-    const date = new Date(timestamp);
+    const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
     return formatBusinessDate(date, {
       year: 'numeric',
       month: 'short',
@@ -334,35 +341,32 @@ const OrdersListPage: React.FC = () => {
                       </TableCell>
 
                       <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                        {order.customer
-                          ? `${order.customer.firstName ?? ''} ${order.customer.lastName ?? ''}`.trim() || 'Guest'
+                        {order.customerSnapshot
+                          ? `${order.customerSnapshot.firstName ?? ''} ${order.customerSnapshot.lastName ?? ''}`.trim() || 'Guest'
                           : 'Guest'}
                       </TableCell>
 
                       <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                        {/* Use recipientCustomer or deliveryAddress from NEW system */}
-                        {order.recipientCustomer
-                          ? `${order.recipientCustomer.firstName} ${order.recipientCustomer.lastName}`
-                          : order.deliveryAddress
-                          ? `${order.deliveryAddress.firstName} ${order.deliveryAddress.lastName}`
-                          : order.type === 'PICKUP' ? 'Pickup' : '—'
+                        {order.deliveryInfo
+                          ? order.deliveryInfo.recipientName || '—'
+                          : order.orderType === 'PICKUP' ? 'Pickup' : '—'
                         }
                       </TableCell>
 
                       <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                        {order.deliveryDate ? formatDate(order.deliveryDate) : '—'}
+                        {order.requestedDeliveryDate ? formatDate(order.requestedDeliveryDate) : '—'}
                       </TableCell>
 
                       <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                        <StatusBadge 
+                        <StatusBadge
                           status={order.status}
-                          orderType={order.type}
+                          orderType={order.orderType as any}
                         />
                       </TableCell>
 
                       <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
                         <span className="font-medium text-gray-800 dark:text-white">
-                          {formatCurrency(order.paymentAmount)}
+                          {formatCurrency(order.totalAmount.amount)}
                         </span>
                       </TableCell>
 
@@ -396,8 +400,8 @@ const OrdersListPage: React.FC = () => {
                   <div className="text-red-500 dark:text-red-400">
                     <div className="mb-2">Failed to load orders</div>
                     <div className="text-sm">{error}</div>
-                    <button 
-                      onClick={() => fetchOrders({ status: statusFilter, search: debouncedQuery, limit: 50 })}
+                    <button
+                      onClick={() => fetchOrders({ status: statusFilter, search: activeSearchTerm, limit: 50 })}
                       className="mt-3 text-sm text-[#597485] hover:text-[#4e6575] underline"
                     >
                       Try again

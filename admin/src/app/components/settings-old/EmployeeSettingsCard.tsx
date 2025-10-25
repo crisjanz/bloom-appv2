@@ -176,8 +176,7 @@ export default function EmployeeSettingsCard() {
                     <Select
                       id="type"
                       value={type}
-onChange={(e) => setType(e.target.value)}
-                      
+                      onChange={(value) => setType(value)}
                       className="select-input"
                       options={employeeTypeOptions}
                     />
