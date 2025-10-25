@@ -52,7 +52,11 @@ const SettingsCard: FC<Props> = ({
         const catData = await catRes.json();
         const repCatData = await repCatRes.json();
         setCategories(Array.isArray(catData) ? catData : catData.categories || []);
-        setReportingCategories(Array.isArray(repCatData) ? repCatData : repCatData.reportingCategories || []);
+        setReportingCategories(
+          Array.isArray(repCatData)
+            ? repCatData
+            : repCatData.categories || repCatData.reportingCategories || [],
+        );
       } catch (err) {
         console.error('Error fetching data:', err);
       } finally {
