@@ -386,14 +386,14 @@ async function autoCreateBloomOrder(ftdOrder: any) {
         specialInstructions: ftdOrder.deliveryInstructions,
         occasion: ftdOrder.occasion,
         deliveryFee: 0,
-        paymentAmount: ftdOrder.totalAmount || 0,
+        paymentAmount: ftdOrder.totalAmount || 0, // Already in cents
         totalTax: 0,
         orderItems: {
           create: {
             customName: ftdOrder.productDescription || "FTD Wire Order",
-            unitPrice: Math.round((ftdOrder.totalAmount || 0) * 100),
+            unitPrice: ftdOrder.totalAmount || 0, // Already in cents
             quantity: 1,
-            rowTotal: Math.round((ftdOrder.totalAmount || 0) * 100)
+            rowTotal: ftdOrder.totalAmount || 0 // Already in cents
           }
         }
       }
@@ -666,12 +666,14 @@ function buildProductDescription(detailedData: any): string {
     .join(", ");
 }
 
-// Helper: Extract total amount from price array
+// Helper: Extract total amount from price array (returns cents)
 function extractTotalAmount(detailedData: any): number {
   const priceArray = detailedData.price || [];
   const orderTotal = priceArray.find((p: any) => p.name === "orderTotal");
   if (orderTotal && orderTotal.value) {
-    return typeof orderTotal.value === "number" ? orderTotal.value : parseFloat(orderTotal.value) || 0;
+    const dollars = typeof orderTotal.value === "number" ? orderTotal.value : parseFloat(orderTotal.value) || 0;
+    // Convert dollars to cents (FTD API returns dollars like 85.00, we store as 8500 cents)
+    return Math.round(dollars * 100);
   }
   return 0;
 }

@@ -50,7 +50,7 @@ Recipient: ${recipientName || 'N/A'}
 City: ${payload.city || 'N/A'}
 Date: ${deliveryDate}
 Product: ${payload.productDescription || 'See details'}
-Amount: $${payload.totalAmount?.toFixed(2) || '0.00'}
+Amount: $${payload.totalAmount ? (payload.totalAmount / 100).toFixed(2) : '0.00'}
   `.trim();
 
   // Send SMS notification
@@ -80,7 +80,7 @@ Amount: $${payload.totalAmount?.toFixed(2) || '0.00'}
             <p style="margin: 8px 0;"><strong>City:</strong> ${payload.city || 'N/A'}</p>
             <p style="margin: 8px 0;"><strong>Delivery Date:</strong> ${deliveryDate}</p>
             <p style="margin: 8px 0;"><strong>Product:</strong> ${payload.productDescription || 'See dashboard for details'}</p>
-            <p style="margin: 8px 0;"><strong>Amount:</strong> $${payload.totalAmount?.toFixed(2) || '0.00'}</p>
+            <p style="margin: 8px 0;"><strong>Amount:</strong> $${payload.totalAmount ? (payload.totalAmount / 100).toFixed(2) : '0.00'}</p>
             ${payload.cardMessage ? `<p style="margin: 8px 0;"><strong>Card Message:</strong> ${payload.cardMessage}</p>` : ''}
             ${payload.deliveryInstructions ? `<p style="margin: 8px 0;"><strong>Instructions:</strong> ${payload.deliveryInstructions}</p>` : ''}
           </div>
