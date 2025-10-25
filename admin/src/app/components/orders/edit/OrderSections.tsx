@@ -13,11 +13,12 @@ const OrderSections: React.FC<OrderSectionsProps> = ({ order, onEdit }) => {
   const { formatDate: formatBusinessDate, loading: timezoneLoading } = useBusinessTimezone();
   const { taxRates } = useTaxRates();
   
-  const formatCurrency = (amount: number) => {
+  // All currency is stored in cents - single formatter
+  const formatCurrency = (amountInCents: number) => {
     return new Intl.NumberFormat('en-CA', {
       style: 'currency',
       currency: 'CAD'
-    }).format(amount / 100);
+    }).format(amountInCents / 100);
   };
 
   const formatDate = (dateString: string) => {

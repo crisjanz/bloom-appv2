@@ -10,9 +10,9 @@
 ## 📚 Documentation
 **All project tracking in `/docs` folder:**
 - `/docs/Progress_Tracker.markdown` - Feature implementation status
-- `/docs/KNOWN_LIMITATIONS.md` - Production deployment requirements
-- `/docs/Timezone_Issues_and_Fixes.md` - Multi-timezone implementation guide
 - `/docs/Project_Summary.markdown` - Business context & architecture
+- `/docs/Future_Roadmap.markdown`
+ 
 
 ## 🔧 Environment & Deployment
 - **Server Timezone:** Must be `America/Vancouver` OR set `TZ=America/Vancouver`
@@ -42,4 +42,4 @@ cd admin && npm run dev        # Frontend on :5174
 
 ---
 
-**Important:** Follow user instructions exactly. Prefer editing over creating files. Never create documentation unless explicitly requested.
+**Important:** Follow user instructions exactly. Prefer editing over creating files. Never create documentation unless explicitly requested. Respond concisely and short. When planning, do not preview code examples, just describe the proposed changes.

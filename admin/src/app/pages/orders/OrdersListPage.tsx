@@ -95,11 +95,12 @@ const OrdersListPage: React.FC = () => {
     setStatusFilter(value);
   };
 
-  const formatCurrency = (amount: number) => {
+  // All currency is stored in cents - always divide by 100
+  const formatCurrency = (amountInCents: number) => {
     return new Intl.NumberFormat('en-CA', {
       style: 'currency',
       currency: 'CAD'
-    }).format(amount / 100);
+    }).format(amountInCents / 100);
   };
 
   const getIsoString = (input: string | Date) => {

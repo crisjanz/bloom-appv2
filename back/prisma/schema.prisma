@@ -350,8 +350,8 @@ model Order {
   deliveryDate DateTime?
   deliveryTime String?
 
-  deliveryFee Float   @default(0)
-  discount    Float   @default(0)
+  deliveryFee Int   @default(0)  // Stored in cents
+  discount    Int   @default(0)  // Stored in cents
 
   // Legacy coupon support (during migration)
   couponCode  String?
@@ -366,10 +366,10 @@ model Order {
 
   // Dynamic tax breakdown - supports any number of tax rates
   taxBreakdown  Json    @default("[]") // Array of {name: string, rate: number, amount: number}
-  totalTax      Float   @default(0)
-  gst           Float   @default(0)
-  pst           Float   @default(0)    // Sum of all tax amounts
-  paymentAmount Float   @default(0)
+  totalTax      Int   @default(0)  // Stored in cents
+  gst           Int   @default(0)  // Stored in cents
+  pst           Int   @default(0)  // Stored in cents - Sum of all tax amounts
+  paymentAmount Int   @default(0)  // Stored in cents
 
   // Payment transaction links
   orderPayments OrderPayment[]
@@ -407,19 +407,19 @@ model Coupon {
   name            String    // "Spring Sale 20% Off", "Welcome Discount"
   description     String?   // Optional description for admin reference
   discountType    String    // "PERCENTAGE", "FIXED_AMOUNT", "FREE_SHIPPING"
-  value           Float     // 20 (for 20% or $20)
-  
+  value           Int     // 2000 cents (for 20% or $20) - stored in cents for FIXED_AMOUNT
+
   // Usage limits
   usageLimit      Int?      // Max total uses (null = unlimited)
   usageCount      Int       @default(0) // Current usage count
   perCustomerLimit Int?     // Max uses per customer
-  
+
   // Date restrictions
   startDate       DateTime?
   endDate         DateTime?
-  
+
   // Order requirements
-  minimumOrder    Float?    // Minimum order amount
+  minimumOrder    Int?    // Minimum order amount in cents
   
   // Product/Category restrictions
   applicableProducts String[] @default([]) // Product IDs (empty = all products)
@@ -468,25 +468,25 @@ enum TriggerType {
 
 model Discount {
   id              String        @id @default(uuid())
-  
+
   // Core identification
   code            String?       @unique // NULL for automatic discounts
   name            String        // "Spring Sale 20% Off", "Roses Sale Price"
   description     String?       // Admin reference description
-  
+
   // Discount configuration
   discountType    DiscountType  // Type of discount to apply
   triggerType     TriggerType   // How discount is triggered
-  value           Float         // 20 (for 20% or $20), or sale price amount
-  
+  value           Int         // 2000 cents (for 20% or $20), or sale price amount - stored in cents for FIXED_AMOUNT/SALE_PRICE
+
   // Product targeting
   applicableProducts   String[] @default([]) // Product IDs (empty = all products)
   applicableCategories String[] @default([]) // Category IDs (empty = all categories)
-  
+
   // Advanced rules
   minimumQuantity Int?          // Buy 3+ for discount
   maximumQuantity Int?          // Only first 5 items get discount
-  minimumOrder    Float?        // Minimum order amount required
+  minimumOrder    Int?        // Minimum order amount required in cents
   buyXGetYFree    Json?         // {buy: 2, get: 1, freeType: "CHEAPEST"}
   
   // Application behavior
@@ -527,9 +527,9 @@ model DiscountUsage {
   orderId     String?  // Link to actual orders
   employeeId  String?  // Who applied it (POS context)
   source      String   // "POS", "WEBSITE"
-  appliedValue Float   // Actual discount amount applied
+  appliedValue Int   // Actual discount amount applied in cents
   usedAt      DateTime @default(now())
-  
+
   discount    Discount @relation(fields: [discountId], references: [id])
 }
 
@@ -737,7 +737,7 @@ model DeliveryZone {
   name        String   // "Downtown", "Suburbs", "Zone 1", etc.
   minDistance Float    // Minimum distance in km
   maxDistance Float?   // Maximum distance in km (null = unlimited)
-  fee         Float    // Delivery fee for this zone
+  fee         Int    // Delivery fee for this zone in cents
   enabled     Boolean  @default(true)
   sortOrder   Int      @default(0) // For ordering zones
   createdAt   DateTime @default(now())
@@ -752,11 +752,11 @@ model DeliverySettings {
   storeAddress        String   // Full address for distance calculations
   storePostalCode     String?  // Postal code as fallback
   storeLatitude       Float?   // For precise distance calculations
-  storeLongitude      Float?   
-  
+  storeLongitude      Float?
+
   // Delivery Options
   deliveryMode        String   @default("DISTANCE") // "DISTANCE", "POSTAL_CODE", "REGION"
-  freeDeliveryMinimum Float?   // Free delivery over $X
+  freeDeliveryMinimum Int?   // Free delivery over $X in cents
   maxDeliveryRadius   Float?   // Maximum delivery distance in km
   enabled             Boolean  @default(true)
   
@@ -775,7 +775,7 @@ model DeliveryPostalZone {
   id         String   @id @default(cuid())
   name       String   // "Downtown Vancouver", "Richmond", etc.
   postalCodes String[] // Array of postal code prefixes: ["V6B", "V6C", "V6E"]
-  fee        Float
+  fee        Int    // Fee in cents
   enabled    Boolean  @default(true)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -783,13 +783,13 @@ model DeliveryPostalZone {
   @@map("delivery_postal_zones")
 }
 
-// Future: For region-based zones  
+// Future: For region-based zones
 model DeliveryRegionZone {
   id        String   @id @default(cuid())
   name      String   // "Vancouver", "Burnaby", "Richmond"
   cities    String[] // Array of city names
   provinces String[] // Array of province codes
-  fee       Float
+  fee       Int    // Fee in cents
   enabled   Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -803,10 +803,10 @@ model GiftCard {
   id              String    @id @default(uuid())
   cardNumber      String    @unique // "GC-X7K9-M3R8"
   type            String    // "PHYSICAL", "DIGITAL"
-  
+
   // Balance tracking
-  initialValue    Float     @default(0)
-  currentBalance  Float     @default(0)
+  initialValue    Int     @default(0)  // Stored in cents
+  currentBalance  Int     @default(0)  // Stored in cents
   
   // Card details
   purchasedBy     String?   // Customer who bought it
@@ -829,12 +829,12 @@ model GiftCardTransaction {
   giftCardId  String
   orderId     String?   // When used for purchase
   type        String    // "PURCHASE", "REDEMPTION", "REFUND", "ACTIVATION"
-  amount      Float     // Positive for purchase/refund, negative for redemption
-  balanceAfter Float    // Remaining balance after transaction
+  amount      Int     // Positive for purchase/refund, negative for redemption - stored in cents
+  balanceAfter Int    // Remaining balance after transaction - stored in cents
   notes       String?
   employeeId  String?   // Who processed the transaction
   createdAt   DateTime  @default(now())
-  
+
   giftCard    GiftCard  @relation(fields: [giftCardId], references: [id])
 }
 
@@ -895,11 +895,11 @@ model PaymentTransaction {
   transactionNumber String                 @unique // PT-00001, PT-00002, etc.
   status          PaymentTransactionStatus @default(PENDING)
   channel         PaymentChannel
-  
+
   // Transaction totals
-  totalAmount     Float                    @default(0)
-  taxAmount       Float                    @default(0)
-  tipAmount       Float                    @default(0)
+  totalAmount     Int                    @default(0)  // Stored in cents
+  taxAmount       Int                    @default(0)  // Stored in cents
+  tipAmount       Int                    @default(0)  // Stored in cents
   
   // Customer and employee tracking
   customerId      String
@@ -932,7 +932,7 @@ model PaymentMethod {
   transactionId           String
   type                    PaymentMethodType
   provider                PaymentProvider
-  amount                  Float
+  amount                  Int  // Stored in cents
   offlineMethodId         String?
   
   // Provider-specific data
@@ -958,11 +958,11 @@ model OrderPayment {
   id              String             @id @default(uuid())
   transactionId   String
   orderId         String
-  amount          Float              // How much of this order was paid in this transaction
-  
+  amount          Int              // How much of this order was paid in this transaction - stored in cents
+
   transaction     PaymentTransaction @relation(fields: [transactionId], references: [id])
   order           Order              @relation(fields: [orderId], references: [id])
-  
+
   @@map("order_payments")
 }
 
@@ -970,7 +970,7 @@ model Refund {
   id              String             @id @default(uuid())
   transactionId   String
   refundNumber    String             @unique // RF-00001, RF-00002, etc.
-  amount          Float
+  amount          Int  // Stored in cents
   reason          String?
   
   // Refund breakdown by payment method
@@ -990,7 +990,7 @@ model RefundMethod {
   refundId              String
   paymentMethodType     PaymentMethodType
   provider              PaymentProvider
-  amount                Float
+  amount                Int  // Stored in cents
   
   // Provider refund tracking
   providerRefundId      String?        // Stripe refund_id, Square refund_id, etc.
@@ -1127,8 +1127,8 @@ model Event {
   
   // Quote and pricing
   status          EventStatus @default(INQUIRY)
-  quotedAmount    Float?      // Total quoted amount
-  finalAmount     Float?      // Final agreed amount (may differ from quote)
+  quotedAmount    Int?      // Total quoted amount in cents
+  finalAmount     Int?      // Final agreed amount (may differ from quote) in cents
   
   // Staff and workflow
   employeeId      String?     // Primary staff member handling event
@@ -1175,8 +1175,8 @@ model EventItem {
   category    String  // "Bridal Bouquet", "Centerpiece", "Ceremony Arrangement", etc.
   description String  // Detailed description of the item
   quantity    Int     @default(1)
-  unitPrice   Float   // Price per item
-  totalPrice  Float   // quantity * unitPrice
+  unitPrice   Int   // Price per item in cents
+  totalPrice  Int   // quantity * unitPrice in cents
   
   // Production details
   productionNotes String? // Special instructions for creating this item
@@ -1197,9 +1197,9 @@ model EventPayment {
   id            String             @id @default(uuid())
   eventId       String
   event         Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  
+
   // Payment details
-  amount        Float
+  amount        Int  // Stored in cents
   paymentType   EventPaymentType
   status        EventPaymentStatus @default(PENDING)
   
@@ -1298,7 +1298,7 @@ model FtdOrder {
   productCode       String?
 
   // === PRICING ===
-  totalAmount       Float?
+  totalAmount       Int?  // Stored in cents
 
   // === FTD REPORTING ===
   sendingFloristCode String?
