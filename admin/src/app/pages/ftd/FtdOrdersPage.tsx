@@ -278,7 +278,7 @@ export default function FtdOrdersPage() {
                       </div>
                     </td>
                     <td className="px-2 py-2 text-xs whitespace-nowrap text-right font-medium">
-                      ${order.paymentAmount.toFixed(2)}
+                      ${(order.paymentAmount / 100).toFixed(2)}
                     </td>
                     <td className="px-2 py-2 text-xs whitespace-nowrap">
                       <div className="flex gap-2">
