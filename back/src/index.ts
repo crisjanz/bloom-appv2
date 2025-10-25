@@ -16,6 +16,7 @@ import addressShortcutRoutes from "./routes/addressShortcuts";
 import discountsRouter from './routes/discounts';
 import giftCardsRouter from './routes/gift-cards';
 import ordersRouter from './routes/orders/index';
+import communicationsRouter from './routes/communications';
 import paymentTransactionsRouter from './routes/payment-transactions';
 import { getPOSTabs, savePOSTabs } from './routes/settings/pos-tabs';
 import { getStoreInfo, saveStoreInfo } from './routes/settings/store-info';
@@ -150,6 +151,7 @@ app.get('/api/settings/delivery-charges', getDeliveryCharges);
 app.post('/api/settings/delivery-charges', saveDeliveryCharges);
 app.use('/api/gift-cards', giftCardsRouter);
 app.use('/api/orders', ordersRouter);
+app.use('/api/orders', communicationsRouter); // Communication endpoints for orders
 app.use('/api/payment-transactions', paymentTransactionsRouter);
 app.use('/api/settings/payments', paymentSettingsRouter);
 app.get('/api/settings/pos-tabs', getPOSTabs);

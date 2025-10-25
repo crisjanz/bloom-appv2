@@ -77,6 +77,14 @@ enum AddressType {
   OTHER
 }
 
+enum CommunicationType {
+  PHONE_CALL
+  SMS_SENT
+  SMS_RECEIVED
+  EMAIL_SENT
+  NOTE
+}
+
 model Product {
   id                      String        @id @default(uuid())
   name                    String
@@ -377,6 +385,9 @@ model Order {
   // FTD wire order link (reverse relation)
   ftdOrder      FtdOrder?  @relation("FtdLinkedOrder")
 
+  // Communication history
+  communications OrderCommunication[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -398,6 +409,35 @@ model OrderItem {
   unitPrice  Int
   quantity   Int
   rowTotal   Int
+}
+
+// CUSTOMER COMMUNICATION TRACKING
+model OrderCommunication {
+  id          String            @id @default(uuid())
+  orderId     String
+  employeeId  String?           // NULL for automatic system messages
+
+  type        CommunicationType
+  status      String?           // For phone calls: ANSWERED, VOICEMAIL, NO_ANSWER, CALLBACK
+  quickActions String[]  @default([])  // Array of selected quick actions
+
+  // Message content
+  message     String            // SMS text, call notes, or email content
+  recipient   String?           // Phone number or email address
+  subject     String?           // For emails only
+
+  // Tracking
+  isAutomatic Boolean  @default(false)  // TRUE for system notifications
+  sentVia     String?           // "Twilio", "SendGrid", "Manual"
+
+  createdAt   DateTime @default(now())
+
+  order       Order    @relation(fields: [orderId], references: [id])
+  employee    Employee? @relation(fields: [employeeId], references: [id])
+
+  @@index([orderId])
+  @@index([createdAt])
+  @@map("order_communications")
 }
 
 // UPDATED COMPREHENSIVE COUPON SYSTEM
@@ -569,6 +609,7 @@ model Employee {
   refunds             Refund[]      @relation("EmployeeRefunds")
   events              Event[]       // Wedding/event manager
   eventPayments       EventPayment[] // Event payment tracking
+  communications      OrderCommunication[] // Customer communications
 }
 
 model MessageSuggestion {

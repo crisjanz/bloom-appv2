@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, CommunicationType } from '@prisma/client';
 import { notificationService } from '../services/notificationService';
 
 const prisma = new PrismaClient();
@@ -179,6 +179,47 @@ export async function triggerStatusNotifications(order: any, newStatus: string, 
           const result = results[0];
           if (result?.success) {
             console.log(`✅ ${notification.channel.toUpperCase()} notification sent to ${notification.recipient}`);
+
+            // Log SMS communications to database
+            if (notification.channel === 'sms') {
+              try {
+                await prisma.orderCommunication.create({
+                  data: {
+                    orderId: fullOrder.id,
+                    type: CommunicationType.SMS_SENT,
+                    message: notificationData.template || '',
+                    recipient: notification.recipient,
+                    isAutomatic: true,
+                    sentVia: 'Twilio'
+                  }
+                });
+                console.log(`📝 Logged SMS communication for order #${order.orderNumber}`);
+              } catch (logError) {
+                console.error('❌ Failed to log SMS communication:', logError);
+                // Don't fail the notification if logging fails
+              }
+            }
+
+            // Log Email communications to database
+            if (notification.channel === 'email') {
+              try {
+                await prisma.orderCommunication.create({
+                  data: {
+                    orderId: fullOrder.id,
+                    type: CommunicationType.EMAIL_SENT,
+                    message: notificationData.template || '',
+                    recipient: notification.recipient,
+                    subject: notificationData.subject || '',
+                    isAutomatic: true,
+                    sentVia: 'SendGrid'
+                  }
+                });
+                console.log(`📝 Logged Email communication for order #${order.orderNumber}`);
+              } catch (logError) {
+                console.error('❌ Failed to log Email communication:', logError);
+                // Don't fail the notification if logging fails
+              }
+            }
           } else {
             console.error(`❌ Failed to send ${notification.channel} notification: ${result?.error}`);
           }

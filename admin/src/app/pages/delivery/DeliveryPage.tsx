@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import flatpickr from 'flatpickr';
 import 'flatpickr/dist/flatpickr.css';
+import OrderCommunicationModal from '@app/components/delivery/OrderCommunicationModal';
 import { 
   CalenderIcon, 
   ClockIcon, 
@@ -94,6 +95,10 @@ const DeliveryPage: React.FC = () => {
   const [todayCount, setTodayCount] = useState<number>(0);
   const [tomorrowCount, setTomorrowCount] = useState<number>(0);
   const [futureCount, setFutureCount] = useState<number>(0);
+
+  // Communication modal state
+  const [communicationModalOpen, setCommunicationModalOpen] = useState(false);
+  const [selectedOrderForComm, setSelectedOrderForComm] = useState<any>(null);
 
   // Helper to filter orders by delivery date
   const filterOrdersByDate = (orders: any, targetDate: string) => {
@@ -378,6 +383,18 @@ const DeliveryPage: React.FC = () => {
     navigate(`/orders/${orderId}`);
   };
 
+  // Handle communication modal
+  const handleOpenCommunication = (order: DeliveryOrder, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent navigation to order edit
+    setSelectedOrderForComm(order);
+    setCommunicationModalOpen(true);
+  };
+
+  const handleCloseCommunication = () => {
+    setCommunicationModalOpen(false);
+    setSelectedOrderForComm(null);
+  };
+
   // Quick filter handlers - filter client-side from allOrders
   const handleTodayFilter = () => {
     if (!timezone || !allOrders) return;
@@ -516,6 +533,16 @@ const DeliveryPage: React.FC = () => {
           orderType={normalizedType}
           placeholder="Change Status"
         />
+      </td>
+
+      {/* Communication Button */}
+      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+        <button
+          onClick={(e) => handleOpenCommunication(order, e)}
+          className="px-3 py-1.5 bg-[#597485] text-white rounded hover:bg-[#4e6575] transition-colors text-sm"
+        >
+          💬 Contact
+        </button>
       </td>
       </tr>
     );
@@ -666,6 +693,7 @@ const DeliveryPage: React.FC = () => {
                       <th className="px-4 py-3 text-left font-medium text-gray-900 dark:text-white">Time</th>
                       <th className="px-4 py-3 text-left font-medium text-gray-900 dark:text-white">Amount</th>
                       <th className="px-4 py-3 text-left font-medium text-gray-900 dark:text-white">Status</th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-900 dark:text-white">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -699,6 +727,7 @@ const DeliveryPage: React.FC = () => {
                       <th className="px-4 py-3 text-left font-medium text-gray-900 dark:text-white">Time</th>
                       <th className="px-4 py-3 text-left font-medium text-gray-900 dark:text-white">Amount</th>
                       <th className="px-4 py-3 text-left font-medium text-gray-900 dark:text-white">Status</th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-900 dark:text-white">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -732,6 +761,7 @@ const DeliveryPage: React.FC = () => {
                       <th className="px-4 py-3 text-left font-medium text-gray-900 dark:text-white">Time</th>
                       <th className="px-4 py-3 text-left font-medium text-gray-900 dark:text-white">Amount</th>
                       <th className="px-4 py-3 text-left font-medium text-gray-900 dark:text-white">Status</th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-900 dark:text-white">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -745,6 +775,13 @@ const DeliveryPage: React.FC = () => {
           </ComponentCard>
         </div>
       )}
+
+      {/* Communication Modal */}
+      <OrderCommunicationModal
+        isOpen={communicationModalOpen}
+        onClose={handleCloseCommunication}
+        order={selectedOrderForComm}
+      />
     </div>
   );
 };
