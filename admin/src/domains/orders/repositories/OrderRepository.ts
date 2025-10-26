@@ -170,9 +170,15 @@ export class OrderRepository extends BaseRepository<Order> {
       status: this.mapStatusToFrontend(backendOrder.status, backendOrder.type),
       orderSource: backendOrder.orderSource,
       items,
-      taxBreakdown: Array.isArray(backendOrder.taxBreakdown)
+      taxBreakdown: (Array.isArray(backendOrder.taxBreakdown)
         ? backendOrder.taxBreakdown
-        : (backendOrder.taxBreakdown ? JSON.parse(backendOrder.taxBreakdown) : []),
+        : (backendOrder.taxBreakdown ? JSON.parse(backendOrder.taxBreakdown) : [])
+      ).map((tax: any) => ({
+        taxType: tax.name || tax.taxType,
+        taxRate: tax.rate || tax.taxRate || 0,
+        taxableAmount: { amount: 0, currency: 'CAD' }, // Not stored, can't reconstruct
+        taxAmount: { amount: tax.amount || 0, currency: 'CAD' }
+      })),
       appliedDiscounts: [],
       fulfillmentType: backendOrder.type,
       deliveryInfo,

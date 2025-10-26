@@ -170,10 +170,16 @@ export const useOrderPayments = () => {
         })
       );
 
+      // Convert deliveryFee from cents to dollars for backend API
+      const ordersInDollars = ordersWithRecipientIds.map((order: any) => ({
+        ...order,
+        deliveryFee: order.deliveryFee / 100 // Convert cents to dollars for backend
+      }));
+
       // Create DRAFT orders for POS transfer
       const draftOrderData = {
         customerId: currentCustomerId,
-        orders: ordersWithRecipientIds,
+        orders: ordersInDollars,
       };
 
       console.log('📦 Creating draft orders for POS transfer...');
@@ -399,10 +405,16 @@ export const useOrderPayments = () => {
         })
       );
 
+      // Convert deliveryFee from cents to dollars for backend API
+      const ordersInDollars = ordersWithRecipientIds.map((order: any) => ({
+        ...order,
+        deliveryFee: order.deliveryFee / 100 // Convert cents to dollars for backend
+      }));
+
       // Create orders via API
       const orderData = {
         customerId: currentCustomerId,
-        orders: ordersWithRecipientIds,
+        orders: ordersInDollars,
         paymentConfirmed: true,
         employee,
         orderSource: orderSource.toUpperCase(),

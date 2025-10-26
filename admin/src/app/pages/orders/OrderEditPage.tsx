@@ -25,8 +25,8 @@ const mapDomainOrderToFrontend = (domainOrder: DomainOrder): Order => {
     paymentAmount: domainOrder.totalAmount.amount,
     deliveryFee: domainOrder.deliveryFee.amount,
     discount: 0, // TODO: Calculate from appliedDiscounts
-    gst: 0, // TODO: Extract from taxBreakdown
-    pst: 0, // TODO: Extract from taxBreakdown
+    gst: domainOrder.taxBreakdown.find(t => t.taxType?.toUpperCase().includes('GST'))?.taxAmount?.amount || 0,
+    pst: domainOrder.taxBreakdown.find(t => t.taxType?.toUpperCase().includes('PST'))?.taxAmount?.amount || 0,
     cardMessage: domainOrder.cardMessage || null,
     specialInstructions: domainOrder.specialInstructions || null,
     occasion: domainOrder.cardMessage || null, // Using cardMessage as occasion for now
@@ -61,7 +61,7 @@ const mapDomainOrderToFrontend = (domainOrder: DomainOrder): Order => {
     images: [], // TODO: Map domain images
     taxBreakdown: domainOrder.taxBreakdown.map(tax => ({
       name: tax.taxType,
-      amount: tax.taxAmount.amount,
+      amount: tax.taxAmount?.amount || 0,
     })),
   };
 };

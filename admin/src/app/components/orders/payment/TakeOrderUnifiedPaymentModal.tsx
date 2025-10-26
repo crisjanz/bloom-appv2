@@ -471,16 +471,19 @@ const TakeOrderUnifiedPaymentModal: FC<Props> = ({
       return `Process Card (${providerLabel})`;
     }
 
+    // Only show "Complete Payment" if there's nothing to add (no amount entered or amount is 0)
+    const hasAmountToAdd = parseFloat(amountInput) > 0;
+
+    if (!hasAmountToAdd && remaining <= 0.01 && (payments.length > 0 || giftCardDiscount > 0)) {
+      return 'Complete Payment';
+    }
+
     if (baseMethodId === 'cash') {
-      return coversRemaining ? 'Complete Payment' : 'Add Cash Payment';
+      return 'Add Cash Payment';
     }
 
     if (isOfflineMethod) {
-      return coversRemaining ? 'Complete Payment' : `Add ${methodOption?.label ?? 'Payment'}`;
-    }
-
-    if (remaining <= 0.01 && (payments.length > 0 || giftCardDiscount > 0)) {
-      return 'Complete Payment';
+      return `Add ${methodOption?.label ?? 'Payment'}`;
     }
 
     if (methodOption?.baseId === 'gift_card') {
@@ -499,7 +502,9 @@ const TakeOrderUnifiedPaymentModal: FC<Props> = ({
       return submitCashPayment;
     }
 
-    if (remaining <= 0.01 && (payments.length > 0 || giftCardDiscount > 0)) {
+    // Only complete if there's no amount to add
+    const hasAmountToAdd = parseFloat(amountInput) > 0;
+    if (!hasAmountToAdd && remaining <= 0.01 && (payments.length > 0 || giftCardDiscount > 0)) {
       return handleComplete;
     }
 
@@ -606,7 +611,7 @@ const TakeOrderUnifiedPaymentModal: FC<Props> = ({
           (isCardMethod && (!hasValidCardAmount || cardProcessing || !cardReady)) ||
           (baseMethodId === 'cash' && !hasValidCashAmount) ||
           (isOfflineMethod && (!hasValidOfflineAmount || referenceMissing)) ||
-          (!isCardMethod && remaining <= 0.01 && payments.length === 0 && giftCardDiscount <= 0) ||
+          (parseFloat(amountInput) <= 0 && remaining <= 0.01 && payments.length === 0 && giftCardDiscount <= 0) ||
           methodOption?.baseId === 'gift_card'
         }
         onClose={() => {
