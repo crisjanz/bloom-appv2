@@ -8,7 +8,7 @@
 ## 📝 Ideas & Feature Requests
 
 > **Add your ideas and thoughts here - this section is for quick brainstorming!**
-1. Image upload for product images takes a long time. it is successfull, just takes a min to upload one simple image.
+
 
 ### Quick Wins & User Requests
 

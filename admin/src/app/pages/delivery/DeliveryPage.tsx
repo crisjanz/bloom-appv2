@@ -539,9 +539,10 @@ const DeliveryPage: React.FC = () => {
       <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
         <button
           onClick={(e) => handleOpenCommunication(order, e)}
-          className="px-3 py-1.5 bg-[#597485] text-white rounded hover:bg-[#4e6575] transition-colors text-sm"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#597485] text-white rounded hover:bg-[#4e6575] transition-colors text-sm"
         >
-          💬 Contact
+          <PhoneIcon className="w-4 h-4" />
+          Contact
         </button>
       </td>
       </tr>

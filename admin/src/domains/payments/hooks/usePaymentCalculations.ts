@@ -20,6 +20,11 @@ export const usePaymentCalculations = (
 ) => {
   // Get centralized tax rates
   const { calculateGST, calculatePST, individualTaxRates } = useTaxRates();
+
+  // Convert delivery charge and discount from cents to dollars
+  const deliveryChargeInDollars = deliveryCharge / 100;
+  const discountInDollars = discount / 100;
+
   // Calculate base item total
   const itemTotal = useMemo(() => {
     return orders.reduce((total, order) => {
@@ -43,23 +48,18 @@ export const usePaymentCalculations = (
     }, 0);
   }, [orders]);
 
-  // Since we're now passing in the total discount amount in dollars, we don't need to convert
-  const calculateDiscountAmount = useMemo(() => {
-    return discount; // Already in dollars from TakeOrderPage
-  }, [discount]);
-
   // Subtotal after discount but before tax
   const subtotalBeforeTax = useMemo(() => {
-    return Math.max(0, itemTotal + deliveryCharge - calculateDiscountAmount);
-  }, [itemTotal, deliveryCharge, calculateDiscountAmount]);
+    return Math.max(0, itemTotal + deliveryChargeInDollars - discountInDollars);
+  }, [itemTotal, deliveryChargeInDollars, discountInDollars]);
 
   // Apply discount proportionally to taxable amount
   const discountOnTaxable = useMemo(() => {
-    if (itemTotal + deliveryCharge === 0) return 0;
+    if (itemTotal + deliveryChargeInDollars === 0) return 0;
     // Proportion of discount that applies to taxable items
-    const taxableProportion = taxableAmount / (itemTotal + deliveryCharge);
-    return calculateDiscountAmount * taxableProportion;
-  }, [calculateDiscountAmount, taxableAmount, itemTotal, deliveryCharge]);
+    const taxableProportion = taxableAmount / (itemTotal + deliveryChargeInDollars);
+    return discountInDollars * taxableProportion;
+  }, [discountInDollars, taxableAmount, itemTotal, deliveryChargeInDollars]);
 
   // Taxable amount after discount
   const adjustedTaxableAmount = useMemo(() => {
@@ -81,7 +81,7 @@ export const usePaymentCalculations = (
     gst,
     pst,
     grandTotal,
-    calculateDiscountAmount,
+    calculateDiscountAmount: discountInDollars,
     // Tax rate information for display
     taxRates: individualTaxRates
   };

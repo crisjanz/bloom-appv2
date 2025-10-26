@@ -88,8 +88,8 @@ const DeliveryEditModal: React.FC<DeliveryEditModalProps> = ({
           type="number"
           step="0.01"
           min="0"
-          value={delivery.deliveryFee}
-          onChange={(e) => onChange({ ...delivery, deliveryFee: parseFloat(e.target.value) || 0 })}
+          value={(delivery.deliveryFee / 100).toFixed(2)}
+          onChange={(e) => onChange({ ...delivery, deliveryFee: Math.round(parseFloat(e.target.value) * 100) || 0 })}
           className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#597485] focus:border-transparent dark:bg-gray-700 dark:text-white"
         />
       </div>

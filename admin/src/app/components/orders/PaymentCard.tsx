@@ -96,7 +96,7 @@ export default function PaymentCard({
       onCouponDiscountChange?.(0);
       return;
     }
-    const orderTotal = itemTotal + deliveryCharge;
+    const orderTotal = itemTotal + (deliveryCharge / 100);
     const result = await validateCoupon(code, orderTotal, {
       customerId,
       productIds,
@@ -170,7 +170,7 @@ export default function PaymentCard({
             </div>
             <div className="flex justify-between items-center py-1">
               <span className="text-gray-600 dark:text-gray-400">Delivery Charge:</span>
-              <span className="font-medium text-black dark:text-white">${deliveryCharge.toFixed(2)}</span>
+              <span className="font-medium text-black dark:text-white">${(deliveryCharge / 100).toFixed(2)}</span>
             </div>
             <div className="flex justify-between items-center py-1">
               <div className="flex items-center gap-4">
@@ -229,9 +229,9 @@ export default function PaymentCard({
                 </div>
               </div>
               <span className="font-medium text-black dark:text-white">
-                -${discountType === "%" 
-                  ? ((itemTotal + deliveryCharge) * discount / 100).toFixed(2)
-                  : discount.toFixed(2)
+                -${discountType === "%"
+                  ? ((itemTotal + (deliveryCharge / 100)) * discount / 100).toFixed(2)
+                  : (discount / 100).toFixed(2)
                 }
               </span>
             </div>

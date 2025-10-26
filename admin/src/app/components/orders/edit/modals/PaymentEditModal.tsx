@@ -38,8 +38,8 @@ const PaymentEditModal: React.FC<PaymentEditModalProps> = ({
             type="number"
             step="0.01"
             min="0"
-            value={payment.deliveryFee.toFixed(2)}
-            onChange={(e) => onChange({ ...payment, deliveryFee: parseFloat(e.target.value || '0') })}
+            value={(payment.deliveryFee / 100).toFixed(2)}
+            onChange={(e) => onChange({ ...payment, deliveryFee: Math.round((parseFloat(e.target.value || '0')) * 100) })}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#597485] focus:border-transparent dark:bg-gray-700 dark:text-white"
           />
         </div>
@@ -49,8 +49,8 @@ const PaymentEditModal: React.FC<PaymentEditModalProps> = ({
             type="number"
             step="0.01"
             min="0"
-            value={payment.discount.toFixed(2)}
-            onChange={(e) => onChange({ ...payment, discount: parseFloat(e.target.value || '0') })}
+            value={(payment.discount / 100).toFixed(2)}
+            onChange={(e) => onChange({ ...payment, discount: Math.round((parseFloat(e.target.value || '0')) * 100) })}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#597485] focus:border-transparent dark:bg-gray-700 dark:text-white"
           />
         </div>

@@ -289,8 +289,37 @@ Todos are grouped by feature and sorted by priority within each group. Partially
   - Implement template inheritance for consistency
   - Support for different email types (receipts, gift cards, care tips, notifications)
 
+## Admin Security & Authentication
+### High Priority
+- [x] **Implement admin panel authentication and authorization** (Completed 2025-10-24)
+  - ✅ Database schema updated with password, lastLogin, failedLoginAttempts, accountLockedUntil fields
+  - ✅ Backend authentication routes (login, logout, me, refresh, setup-admin, change-password)
+  - ✅ Password hashing with bcryptjs (12 rounds)
+  - ✅ JWT token-based authentication with access and refresh tokens
+  - ✅ Authentication middleware with role-based access control
+  - ✅ Frontend AuthContext for global authentication state
+  - ✅ ProtectedRoute component for route guarding
+  - ✅ All admin routes protected - requires ADMIN role
+  - ✅ SignIn page with form validation and error handling
+  - ✅ Account lockout after failed login attempts
+  - ✅ Secure token storage and automatic refresh
+  - Files: `/back/src/routes/auth.ts`, `/back/src/middleware/auth.ts`, `/admin/src/app/contexts/AuthContext.tsx`, `/admin/src/shared/ui/common/ProtectedRoute.tsx`
+
 ## Delivery & Logistics
 ### High Priority
+- [x] **Customer Communication System** (Completed 2025-10-25)
+  - ✅ Complete communication tracking integrated into Delivery Management page
+  - ✅ Database schema: OrderCommunication model with CommunicationType enum (PHONE_CALL, SMS_SENT, SMS_RECEIVED, EMAIL_SENT, NOTE)
+  - ✅ Tracks ALL communications: manual phone calls, manual SMS, automatic SMS notifications, automatic emails
+  - ✅ Phone call notes with status dropdown (Answered, Voicemail, No Answer, Callback) and quick action checkboxes
+  - ✅ SMS composer with templates (Delivery Reminder, Running Late, Delivered) and character counter
+  - ✅ Communication timeline showing complete history with employee names, timestamps, auto vs manual badges
+  - ✅ Automatic logging of status change SMS and email notifications via notificationTriggers.ts
+  - ✅ Modal accessible from Delivery page "Contact" button on each order
+  - ✅ Side-by-side layout: Order summary + Communication hub
+  - ✅ Delivery time updates directly from communication modal
+  - ✅ Full Twilio integration for manual SMS sending
+  - Files: `/admin/src/app/components/delivery/OrderCommunicationModal.tsx`, `/admin/src/app/components/delivery/CommunicationTimeline.tsx`, `/admin/src/app/components/delivery/PhoneNoteForm.tsx`, `/admin/src/app/components/delivery/SmsComposer.tsx`, `/back/src/routes/communications.ts`
 - [ ] Implement route optimization for drivers (Status to be confirmed).
 
 ### Medium Priority

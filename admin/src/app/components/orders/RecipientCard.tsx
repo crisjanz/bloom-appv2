@@ -1159,9 +1159,9 @@ export default function RecipientCard({
                   type="number"
                   id={`deliveryFee-${activeTab}`}
                   placeholder="$0.00"
-                  value={currentDeliveryFee.toString()}
+                  value={(currentDeliveryFee / 100).toFixed(2)}
                   onChange={(e) => {
-                    const newFee = parseFloat(e.target.value) || 0;
+                    const newFee = Math.round((parseFloat(e.target.value) || 0) * 100);
                     onManualEditChange?.(true);
                     onDeliveryFeeCalculated?.(newFee);
                   }}

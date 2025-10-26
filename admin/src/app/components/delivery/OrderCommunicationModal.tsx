@@ -109,7 +109,7 @@ export default function OrderCommunicationModal({ isOpen, onClose, order }: Orde
   const formatCurrency = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50">
+    <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50">
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-[95vw] h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
@@ -156,9 +156,9 @@ export default function OrderCommunicationModal({ isOpen, onClose, order }: Orde
                   {order?.deliveryAddress?.firstName} {order?.deliveryAddress?.lastName}
                 </p>
                 {recipientPhone && (
-                  <a href={`tel:${recipientPhone}`} className="text-blue-500 hover:underline text-sm">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
                     {recipientPhone}
-                  </a>
+                  </p>
                 )}
                 {order?.deliveryAddress && (
                   <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
@@ -209,35 +209,13 @@ export default function OrderCommunicationModal({ isOpen, onClose, order }: Orde
 
           {/* Right Side - Communication Hub */}
           <div className="w-2/3 flex flex-col">
-            {/* Contact Actions */}
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex gap-3">
-                {customerPhone && (
-                  <a
-                    href={`tel:${customerPhone}`}
-                    className="flex items-center gap-2 px-4 py-2 bg-[#597485] text-white rounded-lg hover:bg-[#4e6575] transition-colors"
-                  >
-                    📞 Call Customer
-                  </a>
-                )}
-                {recipientPhone && recipientPhone !== customerPhone && (
-                  <a
-                    href={`tel:${recipientPhone}`}
-                    className="flex items-center gap-2 px-4 py-2 bg-[#597485] text-white rounded-lg hover:bg-[#4e6575] transition-colors"
-                  >
-                    📞 Call Recipient
-                  </a>
-                )}
-              </div>
-            </div>
-
             {/* Scrollable Communication Area */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               <PhoneNoteForm onSubmit={handlePhoneNoteSubmit} />
 
               <SmsComposer
                 onSend={handleSmsSend}
-                defaultPhone={customerPhone || recipientPhone || ''}
+                defaultPhone={recipientPhone || customerPhone || ''}
               />
 
               <CommunicationTimeline
