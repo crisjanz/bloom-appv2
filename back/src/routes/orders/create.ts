@@ -29,7 +29,7 @@ router.post('/create', async (req, res) => {
 
     for (const orderData of orders) {
       console.log('Creating order for:', orderData.orderType);
-      
+
       // NEW: Use Customer-based recipient system (recipientCustomerId + deliveryAddressId)
       let recipientCustomerId = orderData.recipientCustomerId || null;
       let deliveryAddressId = orderData.deliveryAddressId || null;
@@ -60,8 +60,9 @@ router.post('/create', async (req, res) => {
         .reduce((sum: number, item: any) => sum + item.rowTotal, 0);
       
       const taxCalculation = await calculateTax(taxableAmount);
-      
-      const totalAmount = subtotal + taxCalculation.totalAmount + Math.round(orderData.deliveryFee * 100);
+
+      const deliveryFeeInCents = Math.round(orderData.deliveryFee * 100);
+      const totalAmount = subtotal + taxCalculation.totalAmount + deliveryFeeInCents;
 
       // Create order with DRAFT status first, will be updated to PAID by PT transaction
       const order = await prisma.order.create({
@@ -78,7 +79,7 @@ router.post('/create', async (req, res) => {
             ? new Date(orderData.deliveryDate + 'T00:00:00')  // Explicitly midnight to avoid timezone shift
             : null,
           deliveryTime: orderData.deliveryTime || null,
-          deliveryFee: Math.round(orderData.deliveryFee * 100),
+          deliveryFee: deliveryFeeInCents,
           taxBreakdown: taxCalculation.breakdown, // Dynamic tax breakdown
           totalTax: taxCalculation.totalAmount, // Total tax amount
           paymentAmount: totalAmount,

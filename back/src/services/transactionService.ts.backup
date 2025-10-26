@@ -11,8 +11,8 @@ export interface CreateTransactionData {
   tipAmount?: number;
   notes?: string;
   receiptEmail?: string;
-  orderIds: string[];
   paymentMethods: PaymentMethodData[];
+  orderIds: string[];
 }
 
 export interface PaymentMethodData {
@@ -73,33 +73,6 @@ export interface TransactionSearchResult {
       amount: number;
     }>;
   };
-}
-
-/**
- * Parse a date string (YYYY-MM-DD) in the business timezone
- * Returns a Date object representing that date at midnight in business timezone
- */
-function parseBusinessDate(dateString: string): Date | null {
-  try {
-    // Parse date components
-    const [year, month, day] = dateString.split('-').map(Number);
-    if (!year || !month || !day) return null;
-
-    // Determine if this date is in DST (PDT) or standard time (PST)
-    // DST in Pacific Time: March (2) to November (10)
-    const monthIdx = month - 1; // Convert to 0-based
-    const isDST = monthIdx >= 2 && monthIdx <= 10;
-    const tzOffsetHours = isDST ? 7 : 8; // PDT = UTC-7, PST = UTC-8
-
-    // Create Date object representing midnight in business timezone
-    // midnight PDT = 07:00 UTC, midnight PST = 08:00 UTC
-    const date = new Date(Date.UTC(year, monthIdx, day, tzOffsetHours, 0, 0, 0));
-
-    return date;
-  } catch (error) {
-    console.error('Error parsing business date:', error);
-    return null;
-  }
 }
 
 class TransactionService {
@@ -578,15 +551,16 @@ class TransactionService {
       const createdAt: Prisma.DateTimeFilter = {};
 
       if (filters.startDate) {
-        const start = parseBusinessDate(filters.startDate);
-        if (start) {
+        const start = new Date(filters.startDate);
+        if (!Number.isNaN(start.getTime())) {
+          start.setHours(0, 0, 0, 0);
           createdAt.gte = start;
         }
       }
 
       if (filters.endDate) {
-        const end = parseBusinessDate(filters.endDate);
-        if (end) {
+        const end = new Date(filters.endDate);
+        if (!Number.isNaN(end.getTime())) {
           end.setHours(23, 59, 59, 999);
           createdAt.lte = end;
         }
@@ -812,7 +786,6 @@ class TransactionService {
 
     return summary;
   }
-
 }
 
 export default new TransactionService();
