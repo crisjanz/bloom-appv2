@@ -5,6 +5,7 @@ import PropTypes from "prop-types";
 import WishListDropdown from "./WishListDropdown.jsx";
 import CartDropdown from "./CartDropdown.jsx";
 import { useState, useEffect, useRef } from "react";
+import { useAuth } from "../../contexts/AuthContext.jsx";
 
 const navList = [
   {
@@ -69,6 +70,9 @@ const Navbar = () => {
 
   const [navbarOpen, setNavbarOpen] = useState(false);
   const navRef = useRef(null);
+  const accountRef = useRef(null);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const { isAuthenticated, customer, logout } = useAuth();
 
   const handleSubmenuToggle = () => {
     setSubmenuOpen(!submenuOpen);
@@ -83,6 +87,9 @@ const Navbar = () => {
     function handleClickOutside(event) {
       if (navRef.current && !navRef.current.contains(event.target)) {
         setNavbarOpen(false);
+      }
+      if (accountRef.current && !accountRef.current.contains(event.target)) {
+        setAccountMenuOpen(false);
       }
     }
 
@@ -232,8 +239,12 @@ const Navbar = () => {
                     </p>
                   </div>
                 </div>
-                <div>
-                  <button className="border-stroke bg-gray-2 text-dark dark:border-dark-3 dark:bg-dark-2 relative flex h-[42px] w-[42px] items-center justify-center rounded-full border-[.5px] dark:text-white">
+                <div className="relative" ref={accountRef}>
+                  <button
+                    onClick={() => setAccountMenuOpen((prev) => !prev)}
+                    className="border-stroke bg-gray-2 text-dark hover:border-primary hover:text-primary flex h-[42px] w-[42px] items-center justify-center rounded-full border transition dark:border-dark-3 dark:bg-dark-2 dark:text-white"
+                    aria-label="Account menu"
+                  >
                     <svg
                       width="22"
                       height="22"
@@ -246,6 +257,48 @@ const Navbar = () => {
                       <path d="M18.2531 21.4156C17.8406 21.4156 17.4625 21.0719 17.4625 20.625V19.6281C17.4625 16.0531 14.575 13.1656 11 13.1656C7.42499 13.1656 4.53749 16.0531 4.53749 19.6281V20.625C4.53749 21.0375 4.19374 21.4156 3.74686 21.4156C3.29999 21.4156 2.95624 21.0719 2.95624 20.625V19.6281C2.95624 15.1937 6.56561 11.6187 10.9656 11.6187C15.3656 11.6187 18.975 15.2281 18.975 19.6281V20.625C19.0094 21.0375 18.6656 21.4156 18.2531 21.4156Z" />
                     </svg>
                   </button>
+                  {accountMenuOpen && (
+                    <div className="dark:bg-dark-2 absolute right-0 z-50 mt-3 w-48 rounded-xl border border-stroke bg-white p-2 shadow-lg dark:border-dark-3">
+                      {isAuthenticated ? (
+                        <>
+                          <Link
+                            to="/profile"
+                            className="text-body-color hover:bg-primary hover:text-white block rounded-lg px-3 py-2 text-sm font-medium transition dark:text-dark-6"
+                            onClick={() => setAccountMenuOpen(false)}
+                          >
+                            My profile
+                          </Link>
+                          <button
+                            type="button"
+                            className="text-body-color hover:bg-primary hover:text-white block w-full rounded-lg px-3 py-2 text-left text-sm font-medium transition dark:text-dark-6"
+                            onClick={() => {
+                              setAccountMenuOpen(false);
+                              logout();
+                            }}
+                          >
+                            Logout
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <Link
+                            to="/login"
+                            className="text-body-color hover:bg-primary hover:text-white block rounded-lg px-3 py-2 text-sm font-medium transition dark:text-dark-6"
+                            onClick={() => setAccountMenuOpen(false)}
+                          >
+                            Login
+                          </Link>
+                          <Link
+                            to="/signup"
+                            className="text-body-color hover:bg-primary hover:text-white block rounded-lg px-3 py-2 text-sm font-medium transition dark:text-dark-6"
+                            onClick={() => setAccountMenuOpen(false)}
+                          >
+                            Create account
+                          </Link>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <WishListDropdown />

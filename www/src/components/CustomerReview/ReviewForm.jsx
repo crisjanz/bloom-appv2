@@ -111,7 +111,7 @@ const ReviewForm = () => {
 
               <div className="w-full px-3">
                 <div>
-                  <button className="inline-flex items-center justify-center rounded-md bg-primary px-7 py-[13px] text-center text-base font-medium text-white hover:bg-blue-dark">
+                  <button className="inline-flex items-center justify-center rounded-md bg-primary px-7 py-[13px] text-center text-base font-medium text-white hover:bg-primary-dark">
                     Submit Review
                   </button>
                 </div>

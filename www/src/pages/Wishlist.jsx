@@ -114,7 +114,7 @@ const Wishlist = () => {
                         </td>
                         <td className="border-stroke dark:border-dark-3 border-t px-4 py-[30px]">
                           {item.stockStatus === "In Stock" && (
-                            <button className="bg-primary hover:bg-blue-dark inline-block rounded-md px-5 py-2 text-sm leading-[1.57] font-medium text-white">
+                            <button className="bg-primary hover:bg-primary-dark inline-block rounded-md px-5 py-2 text-sm leading-[1.57] font-medium text-white">
                               Add to Cart
                             </button>
                           )}

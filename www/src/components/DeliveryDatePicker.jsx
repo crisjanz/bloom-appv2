@@ -274,7 +274,7 @@ const DeliveryDatePicker = ({ selectedDate, onDateChange, required = false }) =>
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="flex h-[50px] w-full items-center justify-center rounded-md bg-primary text-base font-medium text-white hover:bg-blue-dark"
+                className="flex h-[50px] w-full items-center justify-center rounded-md bg-primary text-base font-medium text-white hover:bg-primary-dark"
               >
                 Done
               </button>

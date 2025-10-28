@@ -1,5 +1,5 @@
 import { useCustomerOrderHistory } from "@/domains/orders/hooks/useCustomerOrders";
-import ComponentCard from "@shared/ui/common/ComponentCard";
+import ComponentCardCollapsible from "@shared/ui/common/ComponentCardCollapsible";
 import {
   Table,
   TableBody,
@@ -11,9 +11,11 @@ import { Link } from "react-router-dom";
 
 interface OrderHistoryCardProps {
   customerId: string;
+  expanded: boolean;
+  onToggle: (next: boolean) => void;
 }
 
-export default function OrderHistoryCard({ customerId }: OrderHistoryCardProps) {
+export default function OrderHistoryCard({ customerId, expanded, onToggle }: OrderHistoryCardProps) {
   const { orders, loading, customerMetrics } = useCustomerOrderHistory(customerId);
 
   // Format currency
@@ -66,16 +68,16 @@ export default function OrderHistoryCard({ customerId }: OrderHistoryCardProps) 
 
   if (loading) {
     return (
-      <ComponentCard title="Order History">
+      <ComponentCardCollapsible title="Order History" isOpen={expanded} onToggle={onToggle}>
         <div className="flex items-center justify-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#597485]"></div>
         </div>
-      </ComponentCard>
+      </ComponentCardCollapsible>
     );
   }
 
   return (
-    <ComponentCard title="Order History">
+    <ComponentCardCollapsible title="Order History" isOpen={expanded} onToggle={onToggle}>
       {/* Customer Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
@@ -235,6 +237,6 @@ export default function OrderHistoryCard({ customerId }: OrderHistoryCardProps) 
           </p>
         </div>
       )}
-    </ComponentCard>
+    </ComponentCardCollapsible>
   );
 }

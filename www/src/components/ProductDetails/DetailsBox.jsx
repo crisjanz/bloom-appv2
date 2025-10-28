@@ -145,7 +145,7 @@ const DetailsBox = ({ product }) => {
         <button
           onClick={handleAddToCart}
           disabled={!product.isActive}
-          className="flex w-full items-center justify-center rounded-md bg-primary px-10 py-[13px] text-center text-base font-medium text-white hover:bg-blue-dark disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex w-full items-center justify-center rounded-md bg-primary px-10 py-[13px] text-center text-base font-medium text-white hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Add to Cart
         </button>

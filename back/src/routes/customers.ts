@@ -575,6 +575,27 @@ router.put("/:customerId/recipients/:recipientId", async (req, res) => {
   }
 });
 
+// DELETE /api/customers/:customerId/recipients/:recipientId
+router.delete("/:customerId/recipients/:recipientId", async (req, res) => {
+  const { customerId, recipientId } = req.params;
+
+  try {
+    await prisma.customerRecipient.delete({
+      where: {
+        senderId_recipientId: {
+          senderId: customerId,
+          recipientId,
+        },
+      },
+    });
+
+    res.status(204).end();
+  } catch (err) {
+    console.error("Failed to delete recipient:", (err as any)?.message || err);
+    res.status(500).json({ error: "Failed to delete recipient" });
+  }
+});
+
 // POST /api/customers/:id/addresses
 router.post('/:id/addresses', async (req, res) => {
   const { id } = req.params;

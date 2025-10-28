@@ -62,7 +62,7 @@ const HeroArea = () => {
                           </p>
                           <Link
                             to={item.link}
-                            className="inline-flex items-center justify-center rounded-md bg-primary px-7 py-[13px] text-center text-base font-medium text-white hover:bg-blue-dark"
+                            className="inline-flex items-center justify-center rounded-md bg-primary px-7 py-[13px] text-center text-base font-medium text-white hover:bg-primary-dark"
                           >
                             {item.button}
                           </Link>

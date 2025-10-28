@@ -65,3 +65,28 @@ layer(base);
     cursor: pointer;
   }
 }
+
+@layer utilities {
+  .hover\:bg-primary\/90:hover,
+  .hover\:bg-primary:hover {
+    background-color: var(--color-primary-dark) !important;
+  }
+
+  .hover\:bg-primary-dark:hover {
+    background-color: var(--color-primary-dark) !important;
+  }
+
+  .hover\:border-primary:hover {
+    border-color: var(--color-primary-dark) !important;
+  }
+
+  .hover\:text-primary:hover {
+    color: var(--color-primary-dark) !important;
+  }
+
+  .focus\:border-primary:focus,
+  .focus-visible\:border-primary:focus-visible,
+  .active\:border-primary:active {
+    border-color: var(--color-primary-dark) !important;
+  }
+}

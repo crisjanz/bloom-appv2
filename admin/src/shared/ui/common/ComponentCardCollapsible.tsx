@@ -6,6 +6,8 @@ interface ComponentCardCollapsibleProps {
   className?: string;
   desc?: string;
   defaultOpen?: boolean;
+  isOpen?: boolean;
+  onToggle?: (next: boolean) => void;
 }
 
 const ComponentCardCollapsible: React.FC<ComponentCardCollapsibleProps> = ({
@@ -14,8 +16,19 @@ const ComponentCardCollapsible: React.FC<ComponentCardCollapsibleProps> = ({
   className = "",
   desc = "",
   defaultOpen = false,
+  isOpen,
+  onToggle,
 }) => {
-  const [isVisible, setIsVisible] = useState(defaultOpen);
+  const [internalVisible, setInternalVisible] = useState(defaultOpen);
+  const visible = isOpen ?? internalVisible;
+
+  const handleToggle = () => {
+    if (onToggle) {
+      onToggle(!visible);
+    } else {
+      setInternalVisible((prev) => !prev);
+    }
+  };
 
   return (
     <div
@@ -34,16 +47,16 @@ const ComponentCardCollapsible: React.FC<ComponentCardCollapsibleProps> = ({
           )}
         </div>
         <span 
-          onClick={() => setIsVisible(!isVisible)}
+          onClick={handleToggle}
           className="text-sm hover:underline font-medium cursor-pointer text-gray-600 dark:text-gray-300"
         >
-          {isVisible ? "Hide" : "Show"}
+          {visible ? "Hide" : "Show"}
         </span>
       </div>
 
       {/* Card Body */}
       <div
-        className={`p-4 border-t border-gray-100 dark:border-gray-800 sm:p-6 ${isVisible ? "" : "hidden"}`}
+        className={`p-4 border-t border-gray-100 dark:border-gray-800 sm:p-6 ${visible ? "" : "hidden"}`}
       >
         <div className="space-y-6">{children}</div>
       </div>

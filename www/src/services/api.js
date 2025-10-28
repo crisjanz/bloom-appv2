@@ -1,8 +1,15 @@
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 
-/**
- * Base API request handler with error handling
- */
+let authToken = null;
+
+export const setAuthToken = (token) => {
+  authToken = token;
+};
+
+export const clearAuthToken = () => {
+  authToken = null;
+};
+
 async function apiRequest(endpoint, options = {}) {
   const url = `${API_URL}${endpoint}`;
 
@@ -10,6 +17,7 @@ async function apiRequest(endpoint, options = {}) {
     const response = await fetch(url, {
       headers: {
         'Content-Type': 'application/json',
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
         ...options.headers,
       },
       ...options,

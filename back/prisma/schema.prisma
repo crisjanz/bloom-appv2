@@ -259,6 +259,9 @@ model Customer {
   homeAddress   Address?  @relation("HomeAddress", fields: [homeAddressId], references: [id])
   homeAddressId String?   @unique
   addresses     Address[] @relation("MyAddresses")
+  password      String?
+  isRegistered  Boolean   @default(false)
+  lastLogin     DateTime?
 
   // Order relationships
   ordersAsBuyer     Order[] @relation("BuyerOrders")

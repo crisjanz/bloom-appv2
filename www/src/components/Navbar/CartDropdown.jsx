@@ -132,7 +132,7 @@ const CartDropdown = () => {
                     </Link>
                     <Link
                       to="/checkout"
-                      className="bg-primary hover:bg-blue-dark flex w-full items-center justify-center rounded-md px-10 py-[13px] text-center text-base font-medium text-white"
+                      className="bg-primary hover:bg-primary-dark flex w-full items-center justify-center rounded-md px-10 py-[13px] text-center text-base font-medium text-white"
                     >
                       Checkout
                     </Link>

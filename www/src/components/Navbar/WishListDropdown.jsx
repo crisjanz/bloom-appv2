@@ -113,7 +113,7 @@ const WishListDropdown = () => {
               <div>
                 <Link
                   to="/shopping-cart"
-                  className="bg-primary hover:bg-blue-dark flex w-full items-center justify-center rounded-md px-10 py-[10px] text-center text-base font-medium text-white"
+                  className="bg-primary hover:bg-primary-dark flex w-full items-center justify-center rounded-md px-10 py-[10px] text-center text-base font-medium text-white"
                 >
                   Add to Cart
                 </Link>

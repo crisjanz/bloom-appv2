@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import jwt, { Secret } from 'jsonwebtoken';
-import { Employee, EmployeeType } from '@prisma/client';
+import { Employee, EmployeeType, Customer } from '@prisma/client';
 
 // JWT secrets are REQUIRED - no fallbacks for security
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -15,6 +15,7 @@ if (!JWT_SECRET || !JWT_REFRESH_SECRET) {
 
 const JWT_EXPIRES_IN = '24h';
 const JWT_REFRESH_EXPIRES_IN = '7d';
+const CUSTOMER_JWT_EXPIRES_IN = '30d';
 const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS || '12');
 
 /**
@@ -41,6 +42,7 @@ export const generateAccessToken = (employee: Employee): string => {
     name: employee.name,
     type: employee.type,
     isActive: employee.isActive,
+    subject: 'employee',
   };
 
   return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
@@ -53,6 +55,7 @@ export const generateRefreshToken = (employee: Employee): string => {
   const payload = {
     id: employee.id,
     type: 'refresh',
+    subject: 'employee',
   };
 
   return jwt.sign(payload, JWT_REFRESH_SECRET, { expiresIn: JWT_REFRESH_EXPIRES_IN });
@@ -77,6 +80,39 @@ export const verifyRefreshToken = (token: string): any => {
     return jwt.verify(token, JWT_REFRESH_SECRET);
   } catch (error) {
     throw new Error('Invalid or expired refresh token');
+  }
+};
+
+/**
+ * Generate JWT access token for customers
+ */
+export const generateCustomerAccessToken = (
+  customer: Pick<Customer, 'id' | 'email' | 'firstName' | 'lastName' | 'isRegistered'>
+): string => {
+  const payload = {
+    id: customer.id,
+    email: customer.email,
+    firstName: customer.firstName,
+    lastName: customer.lastName,
+    isRegistered: customer.isRegistered,
+    subject: 'customer',
+  };
+
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: CUSTOMER_JWT_EXPIRES_IN });
+};
+
+/**
+ * Verify customer access token
+ */
+export const verifyCustomerAccessToken = (token: string): any => {
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    if ((decoded as any).subject !== 'customer') {
+      throw new Error('Invalid token subject');
+    }
+    return decoded;
+  } catch (error) {
+    throw new Error('Invalid or expired customer token');
   }
 };
 

@@ -8,6 +8,9 @@ import ProductDetails from "../pages/ProductDetails.jsx";
 import ShoppingCart from "../pages/ShoppingCart.jsx";
 import Contact from "../pages/Contact.jsx";
 import Wishlist from "../pages/Wishlist.jsx";
+import Login from "../pages/Login.jsx";
+import Profile from "../pages/Profile.jsx";
+import Signup from "../pages/Signup.jsx";
 
 const Root = () => {
   return (
@@ -22,6 +25,9 @@ const Root = () => {
           <Route path="/shopping-cart" element={<ShoppingCart />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/wishlist" element={<Wishlist />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/signup" element={<Signup />} />
         </Route>
       </Routes>
     </>

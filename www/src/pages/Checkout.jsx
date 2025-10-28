@@ -9,6 +9,8 @@ import {
   createOrderDraft,
   linkRecipientToCustomer,
 } from "../services/checkoutService.js";
+import { useAuth } from "../contexts/AuthContext.jsx";
+import CreateAccountModal from "../components/CreateAccountModal.jsx";
 
 const DELIVERY_FEE = 15;
 const TAX_RATE = 0.12;
@@ -75,6 +77,7 @@ const Checkout = () => {
     getDiscountAmount,
     hasFreeShipping,
   } = useCart();
+  const { customer: authCustomer, isAuthenticated, refreshProfile } = useAuth();
 
   const [recipient, setRecipient] = useState(initialRecipient);
   const [customer, setCustomer] = useState(initialCustomer);
@@ -88,6 +91,8 @@ const Checkout = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
   const [orderResult, setOrderResult] = useState(null);
+  const [showCreateAccountModal, setShowCreateAccountModal] = useState(false);
+  const [lastOrderEmail, setLastOrderEmail] = useState("");
   const [couponInput, setCouponInput] = useState(coupon?.code || "");
   const [couponMessage, setCouponMessage] = useState("");
   const [couponError, setCouponError] = useState("");
@@ -102,6 +107,23 @@ const Checkout = () => {
       setCouponMessage("");
     }
   }, [coupon]);
+
+  useEffect(() => {
+    if (!authCustomer) return;
+    setCustomer((prev) => ({
+      ...prev,
+      firstName: authCustomer.firstName || prev.firstName,
+      lastName: authCustomer.lastName || prev.lastName,
+      email: authCustomer.email || prev.email,
+      phone: authCustomer.phone || prev.phone,
+    }));
+  }, [authCustomer]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      setShowCreateAccountModal(false);
+    }
+  }, [isAuthenticated]);
 
   const subtotal = useMemo(
     () => cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
@@ -322,10 +344,17 @@ const Checkout = () => {
         deliveryDate,
       });
 
+      setLastOrderEmail(customer.email || "");
+
       clearCart();
       setRecipient(initialRecipient);
       setCustomer(initialCustomer);
       setPayment(initialPayment);
+      clearCoupon();
+
+      if (!isAuthenticated) {
+        setShowCreateAccountModal(true);
+      }
     } catch (error) {
       console.error("Checkout failed:", error);
       setSubmitError(error.message || "Failed to place order. Please try again.");
@@ -343,6 +372,14 @@ const Checkout = () => {
             <SuccessCard orderResult={orderResult} />
           </div>
         </section>
+        <CreateAccountModal
+          isOpen={showCreateAccountModal}
+          email={lastOrderEmail || customer.email || authCustomer?.email || ""}
+          firstName={orderResult?.buyer?.firstName}
+          lastName={orderResult?.buyer?.lastName}
+          onClose={() => setShowCreateAccountModal(false)}
+          onRegistered={refreshProfile}
+        />
       </>
     );
   }
