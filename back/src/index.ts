@@ -87,10 +87,10 @@ async function ensureOrderSchema() {
 const defaultOrigins = [
   'https://www.hellobloom.ca',
   'https://hellobloom.ca',
-  'https://admin.hellobloom.ca',
-  'http://localhost:5173', // Admin frontend
+  'https://admin.hellobloom.ca', // Cloudflare Pages admin
+  'http://localhost:5173', // Admin frontend local
   'http://localhost:5174', // Admin frontend alternate
-  'http://localhost:5175', // Customer website
+  'http://localhost:5175', // Customer website local
   'http://localhost:5176', // Customer website alternate
   'http://localhost:5177', // Customer website alternate
 ];
