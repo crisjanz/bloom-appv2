@@ -89,6 +89,7 @@ const defaultOrigins = [
   'https://hellobloom.ca',
   'https://admin.hellobloom.ca', // Cloudflare Pages admin custom domain
   'https://bloomadmin.pages.dev', // Cloudflare Pages admin default URL
+  'https://bloom-appv2.pages.dev', // Cloudflare Pages www default URL
   'http://localhost:5173', // Admin frontend local
   'http://localhost:5174', // Admin frontend alternate
   'http://localhost:5175', // Customer website local
