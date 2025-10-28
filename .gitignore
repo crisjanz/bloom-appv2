@@ -3,7 +3,7 @@ node_modules/
 dist/
 .vscode/
 .DS_Store
-git backup
+tailgrids
 
 # Documentation (internal use only)
 docs/

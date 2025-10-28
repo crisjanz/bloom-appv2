@@ -88,7 +88,11 @@ const defaultOrigins = [
   'https://www.hellobloom.ca',
   'https://hellobloom.ca',
   'https://admin.hellobloom.ca',
-  'http://localhost:5173',
+  'http://localhost:5173', // Admin frontend
+  'http://localhost:5174', // Admin frontend alternate
+  'http://localhost:5175', // Customer website
+  'http://localhost:5176', // Customer website alternate
+  'http://localhost:5177', // Customer website alternate
 ];
 
 const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS?.split(',')
