@@ -11,6 +11,8 @@ import Wishlist from "../pages/Wishlist.jsx";
 import Login from "../pages/Login.jsx";
 import Profile from "../pages/Profile.jsx";
 import Signup from "../pages/Signup.jsx";
+import GiftCard from "../pages/GiftCard.jsx";
+import GiftCardEmailPreview from "../pages/GiftCardEmailPreview.jsx";
 
 const Root = () => {
   return (
@@ -28,6 +30,8 @@ const Root = () => {
           <Route path="/login" element={<Login />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/gift-cards" element={<GiftCard />} />
+          <Route path="/gift-card-email-preview" element={<GiftCardEmailPreview />} />
         </Route>
       </Routes>
     </>

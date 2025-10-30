@@ -11,7 +11,7 @@ const Filters = () => {
     <>
       <Breadcrumb pageName="Shop" />
 
-      <section className="bg-tg-bg pb-[90px] pt-24 dark:bg-dark">
+      <section className="bg-tg-bg pb-[90px] pt-3 dark:bg-dark">
         <div className="container mx-auto">
           <FilterTop />
 

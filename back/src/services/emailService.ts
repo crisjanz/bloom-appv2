@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import sgMail from '@sendgrid/mail';
 
 // Initialize SendGrid with API key
@@ -38,6 +40,8 @@ interface ReceiptEmailData {
 class EmailService {
   private fromEmail = process.env.SENDGRID_FROM_EMAIL || 'noreply@bloomflowershop.com';
   private fromName = process.env.SENDGRID_FROM_NAME || 'Bloom Flower Shop';
+  private giftCardTemplateCache: string | null | undefined;
+  private warnedMissingGiftCardTemplate = false;
 
   /**
    * Send a basic email
@@ -143,6 +147,54 @@ class EmailService {
    * Generate gift card HTML email
    */
   private generateGiftCardHTML(data: GiftCardEmailData): string {
+    const template = this.getGiftCardTemplate();
+
+    if (template) {
+      const purchaserSection = data.purchaserName
+        ? `
+        <p style="color:#666;font-size:16px;margin:10px 0;">
+          You've received this gift card from
+          <strong>${data.purchaserName}</strong>
+        </p>
+      `
+        : '';
+
+      const messageSection = data.message
+        ? `
+        <div
+          style="background:#f8f8f8;border-left:4px solid #597485;padding:15px;margin:20px 0;text-align:left;"
+        >
+          <p style="color:#333;font-style:italic;margin:0;font-size:16px;">"${data.message}"</p>
+        </div>
+      `
+        : '';
+
+      const redeemButton = data.redeemUrl
+        ? `
+        <a
+          href="${data.redeemUrl}"
+          style="display:inline-block;background-color:#597485;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:bold;"
+        >Start Shopping</a>
+      `
+        : '';
+
+      const replacements: Record<string, string> = {
+        '{{recipientName}}': data.recipientName || 'Gift Card Recipient',
+        '{{giftCardNumber}}': data.giftCardNumber,
+        '{{amount}}': data.amount.toFixed(2),
+        '{{purchaserSection}}': purchaserSection,
+        '{{messageSection}}': messageSection,
+        '{{redeemButton}}': redeemButton
+      };
+
+      let html = template;
+      for (const [token, value] of Object.entries(replacements)) {
+        html = html.split(token).join(value);
+      }
+
+      return html;
+    }
+
     return `
       <!DOCTYPE html>
       <html>
@@ -227,6 +279,25 @@ class EmailService {
         </body>
       </html>
     `;
+  }
+
+  private getGiftCardTemplate(): string | null {
+    if (this.giftCardTemplateCache !== undefined) {
+      return this.giftCardTemplateCache;
+    }
+
+    try {
+      const templatePath = path.resolve(process.cwd(), 'templates', 'gift-card-email.html');
+      this.giftCardTemplateCache = fs.readFileSync(templatePath, 'utf-8');
+    } catch (error) {
+      if (!this.warnedMissingGiftCardTemplate) {
+        console.warn('Gift card email template not found at templates/gift-card-email.html. Using default HTML.');
+        this.warnedMissingGiftCardTemplate = true;
+      }
+      this.giftCardTemplateCache = null;
+    }
+
+    return this.giftCardTemplateCache;
   }
 
   /**

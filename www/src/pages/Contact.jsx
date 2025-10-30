@@ -13,7 +13,7 @@ const Contact = () => {
 
       <section className="relative z-10 overflow-hidden bg-tg-bg py-20 dark:bg-dark lg:py-[120px]">
         <div className="container mx-auto">
-          <div className="-mx-4 flex flex-wrap items-center">
+          <div className="-mx-4 flex flex-wrap items-top">
             <div className="w-full px-4 lg:w-1/2 xl:w-5/12">
               <div className="w-full max-w-[435px]">
                 <h2 className="text-dark mb-5 text-4xl font-bold leading-[1.2] dark:text-white sm:text-5xl md:text-[60px]">
@@ -163,10 +163,17 @@ const Contact = () => {
           </div>
         </div>
 
-        <div className="absolute bottom-0 left-0 -z-10">
+        <div className="absolute top-0 left-0 -z-10 h-full w-full">
           <img
-            src="https://cdn.tailgrids.com/assets/images/application/contacts/contact-13/shape-1.svg"
+            src="public/greenBG.png"
             alt="Decorative flower accent"
+            className="pointer-events-none select-none h-full w-full object-cover md:object-center object-right"
+            style={{
+              WebkitMaskImage:
+                "linear-gradient(to bottom, rgba(0,0,0,0) 0px, rgba(0,0,0,0.6) 160px, rgba(0,0,0,1) 240px)",
+              maskImage:
+                "linear-gradient(to bottom, rgba(0,0,0,0) 0px, rgba(0,0,0,0.6) 160px, rgba(0,0,0,1) 240px)",
+            }}
           />
         </div>
         <div className="absolute right-0 top-0 -z-10">

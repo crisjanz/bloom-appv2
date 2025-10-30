@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bloom Flower Shop Gift Card</title>
+  </head>
+  <body style="margin:0;padding:0;background-color:#f9f9f9;font-family:Arial,sans-serif;">
+    <div style="max-width:600px;margin:0 auto;background-color:#ffffff;padding:40px;">
+      <header style="text-align:center;margin-bottom:30px;">
+        <h1 style="color:#597485;font-size:32px;margin:0;">🌸 Bloom Flower Shop</h1>
+        <p style="color:#666;font-size:18px;margin:10px 0 0 0;">Digital Gift Card</p>
+      </header>
+
+      <section
+        style="background:linear-gradient(135deg,#597485 0%,#4e6575 100%);border-radius:15px;padding:30px;text-align:center;margin:30px 0;box-shadow:0 4px 8px rgba(0,0,0,0.1);"
+      >
+        <div style="background:#ffffff;border-radius:10px;padding:25px;margin:10px 0;">
+          <h2
+            style="color:#597485;font-family:monospace;font-size:24px;margin:0 0 15px 0;letter-spacing:2px;"
+          >
+            {{giftCardNumber}}
+          </h2>
+          <p style="color:#597485;font-size:36px;font-weight:bold;margin:0;">${{amount}}</p>
+        </div>
+      </section>
+
+      <section style="text-align:center;margin:30px 0;">
+        <h3 style="color:#333;font-size:20px;margin:0 0 10px 0;">Dear {{recipientName}},</h3>
+        {{purchaserSection}}
+        {{messageSection}}
+      </section>
+
+      <section style="background:#f8f8f8;border-radius:10px;padding:25px;margin:30px 0;">
+        <h3 style="color:#597485;font-size:18px;margin:0 0 15px 0;text-align:center;">
+          How to Use Your Gift Card
+        </h3>
+        <ul style="color:#666;line-height:1.6;margin:0;padding-left:20px;text-align:left;">
+          <li>Present this card number when placing an order</li>
+          <li>Redeem online or in-store — it's valid everywhere Bloom serves</li>
+          <li>No expiration date, the remaining balance stays on the card</li>
+        </ul>
+      </section>
+
+      <section style="text-align:center;margin:30px 0;">
+        {{redeemButton}}
+        <p style="color:#999;font-size:12px;margin:20px 0 0 0;">
+          Keep this email for your records. Need help? Email hello@bloomflowershop.com.
+        </p>
+      </section>
+    </div>
+  </body>
+</html>

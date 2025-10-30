@@ -35,7 +35,7 @@ const ProductDetails = () => {
     return (
       <>
         <Breadcrumb pageName="Product Details" />
-        <section className="bg-tg-bg pt-24 pb-20 dark:bg-dark">
+        <section className="bg-tg-bg pt-10 pb-20 dark:bg-dark">
           <div className="container mx-auto text-center">
             <p className="text-body-color dark:text-dark-6">Loading product...</p>
           </div>
@@ -48,7 +48,7 @@ const ProductDetails = () => {
     return (
       <>
         <Breadcrumb pageName="Product Not Found" />
-        <section className="bg-tg-bg pt-24 pb-20 dark:bg-dark">
+        <section className="bg-tg-bg pt-10 pb-20 dark:bg-dark">
           <div className="container mx-auto text-center">
             <p className="text-body-color dark:text-dark-6">Product not found.</p>
           </div>
@@ -61,15 +61,15 @@ const ProductDetails = () => {
     <>
       <Breadcrumb pageName={product.name} />
 
-      <section className="bg-tg-bg pt-24 dark:bg-dark lg:pb-[90px]">
+      <section className="bg-tg-bg pt-10 dark:bg-dark lg:pb-[90px]">
         <div className="container mx-auto">
-          <div className="-mx-4 flex flex-wrap">
-            <div className="w-full px-4 lg:w-1/2 xl:w-7/12">
-              <ProductTab product={product} />
-            </div>
+          <div className="mx-auto max-w-4xl px-4">
+            <div className="flex flex-col gap-8 lg:flex-row">
+              <div className="w-full lg:w-1/2">
+                <ProductTab product={product} />
+              </div>
 
-            <div className="w-full px-4 lg:w-1/2 xl:w-5/12">
-              <div>
+              <div className="w-full lg:w-1/2">
                 <DetailsBox product={product} />
               </div>
             </div>
