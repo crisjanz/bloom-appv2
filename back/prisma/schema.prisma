@@ -919,6 +919,7 @@ enum PaymentMethodType {
   COD
   HOUSE_ACCOUNT
   OFFLINE
+  FTD  // FTD wire-in orders (pre-paid via FTD network)
 }
 
 enum PaymentProvider {

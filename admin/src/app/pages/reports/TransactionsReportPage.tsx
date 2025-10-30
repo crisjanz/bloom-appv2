@@ -48,7 +48,7 @@ const formatCurrency = (amount: number) =>
   new Intl.NumberFormat('en-CA', {
     style: 'currency',
     currency: 'CAD'
-  }).format(amount || 0);
+  }).format((amount || 0) / 100); // Convert cents to dollars
 
 const toTitleCase = (value: string) =>
   value
@@ -74,6 +74,8 @@ const resolvePaymentMethodLabel = (method: PaymentTransactionReport['paymentMeth
       return 'Cheque';
     case 'GIFT_CARD':
       return 'Gift Card';
+    case 'FTD':
+      return 'FTD Wire-In';
     default:
       return toTitleCase(type || 'UNKNOWN');
   }
@@ -153,6 +155,9 @@ const TransactionsReportPage: React.FC = () => {
     if (!builtIn || builtIn.cod) {
       options.push({ value: 'COD', label: 'Collect on Delivery' });
     }
+
+    // Always show FTD option (for wire-in orders)
+    options.push({ value: 'FTD', label: 'FTD Wire-In' });
 
     const offlineOptions = (paymentOfflineMethods ?? [])
       .filter((method) => method.isActive)

@@ -16,7 +16,7 @@ export interface CreateTransactionData {
 }
 
 export interface PaymentMethodData {
-  type: 'CASH' | 'CARD' | 'GIFT_CARD' | 'STORE_CREDIT' | 'CHECK' | 'COD' | 'HOUSE_ACCOUNT' | 'OFFLINE';
+  type: 'CASH' | 'CARD' | 'GIFT_CARD' | 'STORE_CREDIT' | 'CHECK' | 'COD' | 'HOUSE_ACCOUNT' | 'OFFLINE' | 'FTD';
   provider: 'STRIPE' | 'SQUARE' | 'INTERNAL';
   amount: number;
   providerTransactionId?: string;
@@ -706,6 +706,7 @@ class TransactionService {
       COD: 'Collect on Delivery',
       HOUSE_ACCOUNT: 'House Account',
       OFFLINE: 'Offline',
+      FTD: 'FTD Wire-In',
       UNKNOWN: 'Unknown'
     };
 

@@ -2,6 +2,7 @@ import axios from "axios";
 import { PrismaClient, AddressType, OrderStatus, FtdOrderStatus } from "@prisma/client";
 import { sendFtdOrderNotification } from "./ftdNotification";
 import { isWithinBusinessHours } from "../utils/businessHours";
+import transactionService from "./transactionService";
 
 const prisma = new PrismaClient();
 const axiosClient = axios.create();
@@ -407,6 +408,38 @@ async function autoCreateBloomOrder(ftdOrder: any) {
         needsApproval: false
       }
     });
+
+    // Create payment transaction for FTD order
+    // NOTE: All amounts stored in cents for consistency
+    try {
+      const paymentTransaction = await transactionService.createTransaction({
+        customerId: senderCustomer.id,
+        employeeId: undefined, // FTD orders are automated
+        channel: 'WEBSITE', // Use WEBSITE as proxy for wire-in orders
+        totalAmount: ftdOrder.totalAmount || 0, // Already in cents
+        taxAmount: 0, // FTD includes tax in total
+        tipAmount: 0,
+        notes: `FTD Wire-In Order ${ftdOrder.externalId}`,
+        receiptEmail: undefined,
+        paymentMethods: [{
+          type: 'FTD' as any, // FTD wire-in payment (pre-paid via FTD network)
+          provider: 'INTERNAL' as any,
+          amount: ftdOrder.totalAmount || 0, // Already in cents
+          providerTransactionId: ftdOrder.externalId,
+          providerMetadata: {
+            source: 'FTD',
+            ftdOrderId: ftdOrder.id,
+            sendingFlorist: floristCode
+          }
+        }],
+        orderIds: [bloomOrder.id]
+      });
+
+      console.log(`💳 Created PT-transaction ${paymentTransaction.transactionNumber} for FTD order ${ftdOrder.externalId} ($${(ftdOrder.totalAmount / 100).toFixed(2)})`);
+    } catch (error: any) {
+      console.error(`⚠️  Failed to create PT-transaction for FTD order ${ftdOrder.externalId}:`, error.message);
+      // Don't throw - order was created successfully, transaction is just for reporting
+    }
 
     console.log(`✅ Created Bloom Order #${bloomOrder.orderNumber} from FTD ${ftdOrder.externalId}`);
     return bloomOrder;
