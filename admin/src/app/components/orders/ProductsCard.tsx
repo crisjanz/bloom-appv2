@@ -7,6 +7,7 @@ import Label from "@shared/ui/forms/Label";
 import Checkbox from "@shared/ui/forms/input/Checkbox";
 import { useTaxRates } from "@shared/hooks/useTaxRates";
 import ProductVariantModal from "../pos/ProductVariantModal";
+import { useApiClient } from "@shared/hooks/useApiClient";
 
 
 
@@ -17,6 +18,25 @@ type Product = {
   qty: string;
   tax: boolean;
   productId?: string;
+};
+
+type AddOnProductSummary = {
+  assignmentId: string;
+  productId: string;
+  product: {
+    id: string;
+    name: string;
+    price: number | null;
+    isTaxable: boolean;
+    reportingCategoryId?: string | null;
+  } | null;
+};
+
+type AddOnGroupDetail = {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  addOns: AddOnProductSummary[];
 };
 
 type Props = {
@@ -36,6 +56,14 @@ export default function ProductsCard({
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [addOnPanel, setAddOnPanel] = useState<{
+    productId: string;
+    productName: string;
+    groups: AddOnGroupDetail[];
+  } | null>(null);
+  const [addOnSelections, setAddOnSelections] = useState<Record<string, string[]>>({});
+  const [addOnLoading, setAddOnLoading] = useState(false);
+  const [addOnError, setAddOnError] = useState<string | null>(null);
   
   // Variant modal state
   const [showVariantModal, setShowVariantModal] = useState(false);
@@ -44,6 +72,9 @@ export default function ProductsCard({
 
   // Get centralized tax rates
   const { calculateTax, individualTaxRates } = useTaxRates();
+
+  // API client for making requests
+  const apiClient = useApiClient();
 
   // Helper function to check if product has variants
   const hasMultipleVariants = (product: any) => {
@@ -78,7 +109,158 @@ export default function ProductsCard({
         handleProductChange(newIndex, "productId", product.id); // Store actual product ID
       }, 100);
     }
+
+    if (Array.isArray(product.addOnGroupIds) && product.addOnGroupIds.length > 0) {
+      fetchAddOnGroups(product);
+    } else {
+      setAddOnPanel(null);
+      setAddOnSelections({});
+      setAddOnError(null);
+    }
   };
+
+  const addAddOnProductToForm = (product: {
+    id: string;
+    name: string;
+    price: number | null;
+    isTaxable: boolean;
+    reportingCategoryId?: string | null;
+  }) => {
+    const priceValue = typeof product.price === "number" && Number.isFinite(product.price)
+      ? product.price
+      : 0;
+    const priceString = priceValue.toFixed(2);
+    const category = product.reportingCategoryId ?? "";
+    const taxable = Boolean(product.isTaxable);
+
+    const emptyIndex = customProducts.findIndex((p) => !p.description);
+
+    const applyValues = (index: number) => {
+      handleProductChange(index, "description", product.name);
+      handleProductChange(index, "category", category);
+      handleProductChange(index, "price", priceString);
+      handleProductChange(index, "productId", product.id);
+      handleProductChange(index, "tax", taxable);
+    };
+
+    if (emptyIndex >= 0) {
+      applyValues(emptyIndex);
+    } else {
+      handleAddCustomProduct();
+      setTimeout(() => {
+        const newIndex = customProducts.length;
+        applyValues(newIndex);
+      }, 100);
+    }
+  };
+
+  const fetchAddOnGroups = async (product: any) => {
+    setAddOnLoading(true);
+    setAddOnError(null);
+    try {
+      const data = await apiClient.get(`/api/addon-groups/by-product/${product.id}`);
+      const groups: AddOnGroupDetail[] = Array.isArray(data)
+        ? data
+            .map((group: any) => {
+              const addOns: AddOnProductSummary[] = Array.isArray(group?.addOns)
+                ? group.addOns
+                    .filter((item: any) => item?.product && item.product.id)
+                    .map((item: any) => ({
+                      assignmentId: String(item.assignmentId ?? item.productId ?? ""),
+                      productId: String(item.product?.id ?? item.productId ?? ""),
+                      product: item.product
+                        ? {
+                            id: String(item.product.id),
+                            name: String(item.product.name ?? "Add-on"),
+                            price:
+                              typeof item.product.price === "number"
+                                ? item.product.price
+                                : null,
+                            isTaxable: Boolean(item.product.isTaxable ?? true),
+                            reportingCategoryId: item.product.reportingCategoryId ?? null,
+                          }
+                        : null,
+                    }))
+                : [];
+              return {
+                id: String(group.id),
+                name: String(group.name ?? ""),
+                isDefault: Boolean(group.isDefault),
+                addOns,
+              };
+            })
+            .filter((group: AddOnGroupDetail) => group.addOns.length > 0)
+        : [];
+
+      if (groups.length > 0) {
+        setAddOnPanel({
+          productId: product.id,
+          productName: product.name,
+          groups,
+        });
+        setAddOnSelections({});
+      } else {
+        setAddOnPanel(null);
+        setAddOnSelections({});
+      }
+    } catch (error) {
+      console.error('Failed to load add-ons for product:', error);
+      setAddOnError('Failed to load add-ons for this product.');
+      setAddOnPanel(null);
+      setAddOnSelections({});
+    } finally {
+      setAddOnLoading(false);
+    }
+  };
+
+  const toggleAddOnSelection = (groupId: string, productId: string) => {
+    setAddOnSelections((previous) => {
+      const current = new Set(previous[groupId] ?? []);
+      if (current.has(productId)) {
+        current.delete(productId);
+      } else {
+        current.add(productId);
+      }
+      return {
+        ...previous,
+        [groupId]: Array.from(current),
+      };
+    });
+  };
+
+  const handleAddSelectedAddOns = () => {
+    if (!addOnPanel) {
+      return;
+    }
+
+    let added = false;
+    for (const group of addOnPanel.groups) {
+      const selections = addOnSelections[group.id] ?? [];
+      for (const productId of selections) {
+        const addOn = group.addOns.find((item) => item.productId === productId && item.product);
+        if (addOn && addOn.product) {
+          addAddOnProductToForm(addOn.product);
+          added = true;
+        }
+      }
+    }
+
+    if (added) {
+      setAddOnPanel(null);
+      setAddOnSelections({});
+      setAddOnError(null);
+    }
+  };
+
+  const handleSkipAddOns = () => {
+    setAddOnPanel(null);
+    setAddOnSelections({});
+    setAddOnError(null);
+  };
+
+  const hasSelectedAddOns = Object.values(addOnSelections).some(
+    (selection) => Array.isArray(selection) && selection.length > 0
+  );
 
   // Handle variant selection
   const handleVariantSelection = (variant: any) => {
@@ -240,6 +422,114 @@ export default function ProductsCard({
           )}
         </div>
       </div>
+
+      {addOnPanel && (
+        <div className="mt-4 rounded-md border border-stroke bg-white p-4 dark:border-strokedark dark:bg-boxdark">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h4 className="text-sm font-semibold text-gray-800 dark:text-white">
+                Add-ons for {addOnPanel.productName}
+              </h4>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Select extras to include with this product.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleSkipAddOns}
+              className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+              Skip
+            </button>
+          </div>
+
+          {addOnLoading ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400">Loading add-ons…</p>
+          ) : addOnError ? (
+            <p className="text-sm text-red-600 dark:text-red-300">{addOnError}</p>
+          ) : (
+            <div className="space-y-4">
+              {addOnPanel.groups.map((group) => (
+                <div key={group.id} className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                      {group.name}
+                    </span>
+                    <span className="text-xs text-gray-400 dark:text-gray-500">
+                      {group.addOns.length} option{group.addOns.length === 1 ? "" : "s"}
+                    </span>
+                  </div>
+                  {group.addOns.length === 0 ? (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      No active add-ons available in this group.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {group.addOns.map((addOn) => {
+                        if (!addOn.product) {
+                          return null;
+                        }
+                        const checked = addOnSelections[group.id]?.includes(addOn.productId) ?? false;
+                        const priceLabel =
+                          typeof addOn.product.price === "number"
+                            ? `$${addOn.product.price.toFixed(2)}`
+                            : "Custom price";
+
+                        return (
+                          <label
+                            key={addOn.productId}
+                            className="flex cursor-pointer items-start justify-between rounded-md border border-transparent px-2 py-1 hover:border-primary/40 hover:bg-primary/5 dark:hover:border-primary/40 dark:hover:bg-primary/10"
+                          >
+                            <div className="flex items-start gap-3">
+                              <input
+                                type="checkbox"
+                                className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                checked={checked}
+                                onChange={() => toggleAddOnSelection(group.id, addOn.productId)}
+                              />
+                              <div>
+                                <div className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                                  {addOn.product.name}
+                                </div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                  {priceLabel}
+                                  {!addOn.product.isTaxable && " • non-taxable"}
+                                </div>
+                              </div>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-4 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={handleSkipAddOns}
+              className="rounded-md border border-gray-300 px-4 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={!hasSelectedAddOns}
+              onClick={handleAddSelectedAddOns}
+              className={`rounded-md px-4 py-1.5 text-sm font-medium text-white ${
+                hasSelectedAddOns
+                  ? 'bg-primary hover:bg-primary/90'
+                  : 'bg-gray-400 cursor-not-allowed'
+              }`}
+            >
+              Add selected add-ons
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Products Table */}
       <div className="overflow-hidden">

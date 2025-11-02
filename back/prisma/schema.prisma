@@ -197,7 +197,9 @@ model AddOnProduct {
   addonProductId String
   groupId        String
 
-  group AddOnGroup @relation(fields: [groupId], references: [id])
+  group AddOnGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([addonProductId, groupId])
 }
 
 model ProductAddOnGroup {
@@ -205,8 +207,10 @@ model ProductAddOnGroup {
   productId String
   groupId   String
 
-  product Product    @relation(fields: [productId], references: [id])
-  group   AddOnGroup @relation("ProductToAddOnGroup", fields: [groupId], references: [id])
+  product Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  group   AddOnGroup @relation("ProductToAddOnGroup", fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, groupId])
 }
 
 model Tag {

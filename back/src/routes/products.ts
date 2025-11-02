@@ -31,6 +31,17 @@ type ProductWithVariantOptions = Prisma.ProductGetPayload<{
         };
       };
     };
+    addonGroups: {
+      include: {
+        group: {
+          select: {
+            id: true;
+            name: true;
+            isDefault: true;
+          };
+        };
+      };
+    };
   };
 }>;
 
@@ -90,6 +101,41 @@ const parseCurrencyToCents = (value: unknown): number => {
   }
 
   return 0;
+};
+
+const parseIdArray = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return Array.from(
+      new Set(
+        value
+          .filter((item): item is string => typeof item === 'string')
+          .map((item) => item.trim())
+          .filter((item) => item.length > 0)
+      )
+    );
+  }
+
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parseIdArray(parsed);
+      }
+    } catch {
+      // fall back to comma splitting
+    }
+
+    return Array.from(
+      new Set(
+        value
+          .split(',')
+          .map((item) => item.trim())
+          .filter((item) => item.length > 0)
+      )
+    );
+  }
+
+  return [];
 };
 
 const extractOptionMetadata = (option: Prisma.ProductOptionGetPayload<{}>): {
@@ -227,7 +273,23 @@ const transformProductResponse = (product: ProductWithVariantOptions) => {
       optionValues: variant.optionValues,
     }));
 
-  const { variants: _unusedVariants, ...productRest } = product;
+  const {
+    variants: _unusedVariants,
+    addonGroups: addonGroupLinks,
+    ...productRest
+  } = product;
+
+  const addOnGroups = (addonGroupLinks ?? []).map((link) => ({
+    assignmentId: link.id,
+    groupId: link.groupId,
+    group: link.group
+      ? {
+          id: link.group.id,
+          name: link.group.name,
+          isDefault: link.group.isDefault,
+        }
+      : null,
+  }));
 
   return {
     ...productRest,
@@ -235,6 +297,8 @@ const transformProductResponse = (product: ProductWithVariantOptions) => {
     baseVariant: defaultVariant,
     variants: variantList,
     optionStructure,
+    addOnGroups,
+    addOnGroupIds: addOnGroups.map((group) => group.groupId),
   };
 };
 
@@ -261,6 +325,7 @@ type PersistedOptionGroup = {
   id: string;
   impactsVariants: boolean;
   valueLabelToId: Record<string, string>;
+  orderedValueIds: string[];
 };
 
 const createProductOptions = async (
@@ -306,6 +371,7 @@ const createProductOptions = async (
       valueLabelToId: Object.fromEntries(
         option.values.map((value) => [value.label, value.id])
       ),
+      orderedValueIds: option.values.map((value) => value.id),
     });
   }
 
@@ -330,7 +396,29 @@ const resolveVariantOptionValueIds = (
     .map((label) => label.trim())
     .filter(Boolean);
 
+  const isDefaultVariantName =
+    !variant.name ||
+    variant.name === 'Default' ||
+    variant.name.toLowerCase() === 'standard' ||
+    variant.name.toLowerCase() === 'base';
+
+  const fallbackToFirstValues = () => {
+    return impactingGroups.map((group) => {
+      const option = optionMap.get(group.id);
+      if (!option || option.orderedValueIds.length === 0) {
+        throw new Error(
+          `Option group "${group.name}" is missing selectable values.`
+        );
+      }
+      return option.orderedValueIds[0];
+    });
+  };
+
   if (labels.length !== impactingGroups.length) {
+    if (isDefaultVariantName) {
+      return fallbackToFirstValues();
+    }
+
     throw new Error(
       `Variant "${variant.name}" does not match expected option combination. ` +
         `Expected ${impactingGroups.length} values, received ${labels.length}.`
@@ -346,6 +434,10 @@ const resolveVariantOptionValueIds = (
     const label = labels[index];
     const optionValueId = option.valueLabelToId[label];
     if (!optionValueId) {
+      if (isDefaultVariantName && option.orderedValueIds.length > 0) {
+        return option.orderedValueIds[0];
+      }
+
       throw new Error(
         `Option value "${label}" not found within group "${group.name}".`
       );
@@ -482,6 +574,9 @@ router.get('/search', async (req, res) => {
         category: true,
         reportingCategory: true,
         variants: true,
+        addonGroups: {
+          select: { groupId: true },
+        },
       },
       take: 10,
     });
@@ -508,7 +603,8 @@ router.get('/search', async (req, res) => {
           reportingCategoryId: product.reportingCategory?.id,
           reportingCategoryName: product.reportingCategory?.name,
           defaultPrice: basePrice / 100,
-          variants: transformedVariants
+          variants: transformedVariants,
+          addOnGroupIds: product.addonGroups?.map((link) => link.groupId) ?? [],
         };
       })
     );
@@ -536,6 +632,17 @@ router.get('/', async (req, res) => {
         },
         category: true,
         reportingCategory: true,
+        addonGroups: {
+          include: {
+            group: {
+              select: {
+                id: true,
+                name: true,
+                isDefault: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -573,6 +680,7 @@ router.post('/', upload.array('images'), async (req, res) => {
     productType,
     optionGroups: optionGroupsJson,
     variants: variantsJson,
+    addOnGroupIds: addOnGroupIdsRaw,
   } = req.body;
   
   const name = title;
@@ -623,6 +731,23 @@ router.post('/', upload.array('images'), async (req, res) => {
       ? (typeof variantsJson === 'string' ? JSON.parse(variantsJson) : variantsJson)
       : [];
     const basePrice = parseCurrencyToCents(price || 0);
+    const addOnGroupIds = parseIdArray(addOnGroupIdsRaw);
+
+    if (addOnGroupIds.length > 0) {
+      const groups = await prisma.addOnGroup.findMany({
+        where: { id: { in: addOnGroupIds } },
+        select: { id: true },
+      });
+
+      const foundIds = new Set(groups.map((group) => group.id));
+      const missingGroupIds = addOnGroupIds.filter((groupId) => !foundIds.has(groupId));
+
+      if (missingGroupIds.length > 0) {
+        return res.status(400).json({
+          error: `Add-on groups not found: ${missingGroupIds.join(', ')}`,
+        });
+      }
+    }
 
     console.log('🔍 Variants data received:', {
       variantsJson,
@@ -703,6 +828,19 @@ router.post('/', upload.array('images'), async (req, res) => {
         optionMap: optionGroupMap,
         variants: variantInputs,
       });
+
+      if (
+        addOnGroupIds.length > 0 &&
+        (productType || 'MAIN') === 'MAIN'
+      ) {
+        await tx.productAddOnGroup.createMany({
+          data: addOnGroupIds.map((groupId) => ({
+            productId: createdProduct.id,
+            groupId,
+          })),
+          skipDuplicates: true,
+        });
+      }
 
       return createdProduct;
     });
@@ -803,6 +941,17 @@ router.get('/:id/option-structure', async (req, res) => {
         },
         category: true,
         reportingCategory: true,
+        addonGroups: {
+          include: {
+            group: {
+              select: {
+                id: true,
+                name: true,
+                isDefault: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -839,6 +988,17 @@ router.get('/:id', async (req, res) => {
         },
         category: true,
         reportingCategory: true,
+        addonGroups: {
+          include: {
+            group: {
+              select: {
+                id: true,
+                name: true,
+                isDefault: true,
+              },
+            },
+          },
+        },
       }
     });
     if (!product) {
@@ -890,7 +1050,8 @@ router.put('/:id', async (req, res) => {
     optionGroups,
     variants,
     productType,
-    images  // Image URLs (already uploaded to Supabase)
+    images,  // Image URLs (already uploaded to Supabase)
+    addOnGroupIds: addOnGroupIdsRaw,
   } = req.body;
 
   try {
@@ -995,6 +1156,24 @@ router.put('/:id', async (req, res) => {
       ? variants
       : [];
     const baseInventory = parseInt(inventory || '0', 10) || 0;
+    const addOnGroupIds = parseIdArray(addOnGroupIdsRaw);
+    const resolvedProductType = (productType || existingProduct.productType) as string;
+
+    if (resolvedProductType === 'MAIN' && addOnGroupIds.length > 0) {
+      const groups = await prisma.addOnGroup.findMany({
+        where: { id: { in: addOnGroupIds } },
+        select: { id: true },
+      });
+
+      const foundIds = new Set(groups.map((group) => group.id));
+      const missingGroupIds = addOnGroupIds.filter((groupId) => !foundIds.has(groupId));
+
+      if (missingGroupIds.length > 0) {
+        return res.status(400).json({
+          error: `Add-on groups not found: ${missingGroupIds.join(', ')}`,
+        });
+      }
+    }
 
     const updatedProduct = await prisma.$transaction(async (tx) => {
       const existingOptionIds = await tx.variantOption.findMany({
@@ -1049,6 +1228,48 @@ router.put('/:id', async (req, res) => {
         optionMap,
         variants: variantInputs,
       });
+
+      if (resolvedProductType !== 'MAIN') {
+        await tx.productAddOnGroup.deleteMany({
+          where: { productId: id },
+        });
+      } else {
+        const existingAssignments = await tx.productAddOnGroup.findMany({
+          where: { productId: id },
+          select: { groupId: true },
+        });
+
+        const existingIds = new Set(
+          existingAssignments.map((assignment) => assignment.groupId)
+        );
+        const incomingIds = new Set(addOnGroupIds);
+
+        const groupsToRemove = [...existingIds].filter(
+          (groupId) => !incomingIds.has(groupId)
+        );
+        const groupsToAdd = addOnGroupIds.filter(
+          (groupId) => !existingIds.has(groupId)
+        );
+
+        if (groupsToRemove.length > 0) {
+          await tx.productAddOnGroup.deleteMany({
+            where: {
+              productId: id,
+              groupId: { in: groupsToRemove },
+            },
+          });
+        }
+
+        if (groupsToAdd.length > 0) {
+          await tx.productAddOnGroup.createMany({
+            data: groupsToAdd.map((groupId) => ({
+              productId: id,
+              groupId,
+            })),
+            skipDuplicates: true,
+          });
+        }
+      }
 
       return updated;
     });

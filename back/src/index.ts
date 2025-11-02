@@ -46,6 +46,7 @@ import reportsRouter from './routes/reports';
 import ftdOrdersRouter from './routes/ftd/orders';
 import ftdSettingsRouter from './routes/ftd/settings';
 import imagesRouter from './routes/images';
+import addOnGroupsRouter from './routes/addon-groups';
 import { startFtdMonitor } from './services/ftdMonitor';
 import { startTokenRefreshSchedule } from './services/ftdAuthService';
 
@@ -142,6 +143,7 @@ app.use('/api/customers', customersAuthRouter);
 app.use('/api/customers', customersRouter);
 app.use('/api/products', productsRouter);
 app.use('/api/categories', categoriesRouter);
+app.use('/api/addon-groups', addOnGroupsRouter);
 app.get('/api/settings/store-info', getStoreInfo);
 app.post('/api/settings/store-info', saveStoreInfo);
 app.get('/api/settings/notifications/order-status', getOrderStatusNotificationSettings);

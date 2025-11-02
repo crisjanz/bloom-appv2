@@ -1,10 +1,13 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import ProductInfoCard from './cards/ProductInfoCard';
 import PricingCard from './cards/PricingCard';
 import RecipeCard from './cards/RecipeCard';
 import AvailabilityCard from './cards/AvailabilityCard';
 import SettingsCard from './cards/SettingsCard';
 import SeoCard from './cards/SeoCard';
+import ComponentCard from '@shared/ui/common/ComponentCard';
+import MultiSelect from '@shared/ui/forms/MultiSelect';
+import { useApiClient } from '@shared/hooks/useApiClient';
 
 const generateUUID = () => {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -42,6 +45,13 @@ type PricingTier = {
   title: string;
   price: number; // in dollars
   inventory: number;
+};
+
+type AddOnGroupSummary = {
+  id: string;
+  name: string;
+  productCount: number;
+  addOnCount: number;
 };
 
 interface ProductFormProps {
@@ -97,6 +107,14 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
   const [unavailableMessage, setUnavailableMessage] = useState('');
   const [notAvailableFrom, setNotAvailableFrom] = useState('');
   const [notAvailableUntil, setNotAvailableUntil] = useState('');
+  const [availableAddOnGroups, setAvailableAddOnGroups] = useState<AddOnGroupSummary[]>([]);
+  const [loadingAddOnGroups, setLoadingAddOnGroups] = useState(false);
+  const [addOnGroupsError, setAddOnGroupsError] = useState<string | null>(null);
+  const [selectedAddOnGroupIds, setSelectedAddOnGroupIds] = useState<string[]>([]);
+  const [addOnGroupSeed, setAddOnGroupSeed] = useState(0);
+
+  // API client for making requests
+  const apiClient = useApiClient();
 
   // Track if we're loading initial data to prevent variant regeneration
   const isInitialLoadRef = useRef(true);
@@ -213,10 +231,24 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
       setPriceTitle(combinedTiers[0]?.title || 'Standard');
       setVariants(initialData.variants || []);
 
+      const initialGroupIds = Array.isArray(initialData.addOnGroupIds)
+        ? initialData.addOnGroupIds.filter((id: unknown): id is string => typeof id === 'string')
+        : [];
+      if ((initialData.productType || 'MAIN') === 'MAIN') {
+        setSelectedAddOnGroupIds(initialGroupIds);
+      } else {
+        setSelectedAddOnGroupIds([]);
+      }
+      setAddOnGroupSeed((seed) => seed + 1);
+
       // Mark initial load as complete after a small delay to ensure all state updates finish
       setTimeout(() => {
         isInitialLoadRef.current = false;
       }, 100);
+    }
+    if (!initialData) {
+      setSelectedAddOnGroupIds([]);
+      setAddOnGroupSeed((seed) => seed + 1);
     }
   }, [initialData]);
 
@@ -378,6 +410,42 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
     );
   }, [pricingTiers, pricingGroupId, optionGroups, productSlug]);
 
+  useEffect(() => {
+    const loadAddOnGroups = async () => {
+      setLoadingAddOnGroups(true);
+      setAddOnGroupsError(null);
+      try {
+        const data = await apiClient.get('/api/addon-groups');
+        if (Array.isArray(data)) {
+          setAvailableAddOnGroups(
+            data.map((group: any) => ({
+              id: String(group.id),
+              name: String(group.name ?? ''),
+              productCount: Number(group.productCount ?? 0),
+              addOnCount: Number(group.addOnCount ?? 0),
+            }))
+          );
+        } else {
+          setAvailableAddOnGroups([]);
+        }
+      } catch (error) {
+        console.error('Failed to load add-on groups:', error);
+        setAddOnGroupsError('Failed to load add-on groups.');
+      } finally {
+        setLoadingAddOnGroups(false);
+      }
+    };
+
+    loadAddOnGroups();
+  }, [apiClient]);
+
+  useEffect(() => {
+    if (productType !== 'MAIN' && selectedAddOnGroupIds.length > 0) {
+      setSelectedAddOnGroupIds([]);
+      setAddOnGroupSeed((seed) => seed + 1);
+    }
+  }, [productType, selectedAddOnGroupIds.length]);
+
   const handleChange = (field: string, value: any) => {
     switch (field) {
       case 'title':
@@ -507,11 +575,12 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
         notAvailableFrom,
         notAvailableUntil,
         isTemporarilyUnavailable,
-        unavailableUntil,
-        unavailableMessage,
-        productType,
-        images: existingImages, // Images are already uploaded, just save URLs
-      };
+      unavailableUntil,
+      unavailableMessage,
+      productType,
+      images: existingImages, // Images are already uploaded, just save URLs
+      addOnGroupIds: productType === 'MAIN' ? selectedAddOnGroupIds : [],
+    };
 
       await onSubmit(data);
     } catch (error: any) {
@@ -580,6 +649,39 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
           onChange={handleChange}
           onSave={handleSave}
         />
+        {productType === 'MAIN' && (
+          <ComponentCard
+            title="Add-On Groups"
+            desc="Choose which add-on bundles should appear when this product is selected."
+          >
+            {addOnGroupsError && (
+              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/70 dark:bg-red-900/20 dark:text-red-200">
+                {addOnGroupsError}
+              </div>
+            )}
+            {loadingAddOnGroups ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400">Loading add-on groups…</p>
+            ) : availableAddOnGroups.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                No add-on groups yet. Manage groups in Settings → Orders.
+              </p>
+            ) : (
+              <MultiSelect
+                key={`addon-groups-${addOnGroupSeed}`}
+                label="Available groups"
+                options={availableAddOnGroups.map((group) => ({
+                  value: group.id,
+                  text: `${group.name} (${group.addOnCount} add-ons)`
+                }))}
+                defaultSelected={selectedAddOnGroupIds}
+                onChange={setSelectedAddOnGroupIds}
+              />
+            )}
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Manage add-ons under Settings → Orders.
+            </p>
+          </ComponentCard>
+        )}
         <SeoCard
           seoTitle={seoTitle}
           seoDescription={seoDescription}

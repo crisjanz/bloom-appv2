@@ -9,6 +9,7 @@ import { useMemo } from 'react'
 export interface ApiClient {
   get: (url: string) => Promise<{ data: any; status: number }>
   post: (url: string, data?: any) => Promise<{ data: any; status: number }>
+  put: (url: string, data?: any) => Promise<{ data: any; status: number }>
   patch: (url: string, data?: any) => Promise<{ data: any; status: number }>
   delete: (url: string) => Promise<{ data: any; status: number }>
 }
@@ -30,6 +31,18 @@ class FetchApiClient implements ApiClient {
   async post(url: string, data?: any) {
     const response = await fetch(`${this.baseURL}${url}`, {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: data ? JSON.stringify(data) : undefined
+    })
+    const responseData = await response.json()
+    return { data: responseData, status: response.status }
+  }
+
+  async put(url: string, data?: any) {
+    const response = await fetch(`${this.baseURL}${url}`, {
+      method: 'PUT',
       headers: {
         'Content-Type': 'application/json'
       },
