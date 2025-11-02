@@ -29,7 +29,7 @@ const footerMenu = [
       { text: "About Us", link: "#" },
       { text: "Order Tracking", link: "#" },
       { text: "Contact Us", link: "/contact" },
-      { text: "FAQs", link: "#" },
+      { text: "FAQ", link: "/faq" },
     ],
   },
 ];

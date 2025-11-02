@@ -193,16 +193,16 @@ const DeliveryDatePicker = ({ selectedDate, onDateChange, required = false }) =>
         </span>
 
         {isOpen && (
-          <div className="absolute z-50 mt-2 flex w-full flex-col rounded-xl bg-white p-4 shadow-four dark:bg-dark-2 dark:shadow-box-dark sm:p-[30px]">
-            <div className="flex items-center justify-between pb-4">
+          <div className="absolute bottom-full z-50 mb-2 flex w-full flex-col rounded-xl bg-white p-3 shadow-four dark:bg-dark-2 dark:shadow-box-dark sm:p-4">
+            <div className="flex items-center justify-between pb-2">
               <button
                 type="button"
                 onClick={handlePrevMonth}
-                className="flex h-[38px] w-[38px] cursor-pointer items-center justify-center rounded-[7px] border-[.5px] border-stroke bg-gray-2 text-dark hover:border-primary hover:bg-primary hover:text-white dark:border-dark-3 dark:bg-dark dark:text-white sm:h-[46px] sm:w-[46px]"
+                className="flex h-[32px] w-[32px] cursor-pointer items-center justify-center rounded-[7px] border-[.5px] border-stroke bg-gray-2 text-dark hover:border-primary hover:bg-primary hover:text-white dark:border-dark-3 dark:bg-dark dark:text-white"
               >
                 <svg
-                  width="24"
-                  height="24"
+                  width="18"
+                  height="18"
                   viewBox="0 0 24 24"
                   fill="none"
                   xmlns="http://www.w3.org/2000/svg"
@@ -211,17 +211,17 @@ const DeliveryDatePicker = ({ selectedDate, onDateChange, required = false }) =>
                   <path d="M16.2375 21.4875C16.0125 21.4875 15.7875 21.4125 15.6375 21.225L7.16249 12.6C6.82499 12.2625 6.82499 11.7375 7.16249 11.4L15.6375 2.77498C15.975 2.43748 16.5 2.43748 16.8375 2.77498C17.175 3.11248 17.175 3.63748 16.8375 3.97498L8.96249 12L16.875 20.025C17.2125 20.3625 17.2125 20.8875 16.875 21.225C16.65 21.375 16.4625 21.4875 16.2375 21.4875Z" />
                 </svg>
               </button>
-              <span className="text-xl font-medium capitalize text-dark dark:text-white">
+              <span className="text-base font-medium capitalize text-dark dark:text-white">
                 {monthYearDisplay}
               </span>
               <button
                 type="button"
                 onClick={handleNextMonth}
-                className="flex h-[38px] w-[38px] cursor-pointer items-center justify-center rounded-[7px] border-[.5px] border-stroke bg-gray-2 text-dark hover:border-primary hover:bg-primary hover:text-white dark:border-dark-3 dark:bg-dark dark:text-white sm:h-[46px] sm:w-[46px]"
+                className="flex h-[32px] w-[32px] cursor-pointer items-center justify-center rounded-[7px] border-[.5px] border-stroke bg-gray-2 text-dark hover:border-primary hover:bg-primary hover:text-white dark:border-dark-3 dark:bg-dark dark:text-white"
               >
                 <svg
-                  width="24"
-                  height="24"
+                  width="18"
+                  height="18"
                   viewBox="0 0 24 24"
                   fill="none"
                   xmlns="http://www.w3.org/2000/svg"
@@ -232,16 +232,16 @@ const DeliveryDatePicker = ({ selectedDate, onDateChange, required = false }) =>
               </button>
             </div>
 
-            <div className="flex justify-between pb-2 pt-4 text-sm font-medium capitalize text-body-color dark:text-dark-6 sm:text-base">
+            <div className="flex justify-between pb-1.5 pt-2 text-xs font-medium capitalize text-body-color dark:text-dark-6">
               {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map((day) => (
-                <span key={day} className="flex h-[38px] w-[38px] items-center justify-center sm:h-[46px] sm:w-[47px]">
+                <span key={day} className="flex h-[32px] w-[32px] items-center justify-center">
                   {day}
                 </span>
               ))}
             </div>
 
             {[0, 1, 2, 3, 4, 5].map((week) => (
-              <div key={week} className="flex justify-between pb-2 text-sm font-medium sm:text-lg">
+              <div key={week} className="flex justify-between pb-1.5 text-sm font-medium">
                 {days.slice(week * 7, week * 7 + 7).map((dayInfo, index) => {
                   const isAvailable = dayInfo.isCurrentMonth && isDateAvailable(dayInfo.date);
                   const isSelected = selectedDate === dayInfo.date.toISOString().split('T')[0];
@@ -253,7 +253,7 @@ const DeliveryDatePicker = ({ selectedDate, onDateChange, required = false }) =>
                       type="button"
                       disabled={isPastOrDisabled}
                       onClick={() => handleDateClick(dayInfo.date)}
-                      className={`flex h-[38px] w-[38px] items-center justify-center rounded-[7px] border-[.5px] sm:h-[46px] sm:w-[47px] ${
+                      className={`flex h-[32px] w-[32px] items-center justify-center rounded-[7px] border-[.5px] ${
                         isSelected
                           ? 'border-primary bg-primary text-white'
                           : isPastOrDisabled
@@ -270,11 +270,11 @@ const DeliveryDatePicker = ({ selectedDate, onDateChange, required = false }) =>
               </div>
             ))}
 
-            <div className="pt-4">
+            <div className="pt-2">
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="flex h-[50px] w-full items-center justify-center rounded-md bg-primary text-base font-medium text-white hover:bg-primary-dark"
+                className="flex h-[40px] w-full items-center justify-center rounded-md bg-primary text-sm font-medium text-white hover:bg-primary-dark"
               >
                 Done
               </button>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import PropTypes from 'prop-types';
 import { useCart } from "../../contexts/CartContext";
 import DeliveryDatePicker from "../DeliveryDatePicker";
@@ -6,7 +6,151 @@ import AddOns from "./AddOns";
 
 const DetailsBox = ({ product }) => {
   const [quantity, setQuantity] = useState(1);
+  const [selectedPricingTierId, setSelectedPricingTierId] = useState(null);
+  const [selectedCustomization, setSelectedCustomization] = useState({});
+  const [showFullDescription, setShowFullDescription] = useState(false);
+  const [selectedAddOns, setSelectedAddOns] = useState({});
+  const [isUpsellExpanded, setIsUpsellExpanded] = useState(false);
   const { addToCart, deliveryDate, setDeliveryDate } = useCart();
+
+  useEffect(() => {
+    setQuantity(1);
+    setSelectedPricingTierId(null);
+    setSelectedCustomization({});
+  }, [product?.id]);
+
+  const rawPricingOptions = product?.optionStructure?.pricingOptions ?? [];
+  const rawCustomizationOptions = product?.optionStructure?.customizationOptions ?? [];
+
+  const pricingOptions = rawPricingOptions.filter(
+    (option) => option?.values && option.values.length > 0
+  );
+
+  const pricingOptionIds = new Set(pricingOptions.map((option) => option.id));
+
+  const customizationOptions = rawCustomizationOptions
+    .filter((option) => option?.values && option.values.length > 0)
+    .filter((option) => !pricingOptionIds.has(option.id));
+
+  const pricingTierValues =
+    pricingOptions.length > 0
+      ? pricingOptions[0].values ?? []
+      : [];
+
+  const variantOptions = Array.isArray(product.variants) ? product.variants : [];
+  const basePrice = Number(product.price) || 0;
+
+  const computeVariantPrice = (variant) => {
+    if (!variant) {
+      return basePrice;
+    }
+
+    const calculated = Number(variant.calculatedPrice);
+    if (!Number.isNaN(calculated) && Number.isFinite(calculated)) {
+      return calculated;
+    }
+
+    if (typeof variant.price === "number") {
+      return variant.price / 100;
+    }
+
+    if (typeof variant.priceDifference === "number") {
+      return basePrice + variant.priceDifference / 100;
+    }
+
+    return basePrice;
+  };
+
+  const findVariantBySelection = (pricingValueId, customizationMap) => {
+    const selectedOptionIds = [
+      pricingValueId,
+      ...Object.values(customizationMap || {}),
+    ].filter(Boolean);
+
+    if (selectedOptionIds.length === 0) {
+      return (
+        variantOptions.find((variant) => variant.isDefault) ??
+        variantOptions[0] ??
+        null
+      );
+    }
+
+    const selectedSet = new Set(selectedOptionIds);
+
+    const exactMatch = variantOptions.find((variant) => {
+      const optionValueIds = Array.isArray(variant.optionValueIds)
+        ? variant.optionValueIds
+        : [];
+      const variantSet = new Set(optionValueIds);
+
+      if (variantSet.size !== selectedSet.size) {
+        return false;
+      }
+
+      for (const id of selectedSet) {
+        if (!variantSet.has(id)) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    if (exactMatch) {
+      return exactMatch;
+    }
+
+    return (
+      variantOptions.find((variant) => variant.isDefault) ??
+      variantOptions[0] ??
+      null
+    );
+  };
+
+  const selectedVariant = findVariantBySelection(
+    selectedPricingTierId,
+    selectedCustomization
+  );
+
+  // Calculate display price: base + selected tier adjustment + customization adjustments
+  const calculateDisplayPrice = () => {
+    let totalPrice = basePrice;
+
+    // Add pricing tier adjustment
+    if (selectedPricingTierId) {
+      const selectedTier = pricingTierValues.find((v) => v.id === selectedPricingTierId);
+      if (selectedTier && selectedTier.priceAdjustment) {
+        totalPrice += selectedTier.priceAdjustment / 100;
+      }
+    }
+
+    // Add customization adjustments
+    Object.keys(selectedCustomization).forEach((optionId) => {
+      const selectedValueId = selectedCustomization[optionId];
+      const customOption = customizationOptions.find((opt) => opt.id === optionId);
+      if (customOption) {
+        const selectedValue = customOption.values.find((v) => v.id === selectedValueId);
+        if (selectedValue && selectedValue.priceAdjustment) {
+          totalPrice += selectedValue.priceAdjustment / 100;
+        }
+      }
+    });
+
+    return totalPrice;
+  };
+
+  const displayPrice = calculateDisplayPrice();
+
+  const pricingChoices = pricingTierValues.map((value) => {
+    // Show FIXED tier price: base + tier adjustment only (no customizations)
+    const tierPrice = basePrice + (value.priceAdjustment / 100);
+
+    return {
+      id: value.id,
+      label: value.label,
+      price: tierPrice,
+    };
+  });
 
   const increment = () => {
     setQuantity(quantity + 1);
@@ -25,18 +169,45 @@ const DetailsBox = ({ product }) => {
     }
 
     for (let i = 0; i < quantity; i++) {
-      addToCart(product);
+      addToCart(product, selectedVariant ? selectedVariant.id : null);
     }
     setQuantity(1);
   };
 
+  useEffect(() => {
+    const initialPricingId =
+      pricingTierValues[0]?.id ?? null;
+
+    const initialCustomizations = {};
+
+    customizationOptions.forEach((option) => {
+      const firstValue = option.values?.[0];
+      if (firstValue) {
+        initialCustomizations[option.id] = firstValue.id;
+      }
+    });
+
+    setSelectedPricingTierId(initialPricingId);
+    setSelectedCustomization(initialCustomizations);
+  }, [product?.id]); // Only run when product changes, not when arrays are recreated
+
+  const showPricingButtons = pricingChoices.length > 0;
+  const showCustomizationDropdowns = customizationOptions.length > 0;
+
+  // Truncate description to 150 characters for preview
+  const descriptionPreview = product.description?.length > 150
+    ? product.description.substring(0, 150) + '...'
+    : product.description;
+
   return (
     <>
-      <h2 className="mb-[22px] text-2xl font-bold text-dark dark:text-white sm:text-3xl md:text-4xl lg:text-3xl xl:text-4xl">
+      {/* 1. Title */}
+      <h2 className="mb-4 text-2xl font-bold text-dark dark:text-white sm:text-3xl md:text-4xl lg:text-3xl xl:text-4xl">
         {product.name}
       </h2>
 
-      <div className="mb-6 flex items-center">
+      {/* 2. Availability */}
+      <div className="mb-4 flex items-center">
         <div className="flex items-center">
           <span className="pr-2">
             <svg
@@ -69,88 +240,357 @@ const DetailsBox = ({ product }) => {
         </div>
       </div>
 
-      {product.description && product.description !== 'No description provided' && (
-        <p className="mb-8 text-base font-medium text-body-color">
-          {product.description}
-        </p>
-      )}
-
-      <div className="mb-8">
-        <p className="mb-2 text-base font-medium text-dark dark:text-white">
-          Category: {product.category?.name}
-        </p>
+      {/* 3. Price */}
+      <div className="mb-4">
+        <span className="text-3xl font-bold text-dark dark:text-white sm:text-4xl">
+          ${displayPrice.toFixed(2)}
+        </span>
       </div>
 
+      {/* 4. Star Rating (Future Implementation) */}
+      <div className="mb-6 flex items-center gap-2">
+        <div className="flex items-center gap-1">
+          {[1, 2, 3, 4, 5].map((star) => (
+            <svg
+              key={star}
+              width={16}
+              height={16}
+              viewBox="0 0 16 16"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="text-gray-300 dark:text-gray-600"
+            >
+              <path
+                d="M8 0L9.79611 6.04894H16L11.1019 9.77606L12.8981 15.825L8 12.0979L3.10189 15.825L4.89811 9.77606L0 6.04894H6.20389L8 0Z"
+                fill="currentColor"
+              />
+            </svg>
+          ))}
+        </div>
+        <span className="text-sm text-body-color dark:text-dark-6">(No reviews yet)</span>
+      </div>
+
+      {/* 5. Pricing Tier Buttons */}
+      {showPricingButtons && (
+        <div className="mb-6">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {pricingChoices.map((choice) => {
+              const isSelected = selectedPricingTierId === choice.id;
+              return (
+                <button
+                  key={choice.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedPricingTierId(choice.id);
+                  }}
+                  aria-pressed={isSelected}
+                  className={`rounded-lg border px-4 py-3 text-left transition ${
+                    isSelected
+                      ? "border-primary bg-primary/10 text-primary dark:border-primary dark:bg-primary/10 dark:text-primary"
+                      : "border-stroke text-dark hover:border-primary dark:border-dark-3 dark:text-white"
+                  }`}
+                >
+                  <span className="block text-sm font-medium">{choice.label}</span>
+                  <span className="mt-1 block text-lg font-semibold">
+                    ${choice.price.toFixed(2)}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 6. Customization Options */}
+      {showCustomizationDropdowns &&
+        customizationOptions.map((option) => (
+          <div className="mb-6" key={option.id}>
+            <label className="mb-3 block text-base font-medium text-dark dark:text-white">
+              {option.name}
+            </label>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {option.values?.map((value) => {
+                const priceAdjustment = value.priceAdjustment ? value.priceAdjustment / 100 : 0;
+                const priceText = priceAdjustment !== 0
+                  ? ` ${priceAdjustment > 0 ? '+' : ''}$${priceAdjustment.toFixed(2)}`
+                  : '';
+                const isSelected = selectedCustomization[option.id] === value.id;
+
+                return (
+                  <button
+                    key={value.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedCustomization((prev) => ({
+                        ...prev,
+                        [option.id]: value.id,
+                      }));
+                    }}
+                    aria-pressed={isSelected}
+                    className={`rounded-lg border px-4 py-2.5 text-center transition ${
+                      isSelected
+                        ? "border-primary bg-primary/10 text-primary dark:border-primary dark:bg-primary/10 dark:text-primary"
+                        : "border-stroke text-dark hover:border-primary dark:border-dark-3 dark:text-white"
+                    }`}
+                  >
+                    <span className="block text-sm font-medium">{value.label}</span>
+                    {priceText && (
+                      <span className="mt-0.5 block text-xs font-semibold opacity-70">
+                        {priceText}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+
+      {/* 7. Date Picker */}
       <DeliveryDatePicker
         selectedDate={deliveryDate}
         onDateChange={setDeliveryDate}
         required={true}
       />
 
-      <div className="mb-7 flex-wrap justify-between xs:flex">
-        <div className="mb-8 xs:mb-0">
-          <p className="mb-3 text-base font-medium text-dark dark:text-white">
-            Quantity
+      {/* 8. Description with Read More */}
+      {product.description && product.description !== 'No description provided' && (
+        <div className="mb-6">
+          <p className="mb-2 text-base font-medium text-body-color">
+            {showFullDescription ? product.description : descriptionPreview}
           </p>
+          {product.description?.length > 150 && (
+            <button
+              onClick={() => setShowFullDescription(!showFullDescription)}
+              className="text-sm font-medium text-primary hover:underline"
+            >
+              {showFullDescription ? 'Show less' : 'Read more'}
+            </button>
+          )}
+        </div>
+      )}
 
-          <div className="inline-flex items-center rounded-sm border border-stroke text-base font-medium text-dark dark:border-dark-3 dark:text-white">
-            <span
-              className="flex h-9 w-[34px] cursor-pointer select-none items-center justify-center text-dark dark:text-white"
-              onClick={decrement}
-            >
-              <svg
-                width={12}
-                height={4}
-                viewBox="0 0 12 4"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M11.3333 1.84615V2.15385C11.3333 2.52308 11.0385 2.84615 10.6667 2.84615H1.33332C0.988698 2.84615 0.666655 2.52308 0.666655 2.15385V1.84615C0.666655 1.47692 0.988698 1.15385 1.33332 1.15385H10.6667C11.0385 1.15385 11.3333 1.47692 11.3333 1.84615Z"
-                  fill="currentColor"
+      {/* 9. Upsell/Add-On Items (Collapsible) */}
+      <div className="mb-6">
+        <button
+          type="button"
+          onClick={() => setIsUpsellExpanded(!isUpsellExpanded)}
+          className="flex w-full items-center justify-between rounded-lg border border-stroke bg-gray-50 px-4 py-3 text-left transition hover:bg-gray-100 dark:border-dark-3 dark:bg-dark-2 dark:hover:bg-dark-3"
+        >
+          <h3 className="text-base font-semibold text-dark dark:text-white">
+            Add Chocolates or Balloons
+          </h3>
+          <svg
+            width={20}
+            height={20}
+            viewBox="0 0 20 20"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className={`transition-transform ${isUpsellExpanded ? 'rotate-180' : ''}`}
+          >
+            <path
+              d="M10 13.125C9.8125 13.125 9.65625 13.0625 9.5 12.9375L3.9375 7.375C3.65625 7.09375 3.65625 6.625 3.9375 6.34375C4.21875 6.0625 4.6875 6.0625 4.96875 6.34375L10 11.375L15.0312 6.34375C15.3125 6.0625 15.7812 6.0625 16.0625 6.34375C16.3438 6.625 16.3438 7.09375 16.0625 7.375L10.5 12.9375C10.3438 13.0625 10.1875 13.125 10 13.125Z"
+              fill="currentColor"
+            />
+          </svg>
+        </button>
+
+        {isUpsellExpanded && (
+          <div className="mt-4 space-y-4">
+            {/* Add-On Item 1: Balloons (with variants) */}
+            <div className="flex items-center gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3">
+              <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100 dark:bg-dark-3">
+                <img
+                  src="https://placehold.co/80x80/e5e7eb/9ca3af?text=Balloon"
+                  alt="Balloon Bouquet"
+                  className="h-full w-full object-cover"
                 />
-              </svg>
-            </span>
-            <span className="flex h-9 w-[31px] items-center justify-center">
-              {quantity}
-            </span>
-            <span
-              className="flex h-9 w-[34px] cursor-pointer select-none items-center justify-center text-dark dark:text-white"
-              onClick={increment}
-            >
-              <svg
-                width={12}
-                height={12}
-                viewBox="0 0 12 12"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M11.3333 5.84615V6.15385C11.3333 6.52308 11.0385 6.84615 10.6667 6.84615H6.66666V10.8462C6.66666 11.2154 6.37179 11.5385 5.99999 11.5385H5.69231C5.32051 11.5385 4.99999 11.2154 4.99999 10.8462V6.84615H1.33332C0.961518 6.84615 0.666655 6.52308 0.666655 6.15385V5.84615C0.666655 5.47692 0.961518 5.15385 1.33332 5.15385H4.99999V1.15385C4.99999 0.784619 5.32051 0.461548 5.69231 0.461548H5.99999C6.37179 0.461548 6.66666 0.784619 6.66666 1.15385V5.15385H10.6667C11.0385 5.15385 11.3333 5.47692 11.3333 5.84615Z"
-                  fill="currentColor"
+              </div>
+
+              <div className="flex-1">
+                <h4 className="mb-1 text-sm font-medium text-dark dark:text-white">
+                  Balloon Bouquet
+                </h4>
+                <p className="mb-2 text-xs text-body-color dark:text-dark-6">
+                  $12.99
+                </p>
+
+                <div className="relative">
+                  <select
+                    value={selectedAddOns['balloon-1']?.variant || 'hearts'}
+                    onChange={(e) => {
+                      const isSelected = selectedAddOns['balloon-1']?.selected || false;
+                      setSelectedAddOns(prev => ({
+                        ...prev,
+                        'balloon-1': { selected: isSelected, variant: e.target.value }
+                      }));
+                    }}
+                    className="w-full appearance-none rounded-lg border border-stroke bg-white px-4 py-2 pr-10 text-sm text-dark outline-hidden transition focus:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white"
+                  >
+                    <option value="hearts">Hearts</option>
+                    <option value="stars">Stars</option>
+                    <option value="mixed">Mixed</option>
+                  </select>
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="text-body-color dark:text-dark-6"
+                    >
+                      <path
+                        d="M8 10.5C7.85 10.5 7.725 10.45 7.6 10.375L3.15 5.925C2.975 5.75 2.975 5.45 3.15 5.275C3.325 5.1 3.625 5.1 3.8 5.275L8 9.475L12.2 5.275C12.375 5.1 12.675 5.1 12.85 5.275C13.025 5.45 13.025 5.75 12.85 5.925L8.4 10.375C8.275 10.45 8.15 10.5 8 10.5Z"
+                        fill="currentColor"
+                      />
+                    </svg>
+                  </span>
+                </div>
+              </div>
+
+              <label className="relative inline-flex cursor-pointer items-center">
+                <input
+                  type="checkbox"
+                  checked={selectedAddOns['balloon-1']?.selected || false}
+                  onChange={(e) => {
+                    const variant = selectedAddOns['balloon-1']?.variant || 'hearts';
+                    setSelectedAddOns(prev => ({
+                      ...prev,
+                      'balloon-1': { selected: e.target.checked, variant }
+                    }));
+                  }}
+                  className="peer sr-only"
                 />
-              </svg>
-            </span>
+                <div className="peer h-6 w-11 rounded-full bg-stroke after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-primary peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none dark:bg-dark-3 dark:after:border-gray-600"></div>
+              </label>
+            </div>
+
+            {/* Add-On Item 2: Chocolate Box (no variants) */}
+            <div className="flex items-center gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3">
+              <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100 dark:bg-dark-3">
+                <img
+                  src="https://placehold.co/80x80/e5e7eb/9ca3af?text=Chocolate"
+                  alt="Chocolate Box"
+                  className="h-full w-full object-cover"
+                />
+              </div>
+
+              <div className="flex-1">
+                <h4 className="mb-1 text-sm font-medium text-dark dark:text-white">
+                  Premium Chocolate Box
+                </h4>
+                <p className="text-xs text-body-color dark:text-dark-6">
+                  $24.99
+                </p>
+              </div>
+
+              <label className="relative inline-flex cursor-pointer items-center">
+                <input
+                  type="checkbox"
+                  checked={selectedAddOns['chocolate-1']?.selected || false}
+                  onChange={(e) => {
+                    setSelectedAddOns(prev => ({
+                      ...prev,
+                      'chocolate-1': { selected: e.target.checked }
+                    }));
+                  }}
+                  className="peer sr-only"
+                />
+                <div className="peer h-6 w-11 rounded-full bg-stroke after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-primary peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none dark:bg-dark-3 dark:after:border-gray-600"></div>
+              </label>
+            </div>
+
+            {/* Add-On Item 3: Greeting Card (no variants) */}
+            <div className="flex items-center gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3">
+              <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100 dark:bg-dark-3">
+                <img
+                  src="https://placehold.co/80x80/e5e7eb/9ca3af?text=Card"
+                  alt="Greeting Card"
+                  className="h-full w-full object-cover"
+                />
+              </div>
+
+              <div className="flex-1">
+                <h4 className="mb-1 text-sm font-medium text-dark dark:text-white">
+                  Personalized Greeting Card
+                </h4>
+                <p className="text-xs text-body-color dark:text-dark-6">
+                  $4.99
+                </p>
+              </div>
+
+              <label className="relative inline-flex cursor-pointer items-center">
+                <input
+                  type="checkbox"
+                  checked={selectedAddOns['card-1']?.selected || false}
+                  onChange={(e) => {
+                    setSelectedAddOns(prev => ({
+                      ...prev,
+                      'card-1': { selected: e.target.checked }
+                    }));
+                  }}
+                  className="peer sr-only"
+                />
+                <div className="peer h-6 w-11 rounded-full bg-stroke after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-primary peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none dark:bg-dark-3 dark:after:border-gray-600"></div>
+              </label>
+            </div>
           </div>
-        </div>
-
-        <div className="flex items-center">
-          <span className="pr-2 text-3xl font-bold text-dark dark:text-white sm:text-4xl">
-            ${product.price.toFixed(2)}
-          </span>
-        </div>
+        )}
       </div>
 
-      <div className="mb-8">
+      {/* 10. Quantity & Add to Cart */}
+      <div className="mb-6 flex items-center gap-4">
+        <div className="inline-flex items-center rounded-sm border border-stroke text-base font-medium text-dark dark:border-dark-3 dark:text-white">
+          <span
+            className="flex h-[50px] w-[42px] cursor-pointer select-none items-center justify-center text-dark dark:text-white"
+            onClick={decrement}
+          >
+            <svg
+              width={12}
+              height={4}
+              viewBox="0 0 12 4"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M11.3333 1.84615V2.15385C11.3333 2.52308 11.0385 2.84615 10.6667 2.84615H1.33332C0.988698 2.84615 0.666655 2.52308 0.666655 2.15385V1.84615C0.666655 1.47692 0.988698 1.15385 1.33332 1.15385H10.6667C11.0385 1.15385 11.3333 1.47692 11.3333 1.84615Z"
+                fill="currentColor"
+              />
+            </svg>
+          </span>
+          <span className="flex h-[50px] w-[50px] items-center justify-center text-lg font-semibold">
+            {quantity}
+          </span>
+          <span
+            className="flex h-[50px] w-[42px] cursor-pointer select-none items-center justify-center text-dark dark:text-white"
+            onClick={increment}
+          >
+            <svg
+              width={12}
+              height={12}
+              viewBox="0 0 12 12"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M11.3333 5.84615V6.15385C11.3333 6.52308 11.0385 6.84615 10.6667 6.84615H6.66666V10.8462C6.66666 11.2154 6.37179 11.5385 5.99999 11.5385H5.69231C5.32051 11.5385 4.99999 11.2154 4.99999 10.8462V6.84615H1.33332C0.961518 6.84615 0.666655 6.52308 0.666655 6.15385V5.84615C0.666655 5.47692 0.961518 5.15385 1.33332 5.15385H4.99999V1.15385C4.99999 0.784619 5.32051 0.461548 5.69231 0.461548H5.99999C6.37179 0.461548 6.66666 0.784619 6.66666 1.15385V5.15385H10.6667C11.0385 5.15385 11.3333 5.47692 11.3333 5.84615Z"
+                fill="currentColor"
+              />
+            </svg>
+          </span>
+        </div>
+
         <button
           onClick={handleAddToCart}
           disabled={!product.isActive}
-          className="flex w-full items-center justify-center rounded-md bg-primary px-10 py-[13px] text-center text-base font-medium text-white hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex flex-1 items-center justify-center rounded-md bg-primary px-10 py-[13px] text-center text-base font-medium text-white hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Add to Cart
         </button>
       </div>
 
+      {/* 11. Add-Ons */}
       <AddOns />
     </>
   );

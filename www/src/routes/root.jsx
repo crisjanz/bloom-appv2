@@ -13,6 +13,7 @@ import Profile from "../pages/Profile.jsx";
 import Signup from "../pages/Signup.jsx";
 import GiftCard from "../pages/GiftCard.jsx";
 import GiftCardEmailPreview from "../pages/GiftCardEmailPreview.jsx";
+import FAQ from "../pages/FAQ.jsx";
 
 const Root = () => {
   return (
@@ -32,6 +33,7 @@ const Root = () => {
           <Route path="/signup" element={<Signup />} />
           <Route path="/gift-cards" element={<GiftCard />} />
           <Route path="/gift-card-email-preview" element={<GiftCardEmailPreview />} />
+          <Route path="/faq" element={<FAQ />} />
         </Route>
       </Routes>
     </>

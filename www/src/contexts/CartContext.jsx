@@ -78,6 +78,33 @@ export function CartProvider({ children }) {
         (item) => item.id === product.id && item.variantId === variantId
       );
 
+      const variant =
+        Array.isArray(product.variants) && variantId
+          ? product.variants.find((v) => v.id === variantId)
+          : null;
+
+      const resolveVariantPrice = () => {
+        if (variant) {
+          const calculated = Number(variant.calculatedPrice);
+          if (!Number.isNaN(calculated) && Number.isFinite(calculated)) {
+            return calculated;
+          }
+
+          if (typeof variant.price === 'number') {
+            return variant.price / 100;
+          }
+
+          if (typeof variant.priceDifference === 'number') {
+            return (Number(product.price) || 0) + variant.priceDifference / 100;
+          }
+        }
+
+        const basePrice = Number(product.price);
+        return Number.isFinite(basePrice) ? basePrice : 0;
+      };
+
+      const unitPrice = resolveVariantPrice();
+
       if (existingItemIndex > -1) {
         // Item exists, increase quantity
         const updatedCart = [...prevCart];
@@ -89,18 +116,13 @@ export function CartProvider({ children }) {
           ? product.images[0]
           : product.images;
 
-        const variant =
-          Array.isArray(product.variants) && variantId
-            ? product.variants.find((v) => v.id === variantId)
-            : null;
-
         return [
           ...prevCart,
           {
             id: product.id,
             sku: product.sku || null,
             name: product.name,
-            price: Number(product.price) || 0,
+            price: unitPrice,
             image: baseImage?.url || baseImage || '',
             variantId,
             variantName: variant?.name || null,

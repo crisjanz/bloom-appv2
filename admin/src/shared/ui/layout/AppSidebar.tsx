@@ -83,6 +83,7 @@ const navItems: NavItem[] = [
     icon: <SettingsIcon />,
     path: "/settings",
     subItems: [
+      { name: "Website", path: "/settings/website", pro: false, icon: <GridIcon /> },
       { name: "Gift Cards", path: "/gift-cards", pro: false, icon: <GridIcon /> },
       { name: "Discounts", path: "/discounts", pro: false, icon: <BoxCubeIcon /> },
     ],

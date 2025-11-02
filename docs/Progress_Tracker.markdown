@@ -1,6 +1,6 @@
 # Bloom Flower Shop – Progress Tracker
 
-**Last audited:** 2025-10-28  
+**Last audited:** 2025-11-01
 Status markers: ✅ done · 🛠️ in progress · 🔜 planned · ⚠️ attention
 
 ## ✅ Production-Ready
@@ -12,6 +12,7 @@ Status markers: ✅ done · 🛠️ in progress · 🔜 planned · ⚠️ attent
 - ✅ **FTD monitor + dashboard** — token refresh, polling, order linking, and admin review pages (`back/src/services/ftdMonitor.ts`, `admin/src/app/pages/ftd`).
 - ✅ **Payment settings admin** — encrypted provider credentials, offline tenders, and UI warnings when `CONFIG_ENCRYPTION_KEY` is absent (`admin/src/app/pages/settings/payments.tsx`, `back/src/routes/settings/payments.ts`).
 - ✅ **Order list + filters** — new `OrdersListPage` with status/date filters and pagination (`admin/src/app/pages/orders/OrdersListPage.tsx`, `back/src/routes/orders/list.ts`).
+- ✅ **Homepage content management** — full CMS for announcement banner, hero banners (3), frequently sold products, seasonal collections (2), featured categories (4), and FAQ system with drag-reorder. Admin at Settings → Website (`admin/src/app/components/settings/website/*`, `back/src/routes/settings/homepage.ts`, `back/src/routes/settings/faqs.ts`, `www/src/components/*`). Database models: `HomepageBanner`, `HomepageSettings`, `FAQ`.
 
 ## 🛠️ In Progress / Needs QA
 - 🛠️ **Split payments settlement** — UI is wired; needs backend distribution of PT lines and change logging (`admin/src/app/components/pos/payment/SplitPaymentView.tsx`, `back/src/routes/payment-transactions.ts`).

@@ -63,7 +63,7 @@ const ProductDetails = () => {
 
       <section className="bg-tg-bg pt-10 dark:bg-dark lg:pb-[90px]">
         <div className="container mx-auto">
-          <div className="mx-auto max-w-4xl px-4">
+          <div className="mx-auto max-w-6xl px-4">
             <div className="flex flex-col gap-8 lg:flex-row">
               <div className="w-full lg:w-1/2">
                 <ProductTab product={product} />

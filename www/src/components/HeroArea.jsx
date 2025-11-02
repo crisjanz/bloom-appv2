@@ -1,9 +1,11 @@
+import { useEffect, useState } from "react";
 import imageOne from "../assets/ecom-images/headers/header-04/image-01.jpg";
 import imageTwo from "../assets/ecom-images/headers/header-04/image-02.jpg";
 import imageThree from "../assets/ecom-images/headers/header-04/image-03.jpg";
 import { Link } from "react-router-dom";
+import api from "../services/api";
 
-const heroItems = [
+const defaultHeroItems = [
   {
     big: true,
     image: imageOne,
@@ -28,6 +30,37 @@ const heroItems = [
 ];
 
 const HeroArea = () => {
+  const [heroItems, setHeroItems] = useState(defaultHeroItems);
+
+  useEffect(() => {
+    const fetchBanners = async () => {
+      try {
+        const response = await api.get('/settings/homepage/banners');
+        if (response && Array.isArray(response)) {
+          const activeBanners = response
+            .filter(banner => banner.isActive)
+            .sort((a, b) => a.position - b.position);
+
+          if (activeBanners.length > 0) {
+            const items = activeBanners.map((banner, index) => ({
+              big: index === 0,
+              image: banner.imageUrl,
+              title: banner.title,
+              link: banner.link,
+              details: banner.details || undefined,
+              button: banner.buttonText,
+            }));
+            setHeroItems(items);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching hero banners:', error);
+        // Fall back to default items
+      }
+    };
+
+    fetchBanners();
+  }, []);
   return (
     <>
       <section className="py-10 dark:bg-dark">

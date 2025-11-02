@@ -17,6 +17,7 @@ type Props = {
   isTaxable: boolean;
   isActive: boolean;
   isFeatured: boolean;
+  productType: string;
   inventory: number;
   slug: string;
   title: string;
@@ -31,6 +32,7 @@ const SettingsCard: FC<Props> = ({
   isTaxable,
   isActive,
   isFeatured,
+  productType,
   inventory,
   slug,
   onChange,
@@ -80,6 +82,17 @@ const SettingsCard: FC<Props> = ({
         >
           Save Product
         </button>
+      </div>
+
+      <div className="mb-5.5">
+        <ToggleSwitch
+          label="Add-on Product"
+          name="productType"
+          checked={productType === 'ADDON'}
+          onChange={(value: boolean) =>
+            handleChange('productType', value ? 'ADDON' : 'MAIN')
+          }
+        />
       </div>
 
       <div className="mb-5.5">

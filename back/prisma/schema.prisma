@@ -128,35 +128,38 @@ model Product {
 }
 
 model ProductVariant {
-  id             String   @id @default(uuid())
-  productId      String
-  name           String
-  sku            String   @unique
-  price          Int      // For default variant, this IS the base price. For others, calculated: base + priceDifference
-  priceDifference Int?    // Price adjustment from base (in cents). NULL for default variant
-  discountPrice  Int?
-  stockLevel     Int?
-  trackInventory Boolean  @default(true)
-  isDefault      Boolean  @default(false)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                String   @id @default(uuid())
+  productId         String
+  name              String
+  sku               String   @unique
+  price             Int      // For default variant, this IS the base price. For others, calculated: base + priceDifference
+  priceDifference   Int?     // Price adjustment from base (in cents). NULL for default variant
+  discountPrice     Int?
+  stockLevel        Int?
+  trackInventory    Boolean  @default(true)
+  isDefault         Boolean  @default(false)
+  isManuallyEdited  Boolean  @default(false) // TRUE if price was manually edited after generation
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   product Product         @relation(fields: [productId], references: [id])
   options VariantOption[]
 }
 
 model ProductOption {
-  id             String               @id @default(uuid())
-  name           String
-  impactVariants Boolean              @default(true)
-  values         ProductOptionValue[]
+  id              String               @id @default(uuid())
+  name            String
+  impactsVariants Boolean              @default(true)
+  optionType      String?              // 'PRICING_TIER' for pricing, null for customization
+  values          ProductOptionValue[]
 }
 
 model ProductOptionValue {
-  id        String @id @default(uuid())
-  label     String
-  optionId  String
-  sortOrder Int    @default(0)
+  id              String @id @default(uuid())
+  label           String
+  optionId        String
+  sortOrder       Int    @default(0)
+  priceAdjustment Int?   @default(0) // Price adjustment in cents (e.g., +500 for +$5.00)
 
   option   ProductOption   @relation(fields: [optionId], references: [id])
   variants VariantOption[]
@@ -1368,4 +1371,35 @@ model FtdOrder {
   @@index([deliveryDate])
   @@index([sendingFloristCode])
   @@index([externalId])
+}
+
+model FAQ {
+  id        String   @id @default(cuid())
+  question  String
+  answer    String   @db.Text
+  position  Int      @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model HomepageBanner {
+  id          String   @id @default(cuid())
+  position    Int      @unique // 1, 2, or 3
+  title       String
+  details     String?
+  buttonText  String
+  link        String
+  imageUrl    String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model HomepageSettings {
+  id                  String   @id @default(cuid())
+  announcementBanner  Json     // {message, bgColor, textColor, fontSize, fontWeight, isActive, link}
+  seasonalProducts    Json     // [{productId?, customTitle, customSubtitle, customDescription, customImageUrl, buttonText, buttonLink}]
+  featuredCategoryIds Json     // [categoryId, categoryId, ...]
+  updatedAt           DateTime @updatedAt
 }

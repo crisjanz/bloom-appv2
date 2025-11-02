@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import ProductInfoCard from './cards/ProductInfoCard';
 import PricingCard from './cards/PricingCard';
 import RecipeCard from './cards/RecipeCard';
@@ -6,20 +6,42 @@ import AvailabilityCard from './cards/AvailabilityCard';
 import SettingsCard from './cards/SettingsCard';
 import SeoCard from './cards/SeoCard';
 
+const generateUUID = () => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
+type OptionValue = {
+  label: string;
+  priceAdjustment: number; // in dollars
+};
+
 type OptionGroup = {
   id: string;
   name: string;
-  values: string[];
+  values: OptionValue[];
   impactsVariants: boolean;
+  optionType?: string; // 'PRICING_TIER' for pricing group, null for customization
 };
 
 type Variant = {
   id: string;
   name: string;
   sku: string;
-  priceDifference: number;
+  priceDifference: number; // in cents
   stockLevel: number;
   trackInventory: boolean;
+  isManuallyEdited?: boolean;
+};
+
+type PricingTier = {
+  id: string;
+  title: string;
+  price: number; // in dollars
+  inventory: number;
 };
 
 interface ProductFormProps {
@@ -35,11 +57,30 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
   const [reportingCategoryId, setReportingCategoryId] = useState('');
   const [price, setPrice] = useState(0);
   const [priceTitle, setPriceTitle] = useState('');
+  const [pricingGroupId, setPricingGroupId] = useState<string>(() => generateUUID());
+  const [pricingTiers, setPricingTiers] = useState<PricingTier[]>([
+    { id: generateUUID(), title: 'Standard', price: 0, inventory: 0 },
+    { id: generateUUID(), title: 'Deluxe', price: 0, inventory: 0 },
+    { id: generateUUID(), title: 'Premium', price: 0, inventory: 0 },
+  ]);
   const [isTaxable, setIsTaxable] = useState(true);
   const [isActive, setIsActive] = useState(true);
   const [isFeatured, setIsFeatured] = useState(false);
+  const [productType, setProductType] = useState<string>('MAIN');
   const [inventory, setInventory] = useState(0);
-  const [optionGroups, setOptionGroups] = useState<OptionGroup[]>([]);
+  const [optionGroups, setOptionGroups] = useState<OptionGroup[]>(() => [
+    {
+      id: pricingGroupId,
+      name: 'Pricing Options',
+      values: [
+        { label: 'Standard', priceAdjustment: 0 },
+        { label: 'Deluxe', priceAdjustment: 0 },
+        { label: 'Premium', priceAdjustment: 0 },
+      ],
+      impactsVariants: true,
+      optionType: 'PRICING_TIER',
+    },
+  ]);
   const [variants, setVariants] = useState<Variant[]>([]);
   const [recipe, setRecipe] = useState('');
   const [availableFrom, setAvailableFrom] = useState('');
@@ -57,6 +98,9 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
   const [notAvailableFrom, setNotAvailableFrom] = useState('');
   const [notAvailableUntil, setNotAvailableUntil] = useState('');
 
+  // Track if we're loading initial data to prevent variant regeneration
+  const isInitialLoadRef = useRef(true);
+
   const productSlug = slug || title.toLowerCase().replace(/\s+/g, '-') || 'product';
 
   // Load initial data if provided
@@ -71,6 +115,7 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
       setIsTaxable(Boolean(initialData.isTaxable));
       setIsActive(Boolean(initialData.isActive));
       setIsFeatured(Boolean(initialData.showOnHomepage));
+      setProductType(initialData.productType || 'MAIN');
       setInventory(initialData.variants?.[0]?.stockLevel || 0);
       setRecipe(initialData.recipeNotes || '');
       setSlug(initialData.slug || '');
@@ -91,8 +136,87 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
       setUnavailableUntil(initialData.unavailableUntil ? initialData.unavailableUntil.split('T')[0] : '');
       setUnavailableMessage(initialData.unavailableMessage || '');
       
+      const pricingOption = initialData.optionStructure?.pricingOptions?.[0];
+      const derivedPricingGroupId = pricingOption?.id || generateUUID();
+      const basePrice = initialData.price || 0;
+
+      // Load pricing tiers directly from pricing option values (not from variants!)
+      let loadedTiers: PricingTier[] = [];
+
+      if (pricingOption && Array.isArray(pricingOption.values)) {
+        // Reconstruct tiers from pricing option values
+        loadedTiers = pricingOption.values.map((value: any) => {
+          // Calculate tier price = base + adjustment
+          const tierPrice = basePrice + ((value.priceAdjustment || 0) / 100);
+
+          // Get inventory from first variant with this tier
+          let tierInventory = 0;
+          if (Array.isArray(initialData.variants)) {
+            const variantWithThisTier = initialData.variants.find((v: any) =>
+              v.optionValues?.some((ov: any) => ov.valueId === value.id)
+            );
+            tierInventory = variantWithThisTier?.stockLevel ?? 0;
+          }
+
+          return {
+            id: value.id,
+            title: value.label,
+            price: tierPrice,
+            inventory: tierInventory,
+          };
+        });
+      }
+
+      // Load exactly what exists - don't add default tiers on edit
+      const combinedTiers = loadedTiers.length > 0 ? loadedTiers : [
+        {
+          id: generateUUID(),
+          title: 'Standard',
+          price: basePrice,
+          inventory: 0,
+        }
+      ];
+
+      setPricingGroupId(derivedPricingGroupId);
+      setPricingTiers(combinedTiers);
+
+      const pricingGroup: OptionGroup = {
+        id: derivedPricingGroupId,
+        name: pricingOption?.name || 'Pricing Options',
+        values: combinedTiers.map((tier) => ({
+          label: tier.title,
+          priceAdjustment: tier.price - basePrice, // Calculate difference from base price
+        })),
+        impactsVariants: true,
+        optionType: 'PRICING_TIER',
+      };
+
+      const customizationGroups: OptionGroup[] =
+        (initialData.optionStructure?.customizationOptions || [])
+          .filter(
+            (option: any) =>
+              option.id !== derivedPricingGroupId &&
+              option.name !== 'Pricing Options'
+          )
+          .map((option: any) => ({
+            id: option.id,
+            name: option.name,
+            values: option.values.map((value: any) => ({
+              label: value.label,
+              priceAdjustment: (value.priceAdjustment || 0) / 100, // Convert cents to dollars
+            })),
+            impactsVariants: Boolean(option.impactsVariants),
+          }));
+
+      setOptionGroups([pricingGroup, ...customizationGroups]);
+
+      setPriceTitle(combinedTiers[0]?.title || 'Standard');
       setVariants(initialData.variants || []);
-      setOptionGroups(initialData.optionGroups || []);
+
+      // Mark initial load as complete after a small delay to ensure all state updates finish
+      setTimeout(() => {
+        isInitialLoadRef.current = false;
+      }, 100);
     }
   }, [initialData]);
 
@@ -110,6 +234,149 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
   const handleImagesReordered = (newOrder: string[]) => {
     setExistingImages(newOrder);
   };
+
+  useEffect(() => {
+    if (!pricingTiers.length) {
+      return;
+    }
+
+    const baseTier = pricingTiers[0];
+
+    if (price !== baseTier.price) {
+      setPrice(baseTier.price);
+    }
+
+    if (priceTitle !== baseTier.title) {
+      setPriceTitle(baseTier.title);
+    }
+
+    if (inventory !== baseTier.inventory) {
+      setInventory(baseTier.inventory);
+    }
+
+    setOptionGroups((previousGroups) => {
+      const existingPricingGroup = previousGroups.find(
+        (group) => group.id === pricingGroupId
+      );
+      const pricingGroupName = existingPricingGroup?.name || 'Pricing Options';
+
+      const baseTier = pricingTiers[0];
+
+      const pricingGroup: OptionGroup = {
+        id: pricingGroupId,
+        name: pricingGroupName,
+        values: pricingTiers.map((tier) => ({
+          label: tier.title || '',
+          priceAdjustment: tier.price - baseTier.price, // Difference from base price
+        })),
+        impactsVariants: true,
+        optionType: 'PRICING_TIER',
+      };
+
+      const otherGroups = previousGroups.filter(
+        (group) =>
+          group.id !== pricingGroupId && group.name !== pricingGroupName
+      );
+
+      return [pricingGroup, ...otherGroups];
+    });
+  }, [pricingTiers, pricingGroupId, price, priceTitle, inventory]);
+
+  useEffect(() => {
+    // Skip variant regeneration during initial load
+    if (isInitialLoadRef.current) {
+      return;
+    }
+
+    if (!pricingTiers.length) {
+      return;
+    }
+
+    const impactingGroups = optionGroups
+      .filter((group) => group.impactsVariants)
+      .filter((group) => Array.isArray(group.values) && group.values.length > 0);
+
+    if (!impactingGroups.length) {
+      setVariants([]);
+      return;
+    }
+
+    const pricingGroup =
+      impactingGroups.find((group) => group.id === pricingGroupId) ??
+      impactingGroups[0];
+
+    const baseTier = pricingTiers[0];
+
+    type CombinationPart = {
+      groupId: string;
+      groupName: string;
+      value: OptionValue;
+    };
+
+    const combinations = impactingGroups.reduce<CombinationPart[][]>(
+      (acc, group) => {
+        return acc.flatMap((combo) =>
+          group.values.map((value) => [
+            ...combo,
+            { groupId: group.id, groupName: group.name, value },
+          ])
+        );
+      },
+      [[]]
+    );
+
+    setVariants((previousVariants) =>
+      combinations.map((combo, comboIndex) => {
+        const comboLabel = combo.map((part) => part.value.label).join(" - ") || "Default";
+
+        // Try to find existing variant by name or SKU to preserve IDs and data
+        const existing = previousVariants.find(
+          (variant) => {
+            // Match by exact name
+            if (variant.name === comboLabel) return true;
+
+            // Match by SKU (in case name formatting changed slightly)
+            const expectedSku = `${productSlug}-${comboLabel.toLowerCase().replace(/\s+/g, "-")}`;
+            if (variant.sku === expectedSku) return true;
+
+            return false;
+          }
+        );
+
+        // Calculate total price adjustment from ALL options
+        const totalPriceAdjustment = combo.reduce((sum, part) => {
+          return sum + (part.value.priceAdjustment || 0);
+        }, 0);
+
+        // Convert dollars to cents for priceDifference
+        const priceDifference = Math.round(totalPriceAdjustment * 100);
+
+        // Find the pricing tier from this combination
+        const pricingPart = combo.find((part) => part.groupId === pricingGroup?.id);
+        const tierTitle = pricingPart?.value.label || baseTier.title;
+        const selectedTier = pricingTiers.find((t) => t.title === tierTitle) || baseTier;
+
+        const fallbackSkuBase = `${productSlug}-${comboLabel
+          .toLowerCase()
+          .replace(/\s+/g, "-")}`;
+
+        return {
+          id: existing?.id || generateUUID(),
+          name: comboLabel,
+          sku: existing?.sku || fallbackSkuBase,
+          priceDifference,
+          stockLevel:
+            existing?.stockLevel ??
+            selectedTier.inventory ??
+            (comboIndex === 0 ? baseTier.inventory : 0),
+          trackInventory:
+            existing?.trackInventory ??
+            ((selectedTier.inventory ?? 0) > 0),
+          isManuallyEdited: existing?.isManuallyEdited || false,
+        };
+      })
+    );
+  }, [pricingTiers, pricingGroupId, optionGroups, productSlug]);
 
   const handleChange = (field: string, value: any) => {
     switch (field) {
@@ -130,9 +397,19 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
         break;
       case 'price':
         setPrice(value);
+        setPricingTiers((prev) =>
+          prev.map((tier, index) =>
+            index === 0 ? { ...tier, price: Number(value) || 0 } : tier
+          )
+        );
         break;
       case 'priceTitle':
         setPriceTitle(value);
+        setPricingTiers((prev) =>
+          prev.map((tier, index) =>
+            index === 0 ? { ...tier, title: value } : tier
+          )
+        );
         break;
       case 'isTaxable':
         setIsTaxable(value);
@@ -143,8 +420,16 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
       case 'isFeatured':
         setIsFeatured(value);
         break;
+      case 'productType':
+        setProductType(value as string);
+        break;
       case 'inventory':
         setInventory(value);
+        setPricingTiers((prev) =>
+          prev.map((tier, index) =>
+            index === 0 ? { ...tier, inventory: Number(value) || 0 } : tier
+          )
+        );
         break;
       case 'recipe':
         setRecipe(value);
@@ -224,7 +509,8 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
         isTemporarilyUnavailable,
         unavailableUntil,
         unavailableMessage,
-        images: existingImages  // Images are already uploaded, just save URLs
+        productType,
+        images: existingImages, // Images are already uploaded, just save URLs
       };
 
       await onSubmit(data);
@@ -251,12 +537,12 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
           productId={initialData?.id}
         />
         <PricingCard
-          price={price}
-          priceTitle={priceTitle}
-          inventory={inventory}
           productSlug={productSlug}
+          pricingGroupId={pricingGroupId}
+          pricingTiers={pricingTiers}
           optionGroups={optionGroups}
           variants={variants}
+          onPricingTiersChange={setPricingTiers}
           onChange={handleChange}
           onOptionGroupsChange={setOptionGroups}
           onVariantsChange={setVariants}
@@ -287,6 +573,7 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
           isTaxable={isTaxable}
           isActive={isActive}
           isFeatured={isFeatured}
+          productType={productType}
           inventory={inventory}
           slug={slug}
           title={title}

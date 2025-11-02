@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
+import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { uploadToR2, deleteFromR2 } from '../utils/r2Client';
 
@@ -12,6 +13,451 @@ const generateUUID = () => {
     const v = c === 'x' ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
+};
+
+type ProductWithVariantOptions = Prisma.ProductGetPayload<{
+  include: {
+    category: true;
+    reportingCategory: true;
+    variants: {
+      orderBy: { isDefault: Prisma.SortOrder };
+      include: {
+        options: {
+          include: {
+            optionValue: {
+              include: { option: true };
+            };
+          };
+        };
+      };
+    };
+  };
+}>;
+
+type OptionValueSummary = {
+  id: string;
+  label: string;
+  sortOrder: number;
+  priceAdjustment: number;
+};
+
+type OptionSummary = {
+  id: string;
+  name: string;
+  impactsVariants: boolean;
+  optionType: string | null;
+  displayAs: string | null;
+  values: OptionValueSummary[];
+};
+
+type ProductOptionStructure = {
+  allOptions: OptionSummary[];
+  pricingOptions: OptionSummary[];
+  customizationOptions: OptionSummary[];
+};
+
+type VariantSummary = {
+  id: string;
+  name: string;
+  sku: string;
+  priceDifference: number;
+  calculatedPrice: number;
+  stockLevel: number | null;
+  trackInventory: boolean;
+  isDefault: boolean;
+  isManuallyEdited: boolean;
+  optionValueIds: string[];
+  optionValues: Array<{
+    optionId: string;
+    optionName: string;
+    valueId: string;
+    valueLabel: string;
+  }>;
+};
+
+const OPTION_TYPE_PRICING = 'PRICING_TIER';
+
+const parseCurrencyToCents = (value: unknown): number => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.round(value * 100);
+  }
+
+  if (typeof value === 'string') {
+    const parsed = parseFloat(value);
+    if (!Number.isNaN(parsed) && Number.isFinite(parsed)) {
+      return Math.round(parsed * 100);
+    }
+  }
+
+  return 0;
+};
+
+const extractOptionMetadata = (option: Prisma.ProductOptionGetPayload<{}>): {
+  optionType: string | null;
+  displayAs: string | null;
+} => {
+  const unsafeOption = option as Prisma.ProductOptionGetPayload<{}> & {
+    optionType?: string | null;
+    displayAs?: string | null;
+  };
+
+  return {
+    optionType: unsafeOption.optionType ?? null,
+    displayAs: unsafeOption.displayAs ?? null,
+  };
+};
+
+const buildOptionStructure = (product: ProductWithVariantOptions): ProductOptionStructure => {
+  const map = new Map<string, OptionSummary>();
+
+  for (const variant of product.variants) {
+    for (const variantOption of variant.options ?? []) {
+      const optionValue = variantOption.optionValue;
+      const option = optionValue.option;
+      const { optionType, displayAs } = extractOptionMetadata(option);
+
+      if (!map.has(option.id)) {
+        map.set(option.id, {
+          id: option.id,
+          name: option.name,
+          impactsVariants: Boolean(option.impactsVariants),
+          optionType,
+          displayAs,
+          values: [],
+        });
+      }
+
+      const optionSummary = map.get(option.id)!;
+      const exists = optionSummary.values.some((value) => value.id === optionValue.id);
+
+      if (!exists) {
+        optionSummary.values.push({
+          id: optionValue.id,
+          label: optionValue.label,
+          sortOrder: optionValue.sortOrder ?? 0,
+          priceAdjustment: optionValue.priceAdjustment ?? 0,
+        });
+      }
+    }
+  }
+
+  const allOptions = Array.from(map.values()).map((option) => ({
+    ...option,
+    values: option.values.sort((a, b) => a.sortOrder - b.sortOrder),
+  }));
+
+  const pricingOptions = allOptions.filter(
+    (option) =>
+      option.optionType === OPTION_TYPE_PRICING
+  );
+
+  const customizationOptions = allOptions.filter(
+    (option) => !pricingOptions.some((pricing) => pricing.id === option.id)
+  );
+
+  return {
+    allOptions,
+    pricingOptions,
+    customizationOptions,
+  };
+};
+
+const buildVariantSummaries = (
+  product: ProductWithVariantOptions
+): { basePriceCents: number; variants: VariantSummary[] } => {
+  const defaultVariant =
+    product.variants.find((variant) => variant.isDefault) ?? product.variants[0];
+
+  const basePriceCents = defaultVariant?.price ?? 0;
+
+  const variants: VariantSummary[] = product.variants.map((variant) => {
+    const priceCents =
+      variant.isDefault && variant.price !== null && variant.price !== undefined
+        ? variant.price
+        : basePriceCents + (variant.priceDifference ?? 0);
+
+    const priceDifference = priceCents - basePriceCents;
+
+    const optionValues = (variant.options ?? []).map((variantOption) => ({
+      optionId: variantOption.optionValue.optionId,
+      optionName: variantOption.optionValue.option.name,
+      valueId: variantOption.optionValue.id,
+      valueLabel: variantOption.optionValue.label,
+    }));
+
+    return {
+      id: variant.id,
+      name: variant.name,
+      sku: variant.sku,
+      priceDifference,
+      calculatedPrice: priceCents / 100,
+      stockLevel: variant.stockLevel,
+      trackInventory: variant.trackInventory,
+      isDefault: variant.isDefault,
+      isManuallyEdited: variant.isManuallyEdited ?? false,
+      optionValueIds: optionValues.map((value) => value.valueId),
+      optionValues,
+    };
+  });
+
+  return {
+    basePriceCents,
+    variants,
+  };
+};
+
+const transformProductResponse = (product: ProductWithVariantOptions) => {
+  const optionStructure = buildOptionStructure(product);
+  const { basePriceCents, variants } = buildVariantSummaries(product);
+  const defaultVariant = variants.find((variant) => variant.isDefault) ?? variants[0];
+
+  // Don't filter out default variant - return ALL variants
+  const variantList = variants
+    .map((variant) => ({
+      id: variant.id,
+      name: variant.name,
+      sku: variant.sku,
+      priceDifference: variant.priceDifference,
+      calculatedPrice: variant.calculatedPrice,
+      stockLevel: variant.stockLevel,
+      trackInventory: variant.trackInventory,
+      isDefault: variant.isDefault,
+      isManuallyEdited: variant.isManuallyEdited,
+      optionValueIds: variant.optionValueIds,
+      optionValues: variant.optionValues,
+    }));
+
+  const { variants: _unusedVariants, ...productRest } = product;
+
+  return {
+    ...productRest,
+    price: basePriceCents / 100,
+    baseVariant: defaultVariant,
+    variants: variantList,
+    optionStructure,
+  };
+};
+
+type OptionGroupInput = {
+  id: string;
+  name: string;
+  values: string[];
+  impactsVariants: boolean;
+  optionType?: string;
+};
+
+type VariantInput = {
+  id?: string;
+  name: string;
+  sku?: string;
+  priceDifference?: number;
+  stockLevel?: number;
+  trackInventory?: boolean;
+  isManuallyEdited?: boolean;
+  optionValueIds?: string[];
+};
+
+type PersistedOptionGroup = {
+  id: string;
+  impactsVariants: boolean;
+  valueLabelToId: Record<string, string>;
+};
+
+const createProductOptions = async (
+  client: Prisma.TransactionClient,
+  optionGroups: OptionGroupInput[]
+): Promise<Map<string, PersistedOptionGroup>> => {
+  const optionGroupMap = new Map<string, PersistedOptionGroup>();
+
+  for (const group of optionGroups) {
+    if (!group.values?.length) {
+      continue;
+    }
+
+    const option = await client.productOption.create({
+      data: {
+        id: group.id,
+        name: group.name,
+        impactsVariants: group.impactsVariants,
+        optionType: group.optionType || null,
+        values: {
+          create: group.values.map((value, index) => {
+            // Support both string values (old format) and object values (new format)
+            const label = typeof value === 'string' ? value : (value as any)?.label || '';
+            const priceAdjustment = typeof value === 'object' && value !== null && (value as any).priceAdjustment
+              ? Math.round((value as any).priceAdjustment * 100) // Convert dollars to cents
+              : 0;
+
+            return {
+              id: generateUUID(),
+              label,
+              sortOrder: index,
+              priceAdjustment,
+            };
+          }),
+        },
+      },
+      include: { values: true },
+    });
+
+    optionGroupMap.set(group.id, {
+      id: option.id,
+      impactsVariants: group.impactsVariants,
+      valueLabelToId: Object.fromEntries(
+        option.values.map((value) => [value.label, value.id])
+      ),
+    });
+  }
+
+  return optionGroupMap;
+};
+
+const resolveVariantOptionValueIds = (
+  variant: VariantInput,
+  impactingGroups: OptionGroupInput[],
+  optionMap: Map<string, PersistedOptionGroup>
+): string[] => {
+  if (!impactingGroups.length) {
+    return [];
+  }
+
+  if (Array.isArray(variant.optionValueIds) && variant.optionValueIds.length) {
+    return variant.optionValueIds;
+  }
+
+  const labels = (variant.name || '')
+    .split(' - ')
+    .map((label) => label.trim())
+    .filter(Boolean);
+
+  if (labels.length !== impactingGroups.length) {
+    throw new Error(
+      `Variant "${variant.name}" does not match expected option combination. ` +
+        `Expected ${impactingGroups.length} values, received ${labels.length}.`
+    );
+  }
+
+  return impactingGroups.map((group, index) => {
+    const option = optionMap.get(group.id);
+    if (!option) {
+      throw new Error(`Option group ${group.name} missing persisted mapping.`);
+    }
+
+    const label = labels[index];
+    const optionValueId = option.valueLabelToId[label];
+    if (!optionValueId) {
+      throw new Error(
+        `Option value "${label}" not found within group "${group.name}".`
+      );
+    }
+
+    return optionValueId;
+  });
+};
+
+const createProductVariants = async ({
+  client,
+  productId,
+  productSlug,
+  basePriceCents,
+  baseInventory,
+  optionGroups,
+  optionMap,
+  variants,
+}: {
+  client: Prisma.TransactionClient;
+  productId: string;
+  productSlug: string;
+  basePriceCents: number;
+  baseInventory: number;
+  optionGroups: OptionGroupInput[];
+  optionMap: Map<string, PersistedOptionGroup>;
+  variants: VariantInput[];
+}) => {
+  const impactingGroups = optionGroups.filter((group) => group.impactsVariants);
+  const sanitizedVariants = Array.isArray(variants) ? variants : [];
+
+  const variantEntries: VariantInput[] = sanitizedVariants.length
+    ? sanitizedVariants
+    : [
+        {
+          name: 'Default',
+          sku: `${productSlug}-default`,
+          priceDifference: 0,
+          stockLevel: baseInventory,
+          trackInventory: baseInventory > 0,
+        },
+      ];
+
+  let defaultVariantIndex = variantEntries.findIndex(
+    (variant) => Number(variant.priceDifference ?? 0) === 0
+  );
+  if (defaultVariantIndex === -1) {
+    defaultVariantIndex = 0;
+  }
+
+  const usedCombinationKeys = new Set<string>();
+  const usedSkus = new Set<string>();
+
+  for (let index = 0; index < variantEntries.length; index += 1) {
+    const variant = variantEntries[index];
+    const isDefault = index === defaultVariantIndex;
+
+    const rawPriceDifference = Number(variant.priceDifference ?? 0);
+    const priceDifferenceCents = isDefault ? 0 : rawPriceDifference;
+    const priceCents = basePriceCents + priceDifferenceCents;
+    const stockLevel =
+      variant.stockLevel !== undefined && variant.stockLevel !== null
+        ? Number(variant.stockLevel)
+        : null;
+    const trackInventory = Boolean(variant.trackInventory);
+    const optionValueIds = resolveVariantOptionValueIds(
+      variant,
+      impactingGroups,
+      optionMap
+    );
+
+    const combinationKey = optionValueIds.join('|');
+    if (combinationKey && usedCombinationKeys.has(combinationKey)) {
+      continue;
+    }
+    if (combinationKey) {
+      usedCombinationKeys.add(combinationKey);
+    }
+
+    const baseSku =
+      variant.sku ||
+      `${productSlug}-${(variant.name || `variant-${index + 1}`)
+        .toLowerCase()
+        .replace(/\s+/g, '-')}`;
+
+    let finalSku = baseSku;
+    let dedupeCounter = 1;
+    while (usedSkus.has(finalSku)) {
+      finalSku = `${baseSku}-${dedupeCounter}`;
+      dedupeCounter += 1;
+    }
+    usedSkus.add(finalSku);
+
+    await client.productVariant.create({
+      data: {
+        productId,
+        name: variant.name || `Variant ${index + 1}`,
+        sku: finalSku,
+        price: priceCents,
+        priceDifference: priceDifferenceCents,
+        stockLevel,
+        trackInventory,
+        isDefault,
+        isManuallyEdited: Boolean(variant.isManuallyEdited),
+        options: {
+          create: optionValueIds.map((optionValueId) => ({
+            optionValueId,
+          })),
+        },
+      },
+    });
+  }
 };
 
 router.get('/ping', (req, res) => {
@@ -77,35 +523,23 @@ router.get('/', async (req, res) => {
     const products = await prisma.product.findMany({
       include: {
         variants: {
-          orderBy: { isDefault: 'desc' } // Default variant first
+          orderBy: { isDefault: 'desc' },
+          include: {
+            options: {
+              include: {
+                optionValue: {
+                  include: { option: true },
+                },
+              },
+            },
+          },
         },
         category: true,
+        reportingCategory: true,
       },
     });
-    
-    // Transform products for frontend consumption (same as single product GET)
-    const transformedProducts = products.map(product => {
-      const defaultVariant = product.variants.find(v => v.isDefault);
-      const basePrice = defaultVariant ? defaultVariant.price : 0;
-      
-      const transformedVariants = product.variants.map(variant => ({
-        ...variant,
-        // Calculate final price for display components (like POS)
-        calculatedPrice: variant.isDefault 
-          ? basePrice / 100 
-          : (basePrice + (variant.priceDifference || 0)) / 100,
-        // Keep priceDifference in cents for consistency
-        priceDifference: variant.priceDifference || 0
-      }));
 
-      return {
-        ...product,
-        price: basePrice / 100, // Convert cents to dollars for base price
-        variants: transformedVariants
-      };
-    });
-    
-    res.json(transformedProducts);
+    res.json(products.map((product) => transformProductResponse(product)));
   } catch (err) {
     console.error('Failed to fetch products:', err);
     res.status(500).json({ error: 'Failed to fetch products' });
@@ -136,6 +570,7 @@ router.post('/', upload.array('images'), async (req, res) => {
     isTemporarilyUnavailable,
     unavailableUntil,
     unavailableMessage,
+    productType,
     optionGroups: optionGroupsJson,
     variants: variantsJson,
   } = req.body;
@@ -179,114 +614,208 @@ router.post('/', upload.array('images'), async (req, res) => {
       }
     }
 
-    const optionGroups = optionGroupsJson
-      ? (typeof optionGroupsJson === 'string' ? JSON.parse(optionGroupsJson) : optionGroupsJson)
+    const optionGroupInputs: OptionGroupInput[] = optionGroupsJson
+      ? (typeof optionGroupsJson === 'string'
+          ? JSON.parse(optionGroupsJson)
+          : optionGroupsJson)
       : [];
-    const variants = variantsJson
+    const variantInputs: VariantInput[] = variantsJson
       ? (typeof variantsJson === 'string' ? JSON.parse(variantsJson) : variantsJson)
       : [];
-    const basePrice = parseFloat(price || '0') * 100;
+    const basePrice = parseCurrencyToCents(price || 0);
 
     console.log('🔍 Variants data received:', {
       variantsJson,
-      parsedVariants: variants,
+      parsedVariants: variantInputs,
       basePrice,
-      optionGroups
+      optionGroups: optionGroupInputs,
     });
 
-    const optionGroupMap: { [name: string]: { id: string; values: { [label: string]: string } } } = {};
-    for (const group of optionGroups) {
-      const option = await prisma.productOption.create({
-        data: {
-          id: group.id,
-          name: group.name,
-          impactVariants: group.impactsVariants,
-          values: {
-            create: group.values.map((value: string, index: number) => ({
-              id: generateUUID(),
-              label: value,
-              sortOrder: index,
-            })),
-          },
-        },
-        include: { values: true },
-      });
-      optionGroupMap[group.name] = {
-        id: option.id,
-        values: Object.fromEntries(
-          option.values.map((v: { label: string; id: string }) => [v.label, v.id])
-        ),
-      };
-    }
+    const baseInventory = parseInt(inventory || '0', 10) || 0;
 
-    const product = await prisma.product.create({
-      data: {
-        name,
-        slug,
-        visibility,
-        description: description || 'Placeholder description',
-        isActive: typeof isActive === 'string' ? JSON.parse(isActive) : (isActive !== undefined ? isActive : true),
-        isTaxable: typeof isTaxable === 'string' ? JSON.parse(isTaxable) : (isTaxable !== undefined ? isTaxable : true),
-        showOnHomepage: typeof isFeatured === 'string' ? JSON.parse(isFeatured) : (isFeatured !== undefined ? isFeatured : false),
-        productType: 'MAIN',
-        inventoryMode: 'OWN',
-        images: imageUrls, // Start with empty array
-        recipeNotes: recipe || null,
-        
-        availabilityType: availabilityType || 'always',
-        holidayPreset: (holidayPreset && holidayPreset.trim() !== '') ? holidayPreset : null,
-        availableFrom: (availableFrom && availableFrom.trim() !== '') ? new Date(availableFrom) : null,
-        availableTo: (availableTo && availableTo.trim() !== '') ? new Date(availableTo) : null,
-        notAvailableFrom: (notAvailableFrom && notAvailableFrom.trim() !== '') ? new Date(notAvailableFrom) : null,
-        notAvailableUntil: (notAvailableUntil && notAvailableUntil.trim() !== '') ? new Date(notAvailableUntil) : null,
-        isTemporarilyUnavailable: typeof isTemporarilyUnavailable === 'string' ? JSON.parse(isTemporarilyUnavailable) : (isTemporarilyUnavailable !== undefined ? isTemporarilyUnavailable : false),
-        unavailableUntil: (unavailableUntil && unavailableUntil.trim() !== '') ? new Date(unavailableUntil) : null,
-        unavailableMessage: (unavailableMessage && unavailableMessage.trim() !== '') ? unavailableMessage : null,
-        
-        category: { connect: { id: categoryId } },
-        reportingCategory: { connect: { id: reportingCategoryId } },
-        variants: {
-          create: [
-            // Always create default variant for base price
-            {
-              name: 'Default',
-              sku: `${slug}-default`,
-              price: basePrice,
-              priceDifference: null, // No difference for base variant
-              stockLevel: parseInt(inventory || '0'),
-              trackInventory: parseInt(inventory || '0') > 0,
-              isDefault: true,
-            },
-            // Add additional variants if provided
-            ...variants.map((variant: any) => ({
-              name: variant.name,
-              sku: variant.sku || `${slug}-${variant.name.toLowerCase().replace(/\s+/g, '-')}`,
-              price: 0, // Don't store calculated price - calculate when needed
-              priceDifference: variant.priceDifference || 0, // Store the actual difference
-              stockLevel: variant.stockLevel || 0,
-              trackInventory: variant.trackInventory || false,
-              isDefault: false,
-            }))
-          ],
+    const product = await prisma.$transaction(async (tx) => {
+      const createdProduct = await tx.product.create({
+        data: {
+          name,
+          slug,
+          visibility,
+          description: description || 'Placeholder description',
+          isActive:
+            typeof isActive === 'string'
+              ? JSON.parse(isActive)
+              : isActive !== undefined
+              ? isActive
+              : true,
+          isTaxable:
+            typeof isTaxable === 'string'
+              ? JSON.parse(isTaxable)
+              : isTaxable !== undefined
+              ? isTaxable
+              : true,
+          showOnHomepage:
+            typeof isFeatured === 'string'
+              ? JSON.parse(isFeatured)
+              : isFeatured !== undefined
+              ? isFeatured
+              : false,
+          productType: productType || 'MAIN',
+          inventoryMode: 'OWN',
+          images: imageUrls,
+          recipeNotes: recipe || null,
+
+          availabilityType: availabilityType || 'always',
+          holidayPreset: holidayPreset?.trim() ? holidayPreset : null,
+          availableFrom: availableFrom?.trim() ? new Date(availableFrom) : null,
+          availableTo: availableTo?.trim() ? new Date(availableTo) : null,
+          notAvailableFrom: notAvailableFrom?.trim()
+            ? new Date(notAvailableFrom)
+            : null,
+          notAvailableUntil: notAvailableUntil?.trim()
+            ? new Date(notAvailableUntil)
+            : null,
+          isTemporarilyUnavailable:
+            typeof isTemporarilyUnavailable === 'string'
+              ? JSON.parse(isTemporarilyUnavailable)
+              : isTemporarilyUnavailable !== undefined
+              ? isTemporarilyUnavailable
+              : false,
+          unavailableUntil: unavailableUntil?.trim()
+            ? new Date(unavailableUntil)
+            : null,
+          unavailableMessage: unavailableMessage?.trim()
+            ? unavailableMessage
+            : null,
+
+          category: { connect: { id: categoryId } },
+          reportingCategory: { connect: { id: reportingCategoryId } },
         },
-      },
+      });
+
+      const optionGroupMap = await createProductOptions(tx, optionGroupInputs);
+
+      await createProductVariants({
+        client: tx,
+        productId: createdProduct.id,
+        productSlug: createdProduct.slug,
+        basePriceCents: basePrice,
+        baseInventory,
+        optionGroups: optionGroupInputs,
+        optionMap: optionGroupMap,
+        variants: variantInputs,
+      });
+
+      return createdProduct;
     });
 
     console.log('✅ Product created successfully:', {
       productId: product.id,
       basePrice: basePrice / 100,
-      variantCount: variants.length,
+      variantCount: variantInputs.length || 1,
+      optionGroupCount: optionGroupInputs.length,
       imageCount: imageUrls.length,
     });
 
-    res.status(201).json({ 
+    res.status(201).json({
       id: product.id,
       images: imageUrls,
-      message: 'Product created successfully'
+      message: 'Product created successfully',
     });
   } catch (err: any) {
     console.error('Create product error:', err.message, err.stack);
     res.status(500).json({ error: err.message || 'Failed to create product' });
+  }
+});
+
+// GET /api/products/frequently-sold - Get top selling products
+router.get('/frequently-sold', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 8;
+
+    // Get products with most order items from completed orders
+    const frequentlySold = await prisma.orderItem.groupBy({
+      by: ['productId'],
+      where: {
+        order: {
+          status: {
+            in: ['COMPLETED', 'PAID', 'READY', 'OUT_FOR_DELIVERY']
+          }
+        }
+      },
+      _count: {
+        productId: true
+      },
+      orderBy: {
+        _count: {
+          productId: 'desc'
+        }
+      },
+      take: limit
+    });
+
+    // Fetch full product details
+    const productIds = frequentlySold.map(item => item.productId);
+    const products = await prisma.product.findMany({
+      where: {
+        id: { in: productIds },
+        isActive: true
+      },
+      include: {
+        category: true,
+        variants: {
+          where: { isDefault: true },
+          take: 1
+        }
+      }
+    });
+
+    // Sort products by frequency
+    const sortedProducts = products.sort((a, b) => {
+      const aIndex = productIds.indexOf(a.id);
+      const bIndex = productIds.indexOf(b.id);
+      return aIndex - bIndex;
+    });
+
+    res.json(sortedProducts);
+  } catch (error) {
+    console.error('Error fetching frequently sold products:', error);
+    res.status(500).json({ error: 'Failed to fetch frequently sold products' });
+  }
+});
+
+router.get('/:id/option-structure', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const product = await prisma.product.findUnique({
+      where: { id },
+      include: {
+        variants: {
+          orderBy: { isDefault: 'desc' },
+          include: {
+            options: {
+              include: {
+                optionValue: {
+                  include: { option: true },
+                },
+              },
+            },
+          },
+        },
+        category: true,
+        reportingCategory: true,
+      },
+    });
+
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    const optionStructure = buildOptionStructure(product);
+
+    res.json(optionStructure);
+  } catch (error) {
+    console.error('Error loading product option structure:', error);
+    res.status(500).json({ error: 'Failed to load option structure' });
   }
 });
 
@@ -297,47 +826,31 @@ router.get('/:id', async (req, res) => {
       where: { id },
       include: {
         variants: {
-          orderBy: { isDefault: 'desc' } // Default variant first
+          orderBy: { isDefault: 'desc' },
+          include: {
+            options: {
+              include: {
+                optionValue: {
+                  include: { option: true },
+                },
+              },
+            },
+          },
         },
         category: true,
-        // TODO: Add option groups loading if needed for edit mode
-        // We'll need to reconstruct option groups from variant names
+        reportingCategory: true,
       }
     });
     if (!product) {
       return res.status(404).json({ error: 'Product not found' });
     }
 
-    // Get base price from default variant and prepare variants for frontend
-    const defaultVariant = product.variants.find(v => v.isDefault);
-    const basePrice = defaultVariant ? defaultVariant.price : 0;
-    
-    const transformedVariants = product.variants
-      .filter(v => !v.isDefault) // Exclude default variant from variants list
-      .map(variant => ({
-        ...variant,
-        // priceDifference is stored in cents, keep as cents for frontend
-        priceDifference: variant.priceDifference || 0,
-        // Calculate final price for display components (like POS)
-        calculatedPrice: (basePrice + (variant.priceDifference || 0)) / 100
-      }));
-
-    const responseProduct = {
-      ...product,
-      price: basePrice / 100, // Convert cents to dollars for base price
-      variants: transformedVariants,
-      optionGroups: [] // TODO: Reconstruct option groups from variants if needed
-    };
+    const responseProduct = transformProductResponse(product);
 
     console.log('🔍 Loading product for edit:', {
       productId: id,
-      basePrice: basePrice / 100,
-      variantCount: transformedVariants.length,
-      variants: transformedVariants.map(v => ({
-        name: v.name,
-        storedPriceDifference: v.priceDifference,
-        calculatedPrice: v.calculatedPrice
-      }))
+      basePrice: responseProduct.price,
+      variantCount: responseProduct.variants.length,
     });
 
     res.json(responseProduct);
@@ -376,12 +889,22 @@ router.put('/:id', async (req, res) => {
     seoDescription,
     optionGroups,
     variants,
+    productType,
     images  // Image URLs (already uploaded to Supabase)
   } = req.body;
 
   try {
     const productName = name || title;
-    const basePrice = parseFloat(price || '0') * 100;
+    const basePrice = parseCurrencyToCents(price || 0);
+
+    const existingProduct = await prisma.product.findUnique({
+      where: { id },
+      select: { productType: true },
+    });
+
+    if (!existingProduct) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
     
     console.log('🔍 PUT - Product update:', {
       productId: id,
@@ -391,124 +914,153 @@ router.put('/:id', async (req, res) => {
       imageCount: images?.length || 0
     });
 
-    const updateData: any = {
+    const updateData: Prisma.ProductUpdateInput = {
       name: productName,
       slug,
       visibility,
       description,
-      categoryId,
-      reportingCategoryId,
-      isActive: typeof isActive === 'string' ? JSON.parse(isActive) : (isActive !== undefined ? isActive : true),
-      isTaxable: typeof isTaxable === 'string' ? JSON.parse(isTaxable) : (isTaxable !== undefined ? isTaxable : true),
-      showOnHomepage: typeof isFeatured === 'string' ? JSON.parse(isFeatured) : (isFeatured !== undefined ? isFeatured : false),
+      isActive:
+        typeof isActive === 'string'
+          ? JSON.parse(isActive)
+          : isActive !== undefined
+          ? isActive
+          : true,
+      isTaxable:
+        typeof isTaxable === 'string'
+          ? JSON.parse(isTaxable)
+          : isTaxable !== undefined
+          ? isTaxable
+          : true,
+      showOnHomepage:
+        typeof isFeatured === 'string'
+          ? JSON.parse(isFeatured)
+          : isFeatured !== undefined
+          ? isFeatured
+          : false,
+      productType: productType || existingProduct.productType,
       recipeNotes: recipe || null,
-      
+
       availabilityType: availabilityType || 'always',
-      holidayPreset: (holidayPreset && holidayPreset.trim() !== '') ? holidayPreset : null,
-      availableFrom: (availableFrom && availableFrom.trim() !== '') ? new Date(availableFrom) : null,
-      availableTo: (availableTo && availableTo.trim() !== '') ? new Date(availableTo) : null,
-      notAvailableFrom: (notAvailableFrom && notAvailableFrom.trim() !== '') ? new Date(notAvailableFrom) : null,
-      notAvailableUntil: (notAvailableUntil && notAvailableUntil.trim() !== '') ? new Date(notAvailableUntil) : null,
-      isTemporarilyUnavailable: typeof isTemporarilyUnavailable === 'string' ? JSON.parse(isTemporarilyUnavailable) : (isTemporarilyUnavailable !== undefined ? isTemporarilyUnavailable : false),
-      unavailableUntil: (unavailableUntil && unavailableUntil.trim() !== '') ? new Date(unavailableUntil) : null,
-      unavailableMessage: (unavailableMessage && unavailableMessage.trim() !== '') ? unavailableMessage : null,
+      holidayPreset: holidayPreset?.trim() ? holidayPreset : null,
+      availableFrom: availableFrom?.trim() ? new Date(availableFrom) : null,
+      availableTo: availableTo?.trim() ? new Date(availableTo) : null,
+      notAvailableFrom: notAvailableFrom?.trim()
+        ? new Date(notAvailableFrom)
+        : null,
+      notAvailableUntil: notAvailableUntil?.trim()
+        ? new Date(notAvailableUntil)
+        : null,
+      isTemporarilyUnavailable:
+        typeof isTemporarilyUnavailable === 'string'
+          ? JSON.parse(isTemporarilyUnavailable)
+          : isTemporarilyUnavailable !== undefined
+          ? isTemporarilyUnavailable
+          : false,
+      unavailableUntil: unavailableUntil?.trim()
+        ? new Date(unavailableUntil)
+        : null,
+      unavailableMessage: unavailableMessage?.trim()
+        ? unavailableMessage
+        : null,
     };
+
+    if (categoryId) {
+      updateData.category = { connect: { id: categoryId } };
+    }
+
+    if (reportingCategoryId) {
+      updateData.reportingCategory = { connect: { id: reportingCategoryId } };
+    }
 
     // Update images (already uploaded to Cloudflare R2 via immediate upload)
     if (images) {
       try {
         const parsedImages = typeof images === 'string' ? JSON.parse(images) : images;
         if (Array.isArray(parsedImages)) {
-          updateData.images = parsedImages;
+          (updateData.images as unknown as { set: string[] }) = { set: parsedImages };
         }
       } catch (parseError) {
         console.warn('⚠️ Failed to parse product images during update, ignoring provided value.');
       }
     }
 
-    // Delete existing variants and their associated data
-    await prisma.productVariant.deleteMany({
-      where: { productId: id }
-    });
-    
-    // Delete existing product options (this will cascade delete option values)
-    await prisma.productOption.deleteMany({
-      where: { 
-        // Find options that were created for this product
-        // Since we don't have a direct productId on ProductOption,
-        // we'll delete all options that might be orphaned
-        // This is safe since we're recreating them immediately after
-        id: {
-          in: optionGroups.map((g: any) => g.id)
-        }
-      }
-    });
+    const optionGroupInputs: OptionGroupInput[] = typeof optionGroups === 'string'
+      ? JSON.parse(optionGroups)
+      : Array.isArray(optionGroups)
+      ? optionGroups
+      : [];
+    const variantInputs: VariantInput[] = typeof variants === 'string'
+      ? JSON.parse(variants)
+      : Array.isArray(variants)
+      ? variants
+      : [];
+    const baseInventory = parseInt(inventory || '0', 10) || 0;
 
-    // Create option groups if provided
-    const optionGroupMap: { [name: string]: { id: string; values: { [label: string]: string } } } = {};
-    for (const group of optionGroups) {
-      const option = await prisma.productOption.create({
-        data: {
-          id: group.id,
-          name: group.name,
-          impactVariants: group.impactsVariants,
-          values: {
-            create: group.values.map((value: string, index: number) => ({
-              id: generateUUID(),
-              label: value,
-              sortOrder: index,
-            })),
+    const updatedProduct = await prisma.$transaction(async (tx) => {
+      const existingOptionIds = await tx.variantOption.findMany({
+        where: { variant: { productId: id } },
+        select: {
+          optionValue: {
+            select: { optionId: true },
           },
         },
-        include: { values: true },
       });
-      optionGroupMap[group.name] = {
-        id: option.id,
-        values: Object.fromEntries(
-          option.values.map((v: { label: string; id: string }) => [v.label, v.id])
-        ),
-      };
-    }
 
-    const updated = await prisma.product.update({
-      where: { id },
-      data: {
-        ...updateData,
-        variants: {
-          create: [
-            // Always create default variant for base price
-            {
-              name: 'Default',
-              sku: `${slug}-default`,
-              price: basePrice,
-              priceDifference: null, // No difference for base variant
-              stockLevel: parseInt(inventory || '0'),
-              trackInventory: parseInt(inventory || '0') > 0,
-              isDefault: true,
-            },
-            // Add additional variants if provided
-            ...variants.map((variant: any) => ({
-              name: variant.name,
-              sku: variant.sku || `${slug}-${variant.name.toLowerCase().replace(/\s+/g, '-')}`,
-              price: 0, // Don't store calculated price - calculate when needed
-              priceDifference: variant.priceDifference || 0, // Store the actual difference
-              stockLevel: variant.stockLevel || 0,
-              trackInventory: variant.trackInventory || false,
-              isDefault: false,
-            }))
-          ],
-        },
-      },
+      await tx.variantOption.deleteMany({
+        where: { variant: { productId: id } },
+      });
+
+      await tx.productVariant.deleteMany({
+        where: { productId: id },
+      });
+
+      const optionIdsToDelete = Array.from(
+        new Set(existingOptionIds.map((entry) => entry.optionValue.optionId))
+      );
+
+      if (optionIdsToDelete.length) {
+        await tx.productOptionValue.deleteMany({
+          where: {
+            optionId: { in: optionIdsToDelete },
+          },
+        });
+
+        await tx.productOption.deleteMany({
+          where: {
+            id: { in: optionIdsToDelete },
+          },
+        });
+      }
+
+      const updated = await tx.product.update({
+        where: { id },
+        data: updateData,
+      });
+
+      const optionMap = await createProductOptions(tx, optionGroupInputs);
+
+      await createProductVariants({
+        client: tx,
+        productId: updated.id,
+        productSlug: updated.slug,
+        basePriceCents: basePrice,
+        baseInventory,
+        optionGroups: optionGroupInputs,
+        optionMap,
+        variants: variantInputs,
+      });
+
+      return updated;
     });
 
     console.log('✅ Product updated successfully:', {
       productId: id,
       basePrice: basePrice / 100,
-      variantCount: variants.length,
-      optionGroupCount: optionGroups.length
+      variantCount: variantInputs.length || 1,
+      optionGroupCount: optionGroupInputs.length,
     });
 
-    res.json(updated);
+    res.json(updatedProduct);
   } catch (err: any) {
     console.error('Error updating product:', err);
     res.status(500).json({ error: 'Failed to update product', details: err.message });

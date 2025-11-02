@@ -1,17 +1,17 @@
+import AnnouncementBanner from "../components/AnnouncementBanner.jsx";
 import HeroArea from "../components/HeroArea.jsx";
-import ProductCarousel from "../components/ProductCarousel.jsx";
-import RecentProduct from "../components/RecentProduct.jsx";
+import FrequentlySoldProducts from "../components/FrequentlySoldProducts.jsx";
+import SeasonalProducts from "../components/SeasonalProducts.jsx";
 import ProductCategory from "../components/ProductCategory.jsx";
-import Blog from "../components/Blog.jsx";
 
 const Home = () => {
   return (
     <>
+      <AnnouncementBanner />
       <HeroArea />
-      <ProductCarousel />
-      <RecentProduct />
+      <FrequentlySoldProducts />
+      <SeasonalProducts />
       <ProductCategory />
-      <Blog />
     </>
   );
 };

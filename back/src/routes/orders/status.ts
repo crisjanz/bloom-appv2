@@ -1,10 +1,125 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { triggerStatusNotifications } from '../../utils/notificationTriggers';
+import transactionService from '../../services/transactionService';
+import stripeService from '../../services/stripeService';
+import squareService from '../../services/squareService';
 
 const router = Router();
 const prisma = new PrismaClient();
 
+/**
+ * Process refunds for all payment transactions linked to an order
+ */
+async function processOrderRefunds(orderId: string, employeeId?: string) {
+  console.log(`💸 Processing refunds for cancelled order: ${orderId}`);
+
+  // Get all payment transactions for this order
+  const orderPayments = await prisma.orderPayment.findMany({
+    where: { orderId },
+    include: {
+      transaction: {
+        include: {
+          paymentMethods: true,
+          refunds: true
+        }
+      }
+    }
+  });
+
+  if (orderPayments.length === 0) {
+    console.log(`ℹ️ No payment transactions found for order ${orderId}`);
+    return;
+  }
+
+  // Process refund for each transaction
+  for (const orderPayment of orderPayments) {
+    const transaction = orderPayment.transaction;
+
+    // Check if already refunded
+    const totalRefunded = transaction.refunds.reduce((sum, r) => sum + r.amount, 0);
+    if (totalRefunded >= transaction.totalAmount) {
+      console.log(`⏭️ Transaction ${transaction.transactionNumber} already fully refunded`);
+      continue;
+    }
+
+    const refundAmount = transaction.totalAmount - totalRefunded;
+    console.log(`💰 Refunding ${transaction.transactionNumber}: $${(refundAmount / 100).toFixed(2)}`);
+
+    // Build refund methods matching original payment methods
+    const refundMethods = [];
+
+    for (const paymentMethod of transaction.paymentMethods) {
+      const methodRefundAmount = paymentMethod.amount;
+
+      // For CARD payments via Stripe or Square, process actual refund
+      if (paymentMethod.type === 'CARD' && paymentMethod.providerTransactionId) {
+        try {
+          let providerRefundId: string | undefined;
+
+          if (paymentMethod.provider === 'STRIPE') {
+            console.log(`🔵 Processing Stripe refund for payment: ${paymentMethod.providerTransactionId}`);
+            const stripeRefund = await stripeService.createRefund(
+              paymentMethod.providerTransactionId,
+              methodRefundAmount / 100, // Convert cents to dollars
+              'Order cancelled'
+            );
+            providerRefundId = stripeRefund.id;
+            console.log(`✅ Stripe refund created: ${providerRefundId}`);
+          } else if (paymentMethod.provider === 'SQUARE') {
+            console.log(`🟦 Processing Square refund for payment: ${paymentMethod.providerTransactionId}`);
+            const squareRefund = await squareService.createRefund(
+              paymentMethod.providerTransactionId,
+              methodRefundAmount / 100, // Convert cents to dollars
+              'Order cancelled'
+            );
+            providerRefundId = squareRefund.id;
+            console.log(`✅ Square refund created: ${providerRefundId}`);
+          }
+
+          refundMethods.push({
+            paymentMethodType: paymentMethod.type,
+            provider: paymentMethod.provider,
+            amount: methodRefundAmount,
+            providerRefundId
+          });
+        } catch (error) {
+          console.error(`❌ Failed to process ${paymentMethod.provider} refund:`, error);
+          // Still record the refund in database for manual processing
+          refundMethods.push({
+            paymentMethodType: paymentMethod.type,
+            provider: paymentMethod.provider,
+            amount: methodRefundAmount,
+            status: 'failed'
+          });
+        }
+      } else {
+        // For non-card payments (CASH, GIFT_CARD, etc.), just record in database
+        console.log(`📝 Recording ${paymentMethod.type} refund (manual processing required)`);
+        refundMethods.push({
+          paymentMethodType: paymentMethod.type,
+          provider: paymentMethod.provider,
+          amount: methodRefundAmount
+        });
+      }
+    }
+
+    // Create refund record in database
+    if (refundMethods.length > 0) {
+      try {
+        await transactionService.processRefund(transaction.id, {
+          amount: refundAmount,
+          reason: 'Order cancelled',
+          employeeId,
+          refundMethods: refundMethods as any
+        });
+        console.log(`✅ Refund record created for ${transaction.transactionNumber}`);
+      } catch (error) {
+        console.error(`❌ Failed to create refund record for ${transaction.transactionNumber}:`, error);
+      }
+    }
+  }
+}
 
 // Valid status transitions based on business logic
 const VALID_TRANSITIONS: Record<string, string[]> = {
@@ -96,6 +211,16 @@ router.patch('/:orderId/status', async (req, res) => {
     });
 
     console.log(`📋 Order #${order.orderNumber} status updated: ${order.status} → ${newStatus}`);
+
+    // Process refunds if order was cancelled
+    if (newStatus === 'CANCELLED') {
+      try {
+        await processOrderRefunds(orderId, employeeId);
+      } catch (error) {
+        console.error('❌ Error processing refunds for cancelled order:', error);
+        // Don't fail the status update if refunds fail - they can be processed manually
+      }
+    }
 
     // Trigger status notifications based on settings
     await triggerStatusNotifications(updatedOrder, newStatus, order.status);
