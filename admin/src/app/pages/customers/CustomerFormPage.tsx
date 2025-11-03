@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   CustomerInfoCard,
   AddressesCard,
@@ -37,6 +37,8 @@ const emptyCustomer: Customer = {
   homeAddress: undefined,
 };
 
+const RECIPIENTS_PER_PAGE = 25;
+
 export default function CustomerFormPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -45,6 +47,8 @@ export default function CustomerFormPage() {
   const [customer, setCustomer] = useState<Customer>(emptyCustomer);
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [recipients, setRecipients] = useState<Recipient[]>([]);
+  const [totalRecipients, setTotalRecipients] = useState(0);
+  const [recipientPage, setRecipientPage] = useState(0);
   const [expandedSections, setExpandedSections] = useState<Record<ExpandedSectionKey, boolean>>({
     addresses: false,
     recipients: false,
@@ -107,17 +111,43 @@ export default function CustomerFormPage() {
     loadCustomer();
   }, [loadCustomer]);
 
-  const loadRecipients = useCallback(async () => {
+  const loadRecipients = useCallback(async (pageToLoad = 0) => {
     if (!isEditMode || !customerId) return;
 
     try {
-      const response = await fetch(`/api/customers/${customerId}/recipients`);
+      const response = await fetch(
+        `/api/customers/${customerId}/recipients?paginated=true&page=${pageToLoad}&pageSize=${RECIPIENTS_PER_PAGE}`
+      );
+
       if (!response.ok) {
         throw new Error("Failed to fetch recipients");
       }
 
       const data = await response.json();
-      setRecipients(Array.isArray(data) ? data : []);
+
+      if (Array.isArray(data)) {
+        setRecipients(data);
+        setTotalRecipients(data.length);
+        setRecipientPage(0);
+        return;
+      }
+
+      const items = Array.isArray(data.items) ? data.items : [];
+      const total = typeof data.total === "number" ? data.total : items.length;
+      const pageFromServer = typeof data.page === "number" ? data.page : pageToLoad;
+      const pageSizeFromServer = typeof data.pageSize === "number" ? data.pageSize : RECIPIENTS_PER_PAGE;
+
+      if (total > 0 && items.length === 0 && pageFromServer > 0) {
+        const lastPage = Math.max(Math.ceil(total / pageSizeFromServer) - 1, 0);
+        if (lastPage !== pageFromServer) {
+          await loadRecipients(lastPage);
+          return;
+        }
+      }
+
+      setRecipients(items);
+      setTotalRecipients(total);
+      setRecipientPage(pageFromServer);
     } catch (err) {
       console.error(err);
       setError("Failed to load recipients.");
@@ -183,7 +213,7 @@ export default function CustomerFormPage() {
           (address: Address) => address.id !== homeAddressId
         );
         setAddresses(additionalAddresses);
-        await loadRecipients();
+        await loadRecipients(0);
       } else {
         navigate(`/customers/${result.id}`);
       }
@@ -302,7 +332,7 @@ export default function CustomerFormPage() {
       throw new Error("Failed to add recipient.");
     }
 
-    await loadRecipients();
+    await loadRecipients(0);
     toggleSection("recipients", true);
   };
 
@@ -321,7 +351,7 @@ export default function CustomerFormPage() {
       throw new Error("Failed to create recipient.");
     }
 
-    await loadRecipients();
+    await loadRecipients(0);
     toggleSection("recipients", true);
   };
 
@@ -341,7 +371,7 @@ export default function CustomerFormPage() {
       }
 
       setError("");
-      await loadRecipients();
+      await loadRecipients(recipientPage);
 
       setSelectedRecipient((prev) => (prev && prev.id === recipientId ? null : prev));
     } catch (err) {
@@ -359,6 +389,13 @@ export default function CustomerFormPage() {
     setIsViewRecipientModalOpen(false);
     setSelectedRecipient(null);
   };
+
+  const handleRecipientPageChange = useCallback(
+    (nextPage: number) => {
+      loadRecipients(nextPage);
+    },
+    [loadRecipients]
+  );
 
   if (loading) {
     return (
@@ -416,10 +453,15 @@ export default function CustomerFormPage() {
 
         <RecipientAddressesCard
           recipients={recipients}
+          totalCount={totalRecipients}
+          page={recipientPage}
+          pageSize={RECIPIENTS_PER_PAGE}
+          onPageChange={handleRecipientPageChange}
           expanded={expandedSections.recipients}
           onToggle={(next) => toggleSection("recipients", next)}
           onAdd={handleAddRecipient}
           onView={handleViewRecipient}
+          onEdit={(recipientId) => navigate(`/customers/${recipientId}`)}
           onDelete={handleDeleteRecipient}
           disabled={!customerId}
         />

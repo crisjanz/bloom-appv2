@@ -71,7 +71,7 @@ const CustomerCard: FC<Props> = ({
           />
 
           {customerResults.length > 0 && (
-            <div className="absolute left-0 right-0 z-50 mt-1 max-h-80 overflow-y-auto rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
+            <div className="absolute left-0 right-0 z-[10] mt-1 max-h-80 overflow-y-auto rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
               <div className="border-b border-stroke bg-gray-1 px-5 py-2 dark:border-strokedark dark:bg-meta-4">
                 <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
                   Customer(s) found with this phone number:

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 interface SwitchProps {
   id?: string;
@@ -23,23 +23,32 @@ const Switch: React.FC<SwitchProps> = ({
   onChange,
   color = "blue", // Default to blue color
 }) => {
-  // Use controlled mode if 'checked' prop is provided, otherwise use uncontrolled mode
-  const isControlled = checked !== undefined;
-  const [internalChecked, setInternalChecked] = useState(defaultChecked);
-  
-  const currentChecked = isControlled ? checked : internalChecked;
+  const generatedId = useId();
+  const resolvedId = id ?? name ?? generatedId;
+
+  const isControlled = typeof checked === "boolean";
+  const [internalChecked, setInternalChecked] = useState<boolean>(
+    isControlled ? Boolean(checked) : Boolean(defaultChecked),
+  );
+
+  useEffect(() => {
+    if (isControlled) {
+      setInternalChecked(Boolean(checked));
+    }
+  }, [checked, isControlled]);
+
+  const currentChecked = internalChecked;
+
+  const emitChange = (next: boolean) => {
+    if (!isControlled) {
+      setInternalChecked(next);
+    }
+    onChange?.(next);
+  };
 
   const handleToggle = () => {
     if (disabled) return;
-    const newCheckedState = !currentChecked;
-    
-    if (!isControlled) {
-      setInternalChecked(newCheckedState);
-    }
-    
-    if (onChange) {
-      onChange(newCheckedState);
-    }
+    emitChange(!currentChecked);
   };
 
   const switchColors =
@@ -59,53 +68,50 @@ const Switch: React.FC<SwitchProps> = ({
           knob: currentChecked
             ? "translate-x-full bg-white"
             : "translate-x-0 bg-white",
-        };
-
-  const switchId = id ?? name;
-  const computedAriaLabel = !label ? ariaLabel : undefined;
+      };
 
   return (
     <label
-      htmlFor={switchId}
+      htmlFor={resolvedId}
       className={`flex select-none items-center gap-3 text-sm font-medium ${
         disabled ? "text-gray-400" : "text-gray-700 dark:text-gray-400"
       } ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}
     >
       <input
-        id={switchId}
+        id={resolvedId}
         name={name}
         type="checkbox"
-        checked={currentChecked}
-        onChange={handleToggle}
-        disabled={disabled}
         className="sr-only"
-        aria-label={computedAriaLabel}
+        checked={currentChecked}
+        readOnly
+        aria-label={ariaLabel}
       />
-      <div
+      <button
+        type="button"
         role="switch"
         aria-checked={currentChecked}
-        aria-label={computedAriaLabel}
-        tabIndex={disabled ? -1 : 0}
+        aria-label={ariaLabel}
+        onClick={handleToggle}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
             handleToggle();
           }
         }}
-        className="relative focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/70 rounded-full"
-        onClick={handleToggle}
+        disabled={disabled}
+        className="relative flex h-6 w-11 items-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/70"
       >
-        <div
-          className={`block transition duration-150 ease-linear h-6 w-11 rounded-full ${
+        <span
+          className={`absolute inset-0 rounded-full transition-colors duration-150 ease-linear ${
             disabled
-              ? "bg-gray-100 pointer-events-none dark:bg-gray-800"
+              ? "bg-gray-100 dark:bg-gray-800"
               : switchColors.background
           }`}
-        ></div>
-        <div
-          className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full shadow-theme-sm duration-150 ease-linear transform ${switchColors.knob}`}
-        ></div>
-      </div>
+        />
+        <span
+          className={`pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-theme-sm transition-transform duration-150 ease-linear ${switchColors.knob}`}
+        />
+      </button>
       {label && <span>{label}</span>}
     </label>
   );

@@ -29,14 +29,28 @@ class FetchApiClient implements ApiClient {
   }
 
   async post(url: string, data?: any) {
-    const response = await fetch(`${this.baseURL}${url}`, {
-      method: 'POST',
-      headers: {
+    const options: RequestInit = {
+      method: 'POST'
+    }
+
+    if (data instanceof FormData) {
+      options.body = data
+    } else if (data !== undefined) {
+      options.headers = {
         'Content-Type': 'application/json'
-      },
-      body: data ? JSON.stringify(data) : undefined
-    })
-    const responseData = await response.json()
+      }
+      options.body = JSON.stringify(data)
+    }
+
+    const response = await fetch(`${this.baseURL}${url}`, options)
+    let responseData: any = null
+
+    try {
+      responseData = await response.json()
+    } catch {
+      responseData = null
+    }
+
     return { data: responseData, status: response.status }
   }
 

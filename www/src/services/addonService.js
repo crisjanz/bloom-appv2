@@ -1,3 +1,4 @@
+import api from './api';
 import { getProducts } from './productService';
 
 /**
@@ -9,4 +10,13 @@ export async function getAddons(limit = 6) {
   return allProducts
     .filter(p => p.productType === 'ADDON' && p.isActive && p.visibility !== 'POS_ONLY')
     .slice(0, limit);
+}
+
+export async function getAddonGroupsForProduct(productId) {
+  if (!productId) {
+    return [];
+  }
+
+  const data = await api.get(`/addon-groups/by-product/${productId}`);
+  return Array.isArray(data) ? data : [];
 }

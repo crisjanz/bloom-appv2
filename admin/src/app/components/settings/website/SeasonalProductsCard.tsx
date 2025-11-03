@@ -120,7 +120,7 @@ const SeasonalProductsCard = () => {
                   <Select
                     id={`product-${index}`}
                     value={product.productId || ""}
-                    onChange={(e) => handleProductUpdate(index, 'productId', e.target.value || undefined)}
+                    onChange={(value) => handleProductUpdate(index, 'productId', value || undefined)}
                     options={productOptions}
                   />
                   <p className="text-sm text-gray-500 mt-1">

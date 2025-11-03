@@ -151,7 +151,7 @@ const AnnouncementBannerCard = () => {
               <Select
                 id="fontSize"
                 value={formData.fontSize}
-                onChange={(e) => setFormData({ ...formData, fontSize: e.target.value })}
+                onChange={(value) => setFormData({ ...formData, fontSize: value })}
                 options={fontSizeOptions}
               />
             </div>
@@ -161,7 +161,7 @@ const AnnouncementBannerCard = () => {
               <Select
                 id="fontWeight"
                 value={formData.fontWeight}
-                onChange={(e) => setFormData({ ...formData, fontWeight: e.target.value })}
+                onChange={(value) => setFormData({ ...formData, fontWeight: value })}
                 options={fontWeightOptions}
               />
             </div>

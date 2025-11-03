@@ -56,7 +56,7 @@ const ManualPaymentModal: React.FC<ManualPaymentModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100] p-4">
       <div className="bg-white dark:bg-boxdark rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-6">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold text-black dark:text-white">{methodLabel} Payment</h2>

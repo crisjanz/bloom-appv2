@@ -9,7 +9,7 @@ const DetailsBox = ({ product }) => {
   const [selectedPricingTierId, setSelectedPricingTierId] = useState(null);
   const [selectedCustomization, setSelectedCustomization] = useState({});
   const [showFullDescription, setShowFullDescription] = useState(false);
-  const [selectedAddOns, setSelectedAddOns] = useState({});
+  const [selectedAddOnSelections, setSelectedAddOnSelections] = useState([]);
   const [isUpsellExpanded, setIsUpsellExpanded] = useState(false);
   const { addToCart, deliveryDate, setDeliveryDate } = useCart();
 
@@ -17,6 +17,7 @@ const DetailsBox = ({ product }) => {
     setQuantity(1);
     setSelectedPricingTierId(null);
     setSelectedCustomization({});
+    setSelectedAddOnSelections([]);
   }, [product?.id]);
 
   const rawPricingOptions = product?.optionStructure?.pricingOptions ?? [];
@@ -171,6 +172,15 @@ const DetailsBox = ({ product }) => {
     for (let i = 0; i < quantity; i++) {
       addToCart(product, selectedVariant ? selectedVariant.id : null);
     }
+
+    if (selectedAddOnSelections.length > 0) {
+      selectedAddOnSelections.forEach(({ product: addOnProduct, variantId }) => {
+        for (let i = 0; i < quantity; i++) {
+          addToCart(addOnProduct, variantId ?? null);
+        }
+      });
+    }
+
     setQuantity(1);
   };
 
@@ -396,149 +406,14 @@ const DetailsBox = ({ product }) => {
         </button>
 
         {isUpsellExpanded && (
-          <div className="mt-4 space-y-4">
-            {/* Add-On Item 1: Balloons (with variants) */}
-            <div className="flex items-center gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3">
-              <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100 dark:bg-dark-3">
-                <img
-                  src="https://placehold.co/80x80/e5e7eb/9ca3af?text=Balloon"
-                  alt="Balloon Bouquet"
-                  className="h-full w-full object-cover"
-                />
-              </div>
-
-              <div className="flex-1">
-                <h4 className="mb-1 text-sm font-medium text-dark dark:text-white">
-                  Balloon Bouquet
-                </h4>
-                <p className="mb-2 text-xs text-body-color dark:text-dark-6">
-                  $12.99
-                </p>
-
-                <div className="relative">
-                  <select
-                    value={selectedAddOns['balloon-1']?.variant || 'hearts'}
-                    onChange={(e) => {
-                      const isSelected = selectedAddOns['balloon-1']?.selected || false;
-                      setSelectedAddOns(prev => ({
-                        ...prev,
-                        'balloon-1': { selected: isSelected, variant: e.target.value }
-                      }));
-                    }}
-                    className="w-full appearance-none rounded-lg border border-stroke bg-white px-4 py-2 pr-10 text-sm text-dark outline-hidden transition focus:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white"
-                  >
-                    <option value="hearts">Hearts</option>
-                    <option value="stars">Stars</option>
-                    <option value="mixed">Mixed</option>
-                  </select>
-                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 16 16"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="text-body-color dark:text-dark-6"
-                    >
-                      <path
-                        d="M8 10.5C7.85 10.5 7.725 10.45 7.6 10.375L3.15 5.925C2.975 5.75 2.975 5.45 3.15 5.275C3.325 5.1 3.625 5.1 3.8 5.275L8 9.475L12.2 5.275C12.375 5.1 12.675 5.1 12.85 5.275C13.025 5.45 13.025 5.75 12.85 5.925L8.4 10.375C8.275 10.45 8.15 10.5 8 10.5Z"
-                        fill="currentColor"
-                      />
-                    </svg>
-                  </span>
-                </div>
-              </div>
-
-              <label className="relative inline-flex cursor-pointer items-center">
-                <input
-                  type="checkbox"
-                  checked={selectedAddOns['balloon-1']?.selected || false}
-                  onChange={(e) => {
-                    const variant = selectedAddOns['balloon-1']?.variant || 'hearts';
-                    setSelectedAddOns(prev => ({
-                      ...prev,
-                      'balloon-1': { selected: e.target.checked, variant }
-                    }));
-                  }}
-                  className="peer sr-only"
-                />
-                <div className="peer h-6 w-11 rounded-full bg-stroke after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-primary peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none dark:bg-dark-3 dark:after:border-gray-600"></div>
-              </label>
-            </div>
-
-            {/* Add-On Item 2: Chocolate Box (no variants) */}
-            <div className="flex items-center gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3">
-              <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100 dark:bg-dark-3">
-                <img
-                  src="https://placehold.co/80x80/e5e7eb/9ca3af?text=Chocolate"
-                  alt="Chocolate Box"
-                  className="h-full w-full object-cover"
-                />
-              </div>
-
-              <div className="flex-1">
-                <h4 className="mb-1 text-sm font-medium text-dark dark:text-white">
-                  Premium Chocolate Box
-                </h4>
-                <p className="text-xs text-body-color dark:text-dark-6">
-                  $24.99
-                </p>
-              </div>
-
-              <label className="relative inline-flex cursor-pointer items-center">
-                <input
-                  type="checkbox"
-                  checked={selectedAddOns['chocolate-1']?.selected || false}
-                  onChange={(e) => {
-                    setSelectedAddOns(prev => ({
-                      ...prev,
-                      'chocolate-1': { selected: e.target.checked }
-                    }));
-                  }}
-                  className="peer sr-only"
-                />
-                <div className="peer h-6 w-11 rounded-full bg-stroke after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-primary peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none dark:bg-dark-3 dark:after:border-gray-600"></div>
-              </label>
-            </div>
-
-            {/* Add-On Item 3: Greeting Card (no variants) */}
-            <div className="flex items-center gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3">
-              <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100 dark:bg-dark-3">
-                <img
-                  src="https://placehold.co/80x80/e5e7eb/9ca3af?text=Card"
-                  alt="Greeting Card"
-                  className="h-full w-full object-cover"
-                />
-              </div>
-
-              <div className="flex-1">
-                <h4 className="mb-1 text-sm font-medium text-dark dark:text-white">
-                  Personalized Greeting Card
-                </h4>
-                <p className="text-xs text-body-color dark:text-dark-6">
-                  $4.99
-                </p>
-              </div>
-
-              <label className="relative inline-flex cursor-pointer items-center">
-                <input
-                  type="checkbox"
-                  checked={selectedAddOns['card-1']?.selected || false}
-                  onChange={(e) => {
-                    setSelectedAddOns(prev => ({
-                      ...prev,
-                      'card-1': { selected: e.target.checked }
-                    }));
-                  }}
-                  className="peer sr-only"
-                />
-                <div className="peer h-6 w-11 rounded-full bg-stroke after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-primary peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none dark:bg-dark-3 dark:after:border-gray-600"></div>
-              </label>
-            </div>
+          <div className="mt-4">
+            <AddOns
+              productId={product.id}
+              onSelectionChange={setSelectedAddOnSelections}
+            />
           </div>
         )}
       </div>
-
       {/* 10. Quantity & Add to Cart */}
       <div className="mb-6 flex items-center gap-4">
         <div className="inline-flex items-center rounded-sm border border-stroke text-base font-medium text-dark dark:border-dark-3 dark:text-white">
@@ -589,9 +464,6 @@ const DetailsBox = ({ product }) => {
           Add to Cart
         </button>
       </div>
-
-      {/* 11. Add-Ons */}
-      <AddOns />
     </>
   );
 };

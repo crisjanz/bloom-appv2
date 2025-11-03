@@ -389,7 +389,7 @@ export default function ProductsCard({
           
           {/* Search Results Dropdown */}
           {searchResults.length > 0 && (
-            <div className="absolute z-50 mt-1 w-full bg-white border border-stroke rounded-sm shadow-default max-h-60 overflow-y-auto dark:bg-boxdark dark:border-strokedark">
+            <div className="absolute z-[10] mt-1 w-full bg-white border border-stroke rounded-sm shadow-default max-h-60 overflow-y-auto dark:bg-boxdark dark:border-strokedark">
               {searchResults.map((product) => (
                 <div
                   key={product.id}

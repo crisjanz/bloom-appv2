@@ -110,19 +110,45 @@ router.get("/quick-search", async (req, res) => {
 router.get("/", async (req, res) => {
   try {
     const q = req.query.q?.toString().trim();
+    const paginated = req.query.paginated === 'true';
+    const page = Math.max(parseInt(req.query.page?.toString() ?? '0', 10) || 0, 0);
+    const pageSizeRaw = parseInt(req.query.pageSize?.toString() ?? '25', 10);
+    const pageSize = Math.min(Math.max(pageSizeRaw || 25, 1), 100);
+
+    const where = q
+      ? {
+          OR: [
+            { firstName: { contains: q, mode: "insensitive" as const } },
+            { lastName: { contains: q, mode: "insensitive" as const } },
+            { email: { contains: q, mode: "insensitive" as const } },
+            { phone: { contains: q } },
+          ],
+        }
+      : undefined;
+
+    if (paginated) {
+      const [total, customers] = await Promise.all([
+        prisma.customer.count({ where }),
+        prisma.customer.findMany({
+          where,
+          orderBy: { lastName: "asc" },
+          skip: page * pageSize,
+          take: pageSize,
+        }),
+      ]);
+
+      return res.json({
+        items: customers,
+        total,
+        page,
+        pageSize,
+      });
+    }
+
     const customers = await prisma.customer.findMany({
-      where: q
-        ? {
-            OR: [
-              { firstName: { contains: q, mode: "insensitive" } },
-              { lastName: { contains: q, mode: "insensitive" } },
-              { email: { contains: q, mode: "insensitive" } },
-              { phone: { contains: q } },
-            ],
-          }
-        : undefined,
+      where,
       orderBy: { lastName: "asc" },
-      take: 20,
+      take: pageSize,
     });
 
     res.json(customers);
@@ -223,7 +249,7 @@ router.put('/:id', async (req, res) => {
 
 // POST /api/customers/merge - Merge customers
 router.post("/merge", async (req, res) => {
-  const { sourceIds, targetId } = req.body;
+  const { sourceIds, targetId, keepAddressIds } = req.body;
 
   if (!sourceIds || !Array.isArray(sourceIds) || sourceIds.length === 0) {
     return res.status(400).json({ error: "sourceIds array is required" });
@@ -237,10 +263,34 @@ router.post("/merge", async (req, res) => {
     return res.status(400).json({ error: "Cannot merge a customer into itself" });
   }
 
+  const keepAddressIdsSet = keepAddressIds ? new Set(keepAddressIds) : null;
+
   try {
     let totalOrdersMerged = 0;
     let totalAddressesMerged = 0;
     let totalTransactionsMerged = 0;
+
+    // If keepAddressIds provided, delete unselected addresses from target customer first
+    if (keepAddressIdsSet) {
+      const targetAddresses = await prisma.address.findMany({
+        where: { customerId: targetId }
+      });
+
+      for (const addr of targetAddresses) {
+        if (!keepAddressIdsSet.has(addr.id)) {
+          // Check if any orders use this address
+          const ordersUsingAddress = await prisma.order.count({
+            where: { deliveryAddressId: addr.id }
+          });
+
+          if (ordersUsingAddress === 0) {
+            // Safe to delete - no orders reference it
+            await prisma.address.delete({ where: { id: addr.id } });
+          }
+          // If orders exist, keep the address (don't break order references)
+        }
+      }
+    }
 
     // For each source customer, transfer their data to the target
     for (const sourceId of sourceIds) {
@@ -258,28 +308,58 @@ router.post("/merge", async (req, res) => {
       });
       totalTransactionsMerged += transactionResult.count;
 
-      // Transfer all addresses (avoiding duplicates by checking if similar address exists)
+      // Transfer selected addresses (or all if no selection provided)
       const sourceAddresses = await prisma.address.findMany({
         where: { customerId: sourceId }
       });
 
       for (const addr of sourceAddresses) {
-        // Check if target already has this address
+        // Skip if address not in keep list (when provided)
+        if (keepAddressIdsSet && !keepAddressIdsSet.has(addr.id)) {
+          // Delete address not selected for keeping
+          await prisma.address.delete({ where: { id: addr.id } });
+          continue;
+        }
+        // Normalize address2 for comparison (treat null and empty string as same)
+        const normalizedAddr2 = addr.address2?.trim() || null;
+
+        // Check if target already has this PHYSICAL ADDRESS (ignore name differences)
         const existingAddress = await prisma.address.findFirst({
           where: {
             customerId: targetId,
-            firstName: addr.firstName,
-            lastName: addr.lastName,
             address1: addr.address1,
+            address2: normalizedAddr2,
             city: addr.city,
-            postalCode: addr.postalCode
+            province: addr.province,
+            postalCode: addr.postalCode,
+            country: addr.country
           }
         });
 
         let addressIdToUse: string;
 
         if (existingAddress) {
-          // Use existing address
+          // Address already exists - UPDATE it with better data if available
+          const updateData: any = {};
+
+          // Keep phone if existing is missing and source has one
+          if (!existingAddress.phone && addr.phone) {
+            updateData.phone = addr.phone;
+          }
+
+          // Keep company if existing is missing and source has one
+          if (!existingAddress.company && addr.company) {
+            updateData.company = addr.company;
+          }
+
+          // Update if we have improvements
+          if (Object.keys(updateData).length > 0) {
+            await prisma.address.update({
+              where: { id: existingAddress.id },
+              data: updateData
+            });
+          }
+
           addressIdToUse = existingAddress.id;
         } else {
           // Create new address for target customer
@@ -295,6 +375,8 @@ router.post("/merge", async (req, res) => {
               postalCode: addr.postalCode,
               country: addr.country,
               company: addr.company,
+              label: addr.label,
+              addressType: addr.addressType,
               customerId: targetId
             }
           });
@@ -313,6 +395,70 @@ router.post("/merge", async (req, res) => {
       await prisma.address.deleteMany({
         where: { customerId: sourceId }
       });
+
+      // Transfer CustomerRecipient relationships where source is the SENDER
+      const senderRecipients = await prisma.customerRecipient.findMany({
+        where: { senderId: sourceId }
+      });
+
+      for (const rel of senderRecipients) {
+        // Check if target already has this recipient relationship
+        const existingRel = await prisma.customerRecipient.findUnique({
+          where: {
+            senderId_recipientId: {
+              senderId: targetId,
+              recipientId: rel.recipientId
+            }
+          }
+        });
+
+        if (!existingRel) {
+          // Create new relationship for target
+          await prisma.customerRecipient.create({
+            data: {
+              senderId: targetId,
+              recipientId: rel.recipientId
+            }
+          });
+        }
+
+        // Delete old relationship
+        await prisma.customerRecipient.delete({
+          where: { id: rel.id }
+        });
+      }
+
+      // Transfer CustomerRecipient relationships where source is the RECIPIENT
+      const recipientSenders = await prisma.customerRecipient.findMany({
+        where: { recipientId: sourceId }
+      });
+
+      for (const rel of recipientSenders) {
+        // Check if this sender already has target as recipient
+        const existingRel = await prisma.customerRecipient.findUnique({
+          where: {
+            senderId_recipientId: {
+              senderId: rel.senderId,
+              recipientId: targetId
+            }
+          }
+        });
+
+        if (!existingRel) {
+          // Create new relationship with target as recipient
+          await prisma.customerRecipient.create({
+            data: {
+              senderId: rel.senderId,
+              recipientId: targetId
+            }
+          });
+        }
+
+        // Delete old relationship
+        await prisma.customerRecipient.delete({
+          where: { id: rel.id }
+        });
+      }
 
       // Delete source customer
       await prisma.customer.delete({
@@ -381,8 +527,44 @@ router.delete("/:id", async (req, res) => {
 // GET /api/customers/:id/recipients - Returns Customer[] (not Address[])
 router.get("/:id/recipients", async (req, res) => {
   const { id } = req.params;
+  const paginated = req.query.paginated === 'true';
+  const page = Math.max(parseInt(req.query.page?.toString() ?? '0', 10) || 0, 0);
+  const pageSizeRaw = parseInt(req.query.pageSize?.toString() ?? '25', 10);
+  const pageSize = Math.min(Math.max(pageSizeRaw || 25, 1), 100);
 
   try {
+    if (paginated) {
+      const total = await prisma.customerRecipient.count({
+        where: { senderId: id },
+      });
+
+      const recipientLinks = await prisma.customerRecipient.findMany({
+        where: { senderId: id },
+        include: {
+          recipient: {
+            include: {
+              homeAddress: true,
+              addresses: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        skip: page * pageSize,
+        take: pageSize,
+      });
+
+      const recipients = recipientLinks.map((link) => link.recipient);
+
+      return res.json({
+        items: recipients,
+        total,
+        page,
+        pageSize,
+      });
+    }
+
     const recipientLinks = await prisma.customerRecipient.findMany({
       where: { senderId: id },
       include: {
@@ -398,8 +580,7 @@ router.get("/:id/recipients", async (req, res) => {
       },
     });
 
-    // Return just the Customer objects with their addresses
-    const recipients = recipientLinks.map(link => link.recipient);
+    const recipients = recipientLinks.map((link) => link.recipient);
     res.json(recipients);
   } catch (err) {
     console.error("Failed to fetch saved recipients:", (err as any)?.message || err);

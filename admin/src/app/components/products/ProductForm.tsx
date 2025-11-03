@@ -690,7 +690,7 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
       </div>
 
       {isSaving && (
-        <div className="fixed inset-0 flex items-center justify-center z-50">
+        <div className="fixed inset-0 flex items-center justify-center z-[100]">
           <div className="bg-white dark:bg-boxdark p-6 rounded-lg shadow-lg flex items-center gap-3">
             <svg
               className="animate-spin h-6 w-6 text-[#597485]"

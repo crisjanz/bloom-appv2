@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Table,
   TableBody,
@@ -8,6 +8,7 @@ import {
 } from "@shared/ui/components/ui/table";
 import InputField from "@shared/ui/forms/input/InputField";
 import { Link } from "react-router-dom";
+import { useApiClient } from "@shared/hooks/useApiClient";
 
 // MIGRATION: Use domain hook for better customer management
 import { useCustomerSearch } from "@domains/customers/hooks/useCustomerService.ts";
@@ -23,6 +24,8 @@ type Customer = {
 };
 
 export default function CustomersPage() {
+  const apiClient = useApiClient();
+
   // MIGRATION: Use domain hook for better customer search
   const {
     query: searchTerm,
@@ -32,29 +35,72 @@ export default function CustomersPage() {
   } = useCustomerSearch();
 
   const [allCustomers, setAllCustomers] = useState<Customer[]>([]);
+  const [totalCustomers, setTotalCustomers] = useState(0);
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
   const [isMerging, setIsMerging] = useState(false);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(50);
 
-  // Load all customers on mount
-  useEffect(() => {
-    const loadAllCustomers = async () => {
+  const fetchCustomers = useCallback(
+    async (pageToLoad: number = 0) => {
       setLoading(true);
       try {
-        const response = await fetch("/api/customers");
-        const data = await response.json();
-        setAllCustomers(data);
+        const response = await apiClient.get(
+          `/api/customers?paginated=true&page=${pageToLoad}&pageSize=${pageSize}`
+        );
+        const data = response.data;
+
+        if (Array.isArray(data)) {
+          setAllCustomers(data);
+          setTotalCustomers(data.length);
+          if (pageToLoad !== 0) {
+            setPage(0);
+          }
+          return;
+        }
+
+        const items: Customer[] = Array.isArray(data.items) ? data.items : [];
+        const total = typeof data.total === "number" ? data.total : items.length;
+        const serverPage = typeof data.page === "number" ? data.page : pageToLoad;
+        const serverPageSize = typeof data.pageSize === "number" ? data.pageSize : pageSize;
+
+        if (total > 0 && items.length === 0 && serverPage > 0) {
+          const lastPage = Math.max(Math.ceil(total / serverPageSize) - 1, 0);
+          if (lastPage !== serverPage) {
+            setPage(lastPage);
+            return;
+          }
+        }
+
+        setAllCustomers(items);
+        setTotalCustomers(total);
+        if (serverPage !== pageToLoad) {
+          setPage(serverPage);
+        }
+        if (serverPageSize !== pageSize) {
+          setPageSize(serverPageSize);
+        }
       } catch (error) {
         console.error("Failed to load customers:", error);
-        // Better error handling than alert
       } finally {
         setLoading(false);
       }
-    };
+    },
+    [apiClient, pageSize]
+  );
 
-    loadAllCustomers();
-  }, []);
+  useEffect(() => {
+    fetchCustomers(page);
+  }, [fetchCustomers, page]);
+
+  const refreshCustomers = useCallback(
+    async (targetPage: number = page) => {
+      await fetchCustomers(targetPage);
+    },
+    [fetchCustomers, page]
+  );
 
   // Toggle customer selection
   const toggleCustomerSelection = (customerId: string) => {
@@ -105,24 +151,13 @@ export default function CustomersPage() {
     setIsMerging(true);
 
     try {
-      const response = await fetch("/api/customers/merge", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sourceIds,
-          targetId: targetCustomer.id,
-        }),
+      const response = await apiClient.post("/api/customers/merge", {
+        sourceIds,
+        targetId: targetCustomer.id,
       });
+      const data = response.data;
 
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Failed to merge customers");
-      }
-
-      const data = await response.json();
-
-      // Remove merged customers from local state
-      setAllCustomers((prev) => prev.filter((c) => !sourceIds.includes(c.id)));
+      await refreshCustomers(page);
       setSelectedCustomers([]);
 
       alert(
@@ -152,19 +187,10 @@ export default function CustomersPage() {
     setDeletingId(customerId);
 
     try {
-      const response = await fetch(`/api/customers/${customerId}`, {
-        method: "DELETE",
-      });
+      const response = await apiClient.delete(`/api/customers/${customerId}`);
+      const data = response.data;
 
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Failed to delete customer");
-      }
-
-      const data = await response.json();
-
-      // Remove from local state
-      setAllCustomers((prev) => prev.filter((c) => c.id !== customerId));
+      await refreshCustomers(page);
 
       // Show informative message about what happened
       let message = `${customerName} has been successfully deleted.`;
@@ -184,8 +210,13 @@ export default function CustomersPage() {
     }
   };
 
-  // MIGRATION: Use search results if searching, otherwise show all customers
-  const displayedCustomers = searchTerm.length >= 3 ? searchResults : allCustomers;
+  // MIGRATION: Use search results if searching, otherwise show paginated customers
+  const isSearchingActive = searchTerm.length >= 3;
+  const displayedCustomers = isSearchingActive ? searchResults : allCustomers;
+  const totalPages = Math.max(Math.ceil(totalCustomers / pageSize), 1);
+  const startIndex = page * pageSize;
+  const endIndex = Math.min(startIndex + displayedCustomers.length, totalCustomers);
+  const showPagination = !isSearchingActive && totalCustomers > pageSize;
 
   return (
     <div className="p-4">
@@ -215,6 +246,15 @@ export default function CustomersPage() {
                 {isMerging ? "Merging..." : "Merge Selected"}
               </button>
             )}
+            <Link
+              to="/customers/duplicates"
+              className="inline-flex items-center px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg transition-colors"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+              Find Duplicates
+            </Link>
             <Link
               to="/customers/new"
               className="inline-flex items-center px-4 py-2 bg-[#597485] hover:bg-[#4e6575] text-white text-sm font-medium rounded-lg transition-colors"
@@ -341,11 +381,40 @@ export default function CustomersPage() {
                     </TableRow>
                   ))}
                 </TableBody>
-              </Table>
-            </div>
-          </div>
+          </Table>
+        </div>
+      </div>
 
-          {/* MIGRATION: Improved empty states */}
+      {showPagination && (
+        <div className="mt-4 flex flex-col gap-3 border border-gray-200 bg-white px-4 py-3 text-sm dark:border-white/[0.05] dark:bg-white/[0.03] sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-gray-600 dark:text-gray-400">
+            Showing {startIndex + 1}–{endIndex} of {totalCustomers}
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
+              disabled={page === 0 || loading}
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:border-[#597485] hover:text-[#597485] disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:text-gray-300 dark:hover:border-[#597485]"
+            >
+              Previous
+            </button>
+            <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              Page {page + 1} / {totalPages}
+            </div>
+            <button
+              type="button"
+              onClick={() => setPage((prev) => Math.min(prev + 1, totalPages - 1))}
+              disabled={page + 1 >= totalPages || loading}
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:border-[#597485] hover:text-[#597485] disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:text-gray-300 dark:hover:border-[#597485]"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* MIGRATION: Improved empty states */}
           {!loading && !isSearching && displayedCustomers.length === 0 && (
             <div className="text-center py-8">
               {searchTerm.length >= 3 ? (

@@ -311,7 +311,7 @@ const AddOnGroupsCard = () => {
       </ComponentCard>
 
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-4">
           <div className="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-xl dark:bg-boxdark">
             <div className="mb-4 flex items-center justify-between">
               <div>

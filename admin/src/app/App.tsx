@@ -30,6 +30,7 @@ import TakeOrderPage from "./pages/orders/TakeOrderPage";
 import CategoriesPage from "./pages/products/CategoriesPage";
 import CustomersPage from "./pages/customers/CustomersPage";
 import CustomerFormPage from "./pages/customers/CustomerFormPage";
+import DuplicatesPage from "./pages/customers/DuplicatesPage";
 import ViewProductPage from "./pages/products/ViewProductPage";
 import OrdersListPage from "./pages/orders/OrdersListPage"; 
 import OrderEditPage from "./pages/orders/OrderEditPage";
@@ -110,6 +111,7 @@ export default function App() {
             
             {/* Customer routes */}
             <Route path="customers" element={<CustomersPage />} />
+            <Route path="customers/duplicates" element={<DuplicatesPage />} />
             <Route path="customers/new" element={<CustomerFormPage />} />
             <Route path="customers/:id" element={<CustomerFormPage />} />
 
