@@ -261,7 +261,9 @@ model Customer {
   firstName     String
   lastName      String
   email         String?   @unique
-  phone         String?
+  phone         String?   // Primary phone - used for matching/merging customers
+  phoneLabel    String?   @default("Mobile") // Label for primary phone (Mobile, Home, Work, etc.)
+  phoneNumbers  Json      @default("[]") // Additional phones: [{phone: string, label: string}]
   notes         String?
   homeAddress   Address?  @relation("HomeAddress", fields: [homeAddressId], references: [id])
   homeAddressId String?   @unique
@@ -307,8 +309,8 @@ model CustomerRecipient {
 model Address {
   id          String       @id @default(cuid())
   label       String?      // "Home", "Office", "Mom's House", etc.
-  firstName   String
-  lastName    String
+  firstName   String?      // Nullable - auto-populated from Customer for legacy/historical data
+  lastName    String?      // Nullable - auto-populated from Customer for legacy/historical data
   address1    String
   address2    String?
   city        String

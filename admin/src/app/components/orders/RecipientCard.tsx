@@ -109,6 +109,9 @@ export default function RecipientCard({
   const phoneLookupControllerRef = useRef<AbortController | null>(null);
   const phoneMatchDetailsCacheRef = useRef<Map<string, any>>(new Map());
 
+  // Phone management state
+  const [additionalPhones, setAdditionalPhones] = useState<Array<{ phone: string; label: string }>>([]);
+
   const orderTypeOptions = [
     { value: "DELIVERY" as const, label: "Delivery" },
     { value: "PICKUP" as const, label: "Pickup" },
@@ -146,19 +149,25 @@ export default function RecipientCard({
 
   const resolveCustomerAddress = (customer: any) => {
     if (!customer) return undefined;
+    // Priority 1: If a specific address was selected from the search modal
+    if (customer.selectedAddress) return customer.selectedAddress;
+    // Priority 2: Home address
     if (customer.homeAddress) return customer.homeAddress;
+    // Priority 3: Addresses array (first default, or first available)
     if (Array.isArray(customer.addresses) && customer.addresses.length > 0) {
       const defaultAddress = customer.addresses.find(
         (addr: any) => addr.isDefault,
       );
       return defaultAddress || customer.addresses[0];
     }
+    // Priority 4: Recipient addresses (legacy)
     if (
       Array.isArray(customer.recipientAddresses) &&
       customer.recipientAddresses.length > 0
     ) {
       return customer.recipientAddresses[0];
     }
+    // Priority 5: Direct address property (legacy)
     if (customer.address) return customer.address;
     return undefined;
   };
@@ -514,6 +523,50 @@ export default function RecipientCard({
       }
     };
   }, [recipientPhone]);
+  const handleAddPhoneField = () => {
+    setAdditionalPhones([...additionalPhones, { phone: "", label: "Mobile" }]);
+  };
+
+  const handleRemovePhoneField = (index: number) => {
+    setAdditionalPhones(additionalPhones.filter((_, i) => i !== index));
+  };
+
+  const handlePhoneFieldChange = (index: number, value: string) => {
+    const updated = [...additionalPhones];
+    updated[index] = { ...updated[index], phone: value };
+    setAdditionalPhones(updated);
+  };
+
+  const handlePhoneLabelChange = (index: number, label: string) => {
+    const updated = [...additionalPhones];
+    updated[index] = { ...updated[index], label };
+    setAdditionalPhones(updated);
+  };
+
+  const getPrimaryPhoneLabel = () => {
+    return recipientCustomer?.phoneLabel || "Mobile";
+  };
+
+  const handlePrimaryPhoneLabelChange = async (newLabel: string) => {
+    if (!recipientCustomerId) return;
+
+    try {
+      // Update customer's phoneLabel
+      const response = await fetch(`/api/customers/${recipientCustomerId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneLabel: newLabel }),
+      });
+
+      if (!response.ok) throw new Error("Failed to update phone label");
+
+      const updatedCustomer = await response.json();
+      setRecipientCustomer?.(updatedCustomer);
+    } catch (error) {
+      console.error("Failed to update phone label:", error);
+    }
+  };
+
   const clearRecipientInfo = () => {
     setRecipientFirstName("");
     setRecipientLastName("");
@@ -968,66 +1021,183 @@ export default function RecipientCard({
           </div>
         )}
 
-        <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
-          <div>
+        {/* Row 1: First Name, Last Name, Company, [Address Label for DELIVERY] */}
+        <div className="mb-3 grid grid-cols-1 gap-3 md:grid-cols-4">
+          <InputField
+            type="text"
+            id="firstName"
+            placeholder="First name"
+            value={recipientFirstName}
+            onChange={(e) => setRecipientFirstName(e.target.value)}
+            className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-[#597485]"
+          />
+          <InputField
+            type="text"
+            id="lastName"
+            placeholder="Last name"
+            value={recipientLastName}
+            onChange={(e) => setRecipientLastName(e.target.value)}
+            className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-[#597485]"
+          />
+          <InputField
+            type="text"
+            id="company"
+            placeholder="Company"
+            value={recipientCompany}
+            onChange={(e) => setRecipientCompany(e.target.value)}
+            className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-[#597485]"
+          />
+          {orderType === "DELIVERY" ? (
             <InputField
               type="text"
-              id="firstName"
-              placeholder="First name"
-              value={recipientFirstName}
-              onChange={(e) => setRecipientFirstName(e.target.value)}
+              id="addressLabel"
+              placeholder="Address label"
+              value={recipientAddressLabel || ""}
+              onChange={(e) => setRecipientAddressLabel?.(e.target.value)}
               className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-[#597485]"
             />
-          </div>
-          <div>
-            <InputField
-              type="text"
-              id="lastName"
-              placeholder="Last name"
-              value={recipientLastName}
-              onChange={(e) => setRecipientLastName(e.target.value)}
-              className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-[#597485]"
-            />
-          </div>
-          <div>
-            <PhoneInput
-              type="tel"
-              id="phone"
-              value={recipientPhone}
-              onChange={(cleanedPhone) => {
-                phoneChangeSource.current = "manual";
-                setRecipientPhone(cleanedPhone);
-              }}
-              countries={countries}
-              selectPosition="none"
-              placeholder="Phone number"
-            />
-          </div>
+          ) : (
+            <div></div>
+          )}
         </div>
+
+        {/* Phone fields for PICKUP */}
+        {orderType === "PICKUP" && (
+          <>
+            <div className="mb-3 grid grid-cols-1 gap-3 md:grid-cols-4">
+              <div></div>
+              <div></div>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <PhoneInput
+                    type="tel"
+                    id="phone"
+                    value={recipientPhone}
+                    onChange={(cleanedPhone) => {
+                      phoneChangeSource.current = "manual";
+                      setRecipientPhone(cleanedPhone);
+                    }}
+                    countries={countries}
+                    selectPosition="none"
+                    placeholder="Phone*"
+                  />
+                </div>
+                <div className="w-24">
+                  <Select
+                    options={[
+                      { value: "Mobile", label: "Mobile" },
+                      { value: "Home", label: "Home" },
+                      { value: "Work", label: "Work" },
+                      { value: "Office", label: "Office" },
+                      { value: "Other", label: "Other" },
+                    ]}
+                    value={getPrimaryPhoneLabel()}
+                    onChange={(value) => handlePrimaryPhoneLabelChange(value)}
+                    placeholder="Type"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center">
+                <button
+                  type="button"
+                  onClick={handleAddPhoneField}
+                  className="text-sm font-medium text-[#597485] hover:text-[#4e6575] dark:text-[#7a9bb0] dark:hover:text-[#597485]"
+                >
+                  + Phone
+                </button>
+              </div>
+            </div>
+
+            {/* Additional Customer Phones (from saved customer data) */}
+            {recipientCustomer && Array.isArray(recipientCustomer.phoneNumbers) && recipientCustomer.phoneNumbers.map((phoneObj: any, index: number) => (
+              <div key={`saved-${index}`} className="mb-3 grid grid-cols-1 gap-3 md:grid-cols-4">
+                <div></div>
+                <div></div>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <InputField
+                      type="tel"
+                      value={phoneObj.phone}
+                      onChange={(e) => setRecipientPhone(e.target.value)}
+                      onFocus={(e) => {
+                        phoneChangeSource.current = "manual";
+                        setRecipientPhone(phoneObj.phone);
+                      }}
+                      placeholder="Phone"
+                      className="h-11 cursor-pointer"
+                    />
+                  </div>
+                  <div className="w-24">
+                    <Select
+                      options={[
+                        { value: "Mobile", label: "Mobile" },
+                        { value: "Home", label: "Home" },
+                        { value: "Work", label: "Work" },
+                        { value: "Office", label: "Office" },
+                        { value: "Other", label: "Other" },
+                      ]}
+                      value={phoneObj.label}
+                      onChange={() => {}}
+                      disabled
+                    />
+                  </div>
+                </div>
+                <div></div>
+              </div>
+            ))}
+
+            {/* Additional Phones (new/temporary for this order) */}
+            {additionalPhones.map((phoneObj, index) => (
+              <div key={`new-${index}`} className="mb-3 grid grid-cols-1 gap-3 md:grid-cols-4">
+                <div></div>
+                <div></div>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <PhoneInput
+                      type="tel"
+                      value={phoneObj.phone}
+                      onChange={(value) => handlePhoneFieldChange(index, value)}
+                      countries={countries}
+                      selectPosition="none"
+                      placeholder="Phone"
+                    />
+                  </div>
+                  <div className="w-24">
+                    <Select
+                      options={[
+                        { value: "Mobile", label: "Mobile" },
+                        { value: "Home", label: "Home" },
+                        { value: "Work", label: "Work" },
+                        { value: "Office", label: "Office" },
+                        { value: "Other", label: "Other" },
+                      ]}
+                      value={phoneObj.label}
+                      onChange={(value) => handlePhoneLabelChange(index, value)}
+                      placeholder="Type"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center">
+                  <button
+                    type="button"
+                    onClick={() => handleRemovePhoneField(index)}
+                    className="text-red-600 hover:text-red-700 dark:text-red-400"
+                    title="Remove phone"
+                  >
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </>
+        )}
 
         {orderType === "DELIVERY" && (
           <>
-            <div className="mb-3 grid grid-cols-1 gap-3 md:grid-cols-3">
-              <InputField
-                type="text"
-                id="company"
-                placeholder="Company"
-                value={recipientCompany}
-                onChange={(e) => setRecipientCompany(e.target.value)}
-                className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-[#597485]"
-              />
-              <InputField
-                type="text"
-                id="addressLabel"
-                placeholder="Address label"
-                value={recipientAddressLabel || ""}
-                onChange={(e) => setRecipientAddressLabel?.(e.target.value)}
-                className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-[#597485]"
-              />
-              <div className="hidden md:block" />
-            </div>
-
-            <div className="mb-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+            {/* Row 2: Address 1, Address 2, City, Province */}
+            <div className="mb-3 grid grid-cols-1 gap-3 md:grid-cols-4">
               <AddressAutocomplete
                 id="address1"
                 value={recipientAddress.address1}
@@ -1090,22 +1260,6 @@ export default function RecipientCard({
                 }
                 className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-[#597485]"
               />
-            </div>
-
-            <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
-              <InputField
-                type="text"
-                id="country"
-                placeholder="Country"
-                value={recipientAddress.country || ""}
-                onChange={(e) =>
-                  setRecipientAddress({
-                    ...recipientAddress,
-                    country: e.target.value,
-                  })
-                }
-                className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-[#597485]"
-              />
               <Select
                 options={[
                   { value: "BC", label: "British Columbia" },
@@ -1131,6 +1285,23 @@ export default function RecipientCard({
                   })
                 }
               />
+            </div>
+
+            {/* Row 3: Country, Postal Code, Phone+Type, + Phone */}
+            <div className="mb-3 grid grid-cols-1 gap-3 md:grid-cols-4">
+              <InputField
+                type="text"
+                id="country"
+                placeholder="Country"
+                value={recipientAddress.country || ""}
+                onChange={(e) =>
+                  setRecipientAddress({
+                    ...recipientAddress,
+                    country: e.target.value,
+                  })
+                }
+                className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-[#597485]"
+              />
               <InputField
                 type="text"
                 id="postalCode"
@@ -1144,7 +1315,130 @@ export default function RecipientCard({
                 }
                 className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-[#597485]"
               />
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <PhoneInput
+                    type="tel"
+                    id="phone"
+                    value={recipientPhone}
+                    onChange={(cleanedPhone) => {
+                      phoneChangeSource.current = "manual";
+                      setRecipientPhone(cleanedPhone);
+                    }}
+                    countries={countries}
+                    selectPosition="none"
+                    placeholder="Phone*"
+                  />
+                </div>
+                <div className="w-24">
+                  <Select
+                    options={[
+                      { value: "Mobile", label: "Mobile" },
+                      { value: "Home", label: "Home" },
+                      { value: "Work", label: "Work" },
+                      { value: "Office", label: "Office" },
+                      { value: "Other", label: "Other" },
+                    ]}
+                    value={getPrimaryPhoneLabel()}
+                    onChange={(value) => handlePrimaryPhoneLabelChange(value)}
+                    placeholder="Type"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center">
+                <button
+                  type="button"
+                  onClick={handleAddPhoneField}
+                  className="text-sm font-medium text-[#597485] hover:text-[#4e6575] dark:text-[#7a9bb0] dark:hover:text-[#597485]"
+                >
+                  + Phone
+                </button>
+              </div>
             </div>
+
+            {/* Additional Customer Phones (from saved customer data) */}
+            {recipientCustomer && Array.isArray(recipientCustomer.phoneNumbers) && recipientCustomer.phoneNumbers.map((phoneObj: any, index: number) => (
+              <div key={`saved-${index}`} className="mb-3 grid grid-cols-1 gap-3 md:grid-cols-4">
+                <div></div>
+                <div></div>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <InputField
+                      type="tel"
+                      value={phoneObj.phone}
+                      onChange={(e) => setRecipientPhone(e.target.value)}
+                      onFocus={(e) => {
+                        phoneChangeSource.current = "manual";
+                        setRecipientPhone(phoneObj.phone);
+                      }}
+                      placeholder="Phone"
+                      className="h-11 cursor-pointer"
+                    />
+                  </div>
+                  <div className="w-24">
+                    <Select
+                      options={[
+                        { value: "Mobile", label: "Mobile" },
+                        { value: "Home", label: "Home" },
+                        { value: "Work", label: "Work" },
+                        { value: "Office", label: "Office" },
+                        { value: "Other", label: "Other" },
+                      ]}
+                      value={phoneObj.label}
+                      onChange={() => {}}
+                      disabled
+                    />
+                  </div>
+                </div>
+                <div></div>
+              </div>
+            ))}
+
+            {/* Additional Phones (new/temporary for this order) */}
+            {additionalPhones.map((phoneObj, index) => (
+              <div key={`new-${index}`} className="mb-3 grid grid-cols-1 gap-3 md:grid-cols-4">
+                <div></div>
+                <div></div>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <PhoneInput
+                      type="tel"
+                      value={phoneObj.phone}
+                      onChange={(value) => handlePhoneFieldChange(index, value)}
+                      countries={countries}
+                      selectPosition="none"
+                      placeholder="Phone"
+                    />
+                  </div>
+                  <div className="w-24">
+                    <Select
+                      options={[
+                        { value: "Mobile", label: "Mobile" },
+                        { value: "Home", label: "Home" },
+                        { value: "Work", label: "Work" },
+                        { value: "Office", label: "Office" },
+                        { value: "Other", label: "Other" },
+                      ]}
+                      value={phoneObj.label}
+                      onChange={(value) => handlePhoneLabelChange(index, value)}
+                      placeholder="Type"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center">
+                  <button
+                    type="button"
+                    onClick={() => handleRemovePhoneField(index)}
+                    className="text-red-600 hover:text-red-700 dark:text-red-400"
+                    title="Remove phone"
+                  >
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            ))}
           </>
         )}
 

@@ -28,12 +28,13 @@ router.put('/addresses/:id', async (req, res) => {
       updateData.label = label?.trim() || null;
     }
 
-    // Only update firstName/lastName if provided
+    // Auto-populate firstName/lastName from customer if not provided in request
+    // This maintains backwards compatibility while supporting new UI that doesn't send these fields
     if (firstName !== undefined) {
-      updateData.firstName = firstName?.trim() || "";
+      updateData.firstName = firstName?.trim() || null;
     }
     if (lastName !== undefined) {
-      updateData.lastName = lastName?.trim() || "";
+      updateData.lastName = lastName?.trim() || null;
     }
 
     // Update optional fields
@@ -85,7 +86,8 @@ router.get("/quick-search", async (req, res) => {
     if (!query || query.length < 2) {
       return res.json([]);
     }
-    
+
+    // Standard search (name, email, primary phone)
     const customers = await prisma.customer.findMany({
       where: {
         OR: [
@@ -99,7 +101,32 @@ router.get("/quick-search", async (req, res) => {
       take: limit,
     });
 
-    res.json(customers);
+    // If query contains digits, also search additional phone numbers
+    if (/\d/.test(query)) {
+      const phoneSearchResults = await prisma.$queryRaw<Array<{ id: string }>>`
+        SELECT DISTINCT id FROM "Customer"
+        WHERE "phoneNumbers"::text LIKE ${`%${query}%`}
+        LIMIT ${limit}
+      `;
+
+      if (phoneSearchResults.length > 0) {
+        const additionalCustomerIds = phoneSearchResults
+          .map(r => r.id)
+          .filter(id => !customers.find(c => c.id === id));
+
+        if (additionalCustomerIds.length > 0) {
+          const additionalCustomers = await prisma.customer.findMany({
+            where: { id: { in: additionalCustomerIds } },
+            orderBy: { lastName: "asc" },
+          });
+          customers.push(...additionalCustomers);
+        }
+      }
+    }
+
+    // Limit final results
+    const finalResults = customers.slice(0, limit);
+    res.json(finalResults);
   } catch (err: any) {
     console.error("Failed to search customers:", err.message);
     res.status(500).json({ error: err.message });

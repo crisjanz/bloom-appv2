@@ -12,8 +12,8 @@ import { Address } from "@shared/types/customer";
 export interface AddressFormValues {
   id?: string;
   label?: string;
-  firstName: string;
-  lastName: string;
+  firstName?: string; // Optional - auto-populated from Customer
+  lastName?: string;  // Optional - auto-populated from Customer
   address1: string;
   address2?: string;
   city: string;
@@ -30,8 +30,6 @@ interface AddAddressModalProps {
   onClose: () => void;
   onSave: (values: AddressFormValues) => Promise<void> | void;
   initialAddress?: Address | null;
-  defaultFirstName?: string;
-  defaultLastName?: string;
 }
 
 const provinceOptions = [
@@ -96,8 +94,6 @@ const presetLabels = [
 
 const emptyForm: AddressFormValues = {
   label: "",
-  firstName: "",
-  lastName: "",
   address1: "",
   address2: "",
   city: "",
@@ -114,8 +110,6 @@ export default function AddAddressModal({
   onClose,
   onSave,
   initialAddress,
-  defaultFirstName = "",
-  defaultLastName = "",
 }: AddAddressModalProps) {
   const [form, setForm] = useState<AddressFormValues>(emptyForm);
   const [saving, setSaving] = useState(false);
@@ -127,8 +121,6 @@ export default function AddAddressModal({
         setForm({
           id: initialAddress.id,
           label: initialAddress.label || "",
-          firstName: initialAddress.firstName || defaultFirstName,
-          lastName: initialAddress.lastName || defaultLastName,
           address1: initialAddress.address1 || "",
           address2: initialAddress.address2 || "",
           city: initialAddress.city || "",
@@ -140,15 +132,11 @@ export default function AddAddressModal({
           addressType: initialAddress.addressType || "RESIDENCE",
         });
       } else {
-        setForm({
-          ...emptyForm,
-          firstName: defaultFirstName,
-          lastName: defaultLastName,
-        });
+        setForm(emptyForm);
       }
       setSaving(false);
     }
-  }, [isOpen, initialAddress, defaultFirstName, defaultLastName]);
+  }, [isOpen, initialAddress]);
 
   const handleFieldChange = (field: keyof AddressFormValues, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -199,24 +187,6 @@ export default function AddAddressModal({
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <Label htmlFor="address-firstName">First name</Label>
-            <InputField
-              id="address-firstName"
-              value={form.firstName}
-              onChange={(event) => handleFieldChange("firstName", event.target.value)}
-              required
-            />
-          </div>
-          <div>
-            <Label htmlFor="address-lastName">Last name</Label>
-            <InputField
-              id="address-lastName"
-              value={form.lastName}
-              onChange={(event) => handleFieldChange("lastName", event.target.value)}
-              required
-            />
-          </div>
           <div>
             <Label htmlFor="address-label">Label</Label>
             <Select
@@ -347,6 +317,4 @@ AddAddressModal.propTypes = {
   onClose: PropTypes.func.isRequired,
   onSave: PropTypes.func.isRequired,
   initialAddress: PropTypes.object,
-  defaultFirstName: PropTypes.string,
-  defaultLastName: PropTypes.string,
 };

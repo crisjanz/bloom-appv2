@@ -26,6 +26,8 @@ const RecipientSearchModal = ({
   const [recipientResults, setRecipientResults] = useState<any[]>([]);
   const [isRecipientLoading, setIsRecipientLoading] = useState(false);
   const [recipientError, setRecipientError] = useState<string | null>(null);
+  const [selectedCustomerForAddresses, setSelectedCustomerForAddresses] = useState<any | null>(null);
+  const [isLoadingAddresses, setIsLoadingAddresses] = useState(false);
 
   const [shortcutQuery, setShortcutQuery] = useState("");
   const [shortcuts, setShortcuts] = useState<any[]>([]);
@@ -41,6 +43,8 @@ const RecipientSearchModal = ({
       setRecipientError(null);
       setShortcutQuery("");
       setShortcutError(null);
+      setSelectedCustomerForAddresses(null);
+      setIsLoadingAddresses(false);
     }
   }, [open]);
 
@@ -179,7 +183,39 @@ const RecipientSearchModal = ({
           <button
             type="button"
             key={customer.id}
-            onClick={() => onSelectRecipient(customer)}
+            onClick={async () => {
+              // Fetch full customer details with addresses
+              setIsLoadingAddresses(true);
+              try {
+                const res = await fetch(`/api/customers/${customer.id}`);
+                if (!res.ok) throw new Error("Failed to fetch customer details");
+                const fullCustomer = await res.json();
+
+                // Check if customer has multiple addresses
+                const addresses = [];
+                if (fullCustomer.homeAddress) addresses.push(fullCustomer.homeAddress);
+                if (Array.isArray(fullCustomer.addresses)) {
+                  fullCustomer.addresses.forEach((addr: any) => {
+                    if (!fullCustomer.homeAddress || addr.id !== fullCustomer.homeAddress.id) {
+                      addresses.push(addr);
+                    }
+                  });
+                }
+
+                if (addresses.length > 1) {
+                  // Show address selection view
+                  setSelectedCustomerForAddresses(fullCustomer);
+                } else {
+                  // Only one or no address, select directly
+                  onSelectRecipient(fullCustomer);
+                }
+              } catch (error) {
+                console.error("Failed to load customer details:", error);
+                alert("Failed to load customer addresses. Please try again.");
+              } finally {
+                setIsLoadingAddresses(false);
+              }
+            }}
             className="flex w-full flex-col items-start gap-1 border-b border-stroke px-5 py-3 text-left text-sm last:border-b-0 hover:bg-gray-50 dark:border-strokedark dark:hover:bg-meta-4"
           >
             <span className="font-medium text-black dark:text-white">
@@ -307,33 +343,138 @@ const RecipientSearchModal = ({
         </div>
 
         <div className="px-6 pb-6 pt-5">
-          <div className="mb-5 flex gap-2 rounded-xl bg-gray-100 p-1 dark:bg-meta-4/40">
-            <button
-              type="button"
-              onClick={() => setActiveTab("recipients")}
-              className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition ${
-                activeTab === "recipients"
-                  ? "bg-white text-black shadow-sm dark:bg-boxdark dark:text-white"
-                  : "text-gray-600 hover:text-black dark:text-gray-300 dark:hover:text-white"
-              }`}
-            >
-              Recipients
-            </button>
-            <button
-              type="button"
-              onClick={() => allowShortcutSelection && setActiveTab("shortcuts")}
-              className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition ${
-                activeTab === "shortcuts"
-                  ? "bg-white text-black shadow-sm dark:bg-boxdark dark:text-white"
-                  : "text-gray-600 hover:text-black dark:text-gray-300 dark:hover:text-white"
-              } ${!allowShortcutSelection ? "cursor-not-allowed opacity-50" : ""}`}
-              disabled={!allowShortcutSelection}
-            >
-              Shortcuts
-            </button>
-          </div>
+          {isLoadingAddresses ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-sm text-gray-600 dark:text-gray-300">
+                Loading addresses...
+              </div>
+            </div>
+          ) : selectedCustomerForAddresses ? (
+            <div>
+              <div className="mb-4 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedCustomerForAddresses(null)}
+                  className="text-sm text-gray-600 hover:text-black dark:text-gray-300 dark:hover:text-white"
+                >
+                  ← Back to search
+                </button>
+              </div>
+              <div className="mb-4">
+                <h3 className="text-base font-semibold text-black dark:text-white">
+                  Select Address for {selectedCustomerForAddresses.firstName}{" "}
+                  {selectedCustomerForAddresses.lastName}
+                </h3>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  This customer has multiple addresses on file. Choose one:
+                </p>
+              </div>
+              <div className="max-h-96 space-y-2 overflow-y-auto">
+                {selectedCustomerForAddresses.homeAddress && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSelectRecipient(selectedCustomerForAddresses);
+                      setSelectedCustomerForAddresses(null);
+                    }}
+                    className="flex w-full flex-col items-start gap-1 rounded-lg border-2 border-[#597485] bg-[#597485]/5 px-4 py-3 text-left transition hover:bg-[#597485]/10 dark:border-[#7a9bb0] dark:bg-[#7a9bb0]/10 dark:hover:bg-[#7a9bb0]/20"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="rounded bg-[#597485] px-2 py-0.5 text-xs font-medium text-white">
+                        Home Address
+                      </span>
+                      {selectedCustomerForAddresses.homeAddress.label && (
+                        <span className="text-xs text-gray-600 dark:text-gray-400">
+                          {selectedCustomerForAddresses.homeAddress.label}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-sm font-medium text-black dark:text-white">
+                      {selectedCustomerForAddresses.homeAddress.address1}
+                      {selectedCustomerForAddresses.homeAddress.address2 &&
+                        `, ${selectedCustomerForAddresses.homeAddress.address2}`}
+                    </span>
+                    <span className="text-xs text-gray-600 dark:text-gray-400">
+                      {selectedCustomerForAddresses.homeAddress.city},{" "}
+                      {selectedCustomerForAddresses.homeAddress.province}{" "}
+                      {selectedCustomerForAddresses.homeAddress.postalCode}
+                    </span>
+                  </button>
+                )}
+                {Array.isArray(selectedCustomerForAddresses.addresses) &&
+                  selectedCustomerForAddresses.addresses
+                    .filter(
+                      (addr: any) =>
+                        !selectedCustomerForAddresses.homeAddress ||
+                        addr.id !== selectedCustomerForAddresses.homeAddress.id,
+                    )
+                    .map((address: any, index: number) => (
+                      <button
+                        key={address.id || index}
+                        type="button"
+                        onClick={() => {
+                          // Create a modified customer object with this address as the selected one
+                          const modifiedCustomer = {
+                            ...selectedCustomerForAddresses,
+                            selectedAddress: address,
+                          };
+                          onSelectRecipient(modifiedCustomer);
+                          setSelectedCustomerForAddresses(null);
+                        }}
+                        className="flex w-full flex-col items-start gap-1 rounded-lg border border-stroke bg-white px-4 py-3 text-left transition hover:bg-gray-50 dark:border-strokedark dark:bg-boxdark dark:hover:bg-meta-4"
+                      >
+                        {address.label && (
+                          <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                            {address.label}
+                          </span>
+                        )}
+                        <span className="text-sm font-medium text-black dark:text-white">
+                          {address.address1}
+                          {address.address2 && `, ${address.address2}`}
+                        </span>
+                        <span className="text-xs text-gray-600 dark:text-gray-400">
+                          {address.city}, {address.province} {address.postalCode}
+                        </span>
+                        {address.company && (
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {address.company}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="mb-5 flex gap-2 rounded-xl bg-gray-100 p-1 dark:bg-meta-4/40">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("recipients")}
+                  className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                    activeTab === "recipients"
+                      ? "bg-white text-black shadow-sm dark:bg-boxdark dark:text-white"
+                      : "text-gray-600 hover:text-black dark:text-gray-300 dark:hover:text-white"
+                  }`}
+                >
+                  Recipients
+                </button>
+                <button
+                  type="button"
+                  onClick={() => allowShortcutSelection && setActiveTab("shortcuts")}
+                  className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                    activeTab === "shortcuts"
+                      ? "bg-white text-black shadow-sm dark:bg-boxdark dark:text-white"
+                      : "text-gray-600 hover:text-black dark:text-gray-300 dark:hover:text-white"
+                  } ${!allowShortcutSelection ? "cursor-not-allowed opacity-50" : ""}`}
+                  disabled={!allowShortcutSelection}
+                >
+                  Shortcuts
+                </button>
+              </div>
 
-          {renderTabContent()}
+              {renderTabContent()}
+            </>
+          )}
         </div>
       </div>
     </div>

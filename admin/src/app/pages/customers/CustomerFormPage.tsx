@@ -480,8 +480,6 @@ export default function CustomerFormPage() {
         onClose={handleCloseAddressModal}
         onSave={handleSaveAddress}
         initialAddress={addressDraft ?? undefined}
-        defaultFirstName={customer.firstName}
-        defaultLastName={customer.lastName}
       />
 
       <AddRecipientModal
