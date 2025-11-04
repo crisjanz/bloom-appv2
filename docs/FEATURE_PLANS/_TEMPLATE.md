@@ -15,26 +15,143 @@
 
 **CRITICAL - Read Before Implementing:**
 
-### 1. Required Reading (IN ORDER)
+> **⚠️ FOR CODEX/AI ASSISTANTS: You MUST complete the Pre-Implementation Quiz below BEFORE writing any code. Failure to do so will result in implementation that violates repo patterns.**
+
+### 0. Behavior Contract (READ FIRST)
+
+**If You're Tempted To...**
+- **"I'll just use `fetch()` because it's faster"** → ❌ **STOP.** Use `useApiClient` hook. No exceptions.
+- **"I'll create a new utility function for this"** → ❌ **STOP.** Use existing patterns from reference files.
+- **"I'll skip reading that file, I know what to do"** → ❌ **STOP.** Answer quiz questions to prove you read it.
+- **"I'll write the backend from scratch"** → ❌ **STOP.** Copy the starter boilerplate provided.
+- **"I'll test everything at the end"** → ❌ **STOP.** Follow micro-steps with validation checkpoints.
+
+**Expected Response Format After Implementation:**
+```markdown
+### Implementation Summary
+- [ ] Files created: (list with line counts)
+- [ ] Files modified: (list with specific changes)
+- [ ] Routes registered: (list endpoints)
+- [ ] Quiz answers: (show you completed section 1)
+- [ ] Tests performed: (list what you tested)
+```
+
+---
+
+### 1. Pre-Implementation Quiz (MANDATORY)
+
+**🚨 YOU MUST ANSWER THESE BEFORE WRITING CODE 🚨**
+
+#### Question 1: API Client Pattern
+**Read:** `/admin/src/shared/hooks/useApiClient.ts` (entire file)
+**Question:** What hook MUST you use for all API calls in the frontend?
+**Answer:** `_____________`
+**What you should answer:** `useApiClient` - returns `{ data, status }` format
+
+#### Question 2: Response Format
+**Read:** `/admin/src/shared/hooks/useApiClient.ts` (lines 20-40)
+**Question:** When you call `apiClient.get('/api/resources')`, what shape does the response have?
+**Answer:** `{ data: ___, status: ___ }`
+**What you should answer:** `{ data: T, status: number }` where T is your type
+
+#### Question 3: Database Money Pattern
+**Read:** `/back/prisma/schema.prisma` (search for "Int" fields related to price/amount)
+**Question:** How are monetary values stored in the database?
+**Answer:** As `_______` in `_______` (type and units)
+**What you should answer:** As `Int` in `cents`
+
+#### Question 4: Route Registration
+**Read:** `/back/src/index.ts` (lines where routers are registered)
+**Question:** After creating a route file, where do you register it?
+**Answer:** File: `___________` Pattern: `app.use(___________)`
+**What you should answer:** File: `/back/src/index.ts`, Pattern: `app.use('/api/[resource]', [resource]Router)`
+
+#### Question 5: Validation Pattern
+**Read:** Any `/back/src/routes/*.ts` file with a POST endpoint
+**Question:** What library is used for backend validation?
+**Answer:** `_______`
+**What you should answer:** `Zod` with `.parse()` method
+
+**✅ CHECKPOINT:** Before proceeding, write your answers to all 5 questions. Show them in your response.
+
+---
+
+### 2. Required Reading (IN ORDER)
 - [ ] `/docs/AI_IMPLEMENTATION_GUIDE.md` ← **READ THIS FIRST**
 - [ ] `/docs/System_Reference.md` (architecture context)
 - [ ] `/docs/API_Endpoints.md` (existing endpoints)
 - [ ] `/CLAUDE.md` (project conventions)
 
-### 2. Pattern Reference Files
-Study these files for implementation patterns:
+### 3. Pattern Reference Files
+**Study these files for implementation patterns:**
 - **Backend route pattern:** `/back/src/routes/[specify-similar-route].ts`
 - **Frontend component pattern:** `/admin/src/app/components/[specify-similar-component].tsx`
 - **Custom hook pattern:** `/admin/src/shared/hooks/use[SpecifySimilarHook].ts`
 
-### 3. Required Utilities (DO NOT SKIP)
+**DO NOT write from scratch. COPY patterns from these files.**
+
+### 4. Anti-Pattern Examples (NEVER DO THIS)
+
+#### ❌ WRONG: Using fetch() directly
+```typescript
+// NEVER DO THIS
+const response = await fetch('/api/resources');
+const data = await response.json();
+```
+
+#### ✅ CORRECT: Using useApiClient hook
+```typescript
+// ALWAYS DO THIS
+const apiClient = useApiClient();
+const response = await apiClient.get('/api/resources');
+const data = response.data;
+```
+
+---
+
+#### ❌ WRONG: Float for prices
+```prisma
+model Product {
+  price Float  // WRONG
+}
+```
+
+#### ✅ CORRECT: Int in cents
+```prisma
+model Product {
+  priceInCents Int  // CORRECT
+}
+```
+
+---
+
+#### ❌ WRONG: Not using cascade deletes
+```prisma
+model Product {
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+  // Missing onDelete: Cascade
+}
+```
+
+#### ✅ CORRECT: With cascade delete
+```prisma
+model Product {
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+}
+```
+
+---
+
+### 5. Required Utilities (DO NOT SKIP)
 - **Frontend API calls:** MUST use `useApiClient` hook (never `fetch()`)
 - **Data fetching:** Create custom hook in `/admin/src/shared/hooks/`
 - **Validation:** Use Zod on backend
 - **Styling:** Match TailAdmin patterns exactly (see guide)
 - **Database:** Use Prisma with proper constraints and cascade deletes
 
-### 4. Testing Requirements
+### 6. Testing Requirements
 Before marking as complete:
 - [ ] All CRUD operations tested
 - [ ] Loading states display correctly
@@ -44,18 +161,20 @@ Before marking as complete:
 - [ ] Price handling correct (cents in DB, dollars in UI)
 - [ ] Both servers running without errors
 
-### 5. Documentation Updates Required
+### 7. Documentation Updates Required
 - [ ] Add endpoints to `/docs/API_Endpoints.md`
 - [ ] Update `/docs/Progress_Tracker.markdown`
 - [ ] Archive or delete this feature plan file
 
-### 6. FORBIDDEN Actions
+### 8. FORBIDDEN Actions
 - ❌ Using `fetch()` instead of `useApiClient`
 - ❌ Creating new design patterns (use TailAdmin)
 - ❌ Skipping input validation or error handling
 - ❌ Forgetting to register routes in `/back/src/index.ts`
 - ❌ Missing unique constraints in database schema
 - ❌ Using wrong data types (float for prices, int for IDs, etc.)
+- ❌ Writing code without answering the quiz first
+- ❌ Implementing everything at once without checkpoints
 
 ---
 
@@ -329,94 +448,295 @@ export function useResources() {
 
 ---
 
+## Copy-Paste Starter Code
+
+### Backend Route Boilerplate
+**DO NOT write from scratch. Copy this template:**
+
+```typescript
+import { Router } from 'express';
+import { z } from 'zod';
+import prisma from '../lib/prisma';
+
+const router = Router();
+
+// Validation schema
+const resourceSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  // Add other fields here
+});
+
+// GET /api/resources - Fetch all
+router.get('/', async (req, res) => {
+  try {
+    const resources = await prisma.resource.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json(resources);
+  } catch (error) {
+    console.error('Error fetching resources:', error);
+    res.status(500).json({ error: 'Failed to fetch resources' });
+  }
+});
+
+// POST /api/resources - Create new
+router.post('/', async (req, res) => {
+  try {
+    const validatedData = resourceSchema.parse(req.body);
+    const resource = await prisma.resource.create({
+      data: validatedData
+    });
+    res.status(201).json(resource);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.errors });
+    }
+    console.error('Error creating resource:', error);
+    res.status(500).json({ error: 'Failed to create resource' });
+  }
+});
+
+// PUT /api/resources/:id - Update
+router.put('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const validatedData = resourceSchema.parse(req.body);
+    const resource = await prisma.resource.update({
+      where: { id },
+      data: validatedData
+    });
+    res.json(resource);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.errors });
+    }
+    console.error('Error updating resource:', error);
+    res.status(500).json({ error: 'Failed to update resource' });
+  }
+});
+
+// DELETE /api/resources/:id - Delete
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await prisma.resource.delete({ where: { id } });
+    res.json({ message: 'Resource deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting resource:', error);
+    res.status(500).json({ error: 'Failed to delete resource' });
+  }
+});
+
+export default router;
+```
+
+---
+
 ## Implementation Steps (Recommended Order)
 
 ### Phase 1: Backend API ⚙️
 **Estimated Time:** [X hours]
 
+#### Step 1.1: Create Route File (5-10 min)
 1. [ ] Create `/back/src/routes/[resource].ts`
-   - [ ] Import required dependencies (Router, Zod, Prisma)
-   - [ ] Define Zod validation schemas
-   - [ ] Implement GET all endpoint
-   - [ ] Implement POST create endpoint
-   - [ ] Implement PUT update endpoint
-   - [ ] Implement DELETE endpoint
-   - [ ] Add try-catch error handling to all routes
-   - [ ] Test responses with proper status codes
+2. [ ] **COPY** the starter boilerplate from above (DO NOT write from scratch)
+3. [ ] Replace `resource` with your actual model name
+4. [ ] Update validation schema with your fields
+5. [ ] **CHECKPOINT:** Run `cd back && npx tsc --noEmit`
+6. [ ] **MUST SEE:** 0 TypeScript errors
+7. [ ] **🛑 STOP:** Show me the file before continuing
 
-2. [ ] Update database schema (`/back/prisma/schema.prisma`)
-   - [ ] Add new model with UUID id
-   - [ ] Include createdAt/updatedAt timestamps
-   - [ ] Add relations with cascade deletes
-   - [ ] Add unique constraints where needed
-   - [ ] Run migration: `npx prisma migrate dev --name [name]`
-   - [ ] Run: `npx prisma generate`
+#### Step 1.2: Update Database Schema (5-10 min)
+1. [ ] Open `/back/prisma/schema.prisma`
+2. [ ] Add your model (use UUID, timestamps, cascade deletes)
+3. [ ] Add unique constraints where needed
+4. [ ] **CHECKPOINT:** Run `npx prisma format`
+5. [ ] **MUST SEE:** File formatted without errors
+6. [ ] Run migration: `npx prisma migrate dev --name add_[resource]_feature`
+7. [ ] Run: `npx prisma generate`
+8. [ ] **CHECKPOINT:** Both commands succeed
+9. [ ] **🛑 STOP:** Show me the schema model before continuing
 
-3. [ ] Register route in `/back/src/index.ts`
-   - [ ] Import router at top
-   - [ ] Add `app.use(resourceRouter)` after other routes
+#### Step 1.3: Register Route (2 min)
+1. [ ] Open `/back/src/index.ts`
+2. [ ] Import router: `import resourceRouter from './routes/[resource]';`
+3. [ ] Register BEFORE the wildcard route: `app.use('/api/resources', resourceRouter);`
+4. [ ] **CHECKPOINT:** Run `cd back && npm run dev`
+5. [ ] **MUST SEE:** Server starts on port 4000 without errors
+6. [ ] **🛑 STOP:** Show me the index.ts changes before continuing
 
-4. [ ] Test all endpoints
-   - [ ] Start backend: `cd back && npm run dev`
-   - [ ] Test with curl or Postman
-   - [ ] Verify database records created
+#### Step 1.4: Test Backend Endpoints (10 min)
+1. [ ] Start backend: `cd back && npm run dev`
+2. [ ] Test GET: `curl http://localhost:4000/api/resources`
+3. [ ] Test POST: `curl -X POST http://localhost:4000/api/resources -H "Content-Type: application/json" -d '{"name":"Test"}'`
+4. [ ] Test PUT: `curl -X PUT http://localhost:4000/api/resources/[id] -H "Content-Type: application/json" -d '{"name":"Updated"}'`
+5. [ ] Test DELETE: `curl -X DELETE http://localhost:4000/api/resources/[id]`
+6. [ ] **CHECKPOINT:** All endpoints return correct status codes
+7. [ ] **MUST SEE:** 200/201 responses, data in database
+8. [ ] **🛑 STOP:** Show me test results before continuing to frontend
+
+### Custom Hook Boilerplate
+**Pattern Reference:** Copy from `/admin/src/shared/hooks/useProducts.ts`
+
+```typescript
+import { useState, useEffect, useCallback } from 'react';
+import { useApiClient } from './useApiClient';
+
+export interface Resource {
+  id: string;
+  name: string;
+  // Add other fields
+  createdAt: string;
+  updatedAt: string;
+}
+
+export function useResources() {
+  const [resources, setResources] = useState<Resource[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // CRITICAL: Use useApiClient, not fetch()
+  const apiClient = useApiClient();
+
+  const fetchResources = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await apiClient.get('/api/resources');
+      setResources(response.data);
+    } catch (err) {
+      setError('Failed to load resources');
+      console.error('Error fetching resources:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [apiClient]);
+
+  useEffect(() => {
+    fetchResources();
+  }, [fetchResources]);
+
+  const createResource = useCallback(async (data: Partial<Resource>) => {
+    const response = await apiClient.post('/api/resources', data);
+    setResources(prev => [...prev, response.data]);
+    return response.data;
+  }, [apiClient]);
+
+  const updateResource = useCallback(async (id: string, data: Partial<Resource>) => {
+    const response = await apiClient.put(`/api/resources/${id}`, data);
+    setResources(prev => prev.map(r => r.id === id ? response.data : r));
+    return response.data;
+  }, [apiClient]);
+
+  const deleteResource = useCallback(async (id: string) => {
+    await apiClient.delete(`/api/resources/${id}`);
+    setResources(prev => prev.filter(r => r.id !== id));
+  }, [apiClient]);
+
+  return {
+    resources,
+    loading,
+    error,
+    refresh: fetchResources,
+    createResource,
+    updateResource,
+    deleteResource,
+  };
+}
+```
+
+---
 
 ### Phase 2: Frontend - Custom Hook 🪝
 **Estimated Time:** [X hours]
 
+#### Step 2.1: Create Custom Hook (10-15 min)
 1. [ ] Create `/admin/src/shared/hooks/useResources.ts`
-   - [ ] Define TypeScript interface for Resource
-   - [ ] Set up state (data, loading, error)
-   - [ ] Import and use `useApiClient` ← CRITICAL
-   - [ ] Implement fetchResources with useCallback
-   - [ ] Auto-fetch on mount with useEffect
-   - [ ] Implement create function
-   - [ ] Implement update function
-   - [ ] Implement delete function
-   - [ ] Return all state and functions
+2. [ ] **COPY** the custom hook boilerplate from above
+3. [ ] Update `Resource` interface with your fields
+4. [ ] Update all API paths to match your backend
+5. [ ] **CHECKPOINT:** Run `cd admin && npx tsc --noEmit`
+6. [ ] **MUST SEE:** 0 TypeScript errors
+7. [ ] **🛑 STOP:** Show me the hook file before continuing
 
-2. [ ] Test hook in isolation
-   - [ ] Start admin: `cd admin && npm run dev`
-   - [ ] Create temporary test component
-   - [ ] Verify data loads correctly
+#### Step 2.2: Test Hook (5 min)
+1. [ ] Start both servers: `cd back && npm run dev` and `cd admin && npm run dev`
+2. [ ] Open browser to http://localhost:5173
+3. [ ] Open browser console (F12)
+4. [ ] Temporarily test hook by importing in an existing component
+5. [ ] **CHECKPOINT:** Check network tab for API calls
+6. [ ] **MUST SEE:** GET request to `/api/resources` succeeds
+7. [ ] **🛑 STOP:** Show me the test results before continuing
+
+---
 
 ### Phase 3: Frontend - UI Components 🎨
 **Estimated Time:** [X hours]
 
-1. [ ] Create form component (`/admin/src/app/components/.../ResourceForm.tsx`)
-   - [ ] Define props interface
-   - [ ] Set up form state with useState
-   - [ ] Use useResources hook for CRUD operations
-   - [ ] Build form fields with TailAdmin styling
-   - [ ] Add validation and error display
-   - [ ] Add loading state to submit button
-   - [ ] Test create mode
-   - [ ] Test edit mode with initialValues
+#### Step 3.1: Create Management Card Component (20-30 min)
+1. [ ] Create `/admin/src/app/components/[category]/ResourceCard.tsx`
+2. [ ] **COPY** pattern from similar component (e.g., `/admin/src/app/components/products/ProductCard.tsx`)
+3. [ ] Import your `useResources` hook
+4. [ ] Implement loading state (show spinner)
+5. [ ] Implement error state (show error message)
+6. [ ] Implement empty state (show helpful message)
+7. [ ] Build table with TailAdmin classes
+8. [ ] Add "Create" button
+9. [ ] Add Edit/Delete buttons per row
+10. [ ] **CHECKPOINT:** Run `cd admin && npx tsc --noEmit`
+11. [ ] **MUST SEE:** 0 TypeScript errors
+12. [ ] **🛑 STOP:** Show me the component before continuing
 
-2. [ ] Create management card (`/admin/src/app/components/.../ResourceCard.tsx`)
-   - [ ] Use ComponentCard wrapper
-   - [ ] Call useResources hook
-   - [ ] Show loading spinner when loading=true
-   - [ ] Show error message when error is set
-   - [ ] Show empty state when no resources
-   - [ ] Build TailAdmin styled table
-   - [ ] Add "Create" button opening modal
-   - [ ] Add Edit/Delete actions per row
-   - [ ] Refresh after mutations
+#### Step 3.2: Create Form Component (20-30 min)
+1. [ ] Create `/admin/src/app/components/[category]/ResourceForm.tsx`
+2. [ ] **COPY** pattern from similar form (e.g., `/admin/src/app/components/products/ProductForm.tsx`)
+3. [ ] Define props interface (with `initialValues?` for edit mode)
+4. [ ] Set up form state with `useState`
+5. [ ] Use your `useResources` hook
+6. [ ] Build form fields with TailAdmin classes
+7. [ ] Add validation and error display
+8. [ ] Add loading state to submit button
+9. [ ] Handle both create and edit modes
+10. [ ] **CHECKPOINT:** Run `cd admin && npx tsc --noEmit`
+11. [ ] **MUST SEE:** 0 TypeScript errors
+12. [ ] **🛑 STOP:** Show me the form component before continuing
 
-3. [ ] Add to appropriate page
-   - [ ] Import ResourceCard
-   - [ ] Add to page layout
-   - [ ] Test navigation
+#### Step 3.3: Integrate into Page (5-10 min)
+1. [ ] Open the appropriate page file (e.g., `/admin/src/app/pages/settings/SettingsPage.tsx`)
+2. [ ] Import your `ResourceCard` component
+3. [ ] Add to page layout
+4. [ ] **CHECKPOINT:** Save and check browser at http://localhost:5173
+5. [ ] **MUST SEE:** Component renders without errors
+6. [ ] **🛑 STOP:** Show me the page integration before continuing
 
-4. [ ] Test complete UI flow
-   - [ ] Create new resource
-   - [ ] Edit existing resource
-   - [ ] Delete resource
-   - [ ] Verify loading states
-   - [ ] Verify error handling
-   - [ ] Test dark mode (toggle in UI)
-   - [ ] Check responsive layout
+#### Step 3.4: Test Complete UI Flow (15-20 min)
+1. [ ] Test creating a new resource
+   - [ ] Click "Create" button
+   - [ ] Fill form
+   - [ ] Submit
+   - [ ] Verify appears in table
+2. [ ] Test editing a resource
+   - [ ] Click edit button
+   - [ ] Modify fields
+   - [ ] Submit
+   - [ ] Verify updates in table
+3. [ ] Test deleting a resource
+   - [ ] Click delete button
+   - [ ] Verify removes from table
+4. [ ] Test loading states
+   - [ ] Check spinner appears while loading
+5. [ ] Test error handling
+   - [ ] Stop backend server
+   - [ ] Try to fetch data
+   - [ ] Verify error message displays
+6. [ ] Test dark mode
+   - [ ] Toggle dark mode in UI
+   - [ ] Verify component looks correct
+7. [ ] Test empty state
+   - [ ] Delete all resources
+   - [ ] Verify empty state message shows
+8. [ ] **CHECKPOINT:** All tests pass
+9. [ ] **🛑 STOP:** Show me test results summary
 
 ### Phase 4: Integration (if needed) 🔗
 **Estimated Time:** [X hours]
@@ -434,23 +754,97 @@ export function useResources() {
 ### Phase 5: Documentation & Cleanup 📝
 **Estimated Time:** [0.5 hours]
 
-1. [ ] Update `/docs/API_Endpoints.md`
-   - [ ] Add new section for your endpoints
-   - [ ] Document all routes with request/response formats
+#### Step 5.1: Update API Documentation (10 min)
+1. [ ] Open `/docs/API_Endpoints.md`
+2. [ ] Add new section for your feature
+3. [ ] Document all endpoints with:
+   - [ ] Method and path
+   - [ ] Request body format
+   - [ ] Response format
+   - [ ] Error cases
+4. [ ] **🛑 STOP:** Show me the documentation additions
 
-2. [ ] Update `/docs/Progress_Tracker.markdown`
-   - [ ] Add feature to "Recently Completed" section
-   - [ ] List all files created/modified
+#### Step 5.2: Update Progress Tracker (5 min)
+1. [ ] Open `/docs/Progress_Tracker.markdown`
+2. [ ] Add feature to "Recently Completed" section
+3. [ ] List all files created
+4. [ ] List all files modified
+5. [ ] **🛑 STOP:** Show me the progress tracker update
 
-3. [ ] Archive this feature plan
-   - [ ] Move to `/docs/FEATURE_PLANS/archive/` OR
-   - [ ] Delete file (if Progress Tracker has details)
+#### Step 5.3: Archive Feature Plan (2 min)
+1. [ ] Move this file to `/docs/FEATURE_PLANS/archive/` OR
+2. [ ] Delete file (if Progress Tracker has sufficient details)
 
-4. [ ] Final verification
-   - [ ] Restart both servers (backend + admin)
-   - [ ] Test complete workflow one more time
-   - [ ] Check browser console for errors
-   - [ ] Check terminal logs for backend errors
+#### Step 5.4: Final Verification (10 min)
+1. [ ] Stop both servers
+2. [ ] Restart backend: `cd back && npm run dev`
+3. [ ] Restart admin: `cd admin && npm run dev`
+4. [ ] Test complete workflow one more time
+5. [ ] Check browser console (F12) for errors
+6. [ ] Check terminal logs for backend errors
+7. [ ] **CHECKPOINT:** No errors in console or terminal
+8. [ ] **MUST SEE:** Feature works end-to-end
+
+---
+
+## Required Response Format After Implementation
+
+**You MUST provide this summary when implementation is complete:**
+
+```markdown
+### Implementation Summary
+
+#### Quiz Answers (Proof of Reading)
+- Q1: `useApiClient`
+- Q2: `{ data: T, status: number }`
+- Q3: `Int` in `cents`
+- Q4: `/back/src/index.ts` with `app.use('/api/[resource]', router)`
+- Q5: `Zod` with `.parse()`
+
+#### Files Created
+- `/back/src/routes/[resource].ts` (150 lines)
+- `/admin/src/shared/hooks/useResources.ts` (80 lines)
+- `/admin/src/app/components/[category]/ResourceCard.tsx` (120 lines)
+- `/admin/src/app/components/[category]/ResourceForm.tsx` (100 lines)
+
+#### Files Modified
+- `/back/src/index.ts` - Added route registration
+- `/back/prisma/schema.prisma` - Added Resource model
+- `/admin/src/app/pages/[page].tsx` - Integrated ResourceCard
+- `/docs/API_Endpoints.md` - Added endpoint documentation
+- `/docs/Progress_Tracker.markdown` - Added feature to completed section
+
+#### Routes Registered
+- `GET /api/resources` - Fetch all
+- `POST /api/resources` - Create new
+- `PUT /api/resources/:id` - Update existing
+- `DELETE /api/resources/:id` - Delete
+
+#### Tests Performed
+- [x] Backend TypeScript compiles without errors
+- [x] All CRUD endpoints tested with curl
+- [x] Frontend TypeScript compiles without errors
+- [x] Create resource works in UI
+- [x] Edit resource works in UI
+- [x] Delete resource works in UI
+- [x] Loading states display correctly
+- [x] Error states display correctly
+- [x] Empty state displays correctly
+- [x] Dark mode works correctly
+- [x] Both servers run without errors
+
+#### Migration Commands Run
+```bash
+npx prisma migrate dev --name add_[resource]_feature
+npx prisma generate
+```
+
+#### Known Issues
+[List any issues or limitations, or write "None"]
+
+#### Next Steps
+[List any follow-up work needed, or write "Feature complete"]
+```
 
 ---
 

@@ -1,6 +1,6 @@
 # Bloom Flower Shop – Progress Tracker
 
-**Last audited:** 2025-11-02
+**Last audited:** 2025-11-03
 Status markers: ✅ done · 🛠️ in progress · 🔜 planned · ⚠️ attention
 
 ## ✅ Production-Ready
@@ -14,6 +14,7 @@ Status markers: ✅ done · 🛠️ in progress · 🔜 planned · ⚠️ attent
 - ✅ **Order list + filters** — new `OrdersListPage` with status/date filters and pagination (`admin/src/app/pages/orders/OrdersListPage.tsx`, `back/src/routes/orders/list.ts`).
 - ✅ **Homepage content management** — full CMS for announcement banner, hero banners (3), frequently sold products, seasonal collections (2), featured categories (4), and FAQ system with drag-reorder. Admin at Settings → Website (`admin/src/app/components/settings/website/*`, `back/src/routes/settings/homepage.ts`, `back/src/routes/settings/faqs.ts`, `www/src/components/*`). Database models: `HomepageBanner`, `HomepageSettings`, `FAQ`.
 - ✅ **Add-on products** — add-on groups managed under Settings → Orders with product assignments, product form selection, and order add-on picker (`back/src/routes/addon-groups.ts`, `admin/src/app/components/settings/orders/AddOnGroupsCard.tsx`, `admin/src/app/components/products/ProductForm.tsx`, `admin/src/app/components/orders/ProductsCard.tsx`).
+- ✅ **Dashboard metrics (2025-11-03)** — real-time operational dashboard with KPI cards and 7-day revenue trend chart. Shows today's revenue, pending orders (with overdue count), deliveries today by status, and new customers this week. Auto-refreshes every 5 minutes. Backend: `/back/src/routes/dashboard.ts` (2 endpoints: `/api/dashboard/metrics`, `/api/dashboard/revenue-trend`). Frontend: `/admin/src/shared/hooks/useDashboard.ts`, `/admin/src/app/components/dashboard/MetricCard.tsx`, `/admin/src/app/components/dashboard/RevenueTrendChart.tsx` (Recharts). Integrated into `/admin/src/app/pages/Dashboard/Home.tsx`.
 - ✅ **Floranext recipient import** — Settings → Misc CSV uploader builds recipient customer records, addresses, sender links, and detailed summaries with optional auto-customer creation (`back/src/routes/import.ts`, `admin/src/app/components/settings/misc/ImportCard.tsx`).
 
 ## 🛠️ In Progress / Needs QA
