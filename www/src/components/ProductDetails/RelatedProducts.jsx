@@ -42,16 +42,48 @@ const RelatedProducts = ({ productId, categoryId }) => {
   }
 
   return (
-    <section className="py-20 dark:bg-dark">
-      <div className="container mx-auto">
-        <div className="mb-12 text-center">
-          <h2 className="mb-4 text-3xl font-bold text-dark dark:text-white sm:text-4xl md:text-[40px] md:leading-[1.2]">
+    <section className="py-10 md:py-20 dark:bg-dark">
+      <div className="container mx-auto px-4">
+        {/* Title Section */}
+        <div className="mb-6 md:mb-12 text-center">
+          <h2 className="mb-2 md:mb-4 text-xl font-bold text-dark dark:text-white md:text-3xl">
             You May Also Like
           </h2>
           <span className="mx-auto mb-[18px] block h-[3px] w-[100px] bg-primary"></span>
         </div>
 
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
+        {/* MOBILE: Compact 2-column grid */}
+        <div className="grid grid-cols-2 gap-3 md:hidden">
+          {relatedProducts.map((product) => (
+            <Link
+              key={product.id}
+              to={`/product-details?id=${product.id}`}
+              className="block"
+            >
+              <div className="relative mb-2">
+                <img
+                  src={product.images?.[0] || placeholderImage}
+                  alt={product.name}
+                  className="w-full aspect-square object-cover rounded"
+                />
+                {product.showOnHomepage && (
+                  <span className="absolute top-1 left-1 px-2 py-0.5 text-xs font-semibold text-white rounded bg-secondary">
+                    Featured
+                  </span>
+                )}
+              </div>
+              <h3 className="text-sm font-medium text-dark dark:text-white mb-1 line-clamp-2">
+                {product.name}
+              </h3>
+              <p className="text-base font-semibold text-dark dark:text-white">
+                ${product.price.toFixed(2)}
+              </p>
+            </Link>
+          ))}
+        </div>
+
+        {/* DESKTOP: Full card layout */}
+        <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-8">
           {relatedProducts.map((product) => (
             <div key={product.id} className="overflow-hidden rounded-lg bg-white shadow-1 dark:bg-dark-2 dark:shadow-box-dark">
               <div className="relative">

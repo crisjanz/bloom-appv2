@@ -1050,7 +1050,7 @@ router.put('/:id', async (req, res) => {
     optionGroups,
     variants,
     productType,
-    images,  // Image URLs (already uploaded to Supabase)
+    images,  // Image URLs (already uploaded to R2)
     addOnGroupIds: addOnGroupIdsRaw,
   } = req.body;
 

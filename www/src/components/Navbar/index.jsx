@@ -1,11 +1,13 @@
 import logoPrimary from "../../assets/images/logo/logo-primary.svg";
 import logoWhite from "../../assets/images/logo/logo-white.svg";
+import logoMobile from "../../assets/images/logo/logo-mobile.png";
 import { Link } from "react-router-dom";
 import PropTypes from "prop-types";
 import WishListDropdown from "./WishListDropdown.jsx";
 import CartDropdown from "./CartDropdown.jsx";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../../contexts/AuthContext.jsx";
+import { useCart } from "../../contexts/CartContext.jsx";
 
 const navList = [
   {
@@ -73,6 +75,7 @@ const Navbar = () => {
   const accountRef = useRef(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const { isAuthenticated, customer, logout } = useAuth();
+  const { getCartCount } = useCart();
 
   const handleSubmenuToggle = () => {
     setSubmenuOpen(!submenuOpen);
@@ -101,7 +104,239 @@ const Navbar = () => {
 
   return (
     <header className="w-full bg-white dark:bg-dark">
-      <div>
+      {/* MOBILE APP-LIKE HEADER - Sticky */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-white dark:bg-dark border-b border-stroke dark:border-dark-3">
+        <div className="flex items-center justify-between px-4 py-3">
+          {/* Logo */}
+          <Link to="/" className="flex-shrink-0">
+            <img
+              src={logoMobile}
+              alt="logo"
+              className="h-8 w-auto"
+            />
+          </Link>
+
+          {/* Icons Row */}
+          <div className="flex items-center gap-5">
+            {/* Search Icon */}
+            <Link to="/filters" aria-label="Search">
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="text-dark dark:text-white"
+              >
+                <path
+                  d="M21.7099 20.29L17.9999 16.61C19.44 14.8144 20.1374 12.5353 19.9487 10.2413C19.76 7.94729 18.6996 5.81281 16.9854 4.27667C15.2713 2.74053 13.0337 1.91954 10.7328 1.98248C8.43194 2.04543 6.24263 2.98757 4.61505 4.61515C2.98747 6.24273 2.04533 8.43204 1.98239 10.7329C1.91944 13.0338 2.74043 15.2714 4.27657 16.9855C5.81271 18.6997 7.94719 19.7601 10.2412 19.9488C12.5352 20.1375 14.8143 19.4401 16.6099 18L20.2899 21.68C20.3829 21.7738 20.4935 21.8481 20.6153 21.8989C20.7372 21.9497 20.8679 21.9758 20.9999 21.9758C21.1319 21.9758 21.2626 21.9497 21.3845 21.8989C21.5063 21.8481 21.6169 21.7738 21.7099 21.68C21.8901 21.4936 21.9909 21.2444 21.9909 20.985C21.9909 20.7256 21.8901 20.4764 21.7099 20.29ZM10.9999 18C9.61544 18 8.26206 17.5895 7.11091 16.8203C5.95977 16.0511 5.06256 14.9579 4.53275 13.6788C4.00293 12.3997 3.86431 10.9922 4.13441 9.63437C4.4045 8.2765 5.07119 7.02922 6.05016 6.05025C7.02913 5.07128 8.27641 4.4046 9.63428 4.1345C10.9921 3.8644 12.3996 4.00303 13.6787 4.53284C14.9578 5.06266 16.051 5.95987 16.8202 7.11101C17.5894 8.26216 17.9999 9.61553 17.9999 11C17.9999 12.8565 17.2624 14.637 15.9497 15.9497C14.637 17.2625 12.8564 18 10.9999 18Z"
+                  fill="currentColor"
+                />
+              </svg>
+            </Link>
+
+            {/* Account Icon */}
+            <button
+              onClick={() => setAccountMenuOpen((prev) => !prev)}
+              aria-label="Account"
+              className="relative"
+            >
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="text-dark dark:text-white"
+              >
+                <path
+                  d="M12 11C14.2091 11 16 9.20914 16 7C16 4.79086 14.2091 3 12 3C9.79086 3 8 4.79086 8 7C8 9.20914 9.79086 11 12 11Z"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M3 21C3 17.134 7.02944 14 12 14C16.9706 14 21 17.134 21 21"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+
+            {/* Wishlist Icon */}
+            <Link to="/wishlist" aria-label="Wishlist">
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="text-dark dark:text-white"
+              >
+                <path
+                  d="M20.8401 4.60999C20.3294 4.09927 19.7229 3.69462 19.0555 3.41842C18.388 3.14221 17.6726 3 16.9501 3C16.2276 3 15.5122 3.14221 14.8448 3.41842C14.1773 3.69462 13.5709 4.09927 13.0601 4.60999L12.0001 5.66999L10.9401 4.60999C9.90843 3.5783 8.50915 2.9987 7.05012 2.9987C5.59109 2.9987 4.19181 3.5783 3.16012 4.60999C2.12843 5.64169 1.54883 7.04096 1.54883 8.49999C1.54883 9.95903 2.12843 11.3583 3.16012 12.39L4.22012 13.45L12.0001 21.23L19.7801 13.45L20.8401 12.39C21.3508 11.8792 21.7555 11.2728 22.0317 10.6053C22.3079 9.93789 22.4501 9.22248 22.4501 8.49999C22.4501 7.77751 22.3079 7.0621 22.0317 6.39464C21.7555 5.72718 21.3508 5.12075 20.8401 4.60999Z"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </Link>
+
+            {/* Cart Icon with Badge */}
+            <Link to="/shopping-cart" aria-label="Shopping cart" className="relative">
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="text-dark dark:text-white"
+              >
+                <path
+                  d="M6 2L3 6V20C3 20.5304 3.21071 21.0391 3.58579 21.4142C3.96086 21.7893 4.46957 22 5 22H19C19.5304 22 20.0391 21.7893 20.4142 21.4142C20.7893 21.0391 21 20.5304 21 20V6L18 2H6Z"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M3 6H21"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M16 10C16 11.0609 15.5786 12.0783 14.8284 12.8284C14.0783 13.5786 13.0609 14 12 14C10.9391 14 9.92172 13.5786 9.17157 12.8284C8.42143 12.0783 8 11.0609 8 10"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              {getCartCount() > 0 && (
+                <span className="absolute -top-2 -right-2 bg-primary h-5 w-5 rounded-full text-[10px] leading-5 font-semibold text-white flex items-center justify-center">
+                  {getCartCount()}
+                </span>
+              )}
+            </Link>
+
+            {/* Hamburger Menu */}
+            <button
+              onClick={handleNavbarToggle}
+              aria-label="Menu"
+              className="p-1"
+            >
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="text-dark dark:text-white"
+              >
+                <path
+                  d="M3 12H21"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M3 6H21"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M3 18H21"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Account Dropdown */}
+        {accountMenuOpen && (
+          <div className="absolute right-4 top-full mt-2 w-48 rounded-xl border border-stroke bg-white p-2 shadow-lg dark:border-dark-3 dark:bg-dark-2" ref={accountRef}>
+            {isAuthenticated ? (
+              <>
+                <Link
+                  to="/profile"
+                  className="text-body-color hover:bg-primary hover:text-white block rounded-lg px-3 py-2 text-sm font-medium transition dark:text-dark-6"
+                  onClick={() => setAccountMenuOpen(false)}
+                >
+                  My profile
+                </Link>
+                <button
+                  type="button"
+                  className="text-body-color hover:bg-primary hover:text-white block w-full rounded-lg px-3 py-2 text-left text-sm font-medium transition dark:text-dark-6"
+                  onClick={() => {
+                    setAccountMenuOpen(false);
+                    logout();
+                  }}
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  className="text-body-color hover:bg-primary hover:text-white block rounded-lg px-3 py-2 text-sm font-medium transition dark:text-dark-6"
+                  onClick={() => setAccountMenuOpen(false)}
+                >
+                  Login
+                </Link>
+                <Link
+                  to="/signup"
+                  className="text-body-color hover:bg-primary hover:text-white block rounded-lg px-3 py-2 text-sm font-medium transition dark:text-dark-6"
+                  onClick={() => setAccountMenuOpen(false)}
+                >
+                  Create account
+                </Link>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Mobile Navigation Menu */}
+        {navbarOpen && (
+          <nav
+            className="absolute top-full left-0 right-0 bg-white dark:bg-dark-2 border-t border-stroke dark:border-dark-3 shadow-lg"
+            ref={navRef}
+          >
+            <ul className="py-2">
+              {navList.map((item, index) => (
+                <li key={index}>
+                  <Link
+                    to={item.link}
+                    onClick={() => setNavbarOpen(false)}
+                    className="text-dark hover:bg-gray-100 dark:hover:bg-dark-3 hover:text-primary block px-6 py-3 text-base font-medium dark:text-white"
+                  >
+                    {item.text}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        )}
+      </div>
+
+      {/* Add padding to body content so it doesn't hide under fixed header */}
+      <div className="h-[56px] md:hidden"></div>
+
+      {/* DESKTOP HEADER - Hidden on mobile */}
+      <div className="hidden md:block">
         <div className="container mx-auto">
           <div className="relative flex items-center justify-center -mx-4 sm:justify-between">
             <div className="max-w-full px-4 w-[480px] lg:w-96">
@@ -121,20 +356,9 @@ const Navbar = () => {
 
             <div className="flex items-center justify-end w-full px-4 lg:justify-between">
               <div className="flex items-center justify-between w-full px-4">
-                <div className="w-full" ref={navRef}>
-                  <button
-                    onClick={handleNavbarToggle}
-                    className={`ring-primary absolute top-1/2 right-4 block -translate-y-1/2 rounded-lg px-3 py-[6px] focus:ring-2 lg:hidden ${
-                      navbarOpen ? "navbarTogglerActive" : ""
-                    }`}
-                  >
-                    <span className="bg-body-color dark:bg-dark-6 relative my-[6px] block h-[2px] w-[30px]"></span>
-                    <span className="bg-body-color dark:bg-dark-6 relative my-[6px] block h-[2px] w-[30px]"></span>
-                    <span className="bg-body-color dark:bg-dark-6 relative my-[6px] block h-[2px] w-[30px]"></span>
-                  </button>
-
+                <div className="w-full">
                   <nav
-                    className={`dark:bg-dark-2 absolute top-full right-4 z-50 w-full max-w-[250px] justify-center rounded-lg bg-white px-6 py-5 shadow-sm lg:static lg:flex lg:w-full lg:max-w-full lg:justify-end lg:bg-transparent lg:px-0 lg:py-0 lg:shadow-none dark:lg:bg-transparent ${navbarOpen ? "" : "hidden"}`}
+                    className="lg:static lg:flex lg:w-full lg:max-w-full lg:justify-end lg:bg-transparent lg:px-0 lg:py-0 lg:shadow-none dark:lg:bg-transparent"
                   >
                     <ul className="items-center block lg:flex">
                       {navList.map((item, index) =>
@@ -184,6 +408,10 @@ const Navbar = () => {
                                                 <Link
                                                   key={groupItemIndex}
                                                   to={groupItemIndex}
+                                                  onClick={() => {
+                                                    setNavbarOpen(false);
+                                                    setSubmenuOpen(false);
+                                                  }}
                                                   className="text-body-color hover:text-primary dark:text-dark-6 block py-[6px] text-base"
                                                 >
                                                   {groupItem.text}
@@ -203,6 +431,7 @@ const Navbar = () => {
                           <li key={index}>
                             <Link
                               to={item.link}
+                              onClick={() => setNavbarOpen(false)}
                               className="text-dark hover:text-primary flex justify-between py-4 text-lg font-medium lg:mx-5 lg:inline-flex lg:py-12 2xl:mx-[18px] dark:text-white"
                             >
                               {item.text}

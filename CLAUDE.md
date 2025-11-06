@@ -29,17 +29,19 @@
 | **System architecture & stack** | `docs/System_Reference.md` | Full architecture, data models, services, and dev workflow. |
 | **API reference** | `docs/API_Endpoints.md` | Complete Express route list. |
 | **Auth & security** | `docs/Auth_Security_Critical_Fixes.md` | Hardening status and test checklist. |
+| **Mobile UX & responsive design** | `docs/Mobile_UX_Guidelines.md` | Tailwind responsive patterns, breakpoints, and mobile-first design. |
 | **Current progress** | `docs/Progress_Tracker.markdown` | Implemented vs active work. |
 | **Future roadmap** | `docs/Future_Roadmap.md` | Next 3 / 6 / 12-month objectives. |
 
 ---
 
 ## ⚙️ Recommended Workflow for Claude
-1. **At startup**, use this file for context.  
-2. When asked to change or design a feature:  
-   - Read `System_Reference.md` for technical background.  
-   - Read `Progress_Tracker.markdown` for current implementation state.  
-   - Read `API_Endpoints.md` for endpoint details.  
+1. **At startup**, use this file for context.
+2. When asked to change or design a feature:
+   - Read `System_Reference.md` for technical background.
+   - Read `Progress_Tracker.markdown` for current implementation state.
+   - Read `API_Endpoints.md` for endpoint details.
+   - Read `Mobile_UX_Guidelines.md` for any mobile/responsive design work.
 3. When writing documentation or plans, follow existing Markdown formatting and emoji status keys (✅, 🛠️, 🔜, 💡).
 
 ---

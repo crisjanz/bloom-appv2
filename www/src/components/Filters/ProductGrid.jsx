@@ -73,7 +73,38 @@ const ProductGrid = ({ selectedCategory = null, searchQuery = "" }) => {
   }
   return (
     <>
-      <div className="flex flex-wrap -mx-4">
+      {/* MOBILE: Compact 2-column grid */}
+      <div className="grid grid-cols-2 gap-3 md:hidden">
+        {filteredProducts.map((product) => (
+          <Link
+            key={product.id}
+            to={`/product-details?id=${product.id}`}
+            className="block"
+          >
+            <div className="relative mb-2">
+              <img
+                src={product.images?.[0] || placeholderImage}
+                alt={product.name}
+                className="w-full aspect-square object-cover rounded"
+              />
+              {product.showOnHomepage && (
+                <span className="absolute top-1 left-1 px-2 py-0.5 text-xs font-semibold text-white rounded bg-secondary">
+                  Featured
+                </span>
+              )}
+            </div>
+            <h3 className="text-sm font-medium text-dark dark:text-white mb-1 line-clamp-2">
+              {product.name}
+            </h3>
+            <p className="text-base font-semibold text-dark dark:text-white">
+              ${product.price.toFixed(2)}
+            </p>
+          </Link>
+        ))}
+      </div>
+
+      {/* DESKTOP: Original card layout */}
+      <div className="hidden md:flex md:flex-wrap md:-mx-4">
         {filteredProducts.map((product) => (
           <div key={product.id} className="w-full h-full px-4 md:w-1/2 xl:w-1/3">
             <div className="mb-10 overflow-hidden bg-white rounded-lg shadow-1 dark:bg-dark-2 dark:shadow-box-dark">

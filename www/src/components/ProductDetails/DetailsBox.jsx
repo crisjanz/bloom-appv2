@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import PropTypes from 'prop-types';
+import { useNavigate } from "react-router-dom";
 import { useCart } from "../../contexts/CartContext";
 import DeliveryDatePicker from "../DeliveryDatePicker";
 import AddOns from "./AddOns";
@@ -12,6 +13,7 @@ const DetailsBox = ({ product }) => {
   const [selectedAddOnSelections, setSelectedAddOnSelections] = useState([]);
   const [isUpsellExpanded, setIsUpsellExpanded] = useState(false);
   const { addToCart, deliveryDate, setDeliveryDate } = useCart();
+  const navigate = useNavigate();
 
   useEffect(() => {
     setQuantity(1);
@@ -182,6 +184,11 @@ const DetailsBox = ({ product }) => {
     }
 
     setQuantity(1);
+
+    // On mobile, redirect to cart page
+    if (window.innerWidth < 768) {
+      navigate('/shopping-cart');
+    }
   };
 
   useEffect(() => {
@@ -416,7 +423,8 @@ const DetailsBox = ({ product }) => {
       </div>
       {/* 10. Quantity & Add to Cart */}
       <div className="mb-6 flex items-center gap-4">
-        <div className="inline-flex items-center rounded-sm border border-stroke text-base font-medium text-dark dark:border-dark-3 dark:text-white">
+        {/* Desktop: Show quantity selector */}
+        <div className="hidden md:inline-flex items-center rounded-sm border border-stroke text-base font-medium text-dark dark:border-dark-3 dark:text-white">
           <span
             className="flex h-[50px] w-[42px] cursor-pointer select-none items-center justify-center text-dark dark:text-white"
             onClick={decrement}
@@ -459,7 +467,7 @@ const DetailsBox = ({ product }) => {
         <button
           onClick={handleAddToCart}
           disabled={!product.isActive}
-          className="flex flex-1 items-center justify-center rounded-md bg-primary px-10 py-[13px] text-center text-base font-medium text-white hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex flex-1 md:flex-auto items-center justify-center rounded-md bg-primary px-10 py-[13px] text-center text-base font-medium text-white hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Add to Cart
         </button>
