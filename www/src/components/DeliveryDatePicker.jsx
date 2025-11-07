@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import PropTypes from 'prop-types';
 import { getBusinessHours, getHolidays } from "../services/deliveryService";
 
-const DeliveryDatePicker = ({ selectedDate, onDateChange, required = false }) => {
+const DeliveryDatePicker = ({ selectedDate, onDateChange, required = false, variant = "default" }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [businessHours, setBusinessHours] = useState(null);
   const [holidays, setHolidays] = useState([]);
@@ -152,10 +152,21 @@ const DeliveryDatePicker = ({ selectedDate, onDateChange, required = false }) =>
 
   const days = getDaysInMonth(currentMonth);
 
+  const isCompact = variant === "compact";
+  const labelClass = isCompact
+    ? "sr-only text-sm font-medium text-dark dark:text-white"
+    : "mb-3 block text-base font-medium text-dark dark:text-white";
+  const buttonClass = isCompact
+    ? "h-12 w-full border-b border-stroke/70 bg-transparent pl-0 pr-8 text-left text-dark outline-hidden transition focus:border-primary dark:border-dark-3 dark:text-white"
+    : "h-12 w-full rounded-lg border border-stroke bg-white pl-12 pr-4 text-left text-dark outline-hidden focus:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white";
+  const iconClass = isCompact
+    ? "pointer-events-none absolute inset-y-0 flex h-12 w-10 items-center justify-center text-dark-5"
+    : "pointer-events-none absolute inset-y-0 flex h-12 w-12 items-center justify-center text-dark-5";
+
   if (loading) {
     return (
       <div className="mb-8">
-        <label className="mb-3 block text-base font-medium text-dark dark:text-white">
+        <label className={labelClass}>
           Delivery Date {required && <span className="text-red-500">*</span>}
         </label>
         <div className="text-body-color dark:text-dark-6">Loading calendar...</div>
@@ -165,7 +176,7 @@ const DeliveryDatePicker = ({ selectedDate, onDateChange, required = false }) =>
 
   return (
     <div className="mb-8">
-      <label className="mb-3 block text-base font-medium text-dark dark:text-white">
+      <label className={labelClass}>
         Select Delivery Date {required && <span className="text-red-500">*</span>}
       </label>
 
@@ -173,11 +184,11 @@ const DeliveryDatePicker = ({ selectedDate, onDateChange, required = false }) =>
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="h-12 w-full rounded-lg border border-stroke bg-white pl-12 pr-4 text-left text-dark outline-hidden focus:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white"
+          className={buttonClass}
         >
           {formatDisplayDate(selectedDate)}
         </button>
-        <span className="absolute inset-y-0 flex h-12 w-12 items-center justify-center text-dark-5 pointer-events-none">
+        <span className={iconClass}>
           <svg
             width="21"
             height="20"
@@ -290,6 +301,7 @@ DeliveryDatePicker.propTypes = {
   selectedDate: PropTypes.string,
   onDateChange: PropTypes.func.isRequired,
   required: PropTypes.bool,
+  variant: PropTypes.oneOf(["default", "compact"]),
 };
 
 export default DeliveryDatePicker;

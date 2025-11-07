@@ -37,6 +37,24 @@ const instructionPresets = [
   "Gate code 1234",
 ];
 
+const PAYMENT_OPTIONS = [
+  {
+    id: "CARD",
+    title: "Pay with card",
+    description: "Secure checkout — we’ll send you a secure payment link.",
+  },
+  {
+    id: "PHONE",
+    title: "Call me for payment",
+    description: "We’ll reach out to confirm details and collect payment.",
+  },
+  {
+    id: "IN_STORE",
+    title: "Pay on pickup",
+    description: "Reserve now and pay when you pick up in studio.",
+  },
+];
+
 const initialRecipient = {
   firstName: "",
   lastName: "",
@@ -367,7 +385,7 @@ const Checkout = () => {
     return (
       <>
         <Breadcrumb pageName="Order Submitted" />
-        <section className="bg-tg-bg pb-12 pt-10 dark:bg-dark lg:pb-16 lg:pt-16">
+        <section className="bg-white pb-12 pt-10 dark:bg-dark lg:pb-16 lg:pt-16">
           <div className="container mx-auto">
             <SuccessCard orderResult={orderResult} />
           </div>
@@ -388,7 +406,7 @@ const Checkout = () => {
     return (
       <>
         <Breadcrumb pageName="Checkout" />
-        <section className="bg-tg-bg pb-12 pt-10 dark:bg-dark lg:pb-16 lg:pt-16">
+        <section className="bg-white pb-12 pt-10 dark:bg-dark lg:pb-16 lg:pt-16">
           <div className="container mx-auto">
             <EmptyCheckoutState />
           </div>
@@ -400,7 +418,55 @@ const Checkout = () => {
   return (
     <>
       <Breadcrumb pageName="Checkout" />
-      <section className="bg-tg-bg pb-12 pt-10 dark:bg-dark lg:pb-16 lg:pt-16">
+      <MobileCheckout
+        activeStep={activeStep}
+        setActiveStep={setActiveStep}
+        recipient={recipient}
+        recipientErrors={formErrors.recipient}
+        onRecipientChange={handleRecipientChange}
+        deliveryDate={deliveryDate}
+        onDateChange={setDeliveryDate}
+        onRecipientPreset={(preset) =>
+          setRecipient((prev) => ({
+            ...prev,
+            deliveryInstructions: prev.deliveryInstructions
+              ? `${prev.deliveryInstructions}\n${preset}`
+              : preset,
+          }))
+        }
+        customer={customer}
+        customerErrors={formErrors.customer}
+        onCustomerChange={handleCustomerChange}
+        payment={payment}
+        paymentErrors={formErrors.payment}
+        onPaymentChange={handlePaymentChange}
+        advanceStep={advanceStep}
+        goBack={goBack}
+        cart={cart}
+        cartCount={cartCount}
+        subtotal={subtotal}
+        deliveryFee={deliveryFee}
+        tax={estimatedTax}
+        total={estimatedTotal}
+        discountAmount={discountAmount}
+        couponFreeShipping={couponFreeShipping}
+        formatCurrency={formatCurrency}
+        formatDate={formatDate}
+        coupon={coupon}
+        couponInput={couponInput}
+        onCouponInputChange={setCouponInput}
+        couponMessage={couponMessage}
+        couponError={couponError}
+        onApplyCoupon={handleCouponSubmit}
+        onRemoveCoupon={handleRemoveCoupon}
+        applyingCoupon={applyingCoupon}
+        onPlaceOrder={handlePlaceOrder}
+        isSubmitting={isSubmitting}
+        submitError={submitError}
+        instructionPresets={instructionPresets}
+        hasSubmitError={Boolean(submitError)}
+      />
+      <section className="hidden bg-white pb-12 pt-10 dark:bg-dark lg:pb-16 lg:pt-16 md:block">
         <div className="container mx-auto">
           <div className="-mx-4 flex flex-wrap">
             <div className="w-full px-4 lg:w-5/12 xl:w-4/12">
@@ -551,6 +617,640 @@ const Checkout = () => {
       </section>
     </>
   );
+};
+
+const MobileCheckout = ({
+  activeStep,
+  setActiveStep,
+  recipient,
+  recipientErrors,
+  onRecipientChange,
+  deliveryDate,
+  onDateChange,
+  onRecipientPreset,
+  instructionPresets,
+  customer,
+  customerErrors,
+  onCustomerChange,
+  payment,
+  paymentErrors,
+  onPaymentChange,
+  advanceStep,
+  goBack,
+  cart,
+  cartCount,
+  subtotal,
+  deliveryFee,
+  tax,
+  total,
+  discountAmount,
+  couponFreeShipping,
+  formatCurrency,
+  formatDate,
+  coupon,
+  couponInput,
+  onCouponInputChange,
+  couponMessage,
+  couponError,
+  onApplyCoupon,
+  onRemoveCoupon,
+  applyingCoupon,
+  onPlaceOrder,
+  isSubmitting,
+  submitError,
+}) => (
+  <section className="bg-white pb-10 pt-6 dark:bg-dark md:hidden">
+    <div className="container mx-auto px-4">
+      <div className="space-y-6">
+        <MobileAccordionSection
+          step={1}
+          title="Recipient"
+          open={activeStep === 1}
+          onToggle={() => setActiveStep(activeStep === 1 ? 0 : 1)}
+        >
+          <MobileRecipientForm
+            data={recipient}
+            errors={recipientErrors}
+            onChange={onRecipientChange}
+            instructionPresets={instructionPresets}
+            onPresetSelect={onRecipientPreset}
+            deliveryDate={deliveryDate}
+            onDateChange={onDateChange}
+          />
+          <MobileStepActions
+            primaryLabel="Save & Continue"
+            onPrimary={() => advanceStep(1)}
+            primaryDisabled={false}
+          />
+        </MobileAccordionSection>
+
+        <MobileAccordionSection
+          step={2}
+          title="Customer"
+          open={activeStep === 2}
+          onToggle={() => setActiveStep(activeStep === 2 ? 0 : 2)}
+        >
+          <MobileCustomerForm
+            data={customer}
+            errors={customerErrors}
+            onChange={onCustomerChange}
+          />
+          <MobileStepActions
+            primaryLabel="Save & Continue"
+            onPrimary={() => advanceStep(2)}
+            secondaryLabel="Previous"
+            onSecondary={() => goBack(2)}
+            primaryDisabled={false}
+          />
+        </MobileAccordionSection>
+
+        <MobileAccordionSection
+          step={3}
+          title="Payment & Review"
+          open={activeStep === 3}
+          onToggle={() => setActiveStep(activeStep === 3 ? 0 : 3)}
+        >
+          <MobilePaymentForm
+            data={payment}
+            errors={paymentErrors}
+            onChange={onPaymentChange}
+            cart={cart}
+            formatCurrency={formatCurrency}
+          />
+          <MobileStepActions
+            primaryLabel={isSubmitting ? "Submitting…" : "Place Order"}
+            onPrimary={onPlaceOrder}
+            primaryDisabled={isSubmitting}
+            secondaryLabel="Previous"
+            onSecondary={() => goBack(3)}
+          />
+          {submitError && (
+            <p className="text-red-500 pt-2 text-sm">{submitError}</p>
+          )}
+        </MobileAccordionSection>
+      </div>
+
+      <MobileCouponForm
+        coupon={coupon}
+        couponInput={couponInput}
+        onCouponInputChange={onCouponInputChange}
+        couponMessage={couponMessage}
+        couponError={couponError}
+        onApplyCoupon={onApplyCoupon}
+        onRemoveCoupon={onRemoveCoupon}
+        applyingCoupon={applyingCoupon}
+      />
+
+      <MobileCartSummary
+        cart={cart}
+        cartCount={cartCount}
+        subtotal={subtotal}
+        tax={tax}
+        deliveryFee={deliveryFee}
+        total={total}
+        discountAmount={discountAmount}
+        couponFreeShipping={couponFreeShipping}
+        formatCurrency={formatCurrency}
+        formatDate={formatDate}
+        coupon={coupon}
+      />
+    </div>
+  </section>
+);
+
+MobileCheckout.propTypes = {
+  activeStep: PropTypes.number.isRequired,
+  setActiveStep: PropTypes.func.isRequired,
+  recipient: PropTypes.object.isRequired,
+  recipientErrors: PropTypes.object.isRequired,
+  onRecipientChange: PropTypes.func.isRequired,
+  deliveryDate: PropTypes.string,
+  onDateChange: PropTypes.func.isRequired,
+  onRecipientPreset: PropTypes.func.isRequired,
+  instructionPresets: PropTypes.array.isRequired,
+  customer: PropTypes.object.isRequired,
+  customerErrors: PropTypes.object.isRequired,
+  onCustomerChange: PropTypes.func.isRequired,
+  payment: PropTypes.object.isRequired,
+  paymentErrors: PropTypes.object.isRequired,
+  onPaymentChange: PropTypes.func.isRequired,
+  advanceStep: PropTypes.func.isRequired,
+  goBack: PropTypes.func.isRequired,
+  cart: PropTypes.array.isRequired,
+  cartCount: PropTypes.number.isRequired,
+  subtotal: PropTypes.number.isRequired,
+  deliveryFee: PropTypes.number.isRequired,
+  tax: PropTypes.number.isRequired,
+  total: PropTypes.number.isRequired,
+  discountAmount: PropTypes.number.isRequired,
+  couponFreeShipping: PropTypes.bool.isRequired,
+  formatCurrency: PropTypes.func.isRequired,
+  formatDate: PropTypes.func.isRequired,
+  coupon: PropTypes.object,
+  couponInput: PropTypes.string.isRequired,
+  onCouponInputChange: PropTypes.func.isRequired,
+  couponMessage: PropTypes.string,
+  couponError: PropTypes.string,
+  onApplyCoupon: PropTypes.func.isRequired,
+  onRemoveCoupon: PropTypes.func.isRequired,
+  applyingCoupon: PropTypes.bool.isRequired,
+  onPlaceOrder: PropTypes.func.isRequired,
+  isSubmitting: PropTypes.bool.isRequired,
+  submitError: PropTypes.string,
+};
+
+const MobileAccordionSection = ({ step, title, open, onToggle, children }) => (
+  <div className="border-b border-stroke/40 pb-4">
+    <button
+      type="button"
+      onClick={onToggle}
+      className="flex w-full items-center justify-between text-left"
+    >
+      <span className="text-base font-semibold text-dark dark:text-white">
+        {step}. {title}
+      </span>
+      <svg
+        width="16"
+        height="8"
+        viewBox="0 0 16 8"
+        className={`text-body-color transition-transform dark:text-dark-6 ${open ? "rotate-180" : ""}`}
+      >
+        <path
+          fill="currentColor"
+          d="M0.25 1.422 6.795 7.577C7.116 7.866 7.504 7.995 7.886 7.995c.403 0 .786-.167 1.091-.441L15.534 1.423c.293-.294.375-.811.023-1.162-.292-.292-.806-.375-1.157-.029L7.886 6.351 1.362.217C1.042-.058.542-.059.222.261c-.274.32-.275.82.046 1.141Z"
+        />
+      </svg>
+    </button>
+    {open && <div className="pt-3">{children}</div>}
+  </div>
+);
+
+MobileAccordionSection.propTypes = {
+  step: PropTypes.number.isRequired,
+  title: PropTypes.string.isRequired,
+  open: PropTypes.bool.isRequired,
+  onToggle: PropTypes.func.isRequired,
+  children: PropTypes.node.isRequired,
+};
+
+const MobileInput = ({
+  label,
+  name,
+  value,
+  onChange,
+  type = "text",
+  error,
+}) => (
+  <div className="w-full">
+    <input
+      type={type}
+      name={name}
+      value={value}
+      onChange={onChange}
+      placeholder={label}
+      className="w-full border-b border-stroke/60 bg-transparent px-0 py-3 text-base text-dark placeholder:text-dark/60 outline-hidden focus:border-primary dark:border-dark-3 dark:text-white"
+    />
+    {error && <p className="text-red-500 mt-1 text-xs">{error}</p>}
+  </div>
+);
+
+MobileInput.propTypes = {
+  label: PropTypes.string.isRequired,
+  name: PropTypes.string.isRequired,
+  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  onChange: PropTypes.func.isRequired,
+  type: PropTypes.string,
+  error: PropTypes.string,
+};
+
+const MobileSelect = ({ label, name, value, onChange, options }) => (
+  <div className="w-full">
+    <select
+      name={name}
+      value={value}
+      onChange={onChange}
+      className="w-full border-b border-stroke/60 bg-transparent px-0 py-3 text-base text-dark outline-hidden focus:border-primary dark:border-dark-3 dark:text-white"
+    >
+      <option value="">{label}</option>
+      {options.map((option) => (
+        <option key={option} value={option}>
+          {option}
+        </option>
+      ))}
+    </select>
+  </div>
+);
+
+MobileSelect.propTypes = {
+  label: PropTypes.string.isRequired,
+  name: PropTypes.string.isRequired,
+  value: PropTypes.string.isRequired,
+  onChange: PropTypes.func.isRequired,
+  options: PropTypes.array.isRequired,
+};
+
+const MobileTextArea = ({ label, name, value, onChange }) => (
+  <div className="w-full">
+    <textarea
+      name={name}
+      value={value}
+      onChange={onChange}
+      placeholder={label}
+      rows="3"
+      className="w-full border-b border-stroke/60 bg-transparent px-0 py-3 text-base text-dark outline-hidden focus:border-primary dark:border-dark-3 dark:text-white"
+    ></textarea>
+  </div>
+);
+
+MobileTextArea.propTypes = {
+  label: PropTypes.string.isRequired,
+  name: PropTypes.string.isRequired,
+  value: PropTypes.string.isRequired,
+  onChange: PropTypes.func.isRequired,
+};
+
+const MobileRecipientForm = ({
+  data,
+  errors,
+  onChange,
+  instructionPresets,
+  onPresetSelect,
+  deliveryDate,
+  onDateChange,
+}) => (
+  <div className="space-y-4">
+    <div className="grid grid-cols-1 gap-4">
+      <MobileInput label="First Name" name="firstName" value={data.firstName} onChange={onChange} error={errors.firstName} />
+      <MobileInput label="Last Name" name="lastName" value={data.lastName} onChange={onChange} error={errors.lastName} />
+      <MobileInput label="Phone Number" name="phone" value={data.phone} onChange={onChange} error={errors.phone} />
+      <MobileInput label="Email (optional)" type="email" name="email" value={data.email} onChange={onChange} />
+      <MobileInput label="Address" name="address1" value={data.address1} onChange={onChange} error={errors.address1} />
+      <MobileInput label="Apartment / Suite" name="address2" value={data.address2} onChange={onChange} />
+      <MobileInput label="City" name="city" value={data.city} onChange={onChange} error={errors.city} />
+      <MobileSelect label="Province" name="province" value={data.province} onChange={onChange} options={provinceOptions} />
+      <MobileInput label="Postal Code" name="postalCode" value={data.postalCode} onChange={onChange} error={errors.postalCode} />
+      <div>
+        <DeliveryDatePicker
+          selectedDate={deliveryDate}
+          onDateChange={onDateChange}
+          required
+          variant="compact"
+        />
+        {errors.deliveryDate && (
+          <p className="text-red-500 mt-1 text-xs">{errors.deliveryDate}</p>
+        )}
+      </div>
+      <MobileTextArea
+        label="Card Message"
+        name="cardMessage"
+        value={data.cardMessage}
+        onChange={onChange}
+      />
+      <div>
+        <MobileTextArea
+          label="Delivery Instructions"
+          name="deliveryInstructions"
+          value={data.deliveryInstructions}
+          onChange={onChange}
+        />
+        <div className="mt-2 flex flex-wrap gap-2">
+          {instructionPresets.map((preset) => (
+            <button
+              key={preset}
+              type="button"
+              className="rounded-full border border-stroke/60 px-3 py-1 text-xs text-body-color transition hover:border-primary hover:bg-primary hover:text-white"
+              onClick={() => onPresetSelect(preset)}
+            >
+              {preset}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+MobileRecipientForm.propTypes = {
+  data: PropTypes.object.isRequired,
+  errors: PropTypes.object.isRequired,
+  onChange: PropTypes.func.isRequired,
+  instructionPresets: PropTypes.array.isRequired,
+  onPresetSelect: PropTypes.func.isRequired,
+  deliveryDate: PropTypes.string,
+  onDateChange: PropTypes.func.isRequired,
+};
+
+const MobileCustomerForm = ({ data, errors, onChange }) => (
+  <div className="space-y-4">
+    <MobileInput label="First Name" name="firstName" value={data.firstName} onChange={onChange} error={errors.firstName} />
+    <MobileInput label="Last Name" name="lastName" value={data.lastName} onChange={onChange} error={errors.lastName} />
+    <MobileInput label="Email" type="email" name="email" value={data.email} onChange={onChange} error={errors.email} />
+    <MobileInput label="Phone Number" name="phone" value={data.phone} onChange={onChange} error={errors.phone} />
+    <label className="flex items-center gap-3 text-sm text-body-color dark:text-dark-6">
+      <input
+        type="checkbox"
+        name="saveCustomer"
+        checked={data.saveCustomer}
+        onChange={onChange}
+        className="h-4 w-4 rounded border border-stroke text-primary focus:ring-primary"
+      />
+      Save customer details for next time
+    </label>
+  </div>
+);
+
+MobileCustomerForm.propTypes = {
+  data: PropTypes.object.isRequired,
+  errors: PropTypes.object.isRequired,
+  onChange: PropTypes.func.isRequired,
+};
+
+const MobilePaymentForm = ({ data, errors, onChange, cart, formatCurrency }) => (
+  <div className="space-y-5">
+    <div className="space-y-3">
+      {PAYMENT_OPTIONS.map((option) => (
+        <label
+          key={option.id}
+          className={`flex cursor-pointer flex-col gap-1 rounded-lg border px-4 py-3 text-sm ${
+            data.method === option.id ? "border-primary bg-primary/5" : "border-stroke/60"
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <input
+              type="radio"
+              name="method"
+              value={option.id}
+              checked={data.method === option.id}
+              onChange={onChange}
+              className="text-primary focus:ring-primary"
+            />
+            <span className="font-semibold text-dark dark:text-white">{option.title}</span>
+          </div>
+          <p className="text-body-color dark:text-dark-6">{option.description}</p>
+        </label>
+      ))}
+      {errors.method && <p className="text-red-500 text-xs">{errors.method}</p>}
+    </div>
+
+    <MobileTextArea
+      label="Notes for the florist"
+      name="notes"
+      value={data.notes}
+      onChange={onChange}
+    />
+
+    <div className="space-y-2 rounded-lg bg-white/50 p-4 shadow-sm dark:bg-dark-2">
+      {cart.map((item) => (
+        <div key={`${item.id}-${item.variantId || "base"}`} className="flex items-center justify-between text-sm">
+          <span className="text-dark dark:text-white">
+            {item.name} × {item.quantity}
+          </span>
+          <span className="font-semibold text-dark dark:text-white">
+            {formatCurrency(item.price * item.quantity)}
+          </span>
+        </div>
+      ))}
+    </div>
+
+    <label className="flex items-start gap-3 text-sm text-body-color dark:text-dark-6">
+      <input
+        type="checkbox"
+        name="agreeToTerms"
+        checked={data.agreeToTerms}
+        onChange={onChange}
+        className="mt-1 h-4 w-4 rounded border border-stroke text-primary focus:ring-primary"
+      />
+      I agree to Bloom’s{" "}
+      <a href="/terms" className="text-primary underline">
+        Terms &amp; Conditions
+      </a>
+    </label>
+    {errors.agreeToTerms && (
+      <p className="text-red-500 text-xs">{errors.agreeToTerms}</p>
+    )}
+    {errors.cart && <p className="text-red-500 text-xs">{errors.cart}</p>}
+  </div>
+);
+
+MobilePaymentForm.propTypes = {
+  data: PropTypes.object.isRequired,
+  errors: PropTypes.object.isRequired,
+  onChange: PropTypes.func.isRequired,
+  cart: PropTypes.array.isRequired,
+  formatCurrency: PropTypes.func.isRequired,
+};
+
+const MobileStepActions = ({
+  primaryLabel,
+  onPrimary,
+  primaryDisabled,
+  secondaryLabel,
+  onSecondary,
+}) => (
+  <div className="mt-4 flex flex-col gap-3">
+    {secondaryLabel && (
+      <button
+        type="button"
+        onClick={onSecondary}
+        className="w-full rounded-full border border-stroke/80 py-3 text-sm font-semibold text-dark transition hover:border-primary hover:text-primary dark:text-white"
+      >
+        {secondaryLabel}
+      </button>
+    )}
+    <button
+      type="button"
+      onClick={onPrimary}
+      disabled={primaryDisabled}
+      className="w-full rounded-full bg-primary py-3 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:bg-primary/60"
+    >
+      {primaryLabel}
+    </button>
+  </div>
+);
+
+MobileStepActions.propTypes = {
+  primaryLabel: PropTypes.string.isRequired,
+  onPrimary: PropTypes.func.isRequired,
+  primaryDisabled: PropTypes.bool,
+  secondaryLabel: PropTypes.string,
+  onSecondary: PropTypes.func,
+};
+
+const MobileCouponForm = ({
+  coupon,
+  couponInput,
+  onCouponInputChange,
+  couponMessage,
+  couponError,
+  onApplyCoupon,
+  onRemoveCoupon,
+  applyingCoupon,
+}) => (
+  <div className="mt-8 space-y-3">
+    <h3 className="text-base font-semibold text-dark dark:text-white">Coupon</h3>
+    <form className="flex flex-col gap-3" onSubmit={onApplyCoupon}>
+      <input
+        type="text"
+        value={couponInput}
+        onChange={(event) => onCouponInputChange(event.target.value)}
+        placeholder="Enter coupon code"
+        className="w-full border-b border-stroke/60 bg-transparent px-0 py-3 text-base text-dark outline-hidden focus:border-primary dark:border-dark-3 dark:text-white"
+        disabled={applyingCoupon}
+      />
+      <button
+        type="submit"
+        disabled={applyingCoupon || !couponInput.trim()}
+        className="w-full rounded-full bg-dark py-3 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:bg-dark/60"
+      >
+        {coupon ? "Reapply" : "Apply"}
+      </button>
+    </form>
+    {couponMessage && (
+      <p className="text-success text-sm">{couponMessage}</p>
+    )}
+    {couponError && (
+      <p className="text-red-500 text-sm">{couponError}</p>
+    )}
+    {coupon && (
+      <button
+        type="button"
+        onClick={onRemoveCoupon}
+        className="text-sm text-body-color underline"
+      >
+        Remove coupon
+      </button>
+    )}
+  </div>
+);
+
+MobileCouponForm.propTypes = {
+  coupon: PropTypes.object,
+  couponInput: PropTypes.string.isRequired,
+  onCouponInputChange: PropTypes.func.isRequired,
+  couponMessage: PropTypes.string,
+  couponError: PropTypes.string,
+  onApplyCoupon: PropTypes.func.isRequired,
+  onRemoveCoupon: PropTypes.func.isRequired,
+  applyingCoupon: PropTypes.bool.isRequired,
+};
+
+const MobileCartSummary = ({
+  cart,
+  cartCount,
+  subtotal,
+  tax,
+  deliveryFee,
+  total,
+  discountAmount,
+  couponFreeShipping,
+  formatCurrency,
+  formatDate,
+  coupon,
+}) => (
+  <div className="mt-10 space-y-4">
+    <div>
+      <p className="text-sm uppercase tracking-wide text-body-color">
+        Shopping Cart · {cartCount} {cartCount === 1 ? "item" : "items"}
+      </p>
+    </div>
+    <div className="space-y-3 rounded-2xl bg-white/70 p-4 shadow-sm dark:bg-dark-2">
+      {cart.map((item) => (
+        <div key={`${item.id}-${item.variantId || "base"}`} className="flex items-center justify-between text-sm">
+          <div>
+            <p className="font-semibold text-dark dark:text-white">{item.name}</p>
+            <p className="text-body-color text-xs">
+              {item.variantName ? `${item.variantName} • ` : ""}
+              {formatDate(item.deliveryDate || null)}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-body-color">Qty {item.quantity}</p>
+            <p className="font-semibold text-dark dark:text-white">
+              {formatCurrency(item.price * item.quantity)}
+            </p>
+          </div>
+        </div>
+      ))}
+    </div>
+    <div className="space-y-2 text-sm text-dark dark:text-white">
+      <div className="flex justify-between">
+        <span>Subtotal</span>
+        <span>{formatCurrency(subtotal)}</span>
+      </div>
+      {discountAmount > 0 && (
+        <div className="flex justify-between text-success">
+          <span>Discount {coupon?.code ? `(${coupon.code.toUpperCase()})` : ""}</span>
+          <span>-{formatCurrency(discountAmount)}</span>
+        </div>
+      )}
+      <div className="flex justify-between">
+        <span>{couponFreeShipping ? "Delivery (waived)" : "Delivery"}</span>
+        <span>{formatCurrency(deliveryFee)}</span>
+      </div>
+      <div className="flex justify-between">
+        <span>Tax (estimate)</span>
+        <span>{formatCurrency(tax)}</span>
+      </div>
+      <div className="flex justify-between border-t border-dashed border-stroke/60 pt-3 text-base font-semibold">
+        <span>Total</span>
+        <span>{formatCurrency(total)}</span>
+      </div>
+    </div>
+  </div>
+);
+
+MobileCartSummary.propTypes = {
+  cart: PropTypes.array.isRequired,
+  cartCount: PropTypes.number.isRequired,
+  subtotal: PropTypes.number.isRequired,
+  tax: PropTypes.number.isRequired,
+  deliveryFee: PropTypes.number.isRequired,
+  total: PropTypes.number.isRequired,
+  discountAmount: PropTypes.number.isRequired,
+  couponFreeShipping: PropTypes.bool.isRequired,
+  formatCurrency: PropTypes.func.isRequired,
+  formatDate: PropTypes.func.isRequired,
+  coupon: PropTypes.object,
 };
 
 const SidebarSummary = ({
@@ -972,29 +1672,11 @@ const PaymentForm = ({
   coupon,
   couponFreeShipping,
 }) => {
-  const paymentOptions = [
-    {
-      id: "CARD",
-      title: "Pay with card",
-      description: "Secure checkout — we’ll send you a secure payment link.",
-    },
-    {
-      id: "PHONE",
-      title: "Call me for payment",
-      description: "We’ll reach out to confirm details and collect payment.",
-    },
-    {
-      id: "IN_STORE",
-      title: "Pay on pickup",
-      description: "Reserve now and pay when you pick up in studio.",
-    },
-  ];
-
   return (
     <>
       <div className="w-full px-3">
         <div className="space-y-4">
-          {paymentOptions.map((option) => (
+          {PAYMENT_OPTIONS.map((option) => (
             <label
               key={option.id}
               className={`border-stroke flex cursor-pointer items-start gap-4 rounded-md border px-5 py-[18px] transition dark:border-dark-3 ${
