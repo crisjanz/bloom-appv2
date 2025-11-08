@@ -1,13 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import PropTypes from "prop-types";
+import { Link } from "react-router-dom";
 import Breadcrumb from "../components/Breadcrumb.jsx";
 import DeliveryDatePicker from "../components/DeliveryDatePicker.jsx";
+import AddressAutocomplete from "../components/AddressAutocomplete.jsx";
 import { useCart } from "../contexts/CartContext.jsx";
 import {
   createCustomer,
   createCustomerAddress,
   createOrderDraft,
   linkRecipientToCustomer,
+  getSavedRecipients,
 } from "../services/checkoutService.js";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import CreateAccountModal from "../components/CreateAccountModal.jsx";
@@ -115,6 +118,41 @@ const Checkout = () => {
   const [couponMessage, setCouponMessage] = useState("");
   const [couponError, setCouponError] = useState("");
   const [applyingCoupon, setApplyingCoupon] = useState(false);
+  const [savedRecipients, setSavedRecipients] = useState([]);
+  const [savedRecipientsLoading, setSavedRecipientsLoading] = useState(false);
+  const [savedRecipientsError, setSavedRecipientsError] = useState("");
+  const [selectedSavedRecipientOption, setSelectedSavedRecipientOption] = useState("new");
+  const [recipientWasAutofilled, setRecipientWasAutofilled] = useState(false);
+  const resetSavedRecipientState = useCallback(() => {
+    setSavedRecipients([]);
+    setSavedRecipientsError("");
+    setSelectedSavedRecipientOption("new");
+    setSavedRecipientsLoading(false);
+  }, []);
+
+  const fetchSavedRecipients = useCallback(async () => {
+    if (!authCustomer?.id) {
+      resetSavedRecipientState();
+      return;
+    }
+    setSavedRecipientsLoading(true);
+    setSavedRecipientsError("");
+    try {
+      const data = await getSavedRecipients(authCustomer.id);
+      const list = Array.isArray(data?.items)
+        ? data.items
+        : Array.isArray(data)
+          ? data
+          : [];
+      setSavedRecipients(list);
+    } catch (error) {
+      console.error("Failed to fetch saved recipients:", error);
+      setSavedRecipients([]);
+      setSavedRecipientsError(error.message || "Failed to load saved recipients");
+    } finally {
+      setSavedRecipientsLoading(false);
+    }
+  }, [authCustomer?.id, resetSavedRecipientState]);
 
   useEffect(() => {
     setCouponInput(coupon?.code || "");
@@ -142,6 +180,10 @@ const Checkout = () => {
       setShowCreateAccountModal(false);
     }
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    fetchSavedRecipients();
+  }, [fetchSavedRecipients]);
 
   const subtotal = useMemo(
     () => cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
@@ -172,6 +214,37 @@ const Checkout = () => {
     });
   };
 
+  const savedRecipientOptions = useMemo(
+    () => buildSavedRecipientOptions(savedRecipients),
+    [savedRecipients],
+  );
+
+  const savedRecipientOptionMap = useMemo(() => {
+    const map = new Map();
+    savedRecipientOptions.forEach((option) => map.set(option.value, option));
+    return map;
+  }, [savedRecipientOptions]);
+
+  const selectedRecipientMeta =
+    savedRecipientOptionMap.get(selectedSavedRecipientOption) || null;
+  const selectedSavedRecipient = selectedRecipientMeta?.recipient || null;
+
+  const isNewRecipient = selectedSavedRecipientOption === "new";
+  const savedRecipientsAvailable = savedRecipients.length > 0;
+  const customerGreetingName =
+    (authCustomer?.firstName || authCustomer?.lastName
+      ? `${authCustomer?.firstName || ""} ${authCustomer?.lastName || ""}`.trim()
+      : authCustomer?.email) || "there";
+
+  useEffect(() => {
+    if (
+      selectedSavedRecipientOption !== "new" &&
+      !savedRecipientOptionMap.has(selectedSavedRecipientOption)
+    ) {
+      setSelectedSavedRecipientOption("new");
+    }
+  }, [selectedSavedRecipientOption, savedRecipientOptionMap]);
+
   const handleCouponSubmit = async (event) => {
     event.preventDefault();
 
@@ -198,6 +271,9 @@ const Checkout = () => {
   const handleRecipientChange = (event) => {
     const { name, value } = event.target;
     setRecipient((prev) => ({ ...prev, [name]: value }));
+    if (!isNewRecipient) {
+      setRecipientWasAutofilled(true);
+    }
   };
 
   const handleCustomerChange = (event) => {
@@ -215,6 +291,48 @@ const Checkout = () => {
       [name]: type === "checkbox" ? checked : value,
     }));
   };
+
+  const applySavedRecipientFields = useCallback((optionMeta) => {
+    if (!optionMeta?.recipient) return;
+    const { recipient: savedRecipientRecord, address } = optionMeta;
+    setRecipient((prev) => ({
+      ...prev,
+      firstName: savedRecipientRecord.firstName || "",
+      lastName: savedRecipientRecord.lastName || "",
+      phone: savedRecipientRecord.phone || "",
+      email: savedRecipientRecord.email || "",
+      address1: address?.address1 || "",
+      address2: address?.address2 || "",
+      city: address?.city || "",
+      province: address?.province || prev.province || "BC",
+      postalCode: address?.postalCode || "",
+    }));
+    setRecipientWasAutofilled(false);
+  }, []);
+
+  const handleSelectSavedRecipient = (value) => {
+    setSelectedSavedRecipientOption(value);
+    setRecipientWasAutofilled(false);
+    if (value === "new") {
+      // Clear the recipient form when selecting "New recipient"
+      setRecipient(initialRecipient);
+      return;
+    }
+    const optionMeta = savedRecipientOptionMap.get(value);
+    applySavedRecipientFields(optionMeta);
+  };
+
+  const handleAddressAutocompleteSelect = useCallback((parsedAddress) => {
+    if (!parsedAddress) return;
+    setRecipient((prev) => ({
+      ...prev,
+      address1: parsedAddress.address1 || prev.address1,
+      address2: parsedAddress.address2 || prev.address2,
+      city: parsedAddress.city || prev.city,
+      province: parsedAddress.province || prev.province,
+      postalCode: parsedAddress.postalCode || prev.postalCode,
+    }));
+  }, []);
 
   const validateRecipient = () => {
     const errors = {};
@@ -311,31 +429,81 @@ const Checkout = () => {
     setIsSubmitting(true);
 
     try {
-      const buyer = await createCustomer(sanitizeCustomerPayload(customer));
-      const recipientCustomer = await createCustomer(
-        sanitizeCustomerPayload({
-          firstName: recipient.firstName,
-          lastName: recipient.lastName,
-          email: recipient.email,
-          phone: recipient.phone,
-          notes: "Website recipient",
-        }),
-      );
+      // Use existing customer ID if logged in, otherwise create new customer
+      let buyerId;
+      if (authCustomer?.id) {
+        buyerId = authCustomer.id;
+      } else {
+        const buyer = await createCustomer(sanitizeCustomerPayload(customer));
+        buyerId = buyer.id;
+      }
 
-      const deliveryAddress = await createCustomerAddress(recipientCustomer.id, {
-        label: "Delivery",
-        firstName: recipient.firstName.trim(),
-        lastName: recipient.lastName.trim(),
-        phone: recipient.phone.trim(),
-        address1: recipient.address1.trim(),
-        address2: recipient.address2.trim() || null,
-        city: recipient.city.trim(),
-        province: recipient.province,
-        postalCode: recipient.postalCode.trim(),
-        country: "CA",
-      });
+      // If using saved recipient, reuse that customer ID; otherwise create new recipient
+      let recipientCustomerId;
+      let deliveryAddressId;
 
-      await linkRecipientToCustomer(buyer.id, recipientCustomer.id);
+      if (!isNewRecipient && selectedSavedRecipient) {
+        // Using saved recipient
+        recipientCustomerId = selectedSavedRecipient.id;
+
+        // Use the address that was selected
+        if (selectedRecipientMeta?.address?.id) {
+          deliveryAddressId = selectedRecipientMeta.address.id;
+        } else {
+          // No address was pre-selected, create new address for existing recipient
+          const deliveryAddress = await createCustomerAddress(recipientCustomerId, {
+            label: "Delivery",
+            firstName: recipient.firstName.trim(),
+            lastName: recipient.lastName.trim(),
+            phone: recipient.phone.trim(),
+            address1: recipient.address1.trim(),
+            address2: recipient.address2.trim() || null,
+            city: recipient.city.trim(),
+            province: recipient.province,
+            postalCode: recipient.postalCode.trim(),
+            country: "CA",
+          });
+          deliveryAddressId = deliveryAddress.id;
+        }
+      } else {
+        // Creating new recipient
+        const recipientCustomer = await createCustomer(
+          sanitizeCustomerPayload({
+            firstName: recipient.firstName,
+            lastName: recipient.lastName,
+            email: recipient.email,
+            phone: recipient.phone,
+            notes: "Website recipient",
+          }),
+        );
+        recipientCustomerId = recipientCustomer.id;
+
+        const deliveryAddress = await createCustomerAddress(recipientCustomerId, {
+          label: "Delivery",
+          firstName: recipient.firstName.trim(),
+          lastName: recipient.lastName.trim(),
+          phone: recipient.phone.trim(),
+          address1: recipient.address1.trim(),
+          address2: recipient.address2.trim() || null,
+          city: recipient.city.trim(),
+          province: recipient.province,
+          postalCode: recipient.postalCode.trim(),
+          country: "CA",
+        });
+        deliveryAddressId = deliveryAddress.id;
+
+        // Link new recipient to buyer (only if it's a new recipient)
+        await linkRecipientToCustomer(buyerId, recipientCustomerId);
+
+        // Refresh saved recipients list for logged-in users after creating new recipient
+        if (authCustomer?.id) {
+          try {
+            await fetchSavedRecipients();
+          } catch (error) {
+            console.error("Failed to refresh saved recipients:", error);
+          }
+        }
+      }
 
       const customProducts = cart.map((item) => ({
         description: item.name,
@@ -344,11 +512,11 @@ const Checkout = () => {
         tax: item.isTaxable !== false,
       }));
 
-      const draftOrder = await createOrderDraft(buyer.id, {
+      const draftOrder = await createOrderDraft(buyerId, {
         orderType: "DELIVERY",
         orderSource: "WEBSITE",
-        recipientCustomerId: recipientCustomer.id,
-        deliveryAddressId: deliveryAddress.id,
+        recipientCustomerId,
+        deliveryAddressId,
         cardMessage: recipient.cardMessage || null,
         deliveryInstructions: recipient.deliveryInstructions || null,
         deliveryDate,
@@ -358,7 +526,7 @@ const Checkout = () => {
 
       setOrderResult({
         drafts: draftOrder.drafts,
-        buyer,
+        buyer: { id: buyerId, ...customer },
         deliveryDate,
       });
 
@@ -369,6 +537,8 @@ const Checkout = () => {
       setCustomer(initialCustomer);
       setPayment(initialPayment);
       clearCoupon();
+      setSelectedSavedRecipientOption("new");
+      setRecipientWasAutofilled(false);
 
       if (!isAuthenticated) {
         setShowCreateAccountModal(true);
@@ -418,6 +588,12 @@ const Checkout = () => {
   return (
     <>
       <Breadcrumb pageName="Checkout" />
+      <CheckoutAuthBanner
+        isAuthenticated={isAuthenticated}
+        customerName={customerGreetingName}
+        savedRecipientsLoading={savedRecipientsLoading}
+        hasSavedRecipients={savedRecipientsAvailable}
+      />
       <MobileCheckout
         activeStep={activeStep}
         setActiveStep={setActiveStep}
@@ -465,6 +641,14 @@ const Checkout = () => {
         submitError={submitError}
         instructionPresets={instructionPresets}
         hasSubmitError={Boolean(submitError)}
+      savedRecipientOptions={savedRecipientOptions}
+      savedRecipientsLoading={savedRecipientsLoading}
+      savedRecipientsError={savedRecipientsError}
+      selectedRecipientOption={selectedSavedRecipientOption}
+      onSelectSavedRecipient={handleSelectSavedRecipient}
+      isNewRecipient={isNewRecipient}
+      onAddressAutocompleteSelect={handleAddressAutocompleteSelect}
+      recipientModifiedAfterAutofill={recipientWasAutofilled}
       />
       <section className="hidden bg-white pb-12 pt-10 dark:bg-dark lg:pb-16 lg:pt-16 md:block">
         <div className="container mx-auto">
@@ -521,6 +705,14 @@ const Checkout = () => {
                           : preset,
                       }))
                     }
+                    savedRecipientOptions={savedRecipientOptions}
+                    savedRecipientsLoading={savedRecipientsLoading}
+                    savedRecipientsError={savedRecipientsError}
+                    selectedSavedRecipientOption={selectedSavedRecipientOption}
+                    onSavedRecipientChange={handleSelectSavedRecipient}
+                    isNewRecipient={isNewRecipient}
+                    onAddressSelect={handleAddressAutocompleteSelect}
+                    recipientModifiedAfterAutofill={recipientWasAutofilled}
                   />
                   <div className="mt-6 flex flex-wrap gap-3 px-3">
                     <button
@@ -629,6 +821,14 @@ const MobileCheckout = ({
   onDateChange,
   onRecipientPreset,
   instructionPresets,
+  savedRecipientOptions,
+  savedRecipientsLoading,
+  savedRecipientsError,
+  selectedRecipientOption,
+  onSelectSavedRecipient,
+  isNewRecipient,
+  onAddressAutocompleteSelect,
+  recipientModifiedAfterAutofill,
   customer,
   customerErrors,
   onCustomerChange,
@@ -659,7 +859,7 @@ const MobileCheckout = ({
   isSubmitting,
   submitError,
 }) => (
-  <section className="bg-white pb-10 pt-6 dark:bg-dark md:hidden">
+  <section className="bg-white pb-32 pt-6 dark:bg-dark md:hidden">
     <div className="container mx-auto px-4">
       <div className="space-y-6">
         <MobileAccordionSection
@@ -676,6 +876,14 @@ const MobileCheckout = ({
             onPresetSelect={onRecipientPreset}
             deliveryDate={deliveryDate}
             onDateChange={onDateChange}
+            savedRecipientOptions={savedRecipientOptions}
+            savedRecipientsLoading={savedRecipientsLoading}
+            savedRecipientsError={savedRecipientsError}
+            selectedSavedRecipientOption={selectedRecipientOption}
+            onSavedRecipientChange={onSelectSavedRecipient}
+            isNewRecipient={isNewRecipient}
+            onAddressAutocompleteSelect={onAddressAutocompleteSelect}
+            recipientModifiedAfterAutofill={recipientModifiedAfterAutofill}
           />
           <MobileStepActions
             primaryLabel="Save & Continue"
@@ -716,6 +924,20 @@ const MobileCheckout = ({
             onChange={onPaymentChange}
             cart={cart}
             formatCurrency={formatCurrency}
+            coupon={coupon}
+            couponInput={couponInput}
+            onCouponInputChange={onCouponInputChange}
+            couponMessage={couponMessage}
+            couponError={couponError}
+            onApplyCoupon={onApplyCoupon}
+            onRemoveCoupon={onRemoveCoupon}
+            applyingCoupon={applyingCoupon}
+            subtotal={subtotal}
+            deliveryFee={deliveryFee}
+            tax={tax}
+            total={total}
+            discountAmount={discountAmount}
+            couponFreeShipping={couponFreeShipping}
           />
           <MobileStepActions
             primaryLabel={isSubmitting ? "Submitting…" : "Place Order"}
@@ -729,32 +951,20 @@ const MobileCheckout = ({
           )}
         </MobileAccordionSection>
       </div>
-
-      <MobileCouponForm
-        coupon={coupon}
-        couponInput={couponInput}
-        onCouponInputChange={onCouponInputChange}
-        couponMessage={couponMessage}
-        couponError={couponError}
-        onApplyCoupon={onApplyCoupon}
-        onRemoveCoupon={onRemoveCoupon}
-        applyingCoupon={applyingCoupon}
-      />
-
-      <MobileCartSummary
-        cart={cart}
-        cartCount={cartCount}
-        subtotal={subtotal}
-        tax={tax}
-        deliveryFee={deliveryFee}
-        total={total}
-        discountAmount={discountAmount}
-        couponFreeShipping={couponFreeShipping}
-        formatCurrency={formatCurrency}
-        formatDate={formatDate}
-        coupon={coupon}
-      />
     </div>
+
+    <MobileStickyBottomSummary
+      cart={cart}
+      subtotal={subtotal}
+      deliveryFee={deliveryFee}
+      tax={tax}
+      total={total}
+      discountAmount={discountAmount}
+      coupon={coupon}
+      couponFreeShipping={couponFreeShipping}
+      formatCurrency={formatCurrency}
+      formatDate={formatDate}
+    />
   </section>
 );
 
@@ -768,6 +978,14 @@ MobileCheckout.propTypes = {
   onDateChange: PropTypes.func.isRequired,
   onRecipientPreset: PropTypes.func.isRequired,
   instructionPresets: PropTypes.array.isRequired,
+  savedRecipientOptions: PropTypes.array.isRequired,
+  savedRecipientsLoading: PropTypes.bool.isRequired,
+  savedRecipientsError: PropTypes.string,
+  selectedRecipientOption: PropTypes.string.isRequired,
+  onSelectSavedRecipient: PropTypes.func.isRequired,
+  isNewRecipient: PropTypes.bool.isRequired,
+  onAddressAutocompleteSelect: PropTypes.func.isRequired,
+  recipientModifiedAfterAutofill: PropTypes.bool.isRequired,
   customer: PropTypes.object.isRequired,
   customerErrors: PropTypes.object.isRequired,
   onCustomerChange: PropTypes.func.isRequired,
@@ -799,31 +1017,44 @@ MobileCheckout.propTypes = {
   submitError: PropTypes.string,
 };
 
-const MobileAccordionSection = ({ step, title, open, onToggle, children }) => (
-  <div className="border-b border-stroke/40 pb-4">
-    <button
-      type="button"
-      onClick={onToggle}
-      className="flex w-full items-center justify-between text-left"
-    >
-      <span className="text-base font-semibold text-dark dark:text-white">
-        {step}. {title}
-      </span>
-      <svg
-        width="16"
-        height="8"
-        viewBox="0 0 16 8"
-        className={`text-body-color transition-transform dark:text-dark-6 ${open ? "rotate-180" : ""}`}
+const MobileAccordionSection = ({ step, title, open, onToggle, children }) => {
+  const sectionRef = useCallback((node) => {
+    if (node && open) {
+      // Scroll to the section with some offset for better UX
+      setTimeout(() => {
+        const yOffset = -80; // Offset to account for header/spacing
+        const y = node.getBoundingClientRect().top + window.pageYOffset + yOffset;
+        window.scrollTo({ top: y, behavior: 'smooth' });
+      }, 100);
+    }
+  }, [open]);
+
+  return (
+    <div ref={sectionRef} className="border-b border-stroke/40 pb-4">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between text-left"
       >
-        <path
-          fill="currentColor"
-          d="M0.25 1.422 6.795 7.577C7.116 7.866 7.504 7.995 7.886 7.995c.403 0 .786-.167 1.091-.441L15.534 1.423c.293-.294.375-.811.023-1.162-.292-.292-.806-.375-1.157-.029L7.886 6.351 1.362.217C1.042-.058.542-.059.222.261c-.274.32-.275.82.046 1.141Z"
-        />
-      </svg>
-    </button>
-    {open && <div className="pt-3">{children}</div>}
-  </div>
-);
+        <span className="text-base font-semibold text-dark dark:text-white">
+          {step}. {title}
+        </span>
+        <svg
+          width="16"
+          height="8"
+          viewBox="0 0 16 8"
+          className={`text-body-color transition-transform dark:text-dark-6 ${open ? "rotate-180" : ""}`}
+        >
+          <path
+            fill="currentColor"
+            d="M0.25 1.422 6.795 7.577C7.116 7.866 7.504 7.995 7.886 7.995c.403 0 .786-.167 1.091-.441L15.534 1.423c.293-.294.375-.811.023-1.162-.292-.292-.806-.375-1.157-.029L7.886 6.351 1.362.217C1.042-.058.542-.059.222.261c-.274.32-.275.82.046 1.141Z"
+          />
+        </svg>
+      </button>
+      {open && <div className="pt-3">{children}</div>}
+    </div>
+  );
+};
 
 MobileAccordionSection.propTypes = {
   step: PropTypes.number.isRequired,
@@ -840,17 +1071,25 @@ const MobileInput = ({
   onChange,
   type = "text",
   error,
+  placeholder,
+  required = false,
 }) => (
   <div className="w-full">
-    <input
-      type={type}
-      name={name}
-      value={value}
-      onChange={onChange}
-      placeholder={label}
-      className="w-full border-b border-stroke/60 bg-transparent px-0 py-3 text-base text-dark placeholder:text-dark/60 outline-hidden focus:border-primary dark:border-dark-3 dark:text-white"
-    />
-    {error && <p className="text-red-500 mt-1 text-xs">{error}</p>}
+    <div className="flex items-center border-b border-stroke/30 py-3 dark:border-dark-3/30">
+      <label className="w-[35%] shrink-0 pr-3 text-sm font-medium text-dark dark:text-white">
+        {label}
+        {required && <span className="text-red-500 ml-0.5">*</span>}
+      </label>
+      <input
+        type={type}
+        name={name}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        className="flex-1 bg-transparent text-base text-dark outline-hidden placeholder:text-body-color/40 dark:text-white dark:placeholder:text-dark-6/40"
+      />
+    </div>
+    {error && <p className="text-red-500 -mt-1 pb-2 pl-2 text-xs">{error}</p>}
   </div>
 );
 
@@ -861,23 +1100,31 @@ MobileInput.propTypes = {
   onChange: PropTypes.func.isRequired,
   type: PropTypes.string,
   error: PropTypes.string,
+  placeholder: PropTypes.string,
+  required: PropTypes.bool,
 };
 
-const MobileSelect = ({ label, name, value, onChange, options }) => (
+const MobileSelect = ({ label, name, value, onChange, options, required = false }) => (
   <div className="w-full">
-    <select
-      name={name}
-      value={value}
-      onChange={onChange}
-      className="w-full border-b border-stroke/60 bg-transparent px-0 py-3 text-base text-dark outline-hidden focus:border-primary dark:border-dark-3 dark:text-white"
-    >
-      <option value="">{label}</option>
-      {options.map((option) => (
-        <option key={option} value={option}>
-          {option}
-        </option>
-      ))}
-    </select>
+    <div className="flex items-center border-b border-stroke/30 py-3 dark:border-dark-3/30">
+      <label className="w-[35%] shrink-0 pr-3 text-sm font-medium text-dark dark:text-white">
+        {label}
+        {required && <span className="text-red-500 ml-0.5">*</span>}
+      </label>
+      <select
+        name={name}
+        value={value}
+        onChange={onChange}
+        className="flex-1 bg-transparent text-base text-dark outline-hidden dark:text-white"
+      >
+        {!value && <option value="">Select...</option>}
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </div>
   </div>
 );
 
@@ -887,26 +1134,58 @@ MobileSelect.propTypes = {
   value: PropTypes.string.isRequired,
   onChange: PropTypes.func.isRequired,
   options: PropTypes.array.isRequired,
+  required: PropTypes.bool,
 };
 
-const MobileTextArea = ({ label, name, value, onChange }) => (
-  <div className="w-full">
-    <textarea
-      name={name}
-      value={value}
-      onChange={onChange}
-      placeholder={label}
-      rows="3"
-      className="w-full border-b border-stroke/60 bg-transparent px-0 py-3 text-base text-dark outline-hidden focus:border-primary dark:border-dark-3 dark:text-white"
-    ></textarea>
-  </div>
-);
+const MobileTextArea = ({ label, name, value, onChange, placeholder, maxLength }) => {
+  const remaining = maxLength ? maxLength - value.length : null;
+
+  return (
+    <div className="w-full">
+      <div className="flex border-b border-stroke/30 py-3 dark:border-dark-3/30">
+        <label className="w-[35%] shrink-0 pr-3 pt-1 text-sm font-medium text-dark dark:text-white">
+          {label}
+        </label>
+        <div className="flex-1">
+          <textarea
+            name={name}
+            value={value}
+            onChange={onChange}
+            placeholder={placeholder}
+            maxLength={maxLength}
+            rows="3"
+            className="w-full resize-none bg-transparent text-base text-dark outline-hidden placeholder:text-body-color/40 dark:text-white dark:placeholder:text-dark-6/40"
+          ></textarea>
+          {maxLength && (
+            <p className="mt-1 text-right text-xs text-body-color dark:text-dark-6">
+              {remaining}/{maxLength}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 MobileTextArea.propTypes = {
   label: PropTypes.string.isRequired,
   name: PropTypes.string.isRequired,
   value: PropTypes.string.isRequired,
   onChange: PropTypes.func.isRequired,
+  placeholder: PropTypes.string,
+  maxLength: PropTypes.number,
+};
+
+const MobileSectionHeader = ({ children }) => (
+  <div className="bg-gray-50 px-4 py-2 dark:bg-dark-3/20">
+    <h4 className="text-xs font-semibold uppercase tracking-wide text-body-color dark:text-dark-6">
+      {children}
+    </h4>
+  </div>
+);
+
+MobileSectionHeader.propTypes = {
+  children: PropTypes.node.isRequired,
 };
 
 const MobileRecipientForm = ({
@@ -917,19 +1196,59 @@ const MobileRecipientForm = ({
   onPresetSelect,
   deliveryDate,
   onDateChange,
+  savedRecipientOptions,
+  savedRecipientsLoading,
+  savedRecipientsError,
+  selectedSavedRecipientOption,
+  onSavedRecipientChange,
+  isNewRecipient,
+  onAddressAutocompleteSelect,
+  recipientModifiedAfterAutofill,
 }) => (
-  <div className="space-y-4">
-    <div className="grid grid-cols-1 gap-4">
-      <MobileInput label="First Name" name="firstName" value={data.firstName} onChange={onChange} error={errors.firstName} />
-      <MobileInput label="Last Name" name="lastName" value={data.lastName} onChange={onChange} error={errors.lastName} />
-      <MobileInput label="Phone Number" name="phone" value={data.phone} onChange={onChange} error={errors.phone} />
-      <MobileInput label="Email (optional)" type="email" name="email" value={data.email} onChange={onChange} />
-      <MobileInput label="Address" name="address1" value={data.address1} onChange={onChange} error={errors.address1} />
-      <MobileInput label="Apartment / Suite" name="address2" value={data.address2} onChange={onChange} />
-      <MobileInput label="City" name="city" value={data.city} onChange={onChange} error={errors.city} />
-      <MobileSelect label="Province" name="province" value={data.province} onChange={onChange} options={provinceOptions} />
-      <MobileInput label="Postal Code" name="postalCode" value={data.postalCode} onChange={onChange} error={errors.postalCode} />
-      <div>
+  <div className="space-y-0">
+    <SavedRecipientControls
+      variant="mobile"
+      options={savedRecipientOptions}
+      loading={savedRecipientsLoading}
+      error={savedRecipientsError}
+      selectedOption={selectedSavedRecipientOption}
+      onSelectOption={onSavedRecipientChange}
+      recipientModifiedAfterAutofill={recipientModifiedAfterAutofill}
+    />
+
+    <MobileSectionHeader>Recipient Information</MobileSectionHeader>
+    <div className="bg-white dark:bg-dark-2">
+      <MobileInput label="First Name" name="firstName" value={data.firstName} onChange={onChange} error={errors.firstName} placeholder="John" required />
+      <MobileInput label="Last Name" name="lastName" value={data.lastName} onChange={onChange} error={errors.lastName} placeholder="Doe" required />
+      <MobileInput label="Phone" name="phone" value={data.phone} onChange={onChange} error={errors.phone} placeholder="(604) 555-1234" required />
+      <MobileInput label="Email" type="email" name="email" value={data.email} onChange={onChange} placeholder="john@example.com" />
+    </div>
+
+    <MobileSectionHeader>Delivery Address</MobileSectionHeader>
+    <div className="bg-white dark:bg-dark-2">
+      {isNewRecipient ? (
+        <AddressAutocomplete
+          label="Address"
+          value={data.address1}
+          onChange={onChange}
+          onAddressSelect={onAddressAutocompleteSelect}
+          placeholder="123 Main St"
+        />
+      ) : (
+        <MobileInput label="Address" name="address1" value={data.address1} onChange={onChange} error={errors.address1} placeholder="123 Main St" required />
+      )}
+      {isNewRecipient && errors.address1 && (
+        <p className="text-red-500 px-4 pb-2 text-xs">{errors.address1}</p>
+      )}
+      <MobileInput label="Apt/Suite" name="address2" value={data.address2} onChange={onChange} placeholder="Suite 4B" />
+      <MobileInput label="City" name="city" value={data.city} onChange={onChange} error={errors.city} placeholder="Vancouver" required />
+      <MobileSelect label="Province" name="province" value={data.province} onChange={onChange} options={provinceOptions} required />
+      <MobileInput label="Postal Code" name="postalCode" value={data.postalCode} onChange={onChange} error={errors.postalCode} placeholder="V6B 1A1" required />
+    </div>
+
+    <MobileSectionHeader>Delivery Details</MobileSectionHeader>
+    <div className="bg-white dark:bg-dark-2">
+      <div className="border-b border-stroke/30 px-4 py-3 dark:border-dark-3/30">
         <DeliveryDatePicker
           selectedDate={deliveryDate}
           onDateChange={onDateChange}
@@ -945,25 +1264,31 @@ const MobileRecipientForm = ({
         name="cardMessage"
         value={data.cardMessage}
         onChange={onChange}
+        placeholder="Happy Birthday! Love, Sarah"
+        maxLength={250}
       />
       <div>
         <MobileTextArea
-          label="Delivery Instructions"
+          label="Instructions"
           name="deliveryInstructions"
           value={data.deliveryInstructions}
           onChange={onChange}
+          placeholder="Leave at the front door"
+          maxLength={200}
         />
-        <div className="mt-2 flex flex-wrap gap-2">
-          {instructionPresets.map((preset) => (
-            <button
-              key={preset}
-              type="button"
-              className="rounded-full border border-stroke/60 px-3 py-1 text-xs text-body-color transition hover:border-primary hover:bg-primary hover:text-white"
-              onClick={() => onPresetSelect(preset)}
-            >
-              {preset}
-            </button>
-          ))}
+        <div className="border-t border-stroke/30 px-4 py-3 dark:border-dark-3/30">
+          <div className="flex flex-wrap gap-2">
+            {instructionPresets.map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                className="rounded-full border border-stroke/60 px-3 py-1 text-xs text-body-color transition hover:border-primary hover:bg-primary hover:text-white dark:border-dark-3"
+                onClick={() => onPresetSelect(preset)}
+              >
+                {preset}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -978,24 +1303,37 @@ MobileRecipientForm.propTypes = {
   onPresetSelect: PropTypes.func.isRequired,
   deliveryDate: PropTypes.string,
   onDateChange: PropTypes.func.isRequired,
+  savedRecipientOptions: PropTypes.array.isRequired,
+  savedRecipientsLoading: PropTypes.bool.isRequired,
+  savedRecipientsError: PropTypes.string,
+  selectedSavedRecipientOption: PropTypes.string.isRequired,
+  onSavedRecipientChange: PropTypes.func.isRequired,
+  isNewRecipient: PropTypes.bool.isRequired,
+  onAddressAutocompleteSelect: PropTypes.func.isRequired,
+  recipientModifiedAfterAutofill: PropTypes.bool.isRequired,
 };
 
 const MobileCustomerForm = ({ data, errors, onChange }) => (
-  <div className="space-y-4">
-    <MobileInput label="First Name" name="firstName" value={data.firstName} onChange={onChange} error={errors.firstName} />
-    <MobileInput label="Last Name" name="lastName" value={data.lastName} onChange={onChange} error={errors.lastName} />
-    <MobileInput label="Email" type="email" name="email" value={data.email} onChange={onChange} error={errors.email} />
-    <MobileInput label="Phone Number" name="phone" value={data.phone} onChange={onChange} error={errors.phone} />
-    <label className="flex items-center gap-3 text-sm text-body-color dark:text-dark-6">
-      <input
-        type="checkbox"
-        name="saveCustomer"
-        checked={data.saveCustomer}
-        onChange={onChange}
-        className="h-4 w-4 rounded border border-stroke text-primary focus:ring-primary"
-      />
-      Save customer details for next time
-    </label>
+  <div className="space-y-0">
+    <MobileSectionHeader>Your Information</MobileSectionHeader>
+    <div className="bg-white dark:bg-dark-2">
+      <MobileInput label="First Name" name="firstName" value={data.firstName} onChange={onChange} error={errors.firstName} placeholder="Sarah" required />
+      <MobileInput label="Last Name" name="lastName" value={data.lastName} onChange={onChange} error={errors.lastName} placeholder="Smith" required />
+      <MobileInput label="Email" type="email" name="email" value={data.email} onChange={onChange} error={errors.email} placeholder="sarah@example.com" required />
+      <MobileInput label="Phone" name="phone" value={data.phone} onChange={onChange} error={errors.phone} placeholder="(604) 555-5678" required />
+      <div className="border-t border-stroke/30 px-4 py-3 dark:border-dark-3/30">
+        <label className="flex items-center gap-3 text-sm text-body-color dark:text-dark-6">
+          <input
+            type="checkbox"
+            name="saveCustomer"
+            checked={data.saveCustomer}
+            onChange={onChange}
+            className="h-4 w-4 rounded border border-stroke text-primary focus:ring-primary"
+          />
+          Save details for next time
+        </label>
+      </div>
+    </div>
   </div>
 );
 
@@ -1005,9 +1343,66 @@ MobileCustomerForm.propTypes = {
   onChange: PropTypes.func.isRequired,
 };
 
-const MobilePaymentForm = ({ data, errors, onChange, cart, formatCurrency }) => (
-  <div className="space-y-5">
-    <div className="space-y-3">
+const MobilePaymentForm = ({
+  data,
+  errors,
+  onChange,
+  cart,
+  formatCurrency,
+  coupon,
+  couponInput,
+  onCouponInputChange,
+  couponMessage,
+  couponError,
+  onApplyCoupon,
+  onRemoveCoupon,
+  applyingCoupon,
+  subtotal,
+  deliveryFee,
+  tax,
+  total,
+  discountAmount,
+  couponFreeShipping,
+}) => (
+  <div className="space-y-0">
+    <MobileSectionHeader>Coupon Code</MobileSectionHeader>
+    <div className="bg-white px-4 py-4 dark:bg-dark-2">
+      <form className="flex flex-col gap-3" onSubmit={onApplyCoupon}>
+        <input
+          type="text"
+          value={couponInput}
+          onChange={(event) => onCouponInputChange(event.target.value)}
+          placeholder="Enter coupon code"
+          className="w-full rounded-md border border-stroke bg-transparent px-4 py-3 text-base text-dark outline-hidden focus:border-primary dark:border-dark-3 dark:text-white"
+          disabled={applyingCoupon}
+        />
+        <button
+          type="submit"
+          disabled={applyingCoupon || !couponInput.trim()}
+          className="w-full rounded-full bg-dark py-3 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:bg-dark/60 dark:bg-primary"
+        >
+          {coupon ? "Reapply" : "Apply Coupon"}
+        </button>
+      </form>
+      {couponMessage && (
+        <p className="text-success mt-2 text-sm">{couponMessage}</p>
+      )}
+      {couponError && (
+        <p className="text-red-500 mt-2 text-sm">{couponError}</p>
+      )}
+      {coupon && (
+        <button
+          type="button"
+          onClick={onRemoveCoupon}
+          className="mt-2 text-sm text-body-color underline dark:text-dark-6"
+        >
+          Remove coupon
+        </button>
+      )}
+    </div>
+
+    <MobileSectionHeader>Payment Method</MobileSectionHeader>
+    <div className="space-y-3 bg-white px-4 py-4 dark:bg-dark-2">
       {PAYMENT_OPTIONS.map((option) => (
         <label
           key={option.id}
@@ -1032,43 +1427,78 @@ const MobilePaymentForm = ({ data, errors, onChange, cart, formatCurrency }) => 
       {errors.method && <p className="text-red-500 text-xs">{errors.method}</p>}
     </div>
 
-    <MobileTextArea
-      label="Notes for the florist"
-      name="notes"
-      value={data.notes}
-      onChange={onChange}
-    />
-
-    <div className="space-y-2 rounded-lg bg-white/50 p-4 shadow-sm dark:bg-dark-2">
-      {cart.map((item) => (
-        <div key={`${item.id}-${item.variantId || "base"}`} className="flex items-center justify-between text-sm">
-          <span className="text-dark dark:text-white">
-            {item.name} × {item.quantity}
-          </span>
-          <span className="font-semibold text-dark dark:text-white">
-            {formatCurrency(item.price * item.quantity)}
-          </span>
-        </div>
-      ))}
+    <MobileSectionHeader>Additional Notes</MobileSectionHeader>
+    <div className="bg-white dark:bg-dark-2">
+      <MobileTextArea
+        label="Notes"
+        name="notes"
+        value={data.notes}
+        onChange={onChange}
+        placeholder="Any special requests..."
+      />
     </div>
 
-    <label className="flex items-start gap-3 text-sm text-body-color dark:text-dark-6">
-      <input
-        type="checkbox"
-        name="agreeToTerms"
-        checked={data.agreeToTerms}
-        onChange={onChange}
-        className="mt-1 h-4 w-4 rounded border border-stroke text-primary focus:ring-primary"
-      />
-      I agree to Bloom’s{" "}
-      <a href="/terms" className="text-primary underline">
-        Terms &amp; Conditions
-      </a>
-    </label>
-    {errors.agreeToTerms && (
-      <p className="text-red-500 text-xs">{errors.agreeToTerms}</p>
-    )}
-    {errors.cart && <p className="text-red-500 text-xs">{errors.cart}</p>}
+    <MobileSectionHeader>Order Summary</MobileSectionHeader>
+    <div className="bg-white dark:bg-dark-2">
+      <div className="space-y-2 px-4 py-4">
+        {cart.map((item) => (
+          <div key={`${item.id}-${item.variantId || "base"}`} className="flex items-center justify-between text-sm">
+            <span className="text-dark dark:text-white">
+              {item.name} × {item.quantity}
+            </span>
+            <span className="font-semibold text-dark dark:text-white">
+              {formatCurrency(item.price * item.quantity)}
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="border-t border-stroke/30 px-4 py-4 dark:border-dark-3/30">
+        <div className="space-y-2 text-sm">
+          <div className="flex justify-between text-body-color dark:text-dark-6">
+            <span>Subtotal</span>
+            <span>{formatCurrency(subtotal)}</span>
+          </div>
+          {discountAmount > 0 && (
+            <div className="flex justify-between text-success">
+              <span>Discount {coupon?.code ? `(${coupon.code.toUpperCase()})` : ""}</span>
+              <span>-{formatCurrency(discountAmount)}</span>
+            </div>
+          )}
+          <div className="flex justify-between text-body-color dark:text-dark-6">
+            <span>Delivery{couponFreeShipping ? " (waived)" : ""}</span>
+            <span className={couponFreeShipping ? "line-through" : ""}>{formatCurrency(deliveryFee)}</span>
+          </div>
+          <div className="flex justify-between text-body-color dark:text-dark-6">
+            <span>Tax</span>
+            <span>{formatCurrency(tax)}</span>
+          </div>
+          <div className="flex justify-between border-t border-stroke/30 pt-2 text-base font-semibold text-dark dark:border-dark-3/30 dark:text-white">
+            <span>Total</span>
+            <span>{formatCurrency(total)}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div className="bg-white px-4 py-4 dark:bg-dark-2">
+      <label className="flex items-start gap-3 text-sm text-body-color dark:text-dark-6">
+        <input
+          type="checkbox"
+          name="agreeToTerms"
+          checked={data.agreeToTerms}
+          onChange={onChange}
+          className="mt-1 h-4 w-4 rounded border border-stroke text-primary focus:ring-primary"
+        />
+        I agree to Bloom's{" "}
+        <a href="/terms" className="text-primary underline">
+          Terms &amp; Conditions
+        </a>
+      </label>
+      {errors.agreeToTerms && (
+        <p className="text-red-500 mt-2 text-xs">{errors.agreeToTerms}</p>
+      )}
+      {errors.cart && <p className="text-red-500 mt-2 text-xs">{errors.cart}</p>}
+    </div>
   </div>
 );
 
@@ -1078,6 +1508,20 @@ MobilePaymentForm.propTypes = {
   onChange: PropTypes.func.isRequired,
   cart: PropTypes.array.isRequired,
   formatCurrency: PropTypes.func.isRequired,
+  coupon: PropTypes.object,
+  couponInput: PropTypes.string.isRequired,
+  onCouponInputChange: PropTypes.func.isRequired,
+  couponMessage: PropTypes.string,
+  couponError: PropTypes.string,
+  onApplyCoupon: PropTypes.func.isRequired,
+  onRemoveCoupon: PropTypes.func.isRequired,
+  applyingCoupon: PropTypes.bool.isRequired,
+  subtotal: PropTypes.number.isRequired,
+  deliveryFee: PropTypes.number.isRequired,
+  tax: PropTypes.number.isRequired,
+  total: PropTypes.number.isRequired,
+  discountAmount: PropTypes.number.isRequired,
+  couponFreeShipping: PropTypes.bool.isRequired,
 };
 
 const MobileStepActions = ({
@@ -1114,6 +1558,129 @@ MobileStepActions.propTypes = {
   primaryDisabled: PropTypes.bool,
   secondaryLabel: PropTypes.string,
   onSecondary: PropTypes.func,
+};
+
+const MobileStickyBottomSummary = ({
+  cart,
+  subtotal,
+  deliveryFee,
+  tax,
+  total,
+  discountAmount,
+  coupon,
+  couponFreeShipping,
+  formatCurrency,
+  formatDate,
+}) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-stroke bg-tg-bg shadow-lg dark:border-dark-3 md:hidden">
+      {isExpanded && (
+        <div className="max-h-[60vh] overflow-y-auto border-b border-stroke p-4 dark:border-dark-3">
+          <div className="space-y-3">
+            {cart.map((item) => (
+              <div
+                key={`${item.id}-${item.variantId || "base"}`}
+                className="flex items-start justify-between text-sm"
+              >
+                <div className="flex-1">
+                  <p className="font-medium text-dark dark:text-white">{item.name}</p>
+                  <p className="text-xs text-body-color dark:text-dark-6">
+                    {item.variantName ? `${item.variantName} • ` : ""}
+                    {formatDate(item.deliveryDate || null)}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-body-color dark:text-dark-6">Qty {item.quantity}</p>
+                  <p className="font-semibold text-dark dark:text-white">
+                    {formatCurrency(item.price * item.quantity)}
+                  </p>
+                </div>
+              </div>
+            ))}
+            <div className="border-t border-stroke/30 pt-3 dark:border-dark-3/30">
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between text-body-color dark:text-dark-6">
+                  <span>Subtotal</span>
+                  <span>{formatCurrency(subtotal)}</span>
+                </div>
+                {discountAmount > 0 && (
+                  <div className="flex justify-between text-success">
+                    <span>Discount {coupon?.code ? `(${coupon.code.toUpperCase()})` : ""}</span>
+                    <span>-{formatCurrency(discountAmount)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-body-color dark:text-dark-6">
+                  <span>Delivery{couponFreeShipping ? " (waived)" : ""}</span>
+                  <span className={couponFreeShipping ? "line-through" : ""}>
+                    {formatCurrency(deliveryFee)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-body-color dark:text-dark-6">
+                  <span>Tax</span>
+                  <span>{formatCurrency(tax)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="flex w-full items-center justify-between px-4 py-2"
+      >
+        <div className="flex items-center gap-3">
+          <svg
+            className="h-6 w-6 text-primary"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
+            />
+          </svg>
+          <div className="flex items-baseline gap-2">
+            <span className="text-sm font-medium text-body-color dark:text-dark-6">Total</span>
+            <span className="text-lg font-bold text-dark dark:text-white">
+              {formatCurrency(total)}
+            </span>
+          </div>
+        </div>
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 16 8"
+          className={`text-body-color transition-transform dark:text-dark-6 ${
+            isExpanded ? "rotate-180" : ""
+          }`}
+        >
+          <path
+            fill="currentColor"
+            d="M0.25 1.422 6.795 7.577C7.116 7.866 7.504 7.995 7.886 7.995c.403 0 .786-.167 1.091-.441L15.534 1.423c.293-.294.375-.811.023-1.162-.292-.292-.806-.375-1.157-.029L7.886 6.351 1.362.217C1.042-.058.542-.059.222.261c-.274.32-.275.82.046 1.141Z"
+          />
+        </svg>
+      </button>
+    </div>
+  );
+};
+
+MobileStickyBottomSummary.propTypes = {
+  cart: PropTypes.array.isRequired,
+  subtotal: PropTypes.number.isRequired,
+  deliveryFee: PropTypes.number.isRequired,
+  tax: PropTypes.number.isRequired,
+  total: PropTypes.number.isRequired,
+  discountAmount: PropTypes.number.isRequired,
+  coupon: PropTypes.object,
+  couponFreeShipping: PropTypes.bool.isRequired,
+  formatCurrency: PropTypes.func.isRequired,
+  formatDate: PropTypes.func.isRequired,
 };
 
 const MobileCouponForm = ({
@@ -1251,6 +1818,202 @@ MobileCartSummary.propTypes = {
   formatCurrency: PropTypes.func.isRequired,
   formatDate: PropTypes.func.isRequired,
   coupon: PropTypes.object,
+};
+
+const SavedRecipientControls = ({
+  variant,
+  options,
+  loading,
+  error,
+  selectedOption,
+  onSelectOption,
+  recipientModifiedAfterAutofill,
+}) => {
+  const hasOptions = options.length > 0;
+  const shouldRender = loading || hasOptions || Boolean(error);
+  if (!shouldRender) return null;
+
+  if (variant === "mobile") {
+    return (
+      <div className="mb-4 bg-white dark:bg-dark-2">
+        <div className="flex items-center border-b border-stroke/30 py-3 dark:border-dark-3/30">
+          <label className="w-[35%] shrink-0 pr-3 text-sm font-medium text-dark dark:text-white">
+            Saved
+            {selectedOption !== "new" && hasOptions && (
+              <span className="ml-1 text-xs text-primary">
+                {recipientModifiedAfterAutofill ? "(edited)" : "✓"}
+              </span>
+            )}
+          </label>
+          <select
+            className="flex-1 bg-transparent text-base text-dark outline-hidden dark:text-white"
+            value={selectedOption}
+            onChange={(event) => onSelectOption(event.target.value)}
+            disabled={loading || !hasOptions}
+          >
+            <option value="new">New recipient</option>
+            {options.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        {loading && <p className="px-4 pb-2 text-sm text-body-color">Loading saved recipients…</p>}
+        {error && <p className="px-4 pb-2 text-sm text-red-500">{error}</p>}
+      </div>
+    );
+  }
+
+  // Desktop variant
+  return (
+    <div className="w-full px-3 mb-4">
+      <label className="text-sm font-semibold text-dark dark:text-white">
+        Saved recipient
+        {selectedOption !== "new" && hasOptions && (
+          <span className="ml-2 text-xs text-primary">
+            {recipientModifiedAfterAutofill ? "(modified)" : "(applied)"}
+          </span>
+        )}
+      </label>
+      <select
+        className="w-full rounded-md border border-stroke bg-transparent px-4 py-2 text-sm text-dark outline-hidden focus:border-primary dark:border-dark-3 dark:text-white"
+        value={selectedOption}
+        onChange={(event) => onSelectOption(event.target.value)}
+        disabled={loading || !hasOptions}
+      >
+        <option value="new">New recipient</option>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      {loading && <p className="text-sm text-body-color">Loading saved recipients…</p>}
+      {error && <p className="text-sm text-red-500">{error}</p>}
+    </div>
+  );
+};
+
+SavedRecipientControls.propTypes = {
+  variant: PropTypes.oneOf(["desktop", "mobile"]).isRequired,
+  options: PropTypes.array.isRequired,
+  loading: PropTypes.bool.isRequired,
+  error: PropTypes.string,
+  selectedOption: PropTypes.string.isRequired,
+  onSelectOption: PropTypes.func.isRequired,
+  recipientModifiedAfterAutofill: PropTypes.bool.isRequired,
+};
+
+const CheckoutAuthBanner = ({
+  isAuthenticated,
+  customerName,
+  savedRecipientsLoading,
+  hasSavedRecipients,
+}) => (
+  <div className="mb-6">
+    <div className="container mx-auto px-4 md:px-0">
+      <div className="rounded-lg bg-white px-4 py-3 text-sm text-dark shadow-sm dark:bg-dark-2 md:border md:border-stroke md:dark:border-dark-3">
+        {isAuthenticated ? (
+          <div className="flex flex-col gap-1">
+            <p className="font-semibold text-dark dark:text-white">
+              Welcome back, {customerName || "friend"}!
+            </p>
+            <p className="text-body-color dark:text-dark-6">
+              {savedRecipientsLoading
+                ? "Syncing your saved recipients…"
+                : hasSavedRecipients
+                  ? "Choose a saved recipient below or enter new details."
+                  : "Add a new recipient to save them for next time."}
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="font-semibold text-dark dark:text-white">Login or continue as guest</p>
+              <p className="text-body-color text-sm dark:text-dark-6">
+                Sign in to access saved recipients and faster checkout.
+              </p>
+            </div>
+            <Link
+              to="/login"
+              className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary/90"
+            >
+              Login
+            </Link>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+);
+
+CheckoutAuthBanner.propTypes = {
+  isAuthenticated: PropTypes.bool.isRequired,
+  customerName: PropTypes.string,
+  savedRecipientsLoading: PropTypes.bool.isRequired,
+  hasSavedRecipients: PropTypes.bool.isRequired,
+};
+
+const formatRecipientLabel = (recipient) => {
+  if (!recipient) return "Recipient";
+  const name = [recipient.firstName, recipient.lastName].filter(Boolean).join(" ").trim();
+  if (name) return name;
+  if (recipient.company) return recipient.company;
+  if (recipient.email) return recipient.email;
+  return "Recipient";
+};
+
+const formatAddressLabel = (address, index) => {
+  if (!address) return `Address ${index + 1}`;
+  return (
+    address.label ||
+    [address.address1, address.city].filter(Boolean).join(", ") ||
+    `Address ${index + 1}`
+  );
+};
+
+const buildSavedRecipientOptions = (recipients) => {
+  if (!Array.isArray(recipients)) return [];
+
+  const options = [];
+
+  recipients.forEach((recipient) => {
+    const baseLabel = formatRecipientLabel(recipient);
+    const addressList = [];
+
+    if (recipient.homeAddress) {
+      addressList.push({ ...recipient.homeAddress, __home: true });
+    }
+
+    if (Array.isArray(recipient.addresses)) {
+      recipient.addresses.forEach((address) => {
+        addressList.push(address);
+      });
+    }
+
+    if (addressList.length === 0) {
+      options.push({
+        value: `recipient-${recipient.id}`,
+        label: baseLabel,
+        recipient,
+        address: null,
+      });
+      return;
+    }
+
+    addressList.forEach((address, index) => {
+      const suffix = formatAddressLabel(address, index);
+      options.push({
+        value: `recipient-${recipient.id}::${address.id || index}`,
+        label: `${baseLabel} — ${suffix}`,
+        recipient,
+        address,
+      });
+    });
+  });
+
+  return options;
 };
 
 const SidebarSummary = ({
@@ -1473,8 +2236,25 @@ const RecipientForm = ({
   onDateChange,
   errors,
   onPresetSelect,
+  savedRecipientOptions,
+  savedRecipientsLoading,
+  savedRecipientsError,
+  selectedSavedRecipientOption,
+  onSavedRecipientChange,
+  isNewRecipient,
+  onAddressSelect,
+  recipientModifiedAfterAutofill,
 }) => (
   <>
+    <SavedRecipientControls
+      variant="desktop"
+      options={savedRecipientOptions}
+      loading={savedRecipientsLoading}
+      error={savedRecipientsError}
+      selectedOption={selectedSavedRecipientOption}
+      onSelectOption={onSavedRecipientChange}
+      recipientModifiedAfterAutofill={recipientModifiedAfterAutofill}
+    />
     <InputGroup
       labelTitle="First Name"
       type="text"
@@ -1483,6 +2263,7 @@ const RecipientForm = ({
       value={data.firstName}
       onChange={onChange}
       error={errors.firstName}
+      required
     />
     <InputGroup
       labelTitle="Last Name"
@@ -1492,6 +2273,7 @@ const RecipientForm = ({
       value={data.lastName}
       onChange={onChange}
       error={errors.lastName}
+      required
     />
     <InputGroup
       labelTitle="Phone"
@@ -1501,6 +2283,7 @@ const RecipientForm = ({
       value={data.phone}
       onChange={onChange}
       error={errors.phone}
+      required
     />
     <InputGroup
       labelTitle="Email (optional)"
@@ -1510,16 +2293,30 @@ const RecipientForm = ({
       value={data.email}
       onChange={onChange}
     />
-    <InputGroup
-      fullColumn
-      labelTitle="Address"
-      type="text"
-      placeholder="Street address"
-      name="address1"
-      value={data.address1}
-      onChange={onChange}
-      error={errors.address1}
-    />
+    {isNewRecipient ? (
+      <div className="w-full px-3">
+        <AddressAutocomplete
+          label="Address"
+          value={data.address1}
+          onChange={onChange}
+          onAddressSelect={onAddressSelect}
+          inputClassName="border rounded-md border-stroke px-5 py-3 text-body-color placeholder:text-body-color/70 focus:border-primary dark:border-dark-3 dark:text-dark-6"
+        />
+        {errors.address1 && <p className="text-red-500 mt-1 text-sm">{errors.address1}</p>}
+      </div>
+    ) : (
+      <InputGroup
+        fullColumn
+        labelTitle="Address"
+        type="text"
+        placeholder="Street address"
+        name="address1"
+        value={data.address1}
+        onChange={onChange}
+        error={errors.address1}
+        required
+      />
+    )}
     <InputGroup
       fullColumn
       labelTitle="Apartment / Suite"
@@ -1537,6 +2334,7 @@ const RecipientForm = ({
       value={data.city}
       onChange={onChange}
       error={errors.city}
+      required
     />
     <SelectGroup
       labelTitle="Province"
@@ -1544,6 +2342,7 @@ const RecipientForm = ({
       value={data.province}
       onChange={onChange}
       options={provinceOptions}
+      required
     />
     <InputGroup
       labelTitle="Postal Code"
@@ -1553,6 +2352,7 @@ const RecipientForm = ({
       value={data.postalCode}
       onChange={onChange}
       error={errors.postalCode}
+      required
     />
     <div className="w-full px-3">
       <label className="mb-2.5 block text-base font-medium text-dark dark:text-white">
@@ -1573,6 +2373,7 @@ const RecipientForm = ({
       name="cardMessage"
       value={data.cardMessage}
       onChange={onChange}
+      maxLength={250}
     />
     <TextAreaGroup
       labelTitle="Delivery Instructions"
@@ -1580,6 +2381,7 @@ const RecipientForm = ({
       name="deliveryInstructions"
       value={data.deliveryInstructions}
       onChange={onChange}
+      maxLength={200}
     >
       <div className="mt-3 flex flex-wrap gap-2">
         {instructionPresets.map((preset) => (
@@ -1604,6 +2406,14 @@ RecipientForm.propTypes = {
   onDateChange: PropTypes.func.isRequired,
   errors: PropTypes.object.isRequired,
   onPresetSelect: PropTypes.func.isRequired,
+  savedRecipientOptions: PropTypes.array.isRequired,
+  savedRecipientsLoading: PropTypes.bool.isRequired,
+  savedRecipientsError: PropTypes.string,
+  selectedSavedRecipientOption: PropTypes.string.isRequired,
+  onSavedRecipientChange: PropTypes.func.isRequired,
+  isNewRecipient: PropTypes.bool.isRequired,
+  onAddressSelect: PropTypes.func.isRequired,
+  recipientModifiedAfterAutofill: PropTypes.bool.isRequired,
 };
 
 const CustomerForm = ({ data, onChange, errors }) => (
@@ -1616,6 +2426,7 @@ const CustomerForm = ({ data, onChange, errors }) => (
       value={data.firstName}
       onChange={onChange}
       error={errors.firstName}
+      required
     />
     <InputGroup
       labelTitle="Last Name"
@@ -1625,6 +2436,7 @@ const CustomerForm = ({ data, onChange, errors }) => (
       value={data.lastName}
       onChange={onChange}
       error={errors.lastName}
+      required
     />
     <InputGroup
       labelTitle="Email"
@@ -1634,6 +2446,7 @@ const CustomerForm = ({ data, onChange, errors }) => (
       value={data.email}
       onChange={onChange}
       error={errors.email}
+      required
     />
     <InputGroup
       labelTitle="Phone"
@@ -1643,6 +2456,7 @@ const CustomerForm = ({ data, onChange, errors }) => (
       value={data.phone}
       onChange={onChange}
       error={errors.phone}
+      required
     />
     <CheckboxGroup
       labelTitle="Save my information for future orders"
@@ -1817,12 +2631,14 @@ const InputGroup = ({
   value,
   onChange,
   error,
+  required = false,
 }) => (
   <div className={`${fullColumn ? "w-full px-3" : "w-full px-3 md:w-1/2"}`}>
     <div className="mb-6">
       {labelTitle && (
         <label className="mb-2.5 block text-base font-medium text-dark dark:text-white">
           {labelTitle}
+          {required && <span className="text-red-500 ml-0.5">*</span>}
         </label>
       )}
       <input
@@ -1851,11 +2667,12 @@ InputGroup.propTypes = {
   error: PropTypes.string,
 };
 
-const SelectGroup = ({ fullColumn, labelTitle, name, value, onChange, options }) => (
+const SelectGroup = ({ fullColumn, labelTitle, name, value, onChange, options, required = false }) => (
   <div className={`${fullColumn ? "w-full px-3" : "w-full px-3 md:w-1/2"}`}>
     <div className="mb-6">
       <label className="mb-2.5 block text-base font-medium text-dark dark:text-white">
         {labelTitle}
+        {required && <span className="text-red-500 ml-0.5">*</span>}
       </label>
       <div className="relative">
         <select
@@ -1892,26 +2709,37 @@ const TextAreaGroup = ({
   value,
   onChange,
   children,
-}) => (
-  <div className="w-full px-3">
-    <div className="mb-6">
-      {labelTitle && (
-        <label className="mb-2.5 block text-base font-medium text-dark dark:text-white">
-          {labelTitle}
-        </label>
-      )}
-      <textarea
-        placeholder={placeholder}
-        name={name}
-        value={value}
-        onChange={onChange}
-        rows="4"
-        className="w-full rounded-md border border-stroke bg-transparent p-5 font-medium text-body-color outline-hidden transition focus:border-primary active:border-primary disabled:cursor-default disabled:bg-[#F5F7FD] dark:border-dark-3 dark:text-dark-6"
-      ></textarea>
-      {children}
+  maxLength,
+}) => {
+  const remaining = maxLength ? maxLength - value.length : null;
+
+  return (
+    <div className="w-full px-3">
+      <div className="mb-6">
+        {labelTitle && (
+          <label className="mb-2.5 block text-base font-medium text-dark dark:text-white">
+            {labelTitle}
+          </label>
+        )}
+        <textarea
+          placeholder={placeholder}
+          name={name}
+          value={value}
+          onChange={onChange}
+          maxLength={maxLength}
+          rows="4"
+          className="w-full rounded-md border border-stroke bg-transparent p-5 font-medium text-body-color outline-hidden transition focus:border-primary active:border-primary disabled:cursor-default disabled:bg-[#F5F7FD] dark:border-dark-3 dark:text-dark-6"
+        ></textarea>
+        {maxLength && (
+          <p className="mt-2 text-right text-sm text-body-color dark:text-dark-6">
+            {remaining}/{maxLength}
+          </p>
+        )}
+        {children}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 TextAreaGroup.propTypes = {
   labelTitle: PropTypes.oneOfType([PropTypes.string, PropTypes.node]),
@@ -1920,6 +2748,7 @@ TextAreaGroup.propTypes = {
   value: PropTypes.string.isRequired,
   onChange: PropTypes.func.isRequired,
   children: PropTypes.node,
+  maxLength: PropTypes.number,
 };
 
 const CheckboxGroup = ({ labelTitle, name, checked, onChange }) => (

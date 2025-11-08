@@ -65,18 +65,21 @@ const normalizeAddOns = (groups) => {
   return normalized;
 };
 
-const AddOns = ({ productId, onSelectionChange }) => {
+const AddOns = ({ productId, onSelectionChange, onStateChange }) => {
   const [addons, setAddons] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selections, setSelections] = useState({});
+  const [activeAddonId, setActiveAddonId] = useState(null);
 
   useEffect(() => {
     let active = true;
     setAddons([]);
     setSelections({});
+    setActiveAddonId(null);
 
     if (!productId) {
+      setLoading(false);
       return () => {
         active = false;
       };
@@ -149,6 +152,47 @@ const AddOns = ({ productId, onSelectionChange }) => {
     onSelectionChange(selected);
   }, [selections, addonsById, onSelectionChange]);
 
+  useEffect(() => {
+    if (typeof onStateChange !== "function") {
+      return;
+    }
+
+    onStateChange({
+      loading,
+      error,
+      count: addons.length,
+    });
+  }, [loading, error, addons, onStateChange]);
+
+  useEffect(() => {
+    if (!activeAddonId) {
+      return;
+    }
+
+    if (!addonsById.has(activeAddonId)) {
+      setActiveAddonId(null);
+    }
+  }, [activeAddonId, addonsById]);
+
+  useEffect(() => {
+    if (!activeAddonId) {
+      return;
+    }
+
+    const handleEscape = (event) => {
+      if (event.key === "Escape") {
+        setActiveAddonId(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => {
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [activeAddonId]);
+
+  const activeAddon = activeAddonId ? addonsById.get(activeAddonId) ?? null : null;
+
   const toggleAddon = (addon) => {
     setSelections((prev) => {
       const current = prev[addon.id];
@@ -164,6 +208,30 @@ const AddOns = ({ productId, onSelectionChange }) => {
     });
   };
 
+  const resolveAddonState = (addon) => {
+    const selection = selections[addon.id];
+    const isSelected = selection?.selected ?? false;
+    const selectedVariantId =
+      selection?.variantId ??
+      addon.defaultVariantId ??
+      addon.variants[0]?.id ??
+      null;
+    const selectedVariant =
+      addon.variants.find((variant) => variant.id === selectedVariantId) ??
+      addon.variants[0] ??
+      null;
+    const displayPrice = Number.isFinite(selectedVariant?.calculatedPrice)
+      ? selectedVariant.calculatedPrice
+      : addon.basePrice;
+
+    return {
+      isSelected,
+      selectedVariantId,
+      selectedVariant,
+      displayPrice,
+    };
+  };
+
   const handleVariantChange = (addon, variantId) => {
     setSelections((prev) => ({
       ...prev,
@@ -174,9 +242,7 @@ const AddOns = ({ productId, onSelectionChange }) => {
     }));
   };
 
-  if (loading || addons.length === 0) {
-    return null;
-  }
+  const activeState = activeAddon ? resolveAddonState(activeAddon) : null;
 
   if (error) {
     return (
@@ -186,83 +252,137 @@ const AddOns = ({ productId, onSelectionChange }) => {
     );
   }
 
-  return (
-    <div className="space-y-4">
-      {addons.map((addon) => {
-        const selection = selections[addon.id];
-        const isSelected = selection?.selected ?? false;
-        const selectedVariantId = selection?.variantId ?? addon.defaultVariantId ?? addon.variants[0]?.id ?? null;
-        const selectedVariant = addon.variants.find((variant) => variant.id === selectedVariantId) ?? addon.variants[0] ?? null;
-        const displayPrice = Number.isFinite(selectedVariant?.calculatedPrice)
-          ? selectedVariant.calculatedPrice
-          : addon.basePrice;
-        const imageSrc = addon.image || placeholderImage;
+  if (loading || addons.length === 0) {
+    return null;
+  }
 
-        return (
-          <div
-            key={addon.id}
-            className="flex items-center gap-4 rounded-lg border border-stroke p-4 dark:border-dark-3"
+  return (
+    <div className="relative">
+      {activeAddon && activeState ? (
+        <div className="relative space-y-3 rounded-2xl border border-stroke bg-white p-4 pt-5 shadow-sm dark:border-dark-3 dark:bg-dark-2">
+          <button
+            type="button"
+            onClick={() => setActiveAddonId(null)}
+            className="absolute right-3 top-3 rounded-full p-1 text-body-color transition hover:text-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary dark:text-dark-6 dark:hover:text-white"
+            aria-label="Close add-on details"
           >
-            <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100 dark:bg-dark-3">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 20 20"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M15.3125 5.9375C15.6563 5.59375 15.6563 5.03125 15.3125 4.6875C14.9688 4.34375 14.4063 4.34375 14.0625 4.6875L10 8.75L5.9375 4.6875C5.59375 4.34375 5.03125 4.34375 4.6875 4.6875C4.34375 5.03125 4.34375 5.59375 4.6875 5.9375L8.75 10L4.6875 14.0625C4.34375 14.4062 4.34375 14.9687 4.6875 15.3125C5.03125 15.6562 5.59375 15.6562 5.9375 15.3125L10 11.25L14.0625 15.3125C14.4063 15.6562 14.9688 15.6562 15.3125 15.3125C15.6563 14.9687 15.6563 14.4062 15.3125 14.0625L11.25 10L15.3125 5.9375Z"
+                fill="currentColor"
+              />
+            </svg>
+          </button>
+
+          <div className="flex items-start gap-3">
+            <div className="relative h-[100px] w-[100px] flex-shrink-0 overflow-hidden rounded-2xl bg-gray-100 dark:bg-dark-3">
               <img
-                src={imageSrc}
-                alt={addon.name}
+                src={activeAddon.image || placeholderImage}
+                alt={activeAddon.name}
                 className="h-full w-full object-cover"
               />
             </div>
-
             <div className="flex-1">
-              <h4 className="mb-1 text-sm font-medium text-dark dark:text-white">
-                {addon.name}
+              <h4 className="text-base font-semibold text-dark dark:text-white">
+                {activeAddon.name}
               </h4>
-              <p className="mb-2 text-xs text-body-color dark:text-dark-6">
-                ${displayPrice.toFixed(2)}
+              <p className="mt-1 text-sm font-medium text-body-color dark:text-dark-6">
+                ${activeState.displayPrice.toFixed(2)}
               </p>
 
-              {addon.variants.length > 1 && (
-                <div className="relative">
-                  <select
-                    value={selectedVariantId || ''}
-                    onChange={(event) => handleVariantChange(addon, event.target.value)}
-                    className="w-full appearance-none rounded-lg border border-stroke bg-white px-4 py-2 pr-10 text-sm text-dark outline-hidden transition focus:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white"
-                  >
-                    {addon.variants.map((variant) => (
-                      <option key={variant.id} value={variant.id}>
-                        {variant.name || 'Option'} (${(variant.calculatedPrice ?? addon.basePrice).toFixed(2)})
-                      </option>
-                    ))}
-                  </select>
-                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 16 16"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="text-body-color dark:text-dark-6"
+              {activeAddon.variants.length > 1 && (
+                <div className="mt-2.5">
+                  <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-body-color dark:text-dark-6">
+                    Choose an option
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={activeState.selectedVariantId || ""}
+                      onChange={(event) => handleVariantChange(activeAddon, event.target.value)}
+                      className="w-full appearance-none rounded-xl border border-stroke bg-white px-3 py-2 pr-10 text-sm text-dark outline-hidden transition focus:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white"
                     >
-                      <path
-                        d="M8 10.5C7.85 10.5 7.725 10.45 7.6 10.375L3.15 5.925C2.975 5.75 2.975 5.45 3.15 5.275C3.325 5.1 3.625 5.1 3.8 5.275L8 9.475L12.2 5.275C12.375 5.1 12.675 5.1 12.85 5.275C13.025 5.45 13.025 5.75 12.85 5.925L8.4 10.375C8.275 10.45 8.15 10.5 8 10.5Z"
-                        fill="currentColor"
-                      />
-                    </svg>
-                  </span>
+                      {activeAddon.variants.map((variant) => (
+                        <option key={variant.id} value={variant.id}>
+                          {variant.name || "Option"} (
+                          {(Number.isFinite(variant.calculatedPrice) ? variant.calculatedPrice : activeAddon.basePrice).toFixed(2)})
+                        </option>
+                      ))}
+                    </select>
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="text-body-color dark:text-dark-6"
+                      >
+                        <path
+                          d="M8 10.5C7.85 10.5 7.725 10.45 7.6 10.375L3.15 5.925C2.975 5.75 2.975 5.45 3.15 5.275C3.325 5.1 3.625 5.1 3.8 5.275L8 9.475L12.2 5.275C12.375 5.1 12.675 5.1 12.85 5.275C13.025 5.45 13.025 5.75 12.85 5.925L8.4 10.375C8.275 10.45 8.15 10.5 8 10.5Z"
+                          fill="currentColor"
+                        />
+                      </svg>
+                    </span>
+                  </div>
                 </div>
               )}
             </div>
+          </div>
 
+          <div className="flex items-center justify-between rounded-xl bg-gray-50 p-3 dark:bg-dark-3/50">
+            <div>
+              <p className="text-sm font-medium text-dark dark:text-white">
+                Add this to my order
+              </p>
+              <p className="text-xs text-body-color dark:text-dark-6">
+                Toggle to include {activeAddon.name}.
+              </p>
+            </div>
             <label className="relative inline-flex cursor-pointer items-center">
               <input
                 type="checkbox"
-                checked={isSelected}
-                onChange={() => toggleAddon(addon)}
+                checked={activeState.isSelected}
+                onChange={() => toggleAddon(activeAddon)}
                 className="peer sr-only"
               />
-              <div className="peer h-6 w-11 rounded-full bg-stroke after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-primary peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none dark:bg-dark-3 dark:after:border-gray-600"></div>
+              <div className="peer h-7 w-12 rounded-full bg-stroke after:absolute after:left-[3px] after:top-[3px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-primary peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none dark:bg-dark-3 dark:after:border-gray-600"></div>
             </label>
           </div>
-        );
-      })}
+        </div>
+      ) : (
+        <div className="grid grid-cols-3 gap-3">
+          {addons.map((addon) => {
+            const { isSelected } = resolveAddonState(addon);
+            const imageSrc = addon.image || placeholderImage;
+
+            return (
+              <button
+                type="button"
+                key={addon.id}
+                onClick={() => setActiveAddonId(addon.id)}
+                className="group relative aspect-square overflow-hidden rounded-2xl bg-gray-100 transition duration-300 hover:scale-[1.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary dark:bg-dark-3"
+              >
+                <img
+                  src={imageSrc}
+                  alt={addon.name}
+                  className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                />
+                {isSelected && (
+                  <span className="absolute right-2 top-2 inline-flex items-center rounded-full bg-primary px-2 py-1 text-[11px] font-semibold text-white">
+                    Added
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
@@ -270,6 +390,7 @@ const AddOns = ({ productId, onSelectionChange }) => {
 AddOns.propTypes = {
   productId: PropTypes.string,
   onSelectionChange: PropTypes.func,
+  onStateChange: PropTypes.func,
 };
 
 export default AddOns;

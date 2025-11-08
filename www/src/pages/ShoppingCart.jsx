@@ -24,21 +24,11 @@ const ShoppingCart = () => {
     getDiscountAmount,
     hasFreeShipping,
   } = useCart();
-  const [expandedItemId, setExpandedItemId] = useState(null);
   const [couponInput, setCouponInput] = useState(coupon?.code || "");
   const [couponMessage, setCouponMessage] = useState("");
   const [couponError, setCouponError] = useState("");
   const [submittingCoupon, setSubmittingCoupon] = useState(false);
-
-  useEffect(() => {
-    if (cart.length && !expandedItemId) {
-      const firstKey = buildItemKey(cart[0]);
-      setExpandedItemId(firstKey);
-    }
-    if (!cart.length) {
-      setExpandedItemId(null);
-    }
-  }, [cart, expandedItemId]);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     setCouponInput(coupon?.code || "");
@@ -49,6 +39,15 @@ const ShoppingCart = () => {
       setCouponMessage("");
     }
   }, [coupon]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const subtotal = useMemo(() => getCartTotal(), [cart, getCartTotal]);
   const discountAmount = getDiscountAmount();
@@ -77,7 +76,6 @@ const ShoppingCart = () => {
   };
 
   const handleQuantityChange = (item, quantity) => {
-    setExpandedItemId(buildItemKey(item));
     updateQuantity(item.id, item.variantId, Number(quantity));
   };
 
@@ -122,9 +120,9 @@ const ShoppingCart = () => {
     <>
       <Breadcrumb pageName="Shopping Cart" />
 
-      <section className="bg-white py-20 dark:bg-dark lg:py-[120px]">
+      <section className="bg-white py-3 dark:bg-dark lg:py-[120px]">
         <div className="container mx-auto">
-          <div className="mb-12 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[4px] text-primary">
                 Bloom Checkout
@@ -147,17 +145,20 @@ const ShoppingCart = () => {
                 <div className="space-y-6">
                   {cart.map((item) => {
                     const itemKey = buildItemKey(item);
-                    return (
-                      <CartAccordionItem
+                    return isMobile ? (
+                      <CartItemRow
                         key={itemKey}
                         item={item}
                         deliveryDate={formatDate(item.deliveryDate || deliveryDate)}
-                        isExpanded={expandedItemId === itemKey}
-                        onToggle={() =>
-                          setExpandedItemId(
-                            expandedItemId === itemKey ? null : itemKey,
-                          )
-                        }
+                        onQuantityChange={(qty) => handleQuantityChange(item, qty)}
+                        onRemove={() => handleRemove(item)}
+                        formatCurrency={formatCurrency}
+                      />
+                    ) : (
+                      <CartCardDesktop
+                        key={itemKey}
+                        item={item}
+                        deliveryDate={formatDate(item.deliveryDate || deliveryDate)}
                         onQuantityChange={(qty) => handleQuantityChange(item, qty)}
                         onRemove={() => handleRemove(item)}
                         formatCurrency={formatCurrency}
@@ -167,11 +168,11 @@ const ShoppingCart = () => {
                 </div>
               </div>
 
-              <div className="w-full px-4 lg:w-4/12">
-                <div className="2xl:pl-8">
-                  <aside className="mb-8 rounded-[20px] border border-stroke bg-white p-6 shadow-xl dark:border-dark-3 dark:bg-dark-2">
-                    <h3 className="text-dark mb-4 text-lg font-semibold dark:text-white">
-                      Delivery Date
+              <div className="w-full px-4 py-3 lg:w-4/12">
+                <div className="2xl:pl-8 space-y-4">
+                  <aside className="border-b border-stroke pb-1 dark:border-dark-3">
+                    <h3 className="text-dark mb-3 text-lg font-semibold dark:text-white">
+                      Delivery date
                     </h3>
                     <DeliveryDatePicker
                       selectedDate={deliveryDate}
@@ -180,9 +181,9 @@ const ShoppingCart = () => {
                     />
                   </aside>
 
-                  <aside className="mb-8 rounded-[20px] border border-stroke bg-white p-6 shadow-xl dark:border-dark-3 dark:bg-dark-2">
-                    <h3 className="text-dark mb-5 text-xl font-bold dark:text-white">
-                      Apply Coupon to get discount!
+                  <aside className="border-b border-stroke pb-6 dark:border-dark-3">
+                    <h3 className="text-dark mb-4 text-lg font-semibold dark:text-white">
+                      Enter promo code
                     </h3>
                     <form
                       className="flex flex-col gap-3 sm:flex-row"
@@ -192,13 +193,13 @@ const ShoppingCart = () => {
                         type="text"
                         value={couponInput}
                         onChange={(event) => setCouponInput(event.target.value)}
-                        className="border-form-stroke text-body-color focus:border-primary h-12 flex-1 rounded-lg border bg-white px-5 text-base font-medium outline-hidden focus-visible:shadow-none dark:border-dark-3 dark:bg-dark-2 dark:text-dark-6 disabled:cursor-not-allowed"
-                        placeholder="Coupon code"
+                        className="border border-stroke bg-transparent px-4 py-3 text-sm font-medium text-dark outline-hidden transition focus:border-primary dark:border-dark-3 dark:text-white disabled:cursor-not-allowed"
+                        placeholder="Enter promo code"
                         disabled={submittingCoupon}
                       />
                       <button
                         type="submit"
-                        className="bg-primary h-12 rounded-lg px-5 text-base font-medium text-white transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="bg-primary h-12 rounded-full px-6 text-sm font-semibold uppercase tracking-wide text-white transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
                         disabled={submittingCoupon || !couponInput.trim()}
                       >
                         {coupon ? "Reapply" : "Apply"}
@@ -285,133 +286,94 @@ const ShoppingCart = () => {
   );
 };
 
-const CartAccordionItem = ({
+const CartItemRow = ({
   item,
   deliveryDate,
-  isExpanded,
-  onToggle,
   onQuantityChange,
   onRemove,
   formatCurrency,
 }) => {
-  const quantityOptions = Array.from({ length: MAX_QTY }, (_, index) => index + 1);
   const itemTotal = formatCurrency(item.price * item.quantity);
 
   return (
-    <div className="rounded-[20px] border border-stroke bg-white shadow-xl transition dark:border-dark-3 dark:bg-dark-2">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-center justify-between gap-4 px-6 py-4"
-      >
-        <div className="text-left">
-          <p className="text-dark text-lg font-semibold dark:text-white">{item.name}</p>
-          <p className="text-body-color text-sm dark:text-dark-6">
-            {item.variantName ? `${item.variantName} • ` : ""}
-            {deliveryDate}
-          </p>
-        </div>
-        <div className="flex items-center gap-4">
-          <p className="text-dark text-base font-semibold dark:text-white">{itemTotal}</p>
-          <span
-            className={`text-body-color transition-transform ${isExpanded ? "rotate-180" : ""}`}
-          >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 18 18"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M4.5 7.5L9 12L13.5 7.5"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </span>
-        </div>
-      </button>
-
-      <div
-        className={`transition-all duration-300 ${
-          isExpanded ? "max-h-[520px] opacity-100" : "max-h-0 opacity-0"
-        } overflow-hidden`}
-      >
-        <div className="px-6 pb-6">
-          <div className="flex flex-col gap-6 md:flex-row">
-            <div className="shrink-0">
-              {item.image ? (
-                <img
-                  src={item.image}
-                  alt={item.name}
-                  className="h-32 w-32 rounded-xl object-cover"
-                />
-              ) : (
-                <div className="bg-gray-100 text-body-color flex h-32 w-32 items-center justify-center rounded-xl text-sm">
-                  No image
-                </div>
-              )}
+    <div className="border-b border-gray-200 pb-5 dark:border-dark-3">
+      <div className="flex gap-4">
+        <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-2xl bg-gray-100 dark:bg-dark-3">
+          {item.image ? (
+            <img
+              src={item.image}
+              alt={item.name}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-xs text-body-color">
+              No image
             </div>
-
-            <div className="flex-1 space-y-5">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-wide text-body-color dark:text-dark-6">
-                  Delivery date
-                </p>
-                <p className="text-dark text-base font-semibold dark:text-white">
-                  {deliveryDate}
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-5">
-                <div>
-                  <label className="text-sm font-medium text-body-color dark:text-dark-6">
-                    Quantity
-                  </label>
-                  <div className="relative mt-2 inline-block">
-                    <select
-                      className="border-form-stroke text-body-color focus:border-primary active:border-primary w-32 appearance-none rounded-lg border py-2 pl-4 pr-8 text-sm font-semibold outline-hidden transition dark:border-dark-3 dark:text-dark-6"
-                      value={item.quantity}
-                      onChange={(event) => onQuantityChange(event.target.value)}
-                    >
-                      {quantityOptions.map((qty) => (
-                        <option key={qty} value={qty}>
-                          {qty}
-                        </option>
-                      ))}
-                    </select>
-                    <span className="border-body-color pointer-events-none absolute right-3 top-1/2 mt-[-2px] h-2 w-2 -translate-y-1/2 rotate-45 border-b-[1.5px] border-r-[1.5px]" />
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-sm font-medium text-body-color dark:text-dark-6">
-                    Each
-                  </p>
-                  <p className="text-dark mt-2 text-xl font-semibold dark:text-white">
-                    {formatCurrency(item.price)}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-3">
-                <Link
-                  to={`/product-details?id=${item.id}`}
-                  className="border-body-color text-body-color hover:border-primary hover:bg-primary inline-flex items-center justify-center rounded-lg border px-4 py-2 text-sm font-medium transition hover:text-white dark:border-dark-3 dark:text-dark-6"
-                >
-                  Edit item
-                </Link>
+          )}
+        </div>
+        <div className="flex-1 space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-base font-semibold text-dark dark:text-white">{item.name}</p>
+              {item.variantName && (
+                <p className="text-sm text-body-color dark:text-dark-6">{item.variantName}</p>
+              )}
+              <p className="text-sm text-body-color dark:text-dark-6">{deliveryDate}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-base font-semibold text-[#b12704] dark:text-[#f87171]">
+                {itemTotal}
+              </p>
+              <p className="text-xs text-body-color dark:text-dark-6">
+                Each: {formatCurrency(item.price)}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-4">
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-body-color dark:text-dark-6">
+                Qty
+              </label>
+              <div className="relative mt-1 inline-flex items-center rounded-full border border-stroke px-3 py-1 dark:border-dark-3">
                 <button
                   type="button"
-                  onClick={onRemove}
-                  className="border-body-color text-body-color hover:border-danger hover:bg-danger inline-flex items-center justify-center rounded-lg border px-4 py-2 text-sm font-medium transition hover:text-white dark:border-dark-3 dark:text-dark-6"
+                  onClick={() =>
+                    onQuantityChange(Math.max(1, item.quantity - 1))
+                  }
+                  className="px-2 text-lg leading-none text-dark transition hover:text-primary dark:text-white"
+                  aria-label="Decrease quantity"
                 >
-                  Remove
+                  −
+                </button>
+                <span className="w-8 text-center text-sm font-semibold text-dark dark:text-white">
+                  {item.quantity}
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    onQuantityChange(Math.min(MAX_QTY, item.quantity + 1))
+                  }
+                  className="px-2 text-lg leading-none text-dark transition hover:text-primary dark:text-white"
+                  aria-label="Increase quantity"
+                >
+                  +
                 </button>
               </div>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Link
+                to={`/product-details?id=${item.id}`}
+                className="text-sm font-semibold text-primary transition hover:text-primary-dark"
+              >
+                Edit
+              </Link>
+              <button
+                type="button"
+                onClick={onRemove}
+                className="text-sm font-semibold text-body-color transition hover:text-danger dark:text-dark-6"
+              >
+                Remove
+              </button>
             </div>
           </div>
         </div>
@@ -420,11 +382,104 @@ const CartAccordionItem = ({
   );
 };
 
-CartAccordionItem.propTypes = {
+CartItemRow.propTypes = {
   item: PropTypes.object.isRequired,
   deliveryDate: PropTypes.string.isRequired,
-  isExpanded: PropTypes.bool.isRequired,
-  onToggle: PropTypes.func.isRequired,
+  onQuantityChange: PropTypes.func.isRequired,
+  onRemove: PropTypes.func.isRequired,
+  formatCurrency: PropTypes.func.isRequired,
+};
+
+const CartCardDesktop = ({
+  item,
+  deliveryDate,
+  onQuantityChange,
+  onRemove,
+  formatCurrency,
+}) => {
+  const quantityOptions = Array.from({ length: MAX_QTY }, (_, index) => index + 1);
+  const itemTotal = formatCurrency(item.price * item.quantity);
+
+  return (
+    <div className="rounded-[20px] border border-stroke bg-white p-6 shadow-xl transition dark:border-dark-3 dark:bg-dark-2">
+      <div className="flex flex-col gap-6 md:flex-row md:items-start md:gap-8">
+        <div className="h-32 w-32 flex-shrink-0 overflow-hidden rounded-xl bg-gray-100 dark:bg-dark-3">
+          {item.image ? (
+            <img
+              src={item.image}
+              alt={item.name}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-xs text-body-color">
+              No image
+            </div>
+          )}
+        </div>
+
+        <div className="flex-1 space-y-5">
+          <div className="flex items-start justify-between gap-6">
+            <div>
+              <p className="text-lg font-semibold text-dark dark:text-white">{item.name}</p>
+              {item.variantName && (
+                <p className="text-sm text-body-color dark:text-dark-6">{item.variantName}</p>
+              )}
+              <p className="text-sm text-body-color dark:text-dark-6">{deliveryDate}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-lg font-semibold text-dark dark:text-white">{itemTotal}</p>
+              <p className="text-xs text-body-color dark:text-dark-6">
+                Each: {formatCurrency(item.price)}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-5">
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-body-color dark:text-dark-6">
+                Quantity
+              </label>
+              <div className="relative mt-2 inline-block">
+                <select
+                  className="border-form-stroke text-body-color focus:border-primary w-32 appearance-none rounded-lg border py-2 pl-4 pr-8 text-sm font-semibold outline-hidden transition dark:border-dark-3 dark:text-dark-6"
+                  value={item.quantity}
+                  onChange={(event) => onQuantityChange(event.target.value)}
+                >
+                  {quantityOptions.map((qty) => (
+                    <option key={qty} value={qty}>
+                      {qty}
+                    </option>
+                  ))}
+                </select>
+                <span className="border-body-color pointer-events-none absolute right-3 top-1/2 mt-[-2px] h-2 w-2 -translate-y-1/2 rotate-45 border-b-[1.5px] border-r-[1.5px]" />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <Link
+              to={`/product-details?id=${item.id}`}
+              className="border-body-color text-body-color hover:border-primary hover:bg-primary inline-flex items-center justify-center rounded-lg border px-4 py-2 text-sm font-medium transition hover:text-white dark:border-dark-3 dark:text-dark-6"
+            >
+              Edit item
+            </Link>
+            <button
+              type="button"
+              onClick={onRemove}
+              className="border-body-color text-body-color hover:border-danger hover:bg-danger inline-flex items-center justify-center rounded-lg border px-4 py-2 text-sm font-medium transition hover:text-white dark:border-dark-3 dark:text-dark-6"
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+CartCardDesktop.propTypes = {
+  item: PropTypes.object.isRequired,
+  deliveryDate: PropTypes.string.isRequired,
   onQuantityChange: PropTypes.func.isRequired,
   onRemove: PropTypes.func.isRequired,
   formatCurrency: PropTypes.func.isRequired,

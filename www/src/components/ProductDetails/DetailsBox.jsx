@@ -5,6 +5,10 @@ import { useCart } from "../../contexts/CartContext";
 import DeliveryDatePicker from "../DeliveryDatePicker";
 import AddOns from "./AddOns";
 
+const buildCartItemKey = (productId, variantId) => (
+  `${productId}-${variantId || "base"}`
+);
+
 const DetailsBox = ({ product }) => {
   const [quantity, setQuantity] = useState(1);
   const [selectedPricingTierId, setSelectedPricingTierId] = useState(null);
@@ -12,6 +16,15 @@ const DetailsBox = ({ product }) => {
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [selectedAddOnSelections, setSelectedAddOnSelections] = useState([]);
   const [isUpsellExpanded, setIsUpsellExpanded] = useState(false);
+  const [isMobileUpsellOpen, setIsMobileUpsellOpen] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [addonState, setAddonState] = useState({
+    loading: true,
+    count: 0,
+    error: null,
+  });
+  const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
+  const [confirmationItems, setConfirmationItems] = useState([]);
   const { addToCart, deliveryDate, setDeliveryDate } = useCart();
   const navigate = useNavigate();
 
@@ -20,7 +33,34 @@ const DetailsBox = ({ product }) => {
     setSelectedPricingTierId(null);
     setSelectedCustomization({});
     setSelectedAddOnSelections([]);
+    setIsMobileUpsellOpen(false);
   }, [product?.id]);
+
+  useEffect(() => {
+    const updateViewport = () => {
+      setIsMobileViewport(window.innerWidth < 768);
+    };
+
+    updateViewport();
+    window.addEventListener("resize", updateViewport);
+
+    return () => {
+      window.removeEventListener("resize", updateViewport);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isMobileUpsellOpen) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isMobileUpsellOpen]);
 
   const rawPricingOptions = product?.optionStructure?.pricingOptions ?? [];
   const rawCustomizationOptions = product?.optionStructure?.customizationOptions ?? [];
@@ -165,31 +205,94 @@ const DetailsBox = ({ product }) => {
     }
   };
 
+  const performAddToCart = (addonSelections) => {
+    const addedItems = [];
+
+    const variantPrice = selectedVariant
+      ? computeVariantPrice(selectedVariant)
+      : calculateDisplayPrice();
+
+    for (let i = 0; i < quantity; i++) {
+      addToCart(product, selectedVariant ? selectedVariant.id : null);
+    }
+
+    const baseImage = Array.isArray(product.images)
+      ? product.images[0]?.url || product.images[0]
+      : product.thumbnail || null;
+    addedItems.push({
+      key: buildCartItemKey(product.id, selectedVariant ? selectedVariant.id : null),
+      name: product.name,
+      variantName: selectedVariant?.name || null,
+      price: variantPrice,
+      quantity,
+      image: baseImage,
+    });
+
+    const selectionsToApply = Array.isArray(addonSelections) ? addonSelections : [];
+
+    if (selectionsToApply.length > 0) {
+      selectionsToApply.forEach(({ product: addOnProduct, variantId }) => {
+        for (let i = 0; i < quantity; i++) {
+          addToCart(addOnProduct, variantId ?? null);
+        }
+        let variantName = null;
+        if (variantId && Array.isArray(addOnProduct.variants)) {
+          variantName =
+            addOnProduct.variants.find((variant) => variant.id === variantId)?.name ??
+            null;
+        }
+
+        const addOnImage = Array.isArray(addOnProduct.images)
+          ? addOnProduct.images[0]?.url || addOnProduct.images[0]
+          : addOnProduct.thumbnail || null;
+
+        addedItems.push({
+          key: buildCartItemKey(addOnProduct.id, variantId ?? null),
+          name: addOnProduct.name,
+          variantName,
+          price: Number(addOnProduct.price) || 0,
+          quantity,
+          image: addOnImage,
+        });
+      });
+    }
+
+    setQuantity(1);
+    return addedItems;
+  };
+
   const handleAddToCart = () => {
     if (!deliveryDate) {
       alert('Please select a delivery date');
       return;
     }
 
-    for (let i = 0; i < quantity; i++) {
-      addToCart(product, selectedVariant ? selectedVariant.id : null);
+    if (isMobileViewport) {
+      if (addonState.loading || addonState.count > 0) {
+        setIsMobileUpsellOpen(true);
+        return;
+      }
     }
 
-    if (selectedAddOnSelections.length > 0) {
-      selectedAddOnSelections.forEach(({ product: addOnProduct, variantId }) => {
-        for (let i = 0; i < quantity; i++) {
-          addToCart(addOnProduct, variantId ?? null);
-        }
-      });
-    }
-
-    setQuantity(1);
-
-    // On mobile, redirect to cart page
-    if (window.innerWidth < 768) {
-      navigate('/shopping-cart');
-    }
+    finalizeAddToCart(selectedAddOnSelections);
   };
+
+  const finalizeAddToCart = (addonSelections) => {
+    const addedItems = performAddToCart(addonSelections);
+    setConfirmationItems(addedItems);
+    setIsConfirmationOpen(true);
+  };
+
+  useEffect(() => {
+    if (!isMobileUpsellOpen) {
+      return;
+    }
+
+    if (!addonState.loading && !addonState.error && addonState.count === 0) {
+      setIsMobileUpsellOpen(false);
+      finalizeAddToCart([]);
+    }
+  }, [addonState, isMobileUpsellOpen]);
 
   useEffect(() => {
     const initialPricingId =
@@ -388,7 +491,7 @@ const DetailsBox = ({ product }) => {
       )}
 
       {/* 9. Upsell/Add-On Items (Collapsible) */}
-      <div className="mb-6">
+      <div className="mb-6 hidden md:block">
         <button
           type="button"
           onClick={() => setIsUpsellExpanded(!isUpsellExpanded)}
@@ -417,6 +520,7 @@ const DetailsBox = ({ product }) => {
             <AddOns
               productId={product.id}
               onSelectionChange={setSelectedAddOnSelections}
+              onStateChange={setAddonState}
             />
           </div>
         )}
@@ -471,6 +575,169 @@ const DetailsBox = ({ product }) => {
         >
           Add to Cart
         </button>
+      </div>
+
+      {/* Mobile Upsell Bottom Sheet */}
+      <div
+        className={`fixed inset-0 z-50 flex items-end justify-center md:hidden transition-opacity ${
+          isMobileUpsellOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+        }`}
+        aria-hidden={!isMobileUpsellOpen}
+      >
+        <div
+          className={`absolute inset-0 bg-black/60 transition-opacity duration-300 ${
+            isMobileUpsellOpen ? "opacity-100" : "opacity-0"
+          }`}
+          onClick={() => {
+            setIsMobileUpsellOpen(false);
+            finalizeAddToCart([]);
+          }}
+        />
+        <div
+          className={`relative w-full max-w-lg transform transition-transform duration-300 pb-safe ${
+            isMobileUpsellOpen ? "translate-y-0" : "translate-y-full"
+          }`}
+        >
+          <div className="rounded-t-3xl bg-white px-5 pt-4 pb-5 shadow-xl">
+            <div className="mb-2.5 flex justify-center">
+              <div className="h-1.5 w-12 rounded-full bg-gray-200" />
+            </div>
+
+            <header className="mb-3 text-center">
+              <h3 className="text-lg font-semibold text-dark">
+                Complete your gift
+              </h3>
+            </header>
+
+            <div className="max-h-80 overflow-y-auto pr-1">
+              <AddOns
+                productId={product.id}
+                onSelectionChange={setSelectedAddOnSelections}
+                onStateChange={setAddonState}
+              />
+              {addonState.loading && (
+                <div className="py-8 text-center text-sm text-body-color">
+                  Loading add-ons…
+                </div>
+              )}
+              {!addonState.loading && addonState.count === 0 && (
+                <div className="py-8 text-center text-sm text-body-color">
+                  No add-ons are available for this arrangement.
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setIsMobileUpsellOpen(false);
+                finalizeAddToCart(selectedAddOnSelections);
+              }}
+              className="mt-6 flex w-full items-center justify-center rounded-xl bg-primary py-3 text-base font-semibold text-white transition hover:bg-primary-dark"
+            >
+              {selectedAddOnSelections.length > 0 ? "Add to Cart" : "Skip add-ons"}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Added to Cart Confirmation Modal */}
+      <div
+        className={`fixed inset-0 z-50 ${isConfirmationOpen ? "pointer-events-auto" : "pointer-events-none"} flex items-center justify-center px-4 transition-opacity ${
+          isConfirmationOpen ? "opacity-100" : "opacity-0"
+        }`}
+        aria-hidden={!isConfirmationOpen}
+      >
+        <div
+          className="absolute inset-0 bg-black/50"
+          onClick={() => setIsConfirmationOpen(false)}
+        />
+        <div className="relative w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+          <button
+            type="button"
+            onClick={() => setIsConfirmationOpen(false)}
+            className="absolute right-4 top-4 text-body-color transition hover:text-dark"
+            aria-label="Close added to cart confirmation"
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path
+                d="M13.5 4.5L4.5 13.5"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+              <path
+                d="M4.5 4.5L13.5 13.5"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
+          <h3 className="text-dark mb-4 text-xl font-semibold dark:text-white">Added to your cart</h3>
+
+          <div className="space-y-3">
+            {confirmationItems.map((item) => (
+              <div key={item.key} className="flex items-center gap-3">
+                <div className="h-14 w-14 flex-shrink-0 overflow-hidden rounded-2xl bg-gray-100 dark:bg-dark-3">
+                  {item.image ? (
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-xs text-body-color">
+                      No image
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-dark dark:text-white">{item.name}</p>
+                  {item.variantName && (
+                    <p className="text-xs text-body-color dark:text-dark-6">{item.variantName}</p>
+                  )}
+                  <p className="text-xs text-body-color dark:text-dark-6">
+                    ${item.price.toFixed(2)} · Qty {item.quantity}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-6 space-y-3">
+            <button
+              type="button"
+              onClick={() => {
+                setIsConfirmationOpen(false);
+                navigate("/shopping-cart");
+              }}
+              className="w-full rounded-full bg-primary py-3 text-base font-semibold text-white transition hover:bg-primary-dark"
+            >
+              Go to cart
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsConfirmationOpen(false);
+                navigate("/checkout");
+              }}
+              className="w-full rounded-full border border-stroke py-3 text-base font-semibold text-dark transition hover:border-primary hover:text-primary dark:border-dark-3 dark:text-white"
+            >
+              Checkout now
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsConfirmationOpen(false);
+                navigate("/filters");
+              }}
+              className="w-full rounded-full py-3 text-base font-medium text-body-color transition hover:text-primary dark:text-dark-6"
+            >
+              Continue shopping
+            </button>
+          </div>
+        </div>
       </div>
     </>
   );

@@ -21,9 +21,14 @@ export async function createOrderDraft(customerId, order) {
   });
 }
 
+export async function getSavedRecipients(customerId) {
+  return api.get(`/customers/${customerId}/recipients`);
+}
+
 export default {
   createCustomer,
   createCustomerAddress,
   linkRecipientToCustomer,
   createOrderDraft,
+  getSavedRecipients,
 };

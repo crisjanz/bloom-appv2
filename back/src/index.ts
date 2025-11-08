@@ -109,9 +109,24 @@ const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS?.split(',')
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) {
       return callback(null, true);
     }
+
+    // Allow configured origins
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    // In development, allow local network IPs (192.168.x.x, 10.x.x.x, etc.)
+    if (process.env.NODE_ENV !== 'production') {
+      const localNetworkRegex = /^https?:\/\/(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+)(:\d+)?$/;
+      if (localNetworkRegex.test(origin)) {
+        return callback(null, true);
+      }
+    }
+
     console.warn(`❌ Blocked CORS origin: ${origin}`);
     return callback(new Error('Not allowed by CORS'));
   },
@@ -122,9 +137,24 @@ app.use(cors({
 
 app.options('*', cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
+    // Allow requests with no origin
+    if (!origin) {
       return callback(null, true);
     }
+
+    // Allow configured origins
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    // In development, allow local network IPs
+    if (process.env.NODE_ENV !== 'production') {
+      const localNetworkRegex = /^https?:\/\/(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+)(:\d+)?$/;
+      if (localNetworkRegex.test(origin)) {
+        return callback(null, true);
+      }
+    }
+
     console.warn(`❌ Blocked CORS origin (preflight): ${origin}`);
     return callback(new Error('Not allowed by CORS'));
   },

@@ -38,7 +38,7 @@ const ProductDetails = () => {
           pageName="Product Details"
           path={[{ label: "Shop", url: "/filters" }]}
         />
-        <section className="bg-tg-bg pt-10 pb-20 dark:bg-dark">
+        <section className="bg-white pt-10 pb-20 dark:bg-dark">
           <div className="container mx-auto text-center">
             <p className="text-body-color dark:text-dark-6">Loading product...</p>
           </div>
@@ -54,7 +54,7 @@ const ProductDetails = () => {
           pageName="Product Not Found"
           path={[{ label: "Shop", url: "/filters" }]}
         />
-        <section className="bg-tg-bg pt-10 pb-20 dark:bg-dark">
+        <section className="bg-white pt-10 pb-20 dark:bg-dark">
           <div className="container mx-auto text-center">
             <p className="text-body-color dark:text-dark-6">Product not found.</p>
           </div>
@@ -80,7 +80,7 @@ const ProductDetails = () => {
         path={breadcrumbPath}
       />
 
-      <section className="bg-tg-bg pt-10 dark:bg-dark lg:pb-[90px]">
+      <section className="bg-white pt-10 dark:bg-dark lg:pb-[90px]">
         <div className="container mx-auto">
           <div className="mx-auto max-w-6xl px-4">
             <div className="flex flex-col gap-8 lg:flex-row">

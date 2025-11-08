@@ -1,28 +1,10 @@
-import FooterTop from "./FooterTop.jsx";
-import logo from "../../assets/images/logo/logo.svg";
+import { useState } from "react";
+import logo from "../../assets/images/logo/logo.png";
 import logoWhite from "../../assets/images/logo/logo-white.svg";
 import paymentImage from "../../assets/ecom-images/footers/footer-04/payment.svg";
 import { Link } from "react-router-dom";
 
 const footerMenu = [
-  {
-    title: "My Account",
-    items: [
-      { text: "My Profile", link: "#" },
-      { text: "My Order History", link: "#" },
-      { text: "Order Tracking", link: "#" },
-      { text: "Shopping Cart", link: "#" },
-    ],
-  },
-  {
-    title: "Shop Departments",
-    items: [
-      { text: "Computers & Accessories", link: "#" },
-      { text: "Smartphones & Tablets", link: "#" },
-      { text: "TV, Video & Audio", link: "#" },
-      { text: "Cameras, Photo & Video", link: "#" },
-    ],
-  },
   {
     title: "Information",
     items: [
@@ -32,34 +14,88 @@ const footerMenu = [
       { text: "FAQ", link: "/faq" },
     ],
   },
+  {
+    title: "Shop by Occasion",
+    items: [
+      {
+        text: "Birthday Flowers",
+        link: "/filters?category=5a913ab3-d396-48b8-a007-4c71e5acd016",
+      },
+      {
+        text: "Sympathy Flowers",
+        link: "/filters?category=3278fd51-9017-4118-848c-5ed927f215b9",
+      },
+      {
+        text: "Get Well",
+        link: `/filters?category=${encodeURIComponent("Get Well")}`,
+      },
+      {
+        text: "Congratulations",
+        link: "/filters?category=af2c5e8d-4dc0-43d3-a5f9-d2609ff9e7ab",
+      },
+      {
+        text: "Anniversary",
+        link: `/filters?category=${encodeURIComponent("Anniversary")}`,
+      },
+      {
+        text: "New Baby",
+        link: `/filters?category=${encodeURIComponent("New Baby")}`,
+      },
+      {
+        text: "Gifts",
+        link: `/filters?category=${encodeURIComponent("Gifts")}`,
+      },
+    ],
+  },
+  {
+    title: "Shop by Holiday",
+    items: [
+      {
+        text: "Christmas",
+        link: `/filters?category=${encodeURIComponent("Christmas")}`,
+      },
+      {
+        text: "Valentine's Day",
+        link: "/filters?category=16b4f5b3-f0a2-4807-88cd-c84101a52cc3",
+      },
+      {
+        text: "Easter",
+        link: `/filters?category=${encodeURIComponent("Easter")}`,
+      },
+      {
+        text: "Mother's Day",
+        link: "/filters?category=8c38abe1-96cd-46c1-aed8-f832752145e4",
+      },
+    ],
+  },
 ];
 
 const Footer = () => {
+  const [openSection, setOpenSection] = useState(null);
+
   return (
     <>
-      <footer className="bg-white dark:bg-dark-2">
-        <FooterTop />
-
-        <div className="pt-[70px]">
+      <footer className="bg-tg-bg dark:bg-dark-2">
+        <div className="pt-12">
           <div className="container mx-auto">
             <div className="flex flex-wrap -mx-4">
               <div className="w-full px-4 md:w-1/2 lg:w-5/12 xl:w-4/12">
                 <div className="mb-16 max-w-[270px]">
-                  <Link to="/" className="inline-block mb-8">
+                  <Link to="/" className="inline-block mb-3">
                     <img
                       src={logo}
                       alt="logo"
-                      className="max-w-full dark:hidden"
+                      className="w-40 dark:hidden"
                     />
                     <img
                       src={logoWhite}
                       alt="logo"
-                      className="hidden max-w-full dark:block"
+                      className="hidden w-40 dark:block"
                     />
                   </Link>
 
                   <div className="space-y-4">
-                    <p className="flex text-base text-body-color dark:text-dark-6">
+                    <p className="flex text-sm text-body-color dark:text-dark-6">
                       <span className="pr-5 mt-1">
                         <svg
                           width="24"
@@ -79,12 +115,9 @@ const Footer = () => {
                         </svg>
                       </span>
 
-                      <span>
-                        {" "}
-                        Shop 009A, Level 4, Block A, Demo Park, Ottawa{" "}
-                      </span>
+                      <span>4190 15th Ave, Prince George, BC</span>
                     </p>
-                    <p className="flex items-center text-base text-body-color dark:text-dark-6">
+                    <p className="flex items-center text-sm text-body-color dark:text-dark-6">
                       <span className="pr-5">
                         <svg
                           width="24"
@@ -115,9 +148,9 @@ const Footer = () => {
                         </svg>
                       </span>
 
-                      <span> +1-613-555-0182 </span>
+                      <span>1 (250) 562-8273</span>
                     </p>
-                    <p className="flex items-center text-base text-body-color dark:text-dark-6">
+                    <p className="flex items-center text-sm text-body-color dark:text-dark-6">
                       <span className="pr-5">
                         <svg
                           width="24"
@@ -133,7 +166,7 @@ const Footer = () => {
                         </svg>
                       </span>
 
-                      <span> contact@yourmail.com </span>
+                      <span>IYVflowers@gmail.com</span>
                     </p>
                   </div>
                 </div>
@@ -141,26 +174,72 @@ const Footer = () => {
 
               {footerMenu.map((item, index) => (
                 <div
-                  key={index}
+                  key={item.title}
                   className="w-full px-4 sm:w-1/2 md:w-1/2 lg:w-3/12 xl:w-2/12"
                 >
-                  <div className="mb-16">
-                    <h3 className="text-2xl font-semibold text-dark mb-9 dark:text-white">
-                      {item.title}
-                    </h3>
+                  <div className="md:hidden">
+                    <div className="border-t border-stroke dark:border-dark-3">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setOpenSection(openSection === index ? null : index)
+                        }
+                        aria-expanded={openSection === index}
+                        className="flex w-full items-center justify-between py-4 text-sm font-semibold text-dark transition hover:text-primary dark:text-white"
+                      >
+                        <span>{item.title}</span>
+                        <svg
+                          className={`h-4 w-4 text-body-color transition-transform ${openSection === index ? "rotate-180" : ""} dark:text-dark-6`}
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          viewBox="0 0 24 24"
+                          aria-hidden="true"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M6 9l6 6 6-6"
+                          />
+                        </svg>
+                      </button>
 
-                    <ul className="space-y-3">
-                      {item.items.map((menu, menuIndex) => (
-                        <li key={menuIndex}>
-                          <Link
-                            to={menu.link}
-                            className="inline-block text-base text-body-color hover:text-primary dark:text-dark-6"
-                          >
-                            {menu.text}
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
+                      {openSection === index && (
+                        <ul className="pb-4 pl-1.5 space-y-2.5">
+                          {item.items.map((menu) => (
+                            <li key={menu.text}>
+                              <Link
+                                to={menu.link}
+                                className="inline-block text-sm text-body-color hover:text-primary dark:text-dark-6"
+                              >
+                                {menu.text}
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="hidden md:block">
+                    <div className="mb-16">
+                      <h3 className="mb-6 text-xl font-semibold text-dark dark:text-white">
+                        {item.title}
+                      </h3>
+
+                      <ul className="space-y-2.5">
+                        {item.items.map((menu) => (
+                          <li key={menu.text}>
+                            <Link
+                              to={menu.link}
+                              className="inline-block text-sm text-body-color hover:text-primary dark:text-dark-6"
+                            >
+                              {menu.text}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -178,7 +257,7 @@ const Footer = () => {
                   className="max-w-full mx-auto"
                 />
               </div>
-              <p className="text-base text-body-color dark:text-dark-6">
+              <p className="text-sm text-body-color dark:text-dark-6">
                 © 2024 TailGrids. All Rights Reserved.
               </p>
             </div>

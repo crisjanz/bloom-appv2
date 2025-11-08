@@ -319,6 +319,12 @@ type VariantInput = {
   trackInventory?: boolean;
   isManuallyEdited?: boolean;
   optionValueIds?: string[];
+  optionValues?: Array<{
+    optionId: string;
+    optionName: string;
+    valueId: string;
+    valueLabel: string;
+  }>;
 };
 
 type PersistedOptionGroup = {
@@ -387,8 +393,24 @@ const resolveVariantOptionValueIds = (
     return [];
   }
 
-  if (Array.isArray(variant.optionValueIds) && variant.optionValueIds.length) {
-    return variant.optionValueIds;
+  // If variant has optionValues with labels, use those to map to new IDs
+  // Don't use optionValueIds directly as they may be stale from a previous version
+  if (Array.isArray(variant.optionValues) && variant.optionValues.length) {
+    return variant.optionValues.map((optionValue) => {
+      const option = optionMap.get(optionValue.optionId);
+      if (!option) {
+        throw new Error(`Option with ID "${optionValue.optionId}" not found in optionMap.`);
+      }
+
+      const newValueId = option.valueLabelToId[optionValue.valueLabel];
+      if (!newValueId) {
+        throw new Error(
+          `Option value "${optionValue.valueLabel}" not found in option "${optionValue.optionName}".`
+        );
+      }
+
+      return newValueId;
+    });
   }
 
   const labels = (variant.name || '')
@@ -509,8 +531,16 @@ const createProductVariants = async ({
       optionMap
     );
 
+    console.log(`🔍 Variant ${index} (${variant.name}):`, {
+      optionValueIds,
+      hasOptionValues: !!variant.optionValues,
+      hasOptionValueIds: !!variant.optionValueIds,
+      priceDifference: priceDifferenceCents,
+    });
+
     const combinationKey = optionValueIds.join('|');
     if (combinationKey && usedCombinationKeys.has(combinationKey)) {
+      console.log(`⚠️  Skipping duplicate variant: ${variant.name} (key: ${combinationKey})`);
       continue;
     }
     if (combinationKey) {

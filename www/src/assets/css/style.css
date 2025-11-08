@@ -58,7 +58,7 @@ layer(base);
   }
 
   body {
-    font-size: 14pt;
+    font-size: 16px;
     line-height: 1.6;
     @apply font-inter;
   }
