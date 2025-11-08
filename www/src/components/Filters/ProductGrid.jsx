@@ -35,6 +35,9 @@ const ProductGrid = ({ selectedCategory = null, searchQuery = "" }) => {
     // Filter by category
     if (selectedCategory) {
       filtered = filtered.filter((p) => p.categoryId === selectedCategory);
+    } else {
+      // When showing all products, hide add-ons (they only show in their specific categories)
+      filtered = filtered.filter((p) => p.productType !== 'ADDON');
     }
 
     // Filter by search query
