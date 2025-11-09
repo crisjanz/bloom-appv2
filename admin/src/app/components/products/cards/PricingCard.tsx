@@ -32,6 +32,7 @@ type Variant = {
   stockLevel: number;
   trackInventory: boolean;
   isManuallyEdited?: boolean;
+  featuredImageUrl?: string | null;
 };
 
 type PricingTier = {
@@ -39,6 +40,7 @@ type PricingTier = {
   title: string;
   price: number;
   inventory: number;
+  featuredImageUrl?: string;
 };
 
 type Props = {
@@ -47,6 +49,7 @@ type Props = {
   productSlug: string;
   optionGroups: OptionGroup[];
   variants: Variant[];
+  productImages: string[];
   onPricingTiersChange: (tiers: PricingTier[]) => void;
   onChange: (
     field: "price" | "priceTitle" | "inventory",
@@ -62,6 +65,7 @@ const PricingCard: FC<Props> = ({
   productSlug,
   optionGroups,
   variants,
+  productImages,
   onPricingTiersChange,
   onChange,
   onOptionGroupsChange,
@@ -80,7 +84,7 @@ const PricingCard: FC<Props> = ({
     [optionGroups, pricingGroupId]
   );
 
-  const headerLabels = ["Price", "Title", "Inventory"];
+  const headerLabels = ["Price", "Title", "Inventory", "Featured Image"];
 
   const updateTierField = (
     index: number,
@@ -137,6 +141,7 @@ const PricingCard: FC<Props> = ({
       title: nextLabel,
       price: baseTier?.price ?? 0,
       inventory: 0,
+      featuredImageUrl: undefined,
     };
 
     onPricingTiersChange([...pricingTiers, newTier]);
@@ -148,6 +153,16 @@ const PricingCard: FC<Props> = ({
     }
 
     onPricingTiersChange(pricingTiers.filter((_, tierIndex) => tierIndex !== index));
+  };
+
+  const handleFeaturedImageSelect = (index: number, imageUrl: string) => {
+    const updatedTiers = pricingTiers.map((tier, tierIndex) =>
+      tierIndex === index
+        ? { ...tier, featuredImageUrl: imageUrl || undefined }
+        : tier
+    );
+
+    onPricingTiersChange(updatedTiers);
   };
 
   // Options Modal
@@ -284,30 +299,32 @@ const PricingCard: FC<Props> = ({
 
         {pricingTiers.length ? (
           <div className="space-y-3">
-            <div className="hidden md:grid grid-cols-12 gap-4 text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <div className="hidden md:grid grid-cols-13 gap-4 text-xs font-semibold uppercase tracking-wide text-gray-500">
               {headerLabels.map((label, columnIndex) => (
                 <div
                   key={label}
                   className={
                     columnIndex === 0
-                      ? "md:col-span-3"
+                      ? "md:col-span-2"
                       : columnIndex === 1
-                      ? "md:col-span-5"
+                      ? "md:col-span-4"
+                      : columnIndex === 2
+                      ? "md:col-span-2"
                       : "md:col-span-3"
                   }
                 >
                   {label}
                 </div>
               ))}
-              <div className="md:col-span-1 text-right">Actions</div>
+              <div className="md:col-span-2 text-right">Actions</div>
             </div>
 
             {pricingTiers.map((tier, index) => (
               <div
                 key={tier.id}
-                className="grid grid-cols-1 gap-4 rounded border border-stroke p-4 md:grid-cols-12 md:items-end dark:border-dark-3"
+                className="grid grid-cols-1 gap-4 rounded border border-stroke p-4 md:grid-cols-13 md:items-start dark:border-dark-3"
               >
-                <div className="md:col-span-3">
+                <div className="md:col-span-2">
                   <InputField
                     type="number"
                     value={tier.price}
@@ -319,7 +336,7 @@ const PricingCard: FC<Props> = ({
                   />
                 </div>
 
-                <div className="md:col-span-5">
+                <div className="md:col-span-4">
                   <InputField
                     value={tier.title}
                     onChange={(event) =>
@@ -330,7 +347,7 @@ const PricingCard: FC<Props> = ({
                   />
                 </div>
 
-                <div className="md:col-span-3">
+                <div className="md:col-span-2">
                   <InputField
                     type="number"
                     value={tier.inventory}
@@ -342,15 +359,48 @@ const PricingCard: FC<Props> = ({
                   />
                 </div>
 
-                {index > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => removePricingTier(index)}
-                    className="md:col-span-1 mt-2 text-sm text-red-500 hover:text-red-600 md:text-right"
-                  >
-                    Remove
-                  </button>
-                )}
+                <div className="md:col-span-3">
+                  <label className="mb-2 block text-sm font-medium text-black dark:text-white md:hidden">
+                    Featured Image
+                  </label>
+                  {productImages && productImages.length > 0 ? (
+                    <div className="space-y-2">
+                      <select
+                        value={tier.featuredImageUrl || ""}
+                        onChange={(e) => handleFeaturedImageSelect(index, e.target.value)}
+                        className="w-full rounded border border-stroke bg-transparent py-2 px-3 text-sm text-black outline-none transition focus:border-primary active:border-primary dark:border-form-strokedark dark:bg-form-input dark:text-white"
+                      >
+                        <option value="">No image</option>
+                        {productImages.map((url, idx) => (
+                          <option key={url} value={url}>
+                            Image {idx + 1}
+                          </option>
+                        ))}
+                      </select>
+                      {tier.featuredImageUrl && (
+                        <img
+                          src={tier.featuredImageUrl}
+                          alt={`Preview for ${tier.title}`}
+                          className="w-16 h-16 object-cover rounded border border-stroke dark:border-strokedark"
+                        />
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-500">Upload product images first</p>
+                  )}
+                </div>
+
+                <div className="md:col-span-2 flex items-center justify-start md:justify-end">
+                  {index > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => removePricingTier(index)}
+                      className="mt-2 text-sm text-red-500 hover:text-red-600 md:mt-0"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>

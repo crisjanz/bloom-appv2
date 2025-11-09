@@ -8,7 +8,9 @@ interface UploadResponse {
   key: string;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+// Auto-detect API URL based on current host
+const API_BASE_URL = import.meta.env.VITE_API_URL ||
+  `http://${window.location.hostname}:4000`;
 
 /**
  * Upload image to Cloudflare R2 via backend API

@@ -11,6 +11,7 @@ const ProductDetails = () => {
   const productId = searchParams.get('id');
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [activeVariant, setActiveVariant] = useState(null);
 
   useEffect(() => {
     async function loadProduct() {
@@ -29,6 +30,10 @@ const ProductDetails = () => {
       }
     }
     loadProduct();
+  }, [productId]);
+
+  useEffect(() => {
+    setActiveVariant(null);
   }, [productId]);
 
   if (loading) {
@@ -85,11 +90,11 @@ const ProductDetails = () => {
           <div className="mx-auto max-w-6xl px-4">
             <div className="flex flex-col gap-8 lg:flex-row">
               <div className="w-full lg:w-1/2">
-                <ProductTab product={product} />
+                <ProductTab product={product} selectedVariant={activeVariant} />
               </div>
 
               <div className="w-full lg:w-1/2">
-                <DetailsBox product={product} />
+                <DetailsBox product={product} onVariantChange={setActiveVariant} />
               </div>
             </div>
           </div>

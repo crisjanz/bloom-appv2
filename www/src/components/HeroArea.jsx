@@ -72,12 +72,12 @@ const HeroArea = () => {
                   item.big && (
                     <div
                       key={index}
-                      className="relative mb-8 h-[370px] md:h-[480px]"
+                      className="relative mb-8 h-[370px] md:h-[480px] bg-herobn"
                     >
                       <img
                         src={item.image}
                         alt="product"
-                        className="h-full w-full object-cover object-center"
+                        className="h-full w-full object-contain object-right"
                       />
 
                       <div className="absolute left-0 top-0 flex h-full w-full items-center px-8 md:px-12">
@@ -114,11 +114,11 @@ const HeroArea = () => {
                         key={index}
                         className="w-full px-4 md:w-1/2 lg:w-full"
                       >
-                        <div className="relative mb-8 h-[223px]">
+                        <div className="relative mb-8 h-[223px] bg-herobn">
                           <img
                             src={item.image}
                             alt="product"
-                            className="h-full w-full object-cover object-center"
+                            className="h-full w-full object-contain object-left"
                           />
 
                           <div className="absolute left-0 top-0 flex h-full w-full items-end justify-end p-6 sm:p-9">

@@ -22,6 +22,7 @@ import ordersRouter from './routes/orders/index';
 import communicationsRouter from './routes/communications';
 import paymentTransactionsRouter from './routes/payment-transactions';
 import faqsRouter from './routes/settings/faqs';
+import homepageRouter from './routes/settings/homepage';
 import { getPOSTabs, savePOSTabs } from './routes/settings/pos-tabs';
 import { getStoreInfo, saveStoreInfo } from './routes/settings/store-info';
 import { getOrderStatusNotificationSettings, saveOrderStatusNotificationSettings } from './routes/settings/order-status-notifications';
@@ -101,6 +102,8 @@ const defaultOrigins = [
   'http://localhost:5175', // Customer website local
   'http://localhost:5176', // Customer website alternate
   'http://localhost:5177', // Customer website alternate
+  'http://192.168.1.90:5173', // Admin frontend - network access
+  'http://192.168.1.90:4000', // Backend - network access
 ];
 
 const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS?.split(',')
@@ -205,6 +208,7 @@ app.get('/api/settings/pos-tabs', getPOSTabs);
 app.post('/api/settings/pos-tabs', savePOSTabs);
 app.use('/api/settings/tax-rates', taxRatesRouter);
 app.use('/api/settings/faqs', faqsRouter);
+app.use('/api/settings/homepage', homepageRouter);
 app.use('/api/settings/reporting-categories', reportingCategoriesRouter);
 app.use('/api/email', emailRouter);
 app.use('/api/sms', smsRouter);

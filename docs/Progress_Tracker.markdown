@@ -17,6 +17,12 @@ Status markers: ✅ done · 🛠️ in progress · 🔜 planned · ⚠️ attent
 - ✅ **Dashboard metrics (2025-11-03)** — real-time operational dashboard with KPI cards and 7-day revenue trend chart. Shows today's revenue, pending orders (with overdue count), deliveries today by status, and new customers this week. Auto-refreshes every 5 minutes. Backend: `/back/src/routes/dashboard.ts` (2 endpoints: `/api/dashboard/metrics`, `/api/dashboard/revenue-trend`). Frontend: `/admin/src/shared/hooks/useDashboard.ts`, `/admin/src/app/components/dashboard/MetricCard.tsx`, `/admin/src/app/components/dashboard/RevenueTrendChart.tsx` (Recharts). Integrated into `/admin/src/app/pages/Dashboard/Home.tsx`.
 - ✅ **Floranext recipient import** — Settings → Misc CSV uploader builds recipient customer records, addresses, sender links, and detailed summaries with optional auto-customer creation (`back/src/routes/import.ts`, `admin/src/app/components/settings/misc/ImportCard.tsx`).
 
+### Variant Featured Images (2025-11-08)
+- ✅ Database: Added `featuredImageUrl` to `ProductVariant` plus migration + Prisma client update.
+- ✅ Backend: Product routes now read/write `featuredImageUrl` and include it in API responses.
+- ✅ Admin UI: Pricing tiers now capture featured image per variant via dropdown + preview.
+- ✅ Customer Website: Product gallery reorders images so the selected variant's photo shows first.
+
 ## 🛠️ In Progress / Needs QA
 - 🛠️ **Split payments settlement** — UI is wired; needs backend distribution of PT lines and change logging (`admin/src/app/components/pos/payment/SplitPaymentView.tsx`, `back/src/routes/payment-transactions.ts`).
 - 🛠️ **Notification domain wiring** — `/api/notifications/*` endpoints still rely on placeholder repositories (`admin/src/domains/notifications/services/NotificationService.ts`).

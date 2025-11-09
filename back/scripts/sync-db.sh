@@ -43,14 +43,14 @@ case "$1" in
     ;;
 
   live-to-local)
-    echo "🔄 Syncing LIVE → LOCAL (products, customers, categories, orders)"
-    echo "📥 Copying data..."
-    pg_dump "$LIVE_DB_URL" \
-      -t products -t product_variants -t product_images \
-      -t customers -t customer_addresses -t customer_recipients \
-      -t categories -t product_categories \
-      -t orders -t order_items -t drafts \
-      --data-only --inserts | psql "$LOCAL_DB_URL"
+    echo "🔄 Syncing LIVE → LOCAL (ALL DATA INCLUDING SETTINGS)"
+    echo "📤 Dumping live DB to file..."
+    pg_dump "$LIVE_DB_URL" --data-only --disable-triggers > "$BACKUP_DIR/temp_sync.sql"
+    echo "🗑️  Clearing local DB..."
+    psql "$LOCAL_DB_URL" -c 'TRUNCATE TABLE "Employee", "Product", "ProductVariant", "Category", "ReportingCategory", "Customer", "Order", "OrderItem", "AddOnGroup", "AddOnProduct", "ProductAddOnGroup", "ProductOption", "ProductOptionValue", "VariantOption", "tax_rates", "transaction_counter", "Settings" CASCADE;'
+    echo "📥 Importing from file..."
+    psql "$LOCAL_DB_URL" < "$BACKUP_DIR/temp_sync.sql"
+    rm "$BACKUP_DIR/temp_sync.sql"
     echo "✅ Sync complete!"
     ;;
 

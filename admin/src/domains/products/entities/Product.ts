@@ -75,6 +75,7 @@ export interface ProductVariant extends DomainEntity {
   sku?: string
   barcode?: string
   stockQuantity?: number
+  featuredImageUrl?: string | null
   
   // Display
   sortOrder: number
@@ -211,6 +212,7 @@ export interface CreateVariantRequest {
   isDefault: boolean
   isActive: boolean
   sortOrder: number
+  featuredImageUrl?: string | null
 }
 
 export interface UpdateProductRequest extends Partial<CreateProductRequest> {

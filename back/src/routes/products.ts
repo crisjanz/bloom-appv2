@@ -77,6 +77,7 @@ type VariantSummary = {
   trackInventory: boolean;
   isDefault: boolean;
   isManuallyEdited: boolean;
+  featuredImageUrl: string | null;
   optionValueIds: string[];
   optionValues: Array<{
     optionId: string;
@@ -241,6 +242,7 @@ const buildVariantSummaries = (
       trackInventory: variant.trackInventory,
       isDefault: variant.isDefault,
       isManuallyEdited: variant.isManuallyEdited ?? false,
+      featuredImageUrl: variant.featuredImageUrl ?? null,
       optionValueIds: optionValues.map((value) => value.valueId),
       optionValues,
     };
@@ -269,6 +271,7 @@ const transformProductResponse = (product: ProductWithVariantOptions) => {
       trackInventory: variant.trackInventory,
       isDefault: variant.isDefault,
       isManuallyEdited: variant.isManuallyEdited,
+      featuredImageUrl: variant.featuredImageUrl,
       optionValueIds: variant.optionValueIds,
       optionValues: variant.optionValues,
     }));
@@ -318,6 +321,7 @@ type VariantInput = {
   stockLevel?: number;
   trackInventory?: boolean;
   isManuallyEdited?: boolean;
+  featuredImageUrl?: string | null;
   optionValueIds?: string[];
   optionValues?: Array<{
     optionId: string;
@@ -572,6 +576,7 @@ const createProductVariants = async ({
         trackInventory,
         isDefault,
         isManuallyEdited: Boolean(variant.isManuallyEdited),
+        featuredImageUrl: variant.featuredImageUrl || null,
         options: {
           create: optionValueIds.map((optionValueId) => ({
             optionValueId,

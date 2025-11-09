@@ -139,6 +139,7 @@ model ProductVariant {
   trackInventory    Boolean  @default(true)
   isDefault         Boolean  @default(false)
   isManuallyEdited  Boolean  @default(false) // TRUE if price was manually edited after generation
+  featuredImageUrl  String?  // URL of the product image representing this variant
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -1389,23 +1390,8 @@ model FAQ {
   updatedAt DateTime @updatedAt
 }
 
-model HomepageBanner {
-  id          String   @id @default(cuid())
-  position    Int      @unique // 1, 2, or 3
-  title       String
-  details     String?
-  buttonText  String
-  link        String
-  imageUrl    String
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
 model HomepageSettings {
   id                  String   @id @default(cuid())
   announcementBanner  Json     // {message, bgColor, textColor, fontSize, fontWeight, isActive, link}
-  seasonalProducts    Json     // [{productId?, customTitle, customSubtitle, customDescription, customImageUrl, buttonText, buttonLink}]
-  featuredCategoryIds Json     // [categoryId, categoryId, ...]
   updatedAt           DateTime @updatedAt
 }

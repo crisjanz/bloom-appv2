@@ -1,0 +1,1 @@
+-- Cleanup homepage tables (applied via db push)

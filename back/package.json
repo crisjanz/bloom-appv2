@@ -10,7 +10,7 @@
     "start": "node dist/index.js",
     "dev:back": "nodemon",
     "postinstall": "prisma generate",
-    "deploy": "prisma db push --accept-data-loss && prisma generate",
+    "deploy": "prisma migrate deploy && prisma generate",
     "refresh-ftd-token": "ts-node scripts/refresh-ftd-token.ts"
   },
   "engines": {

@@ -4,6 +4,7 @@ dist/
 .vscode/
 .DS_Store
 tailgrids
+back/scripts/
 
 # Documentation (internal use only)
 docs/

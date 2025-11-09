@@ -292,10 +292,10 @@ const GiftCardContent = () => {
   return (
     <>
       <Breadcrumb pageName="Digital Gift Cards" />
-      <section className="bg-slate-50 py-16">
+      <section className="bg-white py-16">
         <div className="container mx-auto max-w-4xl px-4">
           <div className="mb-10 text-center">
-            <h1 className="text-3xl font-semibold text-slate-900">Send a Bloom gift in minutes</h1>
+            <h1 className="text-3xl font-semibold text-slate-900">Send a gift in minutes</h1>
             <p className="mt-3 text-base text-slate-600">
               Choose an amount, add a heartfelt note, and we&apos;ll email a beautifully designed digital gift card
               instantly.

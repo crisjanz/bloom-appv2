@@ -5,9 +5,6 @@ import WebsiteGeneralSettingsCard from "@app/components/settings/website/Website
 import SEOCard from "@app/components/settings/website/SEOCard";
 import SocialMediaCard from "@app/components/settings/website/SocialMediaCard";
 import AnnouncementBannerCard from "@app/components/settings/website/AnnouncementBannerCard";
-import HeroBannersCard from "@app/components/settings/website/HeroBannersCard";
-import SeasonalProductsCard from "@app/components/settings/website/SeasonalProductsCard";
-import FeaturedCategoriesCard from "@app/components/settings/website/FeaturedCategoriesCard";
 import FAQManagementCard from "@app/components/settings/website/FAQManagementCard";
 
 const WebsitePage = () => (
@@ -19,13 +16,7 @@ const WebsitePage = () => (
     <WebsiteGeneralSettingsCard />
     <SEOCard />
     <SocialMediaCard />
-
-    {/* Homepage Content Management */}
-    <h2 className="text-2xl font-semibold text-black dark:text-white mt-8">Homepage Content</h2>
     <AnnouncementBannerCard />
-    <HeroBannersCard />
-    <SeasonalProductsCard />
-    <FeaturedCategoriesCard />
     <FAQManagementCard />
   </div>
 );

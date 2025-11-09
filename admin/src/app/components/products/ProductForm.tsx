@@ -38,6 +38,7 @@ type Variant = {
   stockLevel: number;
   trackInventory: boolean;
   isManuallyEdited?: boolean;
+  featuredImageUrl?: string | null;
 };
 
 type PricingTier = {
@@ -45,6 +46,7 @@ type PricingTier = {
   title: string;
   price: number; // in dollars
   inventory: number;
+  featuredImageUrl?: string;
 };
 
 type AddOnGroupSummary = {
@@ -69,9 +71,9 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
   const [priceTitle, setPriceTitle] = useState('');
   const [pricingGroupId, setPricingGroupId] = useState<string>(() => generateUUID());
   const [pricingTiers, setPricingTiers] = useState<PricingTier[]>([
-    { id: generateUUID(), title: 'Standard', price: 0, inventory: 0 },
-    { id: generateUUID(), title: 'Deluxe', price: 0, inventory: 0 },
-    { id: generateUUID(), title: 'Premium', price: 0, inventory: 0 },
+    { id: generateUUID(), title: 'Standard', price: 0, inventory: 0, featuredImageUrl: undefined },
+    { id: generateUUID(), title: 'Deluxe', price: 0, inventory: 0, featuredImageUrl: undefined },
+    { id: generateUUID(), title: 'Premium', price: 0, inventory: 0, featuredImageUrl: undefined },
   ]);
   const [isTaxable, setIsTaxable] = useState(true);
   const [isActive, setIsActive] = useState(true);
@@ -169,11 +171,13 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
 
           // Get inventory from first variant with this tier
           let tierInventory = 0;
+          let tierFeaturedImage: string | undefined;
           if (Array.isArray(initialData.variants)) {
             const variantWithThisTier = initialData.variants.find((v: any) =>
               v.optionValues?.some((ov: any) => ov.valueId === value.id)
             );
             tierInventory = variantWithThisTier?.stockLevel ?? 0;
+            tierFeaturedImage = variantWithThisTier?.featuredImageUrl || undefined;
           }
 
           return {
@@ -181,6 +185,7 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
             title: value.label,
             price: tierPrice,
             inventory: tierInventory,
+            featuredImageUrl: tierFeaturedImage,
           };
         });
       }
@@ -192,6 +197,7 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
           title: 'Standard',
           price: basePrice,
           inventory: 0,
+          featuredImageUrl: undefined,
         }
       ];
 
@@ -260,6 +266,16 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
   // Handle immediate image deletion
   const handleImageDeleted = (imageUrl: string) => {
     setExistingImages(prev => prev.filter(img => img !== imageUrl));
+    setPricingTiers((prev) =>
+      prev.map((tier) =>
+        tier.featuredImageUrl === imageUrl ? { ...tier, featuredImageUrl: undefined } : tier
+      )
+    );
+    setVariants((prev) =>
+      prev.map((variant) =>
+        variant.featuredImageUrl === imageUrl ? { ...variant, featuredImageUrl: null } : variant
+      )
+    );
   };
 
   // Handle image reordering
@@ -387,6 +403,7 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
         const pricingPart = combo.find((part) => part.groupId === pricingGroup?.id);
         const tierTitle = pricingPart?.value.label || baseTier.title;
         const selectedTier = pricingTiers.find((t) => t.title === tierTitle) || baseTier;
+        const tierFeaturedImage = selectedTier?.featuredImageUrl ?? null;
 
         const fallbackSkuBase = `${productSlug}-${comboLabel
           .toLowerCase()
@@ -405,6 +422,7 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
             existing?.trackInventory ??
             ((selectedTier.inventory ?? 0) > 0),
           isManuallyEdited: existing?.isManuallyEdited || false,
+          featuredImageUrl: tierFeaturedImage,
         };
       })
     );
@@ -611,6 +629,7 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
           pricingTiers={pricingTiers}
           optionGroups={optionGroups}
           variants={variants}
+          productImages={existingImages}
           onPricingTiersChange={setPricingTiers}
           onChange={handleChange}
           onOptionGroupsChange={setOptionGroups}

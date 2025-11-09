@@ -45,7 +45,9 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+// Auto-detect API URL based on current host (works for localhost and network access)
+const API_BASE_URL = import.meta.env.VITE_API_URL ||
+  `http://${window.location.hostname}:4000`;
 
 // Token storage keys
 const ACCESS_TOKEN_KEY = 'bloom_access_token';

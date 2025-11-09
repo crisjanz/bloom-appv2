@@ -9,7 +9,7 @@ const buildCartItemKey = (productId, variantId) => (
   `${productId}-${variantId || "base"}`
 );
 
-const DetailsBox = ({ product }) => {
+const DetailsBox = ({ product, onVariantChange }) => {
   const [quantity, setQuantity] = useState(1);
   const [selectedPricingTierId, setSelectedPricingTierId] = useState(null);
   const [selectedCustomization, setSelectedCustomization] = useState({});
@@ -34,7 +34,10 @@ const DetailsBox = ({ product }) => {
     setSelectedCustomization({});
     setSelectedAddOnSelections([]);
     setIsMobileUpsellOpen(false);
-  }, [product?.id]);
+    if (typeof onVariantChange === "function") {
+      onVariantChange(null);
+    }
+  }, [product?.id, onVariantChange]);
 
   useEffect(() => {
     const updateViewport = () => {
@@ -154,6 +157,12 @@ const DetailsBox = ({ product }) => {
     selectedPricingTierId,
     selectedCustomization
   );
+
+  useEffect(() => {
+    if (typeof onVariantChange === "function") {
+      onVariantChange(selectedVariant || null);
+    }
+  }, [selectedVariant, onVariantChange]);
 
   // Calculate display price: base + selected tier adjustment + customization adjustments
   const calculateDisplayPrice = () => {
@@ -745,6 +754,11 @@ const DetailsBox = ({ product }) => {
 
 DetailsBox.propTypes = {
   product: PropTypes.object.isRequired,
+  onVariantChange: PropTypes.func,
+};
+
+DetailsBox.defaultProps = {
+  onVariantChange: null,
 };
 
 export default DetailsBox;
