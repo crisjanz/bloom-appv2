@@ -25,8 +25,6 @@ async function getOrCreateSettings() {
     settings = await prisma.homepageSettings.create({
       data: {
         announcementBanner: DEFAULT_SETTINGS.announcementBanner,
-        seasonalProducts: [],
-        featuredCategoryIds: [],
       },
     });
   }
