@@ -3,7 +3,7 @@ import PropTypes from "prop-types";
 
 const Breadcrumb = ({ pageName, path = [] }) => {
   return (
-    <section className="bg-ffffff py-3 dark:bg-dark">
+    <section className="bg-white py-3 dark:bg-dark">
       <div className="container mx-auto px-4">
         <div className="border-b border-stroke py-3 dark:border-dark-3 md:py-4">
           <ul className="flex items-center flex-wrap">

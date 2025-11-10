@@ -15,7 +15,7 @@ const navList = [
     text: "Home",
   },
   {
-    link: "/filters",
+    link: "/shop",
     text: "Shop",
   },
   {
@@ -119,7 +119,7 @@ const Navbar = () => {
           {/* Icons Row */}
           <div className="flex items-center gap-5">
             {/* Search Icon */}
-            <Link to="/filters" aria-label="Search">
+            <Link to="/shop" aria-label="Search">
               <svg
                 width="22"
                 height="22"

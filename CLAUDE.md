@@ -67,6 +67,24 @@ Codex implements them once marked ready, then updates `Progress_Tracker.markdown
 
 ---
 
+## 🗄️ Database Changes
+**IMPORTANT: Always use Prisma migrations for schema changes**
+
+```bash
+# Create a new migration (REQUIRED for all DB changes)
+npx prisma migrate dev --name descriptive_name
+
+# NEVER use db push in development
+# db push = no migration history = production sync issues
+```
+
+**Why migrations matter:**
+- Production uses `prisma migrate deploy` (auto-runs on Render)
+- `db push` bypasses migration history → requires manual `migrate resolve` on production
+- Migrations = trackable, reversible, production-safe
+
+---
+
 ## 🧪 Testing
 ```bash
 # Start servers

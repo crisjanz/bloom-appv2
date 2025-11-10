@@ -19,31 +19,31 @@ const footerMenu = [
     items: [
       {
         text: "Birthday Flowers",
-        link: "/filters?category=5a913ab3-d396-48b8-a007-4c71e5acd016",
+        link: "/shop?category=5a913ab3-d396-48b8-a007-4c71e5acd016",
       },
       {
         text: "Sympathy Flowers",
-        link: "/filters?category=3278fd51-9017-4118-848c-5ed927f215b9",
+        link: "/shop?category=3278fd51-9017-4118-848c-5ed927f215b9",
       },
       {
         text: "Get Well",
-        link: `/filters?category=${encodeURIComponent("Get Well")}`,
+        link: `/shop?category=${encodeURIComponent("Get Well")}`,
       },
       {
         text: "Congratulations",
-        link: "/filters?category=af2c5e8d-4dc0-43d3-a5f9-d2609ff9e7ab",
+        link: "/shop?category=af2c5e8d-4dc0-43d3-a5f9-d2609ff9e7ab",
       },
       {
         text: "Anniversary",
-        link: `/filters?category=${encodeURIComponent("Anniversary")}`,
+        link: `/shop?category=${encodeURIComponent("Anniversary")}`,
       },
       {
         text: "New Baby",
-        link: `/filters?category=${encodeURIComponent("New Baby")}`,
+        link: `/shop?category=${encodeURIComponent("New Baby")}`,
       },
       {
         text: "Gifts",
-        link: `/filters?category=${encodeURIComponent("Gifts")}`,
+        link: `/shop?category=${encodeURIComponent("Gifts")}`,
       },
     ],
   },
@@ -52,19 +52,19 @@ const footerMenu = [
     items: [
       {
         text: "Christmas",
-        link: `/filters?category=${encodeURIComponent("Christmas")}`,
+        link: `/shop?category=${encodeURIComponent("Christmas")}`,
       },
       {
         text: "Valentine's Day",
-        link: "/filters?category=16b4f5b3-f0a2-4807-88cd-c84101a52cc3",
+        link: "/shop?category=16b4f5b3-f0a2-4807-88cd-c84101a52cc3",
       },
       {
         text: "Easter",
-        link: `/filters?category=${encodeURIComponent("Easter")}`,
+        link: `/shop?category=${encodeURIComponent("Easter")}`,
       },
       {
         text: "Mother's Day",
-        link: "/filters?category=8c38abe1-96cd-46c1-aed8-f832752145e4",
+        link: "/shop?category=8c38abe1-96cd-46c1-aed8-f832752145e4",
       },
     ],
   },

@@ -57,6 +57,31 @@ function buildCategoryPath(category: any, allCategories: any[]): string {
   return `${buildCategoryPath(parent, allCategories)} > ${category.name}`;
 }
 
+// GET category by slug
+router.get('/by-slug/:slug', async (req, res) => {
+  const { slug } = req.params;
+
+  try {
+    const category = await prisma.category.findUnique({
+      where: { slug },
+      include: {
+        parent: true,
+        children: true,
+        _count: { select: { products: true } }
+      }
+    });
+
+    if (!category) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
+
+    res.json(category);
+  } catch (err) {
+    console.error('Failed to fetch category by slug:', err);
+    res.status(500).json({ error: 'Failed to fetch category' });
+  }
+});
+
 // NEW: GET products in a specific category
 router.get('/:id/products', async (req, res) => {
   const { id } = req.params;
@@ -108,7 +133,7 @@ router.post('/', async (req, res) => {
       .trim();
 
     const created = await prisma.category.create({
-      data: { 
+      data: {
         name: name.trim(),
         slug: slug || `category-${Date.now()}`, // Fallback if slug is empty
         parentId: parentId || null,
@@ -148,17 +173,17 @@ router.put('/:id', async (req, res) => {
       if (!parent) {
         return res.status(400).json({ error: 'Parent category not found' });
       }
-      
+
       // Check depth limit
       if (parent.level >= 3) {
         return res.status(400).json({ error: 'Maximum category depth (3 levels) exceeded' });
       }
-      
+
       // Prevent circular reference (can't be parent of itself or its ancestors)
       if (parentId === id) {
         return res.status(400).json({ error: 'Category cannot be parent of itself' });
       }
-      
+
       level = parent.level + 1;
     }
 
@@ -171,7 +196,7 @@ router.put('/:id', async (req, res) => {
 
     const updated = await prisma.category.update({
       where: { id },
-      data: { 
+      data: {
         name: name.trim(),
         slug: slug || `category-${Date.now()}`,
         parentId: parentId || null,

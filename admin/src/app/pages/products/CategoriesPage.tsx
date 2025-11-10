@@ -119,9 +119,9 @@ export default function CategoriesPage() {
       const res = await fetch("/api/categories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           name: newName.trim(),
-          parentId: selectedParentId || null
+          parentId: selectedParentId || null,
         }),
       });
 
@@ -157,9 +157,9 @@ export default function CategoriesPage() {
       const res = await fetch(`/api/categories/${editingCategory.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           name: newName.trim(),
-          parentId: selectedParentId || null
+          parentId: selectedParentId || null,
         }),
       });
 

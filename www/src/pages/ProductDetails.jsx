@@ -41,7 +41,7 @@ const ProductDetails = () => {
       <>
         <Breadcrumb
           pageName="Product Details"
-          path={[{ label: "Shop", url: "/filters" }]}
+          path={[{ label: "Shop", url: "/shop" }]}
         />
         <section className="bg-white pt-10 pb-20 dark:bg-dark">
           <div className="container mx-auto text-center">
@@ -57,7 +57,7 @@ const ProductDetails = () => {
       <>
         <Breadcrumb
           pageName="Product Not Found"
-          path={[{ label: "Shop", url: "/filters" }]}
+          path={[{ label: "Shop", url: "/shop" }]}
         />
         <section className="bg-white pt-10 pb-20 dark:bg-dark">
           <div className="container mx-auto text-center">
@@ -69,12 +69,12 @@ const ProductDetails = () => {
   }
 
   // Build breadcrumb path
-  const breadcrumbPath = [{ label: "Shop", url: "/filters" }];
+  const breadcrumbPath = [{ label: "Shop", url: "/shop" }];
   if (product.categoryName) {
     // Note: You may want to add category filtering support to your shop page
     breadcrumbPath.push({
       label: product.categoryName,
-      url: `/filters?category=${product.categoryId}`
+      url: `/shop?category=${product.categoryId}`
     });
   }
 

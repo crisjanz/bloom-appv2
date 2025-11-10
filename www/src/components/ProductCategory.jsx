@@ -1,32 +1,32 @@
-import productOne from "../assets/ecom-images/categories/category-01/image-01.jpg";
-import productTwo from "../assets/ecom-images/categories/category-01/image-02.jpg";
-import productThree from "../assets/ecom-images/categories/category-01/image-03.jpg";
-import productFour from "../assets/ecom-images/categories/category-01/image-04.jpg";
+import productOne from "/images/cat1.jpg";
+import productTwo from "/images/cat2.jpg";
+import productThree from "/images/cat3.jpg";
+import productFour from "/images/cat4.jpg";
 import { Link } from "react-router-dom";
 
 const productItems = [
   {
     image: productOne,
-    link: "#",
-    title: "Accessories",
+    link: "/shop",
+    title: "Fresh Flowers",
     subtitle: "8 Products Available",
   },
   {
     image: productTwo,
-    link: "#",
-    title: "Bags",
+    link: "/shop?category=42602c67-a814-441d-bf54-b704943c1f9f",
+    title: "House Plants",
     subtitle: "4 Products Available",
   },
   {
     image: productThree,
-    link: "#",
-    title: "Electronics",
+    link: "/shop?category=086f851a-e058-4d4e-ad52-750d67c53574",
+    title: "Gifts",
     subtitle: "12 Products Available",
   },
   {
     image: productFour,
     link: "#",
-    title: "Shoes",
+    title: "Weddings",
     subtitle: "24 Products Available",
   },
 ];
@@ -34,11 +34,11 @@ const productItems = [
 const ProductCategory = () => {
   return (
     <>
-      <section className="bg-tg-bg pb-12 pt-20 dark:bg-dark-2 lg:pb-[90px] lg:pt-[120px]">
+      <section className="bg-tg-bg pb-12 pt-10 dark:bg-dark-2 lg:pb-[90px] lg:pt-[60px]">
         <div className="container mx-auto">
           <div className="-mx-4 flex">
             <div className="w-full px-4">
-              <div className="mx-auto mb-[60px] max-w-[510px] text-center">
+              <div className="mx-auto mb-[40px] max-w-[510px] text-center">
                 <h2 className="mb-4 text-3xl font-bold leading-[1.2] text-dark dark:text-white sm:text-4xl md:text-[40px]">
                   Shop By Category
                 </h2>
@@ -52,7 +52,7 @@ const ProductCategory = () => {
 
           <div className="-mx-4 flex flex-wrap">
             {productItems.map((item, index) => (
-              <div key={index} className="w-full px-4 sm:w-1/2 lg:w-1/4">
+              <div key={index} className="w-1/2 px-4 sm:w-1/2 lg:w-1/4">
                 <Link to={item.link} className="group mb-10 block text-center">
                   <div className="mb-5 overflow-hidden rounded-lg">
                     <img src={item.image} alt="category" className="w-full" />
@@ -67,14 +67,7 @@ const ProductCategory = () => {
               </div>
             ))}
           </div>
-          <div className="mt-10 text-center">
-            <Link
-              to="#"
-              className="inline-flex items-center justify-center rounded-md bg-primary px-7 py-[13px] text-center text-base font-medium text-white hover:bg-primary-dark"
-            >
-              Explore All Category
-            </Link>
-          </div>
+
         </div>
       </section>
     </>

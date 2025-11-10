@@ -88,7 +88,7 @@ const ShoppingCart = () => {
   };
 
   const handleContinueShopping = () => {
-    navigate("/filters");
+    navigate("/shop");
   };
 
   const handleCouponSubmit = async (event) => {

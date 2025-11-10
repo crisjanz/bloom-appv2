@@ -15,6 +15,15 @@ import GiftCard from "../pages/GiftCard.jsx";
 import GiftCardEmailPreview from "../pages/GiftCardEmailPreview.jsx";
 import FAQ from "../pages/FAQ.jsx";
 
+// Occasion Pages
+import BirthdayFlowers from "../pages/occasions/Birthday.jsx";
+import WeddingFlowers from "../pages/occasions/WeddingFlowers.jsx";
+import SympathyFlowers from "../pages/occasions/SympathyFlowers.jsx";
+
+// Holiday Pages
+import Christmas from "../pages/holidays/Christmas.jsx";
+import Valentines from "../pages/holidays/Valentines.jsx";
+
 const Root = () => {
   return (
     <>
@@ -22,7 +31,17 @@ const Root = () => {
         <Route path="/" element={<DefaultLayout />}>
           <Route index element={<Home />} />
           <Route path="/checkout" element={<Checkout />} />
-          <Route path="/filters" element={<Filters />} />
+          <Route path="/shop" element={<Filters />} />
+
+          {/* Occasion Pages */}
+          <Route path="/occasions/birthday" element={<BirthdayFlowers />} />
+          <Route path="/occasions/wedding" element={<WeddingFlowers />} />
+          <Route path="/occasions/sympathy" element={<SympathyFlowers />} />
+
+          {/* Holiday Pages */}
+          <Route path="/holidays/christmas" element={<Christmas />} />
+          <Route path="/holidays/valentines" element={<Valentines />} />
+
           <Route path="/order-summary" element={<OrderSummary />} />
           <Route path="/product-details" element={<ProductDetails />} />
           <Route path="/shopping-cart" element={<ShoppingCart />} />

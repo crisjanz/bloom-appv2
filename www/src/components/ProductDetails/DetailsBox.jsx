@@ -739,7 +739,7 @@ const DetailsBox = ({ product, onVariantChange }) => {
               type="button"
               onClick={() => {
                 setIsConfirmationOpen(false);
-                navigate("/filters");
+                navigate("/shop");
               }}
               className="w-full rounded-full py-3 text-base font-medium text-body-color transition hover:text-primary dark:text-dark-6"
             >

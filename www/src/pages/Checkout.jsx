@@ -2867,7 +2867,7 @@ const EmptyCheckoutState = () => (
       Add something beautiful to your cart before heading to checkout.
     </p>
     <a
-      href="/filters"
+      href="/shop"
       className="bg-primary mt-6 inline-flex items-center justify-center rounded-lg px-8 py-3 text-base font-semibold text-white transition hover:bg-primary/90"
     >
       Browse products
