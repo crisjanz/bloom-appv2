@@ -5,7 +5,7 @@ const Christmas = () => {
     <CategoryLayout
       title="Christmas Flowers"
       description="Festive holiday arrangements to brighten your celebrations"
-      categoryId="REPLACE_WITH_CHRISTMAS_CATEGORY_ID"
+      categoryId="05bb3b74-5b00-426c-b0ee-def5b62e4d33"
       categoryType="holiday"
     />
   );

@@ -9,7 +9,7 @@ const buildCartItemKey = (productId, variantId) => (
   `${productId}-${variantId || "base"}`
 );
 
-const DetailsBox = ({ product, onVariantChange }) => {
+const DetailsBox = ({ product, onVariantChange = null }) => {
   const [quantity, setQuantity] = useState(1);
   const [selectedPricingTierId, setSelectedPricingTierId] = useState(null);
   const [selectedCustomization, setSelectedCustomization] = useState({});
@@ -661,7 +661,7 @@ const DetailsBox = ({ product, onVariantChange }) => {
           className="absolute inset-0 bg-black/50"
           onClick={() => setIsConfirmationOpen(false)}
         />
-        <div className="relative w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+        <div className="relative w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl dark:bg-dark-2">
           <button
             type="button"
             onClick={() => setIsConfirmationOpen(false)}
@@ -755,10 +755,6 @@ const DetailsBox = ({ product, onVariantChange }) => {
 DetailsBox.propTypes = {
   product: PropTypes.object.isRequired,
   onVariantChange: PropTypes.func,
-};
-
-DetailsBox.defaultProps = {
-  onVariantChange: null,
 };
 
 export default DetailsBox;

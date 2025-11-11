@@ -683,8 +683,8 @@ const Checkout = () => {
               />
             </div>
 
-            <div className="w-full px-4 lg:w-7/12 xl:w-8/12">
-              <div className="mb-10 overflow-hidden rounded-[10px] border border-stroke bg-white px-5 py-8 shadow-testimonial-6 dark:border-dark-3 dark:bg-dark-2 dark:shadow-box-dark xl:p-9">
+            <div className="w-full px-0 lg:w-7/12 xl:w-8/12">
+              <div className="mb-10 overflow-hidden rounded-[10px] bg-white px-5 py-0 dark:border-dark-3 dark:bg-dark-2 dark:shadow-box-dark xl:px-9 xl:pb-9">
                 <FormStep
                   step={1}
                   title="Recipient Information"
@@ -1489,11 +1489,12 @@ const MobilePaymentForm = ({
           onChange={onChange}
           className="mt-1 h-4 w-4 rounded border border-stroke text-primary focus:ring-primary"
         />
-        I agree to Bloom's{" "}
-        <a href="/terms" className="text-primary underline">
+        I agree to Blom's{" "}
+        <Link to="/terms" className="text-primary underline">
           Terms &amp; Conditions
-        </a>
+        </Link>
       </label>
+
       {errors.agreeToTerms && (
         <p className="text-red-500 mt-2 text-xs">{errors.agreeToTerms}</p>
       )}
@@ -1577,7 +1578,7 @@ const MobileStickyBottomSummary = ({
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-stroke bg-tg-bg shadow-lg dark:border-dark-3 md:hidden">
       {isExpanded && (
-        <div className="max-h-[60vh] overflow-y-auto border-b border-stroke p-4 dark:border-dark-3">
+        <div className="max-h-[60vh] overflow-y-auto border-b border-stroke p-4 dark:bg-dark-2 dark:border-dark-3">
           <div className="space-y-3">
             {cart.map((item) => (
               <div
@@ -1629,7 +1630,7 @@ const MobileStickyBottomSummary = ({
       <button
         type="button"
         onClick={() => setIsExpanded(!isExpanded)}
-        className="flex w-full items-center justify-between px-4 py-2"
+        className="flex w-full items-center justify-between px-4 py-2 dark:bg-dark-2"
       >
         <div className="flex items-center gap-3">
           <svg
@@ -1911,9 +1912,9 @@ const CheckoutAuthBanner = ({
   savedRecipientsLoading,
   hasSavedRecipients,
 }) => (
-  <div className="mb-6">
-    <div className="container mx-auto px-4 md:px-0">
-      <div className="rounded-lg bg-white px-4 py-3 text-sm text-dark shadow-sm dark:bg-dark-2 md:border md:border-stroke md:dark:border-dark-3">
+  <div className="mb-0 dark:bg-dark-2">
+    <div className="container mx-auto px-4 md:px-3">
+      <div className="bg-tg-bg px-6 py-3 text-sm text-dark dark:bg-dark-2">
         {isAuthenticated ? (
           <div className="flex flex-col gap-1">
             <p className="font-semibold text-dark dark:text-white">
@@ -2088,26 +2089,9 @@ const SidebarSummary = ({
         </div>
       </div>
 
-      <div className="mb-3">
-        <button
-          type="button"
-          className="flex w-full items-center justify-center rounded-md bg-primary px-10 py-3 text-center text-base font-medium text-white transition hover:bg-primary/90"
-          onClick={onJumpToPayment}
-        >
-          Place Order
-        </button>
-      </div>
+
       <div>
-        <p className="text-sm text-body-color dark:text-dark-6">
-          By placing your order, you agree to our company{" "}
-          <a href="/privacy" className="text-primary hover:underline">
-            Privacy Policy
-          </a>
-          <span className="px-0.5"> and </span>
-          <a href="/terms" className="text-primary hover:underline">
-            Conditions of Use
-          </a>
-        </p>
+
       </div>
     </div>
 
@@ -2588,10 +2572,10 @@ const PaymentForm = ({
       <CheckboxGroup
         labelTitle={
           <>
-            I agree to Bloom’s{" "}
-            <a href="/terms" className="text-primary underline">
+            I agree to{" "}
+            <Link to="/terms" className="text-primary underline">
               Terms &amp; Conditions
-            </a>
+            </Link>
           </>
         }
         name="agreeToTerms"
@@ -2768,7 +2752,7 @@ const CheckboxGroup = ({ labelTitle, name, checked, onChange }) => (
             className="sr-only"
           />
           <div
-            className={`mr-4 flex h-5 w-5 items-center justify-center rounded border ${
+            className={`mr-4 flex h-5 w-5 mt-2 items-center justify-center rounded border ${
               checked ? "border-primary bg-primary" : "border-stroke dark:border-dark-3"
             }`}
           >
@@ -2790,7 +2774,7 @@ const CheckboxGroup = ({ labelTitle, name, checked, onChange }) => (
             </span>
           </div>
         </div>
-        <span className="text-dark dark:text-white text-sm font-medium">{labelTitle}</span>
+        <span className="text-dark dark:text-white text-sm mt-2 font-medium">{labelTitle}</span>
       </label>
     </div>
   </div>

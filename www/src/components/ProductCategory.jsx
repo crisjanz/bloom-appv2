@@ -13,13 +13,13 @@ const productItems = [
   },
   {
     image: productTwo,
-    link: "/shop?category=42602c67-a814-441d-bf54-b704943c1f9f",
+    link: "/occasions/houseplants",
     title: "House Plants",
     subtitle: "4 Products Available",
   },
   {
     image: productThree,
-    link: "/shop?category=086f851a-e058-4d4e-ad52-750d67c53574",
+    link: "/occasions/gifts",
     title: "Gifts",
     subtitle: "12 Products Available",
   },

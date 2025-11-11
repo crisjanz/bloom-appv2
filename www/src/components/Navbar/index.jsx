@@ -1,5 +1,5 @@
 import logoPrimary from "../../assets/images/logo/logo-primary.svg";
-import logoWhite from "../../assets/images/logo/logo-white.svg";
+import logoWhite from "../../assets/images/logo/logo-white.png";
 import logoMobile from "../../assets/images/logo/logo-mobile.png";
 import { Link } from "react-router-dom";
 import PropTypes from "prop-types";
@@ -8,51 +8,51 @@ import CartDropdown from "./CartDropdown.jsx";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../../contexts/AuthContext.jsx";
 import { useCart } from "../../contexts/CartContext.jsx";
+import { getProducts } from "../../services/productService.js";
+import { useNavigate } from "react-router-dom";
 
 const navList = [
   {
     link: "/",
     text: "Home",
   },
-  {
-    link: "/shop",
-    text: "Shop",
-  },
+
   {
     link: "#",
-    text: "Products",
+    text: "Shop",
     submenuGroup: [
       {
-        title: "New Arrivals",
+        title: "Occasions",
         link: "#",
         groupItems: [
-          { text: "Dresses", link: "#" },
-          { text: "Jackets", link: "#" },
-          { text: "Sweatshirts", link: "#" },
-          { text: "Tops & Tees", link: "#" },
-          { text: "Party Dresses", link: "#" },
+          { text: "Birthday", link: "/occasions/birthday" },
+          { text: "Sympathy", link: "/occasions/sympathy" },
+          { text: "Get Well", link: "/occasions/getwell" },
+          { text: "Congrats", link: "/occasions/congrats" },
+          { text: "Anniversary", link: "/occasions/anniversary" },
+          { text: "Thank You", link: "/occasions/thankyou" },
+          { text: "New Baby", link: "/occasions/baby" },
         ],
       },
       {
-        title: "New Arrivals",
+        title: "Holidays",
         link: "#",
         groupItems: [
-          { text: "Dresses", link: "#" },
-          { text: "Jackets", link: "#" },
-          { text: "Sweatshirts", link: "#" },
-          { text: "Tops & Tees", link: "#" },
-          { text: "Party Dresses", link: "#" },
+          { text: "Christmas", link: "/holidays/christmas" },
+          { text: "Valentines", link: "/holidays/valentines" },
+          { text: "Easter", link: "/holidays/easter" },
+          { text: "Mother's Day", link: "/holidays/mday" },
+          { text: "Thanksgiving", link: "/holidays/thanksgiving" },
         ],
       },
       {
-        title: "New Arrivals",
+        title: "",
         link: "#",
         groupItems: [
-          { text: "Dresses", link: "#" },
-          { text: "Jackets", link: "#" },
-          { text: "Sweatshirts", link: "#" },
-          { text: "Tops & Tees", link: "#" },
-          { text: "Party Dresses", link: "#" },
+          { text: "Shop All", link: "/shop" },
+          { text: "Gifts", link: "/occasions/gifts" },
+          { text: "House Plants", link: "/occasions/houseplants" },
+          { text: "Wedding", link: "/occasions/wedding" },
         ],
       },
     ],
@@ -69,13 +69,22 @@ const navList = [
 
 const Navbar = () => {
   const [submenuOpen, setSubmenuOpen] = useState(false);
+  const [mobileSubmenuOpen, setMobileSubmenuOpen] = useState(false);
 
   const [navbarOpen, setNavbarOpen] = useState(false);
   const navRef = useRef(null);
   const accountRef = useRef(null);
+  const searchRef = useRef(null);
+  const mobileSearchRef = useRef(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const { isAuthenticated, customer, logout } = useAuth();
   const { getCartCount } = useCart();
+  const navigate = useNavigate();
 
   const handleSubmenuToggle = () => {
     setSubmenuOpen(!submenuOpen);
@@ -85,14 +94,57 @@ const Navbar = () => {
     setNavbarOpen(!navbarOpen);
   };
 
+  // Search products by name and description
+  useEffect(() => {
+    const searchProducts = async () => {
+      if (searchQuery.trim().length < 2) {
+        setSearchResults([]);
+        setShowSearchResults(false);
+        return;
+      }
+
+      try {
+        const allProducts = await getProducts();
+        const filtered = allProducts.filter(
+          (p) =>
+            p.isActive &&
+            p.visibility !== 'POS_ONLY' &&
+            (p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              p.description?.toLowerCase().includes(searchQuery.toLowerCase()))
+        );
+        setSearchResults(filtered.slice(0, 5)); // Limit to 5 results
+        setShowSearchResults(true);
+      } catch (error) {
+        console.error('Search error:', error);
+      }
+    };
+
+    const debounceTimer = setTimeout(searchProducts, 300);
+    return () => clearTimeout(debounceTimer);
+  }, [searchQuery]);
+
   // Close navbar when clicking outside
   useEffect(() => {
     function handleClickOutside(event) {
+      // Don't close if clicking on a search result
+      if (event.target.closest('.search-result-item')) {
+        return;
+      }
+
       if (navRef.current && !navRef.current.contains(event.target)) {
         setNavbarOpen(false);
       }
       if (accountRef.current && !accountRef.current.contains(event.target)) {
         setAccountMenuOpen(false);
+      }
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
+        setSearchOpen(false);
+        setShowSearchResults(false);
+      }
+      if (mobileSearchRef.current && !mobileSearchRef.current.contains(event.target)) {
+        setMobileSearchOpen(false);
+        setSearchQuery("");
+        setSearchResults([]);
       }
     }
 
@@ -101,6 +153,20 @@ const Navbar = () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  const handleProductClick = (productId) => {
+    setSearchQuery("");
+    setSearchResults([]);
+    setShowSearchResults(false);
+    setSearchOpen(false);
+    setMobileSearchOpen(false);
+    navigate(`/product-details?id=${productId}`);
+  };
+
+  const getProductPrice = (product) => {
+    // Use the price property from the API response (basePriceCents / 100)
+    return product.price || 0;
+  };
 
   return (
     <header className="w-full bg-white dark:bg-dark">
@@ -118,22 +184,74 @@ const Navbar = () => {
 
           {/* Icons Row */}
           <div className="flex items-center gap-5">
-            {/* Search Icon */}
-            <Link to="/shop" aria-label="Search">
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                className="text-dark dark:text-white"
-              >
-                <path
-                  d="M21.7099 20.29L17.9999 16.61C19.44 14.8144 20.1374 12.5353 19.9487 10.2413C19.76 7.94729 18.6996 5.81281 16.9854 4.27667C15.2713 2.74053 13.0337 1.91954 10.7328 1.98248C8.43194 2.04543 6.24263 2.98757 4.61505 4.61515C2.98747 6.24273 2.04533 8.43204 1.98239 10.7329C1.91944 13.0338 2.74043 15.2714 4.27657 16.9855C5.81271 18.6997 7.94719 19.7601 10.2412 19.9488C12.5352 20.1375 14.8143 19.4401 16.6099 18L20.2899 21.68C20.3829 21.7738 20.4935 21.8481 20.6153 21.8989C20.7372 21.9497 20.8679 21.9758 20.9999 21.9758C21.1319 21.9758 21.2626 21.9497 21.3845 21.8989C21.5063 21.8481 21.6169 21.7738 21.7099 21.68C21.8901 21.4936 21.9909 21.2444 21.9909 20.985C21.9909 20.7256 21.8901 20.4764 21.7099 20.29ZM10.9999 18C9.61544 18 8.26206 17.5895 7.11091 16.8203C5.95977 16.0511 5.06256 14.9579 4.53275 13.6788C4.00293 12.3997 3.86431 10.9922 4.13441 9.63437C4.4045 8.2765 5.07119 7.02922 6.05016 6.05025C7.02913 5.07128 8.27641 4.4046 9.63428 4.1345C10.9921 3.8644 12.3996 4.00303 13.6787 4.53284C14.9578 5.06266 16.051 5.95987 16.8202 7.11101C17.5894 8.26216 17.9999 9.61553 17.9999 11C17.9999 12.8565 17.2624 14.637 15.9497 15.9497C14.637 17.2625 12.8564 18 10.9999 18Z"
-                  fill="currentColor"
-                />
-              </svg>
-            </Link>
+            {/* Search Icon - Mobile */}
+            <div className="relative" ref={mobileSearchRef}>
+              <button onClick={() => {
+                setMobileSearchOpen(!mobileSearchOpen);
+                if (mobileSearchOpen) {
+                  setSearchQuery("");
+                  setSearchResults([]);
+                }
+              }} aria-label="Search">
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="text-dark dark:text-white"
+                >
+                  <path
+                    d="M21.7099 20.29L17.9999 16.61C19.44 14.8144 20.1374 12.5353 19.9487 10.2413C19.76 7.94729 18.6996 5.81281 16.9854 4.27667C15.2713 2.74053 13.0337 1.91954 10.7328 1.98248C8.43194 2.04543 6.24263 2.98757 4.61505 4.61515C2.98747 6.24273 2.04533 8.43204 1.98239 10.7329C1.91944 13.0338 2.74043 15.2714 4.27657 16.9855C5.81271 18.6997 7.94719 19.7601 10.2412 19.9488C12.5352 20.1375 14.8143 19.4401 16.6099 18L20.2899 21.68C20.3829 21.7738 20.4935 21.8481 20.6153 21.8989C20.7372 21.9497 20.8679 21.9758 20.9999 21.9758C21.1319 21.9758 21.2626 21.9497 21.3845 21.8989C21.5063 21.8481 21.6169 21.7738 21.7099 21.68C21.8901 21.4936 21.9909 21.2444 21.9909 20.985C21.9909 20.7256 21.8901 20.4764 21.7099 20.29ZM10.9999 18C9.61544 18 8.26206 17.5895 7.11091 16.8203C5.95977 16.0511 5.06256 14.9579 4.53275 13.6788C4.00293 12.3997 3.86431 10.9922 4.13441 9.63437C4.4045 8.2765 5.07119 7.02922 6.05016 6.05025C7.02913 5.07128 8.27641 4.4046 9.63428 4.1345C10.9921 3.8644 12.3996 4.00303 13.6787 4.53284C14.9578 5.06266 16.051 5.95987 16.8202 7.11101C17.5894 8.26216 17.9999 9.61553 17.9999 11C17.9999 12.8565 17.2624 14.637 15.9497 15.9497C14.637 17.2625 12.8564 18 10.9999 18Z"
+                    fill="currentColor"
+                  />
+                </svg>
+              </button>
+
+              {/* Mobile Search Dropdown */}
+              {mobileSearchOpen && (
+                <div className="fixed top-16 left-4 right-4 bg-white dark:bg-dark-2 border border-stroke dark:border-dark-3 rounded-lg shadow-lg p-3 z-50">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search products..."
+                    className="w-full px-4 py-2 rounded-lg border border-stroke bg-white dark:bg-dark dark:border-dark-3 dark:text-white text-base focus:outline-none focus:border-primary mb-3"
+                    autoFocus
+                  />
+
+                  {searchResults.length > 0 ? (
+                    <div className="space-y-2 max-h-96 overflow-y-auto">
+                      {searchResults.map((product) => (
+                        <button
+                          key={product.id}
+                          onClick={() => handleProductClick(product.id)}
+                          className="search-result-item w-full flex items-center gap-3 p-2 hover:bg-gray-50 dark:hover:bg-dark-3 rounded-lg transition text-left"
+                        >
+                          <img
+                            src={product.images?.[0] || '/placeholder-image.jpg'}
+                            alt={product.name}
+                            className="w-12 h-12 object-cover rounded"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-dark dark:text-white truncate">
+                              {product.name}
+                            </p>
+                            <p className="text-xs text-body-color dark:text-dark-6">
+                              ${getProductPrice(product).toFixed(2)}
+                            </p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  ) : searchQuery.length >= 2 ? (
+                    <p className="text-sm text-body-color dark:text-dark-6 text-center py-4">
+                      No products found
+                    </p>
+                  ) : null}
+                </div>
+              )}
+            </div>
 
             {/* Account Icon */}
             <button
@@ -318,13 +436,58 @@ const Navbar = () => {
             <ul className="py-2">
               {navList.map((item, index) => (
                 <li key={index}>
-                  <Link
-                    to={item.link}
-                    onClick={() => setNavbarOpen(false)}
-                    className="text-dark hover:bg-gray-100 dark:hover:bg-dark-3 hover:text-primary block px-6 py-3 text-base font-medium dark:text-white"
-                  >
-                    {item.text}
-                  </Link>
+                  {item.submenuGroup ? (
+                    <>
+                      <button
+                        onClick={() => setMobileSubmenuOpen(!mobileSubmenuOpen)}
+                        className="text-dark hover:bg-gray-100 dark:hover:bg-dark-3 hover:text-primary flex items-center justify-between w-full px-6 py-3 text-base font-medium dark:text-white"
+                      >
+                        {item.text}
+                        <svg
+                          width="15"
+                          height="15"
+                          viewBox="0 0 15 15"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                          className={`fill-current transition-transform ${mobileSubmenuOpen ? 'rotate-180' : ''}`}
+                        >
+                          <path d="M7.39258 10.475C7.26133 10.475 7.15196 10.4313 7.04258 10.3438L2.01133 5.40001C1.81446 5.20314 1.81446 4.89689 2.01133 4.70001C2.20821 4.50314 2.51446 4.50314 2.71133 4.70001L7.39258 9.27189L12.0738 4.65626C12.2707 4.45939 12.577 4.45939 12.7738 4.65626C12.9707 4.85314 12.9707 5.15939 12.7738 5.35626L7.74258 10.3C7.63321 10.4094 7.52383 10.475 7.39258 10.475Z" />
+                        </svg>
+                      </button>
+                      {mobileSubmenuOpen && (
+                        <div className="bg-gray-50 dark:bg-dark px-6 py-2">
+                          {item.submenuGroup.map((group, groupIndex) => (
+                            <div key={groupIndex} className="py-2">
+                              <h4 className="text-sm font-semibold text-dark dark:text-white mb-2">
+                                {group.title}
+                              </h4>
+                              {group.groupItems.map((groupItem, itemIndex) => (
+                                <Link
+                                  key={itemIndex}
+                                  to={groupItem.link}
+                                  onClick={() => {
+                                    setNavbarOpen(false);
+                                    setMobileSubmenuOpen(false);
+                                  }}
+                                  className="text-body-color hover:text-primary dark:text-dark-6 block py-1.5 text-sm"
+                                >
+                                  {groupItem.text}
+                                </Link>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <Link
+                      to={item.link}
+                      onClick={() => setNavbarOpen(false)}
+                      className="text-dark hover:bg-gray-100 dark:hover:bg-dark-3 hover:text-primary block px-6 py-3 text-base font-medium dark:text-white"
+                    >
+                      {item.text}
+                    </Link>
+                  )}
                 </li>
               ))}
             </ul>
@@ -407,7 +570,7 @@ const Navbar = () => {
                                               (groupItem, groupItemIndex) => (
                                                 <Link
                                                   key={groupItemIndex}
-                                                  to={groupItemIndex}
+                                                  to={groupItem.link}
                                                   onClick={() => {
                                                     setNavbarOpen(false);
                                                     setSubmenuOpen(false);
@@ -445,29 +608,80 @@ const Navbar = () => {
               </div>
 
               <div className="hidden w-full items-center justify-end space-x-4 pr-[70px] sm:flex lg:pr-0">
-                <div className="items-center hidden pr-1 xl:flex">
-                  <div className="border-stroke bg-gray-2 text-dark dark:border-dark-3 dark:bg-dark-2 mr-3 flex h-[42px] w-[42px] items-center justify-center rounded-full border-[.5px] dark:text-white">
-                    <svg
-                      width="22"
-                      height="22"
-                      viewBox="0 0 22 22"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="fill-current"
+
+                {/* Search Button and Sliding Input */}
+                <div className="relative" ref={searchRef}>
+                  <div className="flex items-center">
+                    {/* Sliding Search Input */}
+                    <div className={`overflow-hidden transition-all duration-300 ${searchOpen ? 'w-64 mr-2' : 'w-0'}`}>
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search products..."
+                        className="w-full h-[42px] px-4 rounded-full border border-stroke bg-white dark:bg-dark-2 dark:border-dark-3 dark:text-white text-sm focus:outline-none focus:border-primary"
+                      />
+                    </div>
+
+                    {/* Search Button */}
+                    <button
+                      onClick={() => setSearchOpen((prev) => !prev)}
+                      className="border-stroke bg-gray-2 text-dark hover:border-primary hover:text-primary flex h-[42px] w-[42px] items-center justify-center rounded-full border transition dark:border-dark-3 dark:bg-dark-2 dark:text-white"
+                      aria-label="Search"
                     >
-                      <path d="M20.6937 18.975L20.075 12.7531C19.9719 11.6187 19.0094 10.7594 17.875 10.7594H4.125C2.99062 10.7594 2.0625 11.6187 1.925 12.7531L1.30625 18.975C1.2375 19.5937 1.44375 20.2125 1.85625 20.6594C2.26875 21.1062 2.85312 21.3812 3.47187 21.3812H18.4594C19.0781 21.3812 19.6625 21.1062 20.075 20.6594C20.5562 20.2125 20.7281 19.5937 20.6937 18.975ZM18.975 19.6281C18.8375 19.7656 18.6656 19.8344 18.4937 19.8344H3.50625C3.33437 19.8344 3.1625 19.7656 3.025 19.6281C2.8875 19.4906 2.85312 19.3187 2.85312 19.1125L3.47187 12.8906C3.50625 12.5469 3.78125 12.3062 4.125 12.3062H17.875C18.2187 12.3062 18.4937 12.5469 18.5281 12.8906L19.1469 19.1125C19.1469 19.3187 19.1125 19.4906 18.975 19.6281Z" />
-                      <path d="M11 13.5094C9.59063 13.5094 8.42188 14.6781 8.42188 16.0875C8.42188 17.5312 9.59063 18.6656 11 18.6656C12.4437 18.6656 13.5781 17.4969 13.5781 16.0875C13.5781 14.6781 12.4437 13.5094 11 13.5094ZM11 17.1187C10.4156 17.1187 9.96875 16.6375 9.96875 16.0875C9.96875 15.5031 10.45 15.0562 11 15.0562C11.5844 15.0562 12.0312 15.5375 12.0312 16.0875C12.0312 16.6719 11.5844 17.1187 11 17.1187Z" />
-                      <path d="M2.09687 7.08124C2.16562 8.59374 3.47187 9.38437 4.36562 9.38437H6.77187H6.80625C7.90625 9.31562 9.00625 8.59374 9.00625 7.08124V6.42812C10.175 6.42812 12.4094 6.42812 13.5437 6.42812V7.08124C13.5437 8.59374 14.6437 9.31562 15.7437 9.38437H18.1844C19.1125 9.38437 20.3844 8.59374 20.4531 7.08124C20.4531 6.97812 20.4531 5.74062 20.4531 5.67187C20.4531 5.63749 20.4531 5.60312 20.4531 5.56874C20.35 4.57187 20.0062 3.74687 19.3875 3.09374L19.3531 3.05937C18.4594 2.23437 17.4281 1.78749 16.6375 1.51249C14.3 0.618744 11.3781 0.618744 11.2406 0.618744C9.17812 0.653119 7.87187 0.824994 5.87812 1.51249C5.05312 1.82187 4.02187 2.26874 3.12812 3.05937L3.09375 3.09374C2.475 3.74687 2.13125 4.57187 2.02812 5.56874C2.02812 5.60312 2.02812 5.63749 2.02812 5.67187C2.0625 5.74062 2.09687 6.94374 2.09687 7.08124ZM4.22812 4.19374C4.91562 3.57499 5.74062 3.23124 6.42812 2.95624C8.21562 2.30312 9.35 2.19999 11.275 2.13124C11.4469 2.13124 14.0594 2.16562 16.1219 2.95624C16.8437 3.23124 17.6687 3.57499 18.3219 4.19374C18.6656 4.57187 18.8719 5.08749 18.9406 5.67187C18.9406 5.77499 18.9406 6.90937 18.9406 7.01249C18.9062 7.73437 18.2187 7.83749 18.2187 7.83749H15.8469C15.5031 7.80312 15.125 7.66562 15.125 7.08124V5.67187C15.125 5.32812 14.9187 5.01874 14.575 4.94999C14.3344 4.81249 8.25 4.81249 8.00937 4.91562C7.7 5.01874 7.45937 5.32812 7.45937 5.63749V7.08124C7.45937 7.66562 7.08125 7.80312 6.7375 7.83749H4.36562C4.36562 7.83749 3.67812 7.73437 3.64375 7.04687C3.64375 6.94374 3.64375 6.56562 3.64375 6.22187C3.64375 5.98124 3.64375 5.80937 3.64375 5.70624C3.67812 5.05312 3.88437 4.57187 4.22812 4.19374Z" />
-                    </svg>
+                      <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M21.7099 20.29L17.9999 16.61C19.44 14.8144 20.1374 12.5353 19.9487 10.2413C19.76 7.94729 18.6996 5.81281 16.9854 4.27667C15.2713 2.74053 13.0337 1.91954 10.7328 1.98248C8.43194 2.04543 6.24263 2.98757 4.61505 4.61515C2.98747 6.24273 2.04533 8.43204 1.98239 10.7329C1.91944 13.0338 2.74043 15.2714 4.27657 16.9855C5.81271 18.6997 7.94719 19.7601 10.2412 19.9488C12.5352 20.1375 14.8143 19.4401 16.6099 18L20.2899 21.68C20.3829 21.7738 20.4935 21.8481 20.6153 21.8989C20.7372 21.9497 20.8679 21.9758 20.9999 21.9758C21.1319 21.9758 21.2626 21.9497 21.3845 21.8989C21.5063 21.8481 21.6169 21.7738 21.7099 21.68C21.8901 21.4936 21.9909 21.2444 21.9909 20.985C21.9909 20.7256 21.8901 20.4764 21.7099 20.29ZM10.9999 18C9.61544 18 8.26206 17.5895 7.11091 16.8203C5.95977 16.0511 5.06256 14.9579 4.53275 13.6788C4.00293 12.3997 3.86431 10.9922 4.13441 9.63437C4.4045 8.2765 5.07119 7.02922 6.05016 6.05025C7.02913 5.07128 8.27641 4.4046 9.63428 4.1345C10.9921 3.8644 12.3996 4.00303 13.6787 4.53284C14.9578 5.06266 16.051 5.95987 16.8202 7.11101C17.5894 8.26216 17.9999 9.61553 17.9999 11C17.9999 12.8565 17.2624 14.637 15.9497 15.9497C14.637 17.2625 12.8564 18 10.9999 18Z"
+                          fill="currentColor"
+                        />
+                      </svg>
+                    </button>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-dark dark:text-white">
-                      Need Help?
-                      <br />
-                      +001 123 456 789
-                    </p>
-                  </div>
+
+                  {/* Desktop Search Results */}
+                  {searchOpen && showSearchResults && searchResults.length > 0 && (
+                    <div className="absolute top-full right-0 mt-2 w-96 bg-white dark:bg-dark-2 border border-stroke dark:border-dark-3 rounded-lg shadow-lg p-3 z-50">
+                      <div className="space-y-2 max-h-96 overflow-y-auto">
+                        {searchResults.map((product) => (
+                          <div
+                            key={product.id}
+                            onClick={() => handleProductClick(product.id)}
+                            className="search-result-item w-full flex items-center gap-3 p-2 hover:bg-gray-50 dark:hover:bg-dark-3 rounded-lg transition cursor-pointer"
+                          >
+                            <img
+                              src={product.images?.[0] || '/placeholder-image.jpg'}
+                              alt={product.name}
+                              className="w-12 h-12 object-cover rounded"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-dark dark:text-white truncate">
+                                {product.name}
+                              </p>
+                              <p className="text-xs text-body-color dark:text-dark-6">
+                                ${getProductPrice(product).toFixed(2)}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {searchOpen && showSearchResults && searchQuery.length >= 2 && searchResults.length === 0 && (
+                    <div className="absolute top-full right-0 mt-2 w-96 bg-white dark:bg-dark-2 border border-stroke dark:border-dark-3 rounded-lg shadow-lg p-4 z-50">
+                      <p className="text-sm text-body-color dark:text-dark-6 text-center">
+                        No products found
+                      </p>
+                    </div>
+                  )}
                 </div>
+
                 <div className="relative" ref={accountRef}>
                   <button
                     onClick={() => setAccountMenuOpen((prev) => !prev)}

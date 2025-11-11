@@ -21,7 +21,7 @@ const normalizeImages = (images) => {
     .filter((url) => typeof url === "string" && url.length > 0);
 };
 
-const ProductTab = ({ product, selectedVariant }) => {
+const ProductTab = ({ product, selectedVariant = null }) => {
   const normalizedImages = useMemo(
     () => normalizeImages(product?.images),
     [product?.images]
@@ -93,10 +93,6 @@ const ProductTab = ({ product, selectedVariant }) => {
 ProductTab.propTypes = {
   product: PropTypes.object.isRequired,
   selectedVariant: PropTypes.object,
-};
-
-ProductTab.defaultProps = {
-  selectedVariant: null,
 };
 
 export default ProductTab;
