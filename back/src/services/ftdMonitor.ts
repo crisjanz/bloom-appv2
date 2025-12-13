@@ -205,51 +205,37 @@ async function processFtdOrder(ftdListData: any, settings: { shopId: string }): 
     return "new";
   }
 
-  // EXISTING ORDER - Only check status change from list endpoint
+  // EXISTING ORDER - Align both FTD + Bloom status every poll
   const newStatus = mapFtdStatus(ftdListData.status);
   const statusChanged = existing.status !== newStatus;
 
-  if (statusChanged) {
-    const updated = await prisma.ftdOrder.update({
-      where: { id: existing.id },
-      data: {
-        status: newStatus,
-        lastCheckedAt: new Date()
-      },
-      include: { linkedOrder: true }
-    });
-
-    console.log(`🔄 FTD ${existing.externalId}: ${existing.status} → ${newStatus}`);
-
-    // Auto-create Bloom order if not yet created
-    if (!updated.linkedOrderId) {
-      await autoCreateBloomOrder(updated);
-    }
-
-    // Update linked Bloom order status to match FTD status
-    if (updated.linkedOrderId) {
-      const newBloomStatus = mapFtdStatusToBloomStatus(newStatus);
-      const currentBloomStatus = updated.linkedOrder?.status;
-
-      if (currentBloomStatus && currentBloomStatus !== newBloomStatus) {
-        await prisma.order.update({
-          where: { id: updated.linkedOrderId },
-          data: { status: newBloomStatus }
-        });
-        console.log(`✅ Updated Bloom Order status: ${currentBloomStatus} → ${newBloomStatus}`);
-      }
-    }
-
-    return "updated";
-  }
-
-  // No changes - just update lastCheckedAt
-  await prisma.ftdOrder.update({
+  const updated = await prisma.ftdOrder.update({
     where: { id: existing.id },
-    data: { lastCheckedAt: new Date() }
+    data: {
+      ...(statusChanged ? { status: newStatus } : {}),
+      lastCheckedAt: new Date()
+    },
+    include: { linkedOrder: true }
   });
 
-  return "unchanged";
+  if (statusChanged) {
+    console.log(`🔄 FTD ${existing.externalId}: ${existing.status} → ${newStatus}`);
+  }
+
+  if (!updated.linkedOrderId) {
+    await autoCreateBloomOrder(updated);
+    const reloaded = await prisma.ftdOrder.findUnique({
+      where: { id: updated.id },
+      include: { linkedOrder: true }
+    });
+    if (reloaded?.linkedOrderId) {
+      await syncBloomOrderStatus(reloaded);
+    }
+  } else {
+    await syncBloomOrderStatus(updated);
+  }
+
+  return statusChanged ? "updated" : "unchanged";
 }
 
 // Create new FTD order from detailed payload
@@ -446,6 +432,23 @@ async function autoCreateBloomOrder(ftdOrder: any) {
   } catch (error: any) {
     console.error("Failed to auto-create Bloom order:", error.message);
     throw error;
+  }
+}
+
+async function syncBloomOrderStatus(ftdOrder: any) {
+  if (!ftdOrder.linkedOrderId) return;
+
+  const desiredBloomStatus = mapFtdStatusToBloomStatus(ftdOrder.status);
+  const currentBloomStatus = ftdOrder.linkedOrder?.status;
+
+  if (!currentBloomStatus || currentBloomStatus !== desiredBloomStatus) {
+    await prisma.order.update({
+      where: { id: ftdOrder.linkedOrderId },
+      data: { status: desiredBloomStatus }
+    });
+    console.log(
+      `✅ Synced Bloom order ${ftdOrder.linkedOrderId} status: ${currentBloomStatus || "UNKNOWN"} → ${desiredBloomStatus}`
+    );
   }
 }
 

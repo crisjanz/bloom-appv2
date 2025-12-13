@@ -100,7 +100,8 @@ export class OrderService {
       throw new Error(`Order ${id} not found`)
     }
 
-    // Validate status transitions
+    // Validate status transitions (guard currently disabled for manual overrides;
+    // see ENFORCE_STRICT_STATUS_TRANSITIONS in entities/Order.ts)
     if (updates.status && !canTransitionTo(existing.status, updates.status)) {
       throw new Error(`Cannot transition from ${existing.status} to ${updates.status}`)
     }

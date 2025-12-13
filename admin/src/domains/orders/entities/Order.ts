@@ -465,6 +465,8 @@ export interface OrderStats {
 
 // Status transition validation
 // NOTE: Allows backward transitions for operational flexibility (staff can correct mistakes)
+const ENFORCE_STRICT_STATUS_TRANSITIONS = false
+
 export const VALID_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.DRAFT]: [OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED],
   [OrderStatus.PENDING_PAYMENT]: [OrderStatus.PAID, OrderStatus.CANCELLED],
@@ -508,6 +510,9 @@ export const isActiveOrder = (order: Order): boolean => {
 }
 
 export const canTransitionTo = (currentStatus: OrderStatus, newStatus: OrderStatus): boolean => {
+  if (!ENFORCE_STRICT_STATUS_TRANSITIONS) {
+    return true
+  }
   return VALID_STATUS_TRANSITIONS[currentStatus]?.includes(newStatus) ?? false
 }
 
