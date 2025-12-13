@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bloom Print Agent - Settings</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🌸 Bloom Print Agent</h1>
+      <p class="subtitle">Remote printing for Bloom POS</p>
+    </header>
+
+    <section class="status-section">
+      <div class="status-indicator">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">Disconnected</span>
+      </div>
+      <div class="backend-url">
+        <strong>Backend:</strong> <span id="backendUrl">api.hellobloom.ca</span>
+      </div>
+    </section>
+
+    <section class="printer-section">
+      <h2>Thermal Printer (Receipts)</h2>
+      <div class="printer-select">
+        <select id="thermalPrinter" class="printer-dropdown">
+          <option value="">Loading printers...</option>
+        </select>
+        <button class="test-button" id="testThermal">Test Print</button>
+      </div>
+      <p class="printer-help">Star TSP143IIIU - for POS receipts</p>
+    </section>
+
+    <section class="printer-section">
+      <h2>Laser Printer (Order Tickets)</h2>
+      <div class="printer-select">
+        <select id="laserPrinter" class="printer-dropdown">
+          <option value="">Loading printers...</option>
+        </select>
+        <button class="test-button" id="testLaser">Test Print</button>
+      </div>
+      <p class="printer-help">HP LaserJet M402N - for delivery tickets</p>
+    </section>
+
+    <section class="jobs-section">
+      <h2>Recent Print Jobs</h2>
+      <div class="jobs-list" id="jobsList">
+        <p class="no-jobs">No recent jobs</p>
+      </div>
+    </section>
+
+    <footer class="actions">
+      <button class="button-secondary" id="viewLogs">View Logs</button>
+      <button class="button-primary" id="saveSettings">Save Settings</button>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

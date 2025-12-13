@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Sample Order Ticket - Bloom Flowers</title>
+  <style>
+    @page {
+      size: 8.5in 11in;
+      margin: 0;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 11pt;
+      line-height: 1.4;
+    }
+
+    .ticket {
+      width: 8.5in;
+      height: 11in;
+      display: flex;
+      position: relative;
+      border: 2px solid #ccc;
+    }
+
+    /* Vertical tear line down the middle */
+    .ticket::before {
+      content: '✂';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 24pt;
+      color: #666;
+      z-index: 10;
+      background: white;
+      padding: 10px;
+    }
+
+    .ticket::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: repeating-linear-gradient(
+        to bottom,
+        #666 0px,
+        #666 10px,
+        transparent 10px,
+        transparent 20px
+      );
+      z-index: 5;
+    }
+
+    /* Left column: Shop records + Driver slip */
+    .left-column {
+      width: 50%;
+      padding: 0.5in;
+      border-right: 1px solid #ddd;
+    }
+
+    /* Right column: Card message + Logo + Address (folds together) */
+    .right-column {
+      width: 50%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top section: Shop records */
+    .shop-records {
+      flex: 1;
+      padding-bottom: 0.3in;
+      border-bottom: 2px dashed #000;
+      margin-bottom: 0.3in;
+    }
+
+    /* Bottom section: Driver slip */
+    .driver-slip {
+      flex: 1;
+    }
+
+    .header {
+      text-align: center;
+      font-size: 16pt;
+      font-weight: bold;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #597485;
+      color: #597485;
+    }
+
+    .section {
+      margin-bottom: 15px;
+    }
+
+    .section-title {
+      font-weight: bold;
+      font-size: 12pt;
+      margin-bottom: 5px;
+      color: #333;
+    }
+
+    .field {
+      margin-bottom: 3px;
+    }
+
+    .label {
+      font-weight: 600;
+      display: inline-block;
+      min-width: 100px;
+    }
+
+    .items-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0;
+      font-size: 10pt;
+    }
+
+    .items-table th {
+      background: #f0f0f0;
+      padding: 5px;
+      text-align: left;
+      border-bottom: 1px solid #ccc;
+      font-weight: 600;
+    }
+
+    .items-table td {
+      padding: 5px;
+      border-bottom: 1px solid #eee;
+    }
+
+    .items-table .qty {
+      width: 40px;
+      text-align: center;
+    }
+
+    .items-table .price {
+      width: 80px;
+      text-align: right;
+    }
+
+    .totals {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #ccc;
+    }
+
+    .total-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 3px;
+      font-size: 10pt;
+    }
+
+    .total-row.final {
+      font-size: 13pt;
+      font-weight: bold;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 2px solid #333;
+    }
+
+    .signature-line {
+      margin-top: 30px;
+      padding-top: 50px;
+      border-top: 2px solid #000;
+      text-align: center;
+      font-size: 10pt;
+    }
+
+    /* Right column sections */
+    .card-message-section {
+      flex: 1;
+      padding: 0.5in;
+      border-bottom: 1px solid #ddd;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .fold-line {
+      height: 0;
+      border-bottom: 1px dashed #999;
+      position: relative;
+    }
+
+    .fold-line::after {
+      content: '————— fold line —————';
+      position: absolute;
+      right: 10px;
+      top: -8px;
+      background: white;
+      padding: 0 10px;
+      font-size: 8pt;
+      color: #999;
+    }
+
+    .logo-section {
+      flex: 1;
+      padding: 0.5in;
+      border-bottom: 1px solid #ddd;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    }
+
+    .logo-section .business-name {
+      font-size: 24pt;
+      font-weight: bold;
+      color: #597485;
+      margin-bottom: 10px;
+    }
+
+    .logo-section .business-info {
+      font-size: 11pt;
+      color: #666;
+      line-height: 1.6;
+    }
+
+    .address-section {
+      flex: 1;
+      padding: 0.5in;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .address-section .to-label {
+      font-size: 12pt;
+      font-weight: 600;
+      margin-bottom: 15px;
+      color: #666;
+    }
+
+    .address-section .address-large {
+      font-size: 16pt;
+      line-height: 1.6;
+      font-weight: 500;
+    }
+
+    .message-box {
+      border: 1px solid #ddd;
+      padding: 15px;
+      background: #fafafa;
+      min-height: 100px;
+      font-size: 12pt;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .instructions {
+      margin-top: 15px;
+      padding: 10px;
+      background: #fff3cd;
+      border-left: 4px solid #ffc107;
+      font-size: 10pt;
+    }
+
+    .print-button {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 15px 30px;
+      background: #597485;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-size: 14pt;
+      cursor: pointer;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      z-index: 1000;
+    }
+
+    .print-button:hover {
+      background: #4a5f70;
+    }
+
+    @media print {
+      .print-button {
+        display: none;
+      }
+      body {
+        margin: 0;
+      }
+      .ticket {
+        border: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <button class="print-button" onclick="window.print()">🖨️ Print Preview</button>
+
+  <div class="ticket">
+    <!-- LEFT COLUMN -->
+    <div class="left-column">
+      <!-- TOP: Shop Records -->
+      <div class="shop-records">
+        <div class="header">🌸 ORDER SUMMARY</div>
+
+        <div class="section">
+          <div class="field"><span class="label">Order #:</span> 12345</div>
+          <div class="field"><span class="label">Date:</span> December 12, 2025</div>
+          <div class="field"><span class="label">Delivery:</span> December 14, 2025 at 2:00 PM</div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Customer (Sender)</div>
+          <div class="field">John Smith</div>
+          <div class="field">(604) 555-1234</div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Recipient</div>
+          <div class="field">Sarah Johnson</div>
+          <div class="field">(604) 555-5678</div>
+          <div class="field">456 Oak Street</div>
+          <div class="field">Vancouver, BC V6B 2K9</div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Items</div>
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th class="qty">Qty</th>
+                <th>Item</th>
+                <th class="price">Price</th>
+                <th class="price">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="qty">1</td>
+                <td>Dozen Red Roses in Vase</td>
+                <td class="price">$89.99</td>
+                <td class="price">$89.99</td>
+              </tr>
+              <tr>
+                <td class="qty">1</td>
+                <td>Deluxe Box of Chocolates</td>
+                <td class="price">$24.99</td>
+                <td class="price">$24.99</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="totals">
+            <div class="total-row">
+              <span>Subtotal:</span>
+              <span>$114.98</span>
+            </div>
+            <div class="total-row">
+              <span>Delivery:</span>
+              <span>$15.00</span>
+            </div>
+            <div class="total-row">
+              <span>GST (5%):</span>
+              <span>$5.75</span>
+            </div>
+            <div class="total-row">
+              <span>PST (7%):</span>
+              <span>$8.05</span>
+            </div>
+            <div class="total-row final">
+              <span>TOTAL:</span>
+              <span>$143.78</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BOTTOM: Driver Slip -->
+      <div class="driver-slip">
+        <div class="header">DELIVERY SLIP</div>
+
+        <div class="section">
+          <div class="field"><strong>Order #12345</strong></div>
+          <div class="field">Deliver: December 14, 2025 at 2:00 PM</div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Deliver To:</div>
+          <div class="field"><strong>Sarah Johnson</strong></div>
+          <div class="field">(604) 555-5678</div>
+          <div class="field">456 Oak Street</div>
+          <div class="field">Vancouver, BC V6B 2K9</div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Items (No Prices for Recipient)</div>
+          <div class="field">• 1x Dozen Red Roses in Vase</div>
+          <div class="field">• 1x Deluxe Box of Chocolates</div>
+        </div>
+
+        <div class="instructions">
+          <strong>⚠️ Special Instructions:</strong><br>
+          Please call before delivery. Ring doorbell at side entrance. Leave with neighbor if not home.
+        </div>
+
+        <div class="signature-line">
+          Recipient Signature
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN (TEARS OFF & FOLDS) -->
+    <div class="right-column">
+      <!-- TOP: Card Message -->
+      <div class="card-message-section">
+        <div class="section-title" style="text-align: center; margin-bottom: 15px;">Card Message</div>
+        <div class="message-box">Happy Birthday Sarah!
+
+Wishing you a wonderful day filled with joy and laughter. Thank you for being such an amazing friend.
+
+With love,
+John</div>
+      </div>
+
+      <div class="fold-line"></div>
+
+      <!-- MIDDLE: Business Logo/Info -->
+      <div class="logo-section">
+        <div class="business-name">🌸 BLOOM</div>
+        <div class="business-info">
+          123 Main Street<br>
+          Vancouver, BC V6B 1A1<br>
+          (604) 555-BLOOM<br>
+          www.hellobloom.ca
+        </div>
+      </div>
+
+      <div class="fold-line"></div>
+
+      <!-- BOTTOM: Recipient Address (Large) -->
+      <div class="address-section">
+        <div class="to-label">DELIVER TO:</div>
+        <div class="address-large">
+          <div style="font-weight: 700; margin-bottom: 10px;">Sarah Johnson</div>
+          <div>456 Oak Street</div>
+          <div>Vancouver, BC</div>
+          <div>V6B 2K9</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

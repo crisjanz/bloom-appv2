@@ -1,0 +1,238 @@
+import { BrowserWindow } from 'electron';
+import { logger } from './main';
+import { PrintJob } from './connection/websocket';
+import { generateOrderTicketHTML, parseOrderForTicket } from './templates/order-ticket-template';
+
+/**
+ * Process print jobs and send to printers
+ */
+export class JobProcessor {
+  private recentJobs: Array<{ job: PrintJob; status: string; timestamp: Date; error?: string }> = [];
+  private maxRecentJobs = 20;
+
+  constructor() {
+    logger.info('Job processor initialized');
+  }
+
+  /**
+   * Process a print job
+   */
+  async processJob(job: PrintJob, thermalPrinter: string, laserPrinter: string): Promise<void> {
+    logger.info(`Processing print job: ${job.id} (Type: ${job.type})`);
+
+    try {
+      // Select correct printer based on job type
+      const printerName = job.type === 'RECEIPT' ? thermalPrinter : laserPrinter;
+
+      if (!printerName) {
+        throw new Error(`No printer configured for job type: ${job.type}`);
+      }
+
+      // Process based on type
+      if (job.type === 'RECEIPT') {
+        await this.printReceipt(job, printerName);
+      } else if (job.type === 'ORDER_TICKET') {
+        await this.printOrderTicket(job, printerName);
+      } else if (job.type === 'REPORT') {
+        await this.printReport(job, printerName);
+      } else {
+        throw new Error(`Unknown job type: ${job.type}`);
+      }
+
+      // Track successful job
+      this.addToRecent(job, 'completed');
+      logger.info(`✅ Print job completed: ${job.id}`);
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error(`❌ Print job failed: ${job.id} - ${errorMessage}`);
+
+      // Track failed job
+      this.addToRecent(job, 'failed', errorMessage);
+
+      throw error;
+    }
+  }
+
+  /**
+   * Print receipt (thermal printer)
+   */
+  private async printReceipt(job: PrintJob, printerName: string): Promise<void> {
+    logger.info(`Printing receipt to ${printerName}`);
+
+    // TODO: Format receipt with ESC/POS commands
+    // For now, print simple HTML receipt
+    const receiptHTML = this.generateReceiptHTML(job.data);
+    await this.printHTML(receiptHTML, printerName);
+  }
+
+  /**
+   * Print order ticket (laser printer)
+   */
+  private async printOrderTicket(job: PrintJob, printerName: string): Promise<void> {
+    logger.info(`Printing order ticket to ${printerName}`);
+
+    // Parse order data and generate professional ticket
+    const ticketData = parseOrderForTicket(job.data);
+    const ticketHTML = generateOrderTicketHTML(ticketData);
+    await this.printHTML(ticketHTML, printerName);
+  }
+
+  /**
+   * Print report (laser printer)
+   */
+  private async printReport(job: PrintJob, printerName: string): Promise<void> {
+    logger.info(`Printing report to ${printerName}`);
+
+    // TODO: Generate report PDF
+    const reportHTML = this.generateReportHTML(job.data);
+    await this.printHTML(reportHTML, printerName);
+  }
+
+  /**
+   * Print HTML to printer (using Electron's print API)
+   */
+  private async printHTML(html: string, printerName: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      // Create hidden window for printing
+      const printWindow = new BrowserWindow({
+        show: false,
+        webPreferences: {
+          nodeIntegration: false
+        }
+      });
+
+      printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+
+      printWindow.webContents.on('did-finish-load', () => {
+        printWindow.webContents.print(
+          {
+            silent: true,
+            printBackground: true,
+            deviceName: printerName
+          },
+          (success, errorType) => {
+            printWindow.destroy();
+
+            if (success) {
+              resolve();
+            } else {
+              reject(new Error(`Print failed: ${errorType}`));
+            }
+          }
+        );
+      });
+
+      printWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+        printWindow.destroy();
+        reject(new Error(`Failed to load print content: ${errorDescription}`));
+      });
+    });
+  }
+
+  /**
+   * Generate receipt HTML (placeholder)
+   */
+  private generateReceiptHTML(orderData: any): string {
+    const order = orderData;
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body {
+            font-family: monospace;
+            width: 58mm;
+            margin: 0;
+            padding: 10px;
+            font-size: 11pt;
+          }
+          .center { text-align: center; }
+          .bold { font-weight: bold; }
+          .line { border-bottom: 1px dashed #000; margin: 5px 0; }
+          .item { display: flex; justify-content: space-between; }
+        </style>
+      </head>
+      <body>
+        <div class="center bold">🌸 BLOOM FLOWERS</div>
+        <div class="center">123 Main St, Vancouver BC</div>
+        <div class="center">(604) 555-1234</div>
+        <div class="line"></div>
+
+        <div>Order #${order.orderNumber || 'N/A'}</div>
+        <div>Date: ${new Date().toLocaleString()}</div>
+        <div class="line"></div>
+
+        <div class="bold">Items:</div>
+        ${order.orderItems?.map((item: any) => `
+          <div class="item">
+            <span>${item.quantity}x ${item.customName}</span>
+            <span>$${(item.rowTotal / 100).toFixed(2)}</span>
+          </div>
+        `).join('') || '<div>No items</div>'}
+
+        <div class="line"></div>
+        <div class="item bold">
+          <span>TOTAL:</span>
+          <span>$${((order.paymentAmount || 0) / 100).toFixed(2)}</span>
+        </div>
+        <div class="line"></div>
+
+        <div class="center">Thank you!</div>
+        <div class="center">www.hellobloom.ca</div>
+      </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Generate report HTML (placeholder)
+   */
+  private generateReportHTML(data: any): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 40px; }
+          .header { text-align: center; font-size: 20pt; margin-bottom: 30px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">Report</div>
+        <pre>${JSON.stringify(data, null, 2)}</pre>
+      </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Add job to recent jobs list
+   */
+  private addToRecent(job: PrintJob, status: string, error?: string): void {
+    this.recentJobs.unshift({
+      job,
+      status,
+      timestamp: new Date(),
+      error
+    });
+
+    // Keep only recent jobs
+    if (this.recentJobs.length > this.maxRecentJobs) {
+      this.recentJobs = this.recentJobs.slice(0, this.maxRecentJobs);
+    }
+  }
+
+  /**
+   * Get recent jobs for UI display
+   */
+  getRecentJobs() {
+    return this.recentJobs.map(item => ({
+      orderNumber: item.job.data?.orderNumber || 'Unknown',
+      status: item.status,
+      timestamp: item.timestamp.toISOString(),
+      error: item.error
+    }));
+  }
+}

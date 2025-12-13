@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Order Ticket - FloraNext Style</title>
+  <style>
+    @page {
+      size: 8.5in 11in;
+      margin: 0.25in;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 11pt;
+      line-height: 1.4;
+    }
+
+    .page {
+      width: 8in;
+      height: 10.5in;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      gap: 0;
+      border: 2px solid #ccc;
+    }
+
+    .section {
+      padding: 0.4in;
+      border: 1px solid #ddd;
+      position: relative;
+    }
+
+    /* Horizontal cut line */
+    .page::before {
+      content: '✂ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -';
+      position: absolute;
+      left: 0.25in;
+      right: 0.25in;
+      top: 50%;
+      transform: translateY(-50%);
+      text-align: center;
+      font-size: 10pt;
+      color: #999;
+      z-index: 10;
+      background: white;
+      letter-spacing: 3px;
+    }
+
+    /* Vertical cut line */
+    .page::after {
+      content: '✂';
+      position: absolute;
+      left: 50%;
+      top: 25%;
+      transform: translateX(-50%);
+      font-size: 16pt;
+      color: #999;
+      z-index: 10;
+      background: white;
+      padding: 5px;
+    }
+
+    /* TOP LEFT: Shop Records */
+    .shop-records {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    /* TOP RIGHT: Card Message */
+    .card-message {
+      grid-column: 2;
+      grid-row: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      font-size: 16pt;
+      font-weight: bold;
+      line-height: 1.6;
+    }
+
+    /* BOTTOM LEFT: Delivery Slip */
+    .delivery-slip {
+      grid-column: 1;
+      grid-row: 2;
+    }
+
+    /* BOTTOM RIGHT: Address Label */
+    .address-label {
+      grid-column: 2;
+      grid-row: 2;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      text-align: right;
+      font-size: 13pt;
+      line-height: 1.6;
+    }
+
+    .header-line {
+      display: flex;
+      justify-content: space-between;
+      font-weight: bold;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #000;
+    }
+
+    .field-group {
+      margin-bottom: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .field-label {
+      font-weight: bold;
+      margin-bottom: 3px;
+    }
+
+    .field-value {
+      margin-left: 0;
+    }
+
+    .two-column {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+
+    .order-details {
+      margin-top: 10px;
+    }
+
+    .order-line {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 3px;
+      font-size: 10pt;
+    }
+
+    .order-line.total {
+      font-weight: bold;
+      font-size: 11pt;
+      margin-top: 5px;
+      padding-top: 5px;
+      border-top: 2px solid #000;
+    }
+
+    .signature-line {
+      margin-top: 40px;
+      padding-top: 60px;
+      border-top: 2px solid #000;
+      text-align: center;
+    }
+
+    .address-label .name {
+      font-weight: bold;
+      font-size: 14pt;
+      margin-bottom: 8px;
+    }
+
+    .address-label .date-order {
+      margin-top: 20px;
+      font-size: 11pt;
+      font-weight: bold;
+    }
+
+    .print-button {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 15px 30px;
+      background: #597485;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-size: 14pt;
+      cursor: pointer;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      z-index: 1000;
+    }
+
+    .print-button:hover {
+      background: #4a5f70;
+    }
+
+    @media print {
+      .print-button {
+        display: none;
+      }
+      body {
+        margin: 0;
+      }
+      .page {
+        border: none;
+      }
+      .page::before,
+      .page::after {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <button class="print-button" onclick="window.print()">🖨️ Print Preview</button>
+
+  <div class="page">
+    <!-- TOP LEFT: Shop Records -->
+    <div class="section shop-records">
+      <div class="header-line">
+        <span>Delivery Date:<br><strong>Sat. Dec 14, 2025</strong></span>
+        <span># 000004446</span>
+      </div>
+
+      <div class="two-column">
+        <div class="field-group">
+          <div class="field-label">Recipient:</div>
+          <div class="field-value">
+            <strong>Sarah Johnson</strong><br>
+            (604) 555-5678<br>
+            456 Oak Street<br>
+            Vancouver, BC V6B 2K9
+          </div>
+        </div>
+
+        <div class="field-group">
+          <div class="field-label">Sender:</div>
+          <div class="field-value">
+            <strong>John Smith</strong><br>
+            (604) 555-1234<br>
+            Placed on: Dec 12, 2025<br>
+            By: Cristian
+          </div>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <div class="field-label">Order:</div>
+        <div class="field-value">
+          Dozen Red Roses in Vase
+        </div>
+      </div>
+
+      <div class="order-details">
+        <div class="order-line">
+          <span>Delivery:</span>
+          <span>CA$15.00</span>
+        </div>
+        <div class="order-line">
+          <span>Tax:</span>
+          <span>CA$13.80</span>
+        </div>
+        <div class="order-line total">
+          <span>Total:</span>
+          <span>CA$143.78</span>
+        </div>
+      </div>
+
+      <div class="field-group" style="margin-top: 15px;">
+        <div class="field-label">Payment Method:</div>
+        <div class="order-line">
+          <span>Credit Card</span>
+          <span>CA$143.78</span>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <div class="field-label">Item:</div>
+        <div class="field-value">
+          Dozen Red Roses in Vase
+        </div>
+      </div>
+    </div>
+
+    <!-- TOP RIGHT: Card Message -->
+    <div class="section card-message">
+      <div>
+        HAPPY BIRTHDAY SARAH!<br>
+        <br>
+        WISHING YOU A WONDERFUL<br>
+        DAY FILLED WITH JOY AND<br>
+        LAUGHTER.<br>
+        <br>
+        WITH LOVE,<br>
+        JOHN
+      </div>
+    </div>
+
+    <!-- BOTTOM LEFT: Delivery Slip -->
+    <div class="section delivery-slip">
+      <div class="header-line">
+        <span>Delivery Date:<br><strong>Sat. Dec 14, 2025</strong></span>
+        <span>Order # 000004446</span>
+      </div>
+
+      <div class="field-group">
+        <div class="field-label">Recipient:</div>
+        <div class="field-value">
+          <strong>Sarah Johnson</strong><br>
+          456 Oak Street<br>
+          Vancouver, BC V6B 2K9<br>
+          (604) 555-5678
+        </div>
+      </div>
+
+      <div class="field-group">
+        <div class="field-label">Products:</div>
+        <div class="field-value">
+          Dozen Red Roses in Vase
+        </div>
+      </div>
+
+      <div class="field-group">
+        <div class="field-label">Delivery Instructions:</div>
+        <div class="field-value">
+          Please call before delivery. Ring doorbell at side entrance.
+        </div>
+      </div>
+
+      <div class="signature-line">
+        Signature
+      </div>
+    </div>
+
+    <!-- BOTTOM RIGHT: Address Label -->
+    <div class="section address-label">
+      <div>
+        <div class="name">Sarah Johnson</div>
+        <div>456 Oak Street</div>
+        <div>Vancouver, BC V6B 2K9</div>
+        <div>(604) 555-5678</div>
+        <div class="date-order">
+          Dec 14, 2025 - Sat<br>
+          # 000004446
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,303 @@
+import { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain } from 'electron';
+import * as path from 'path';
+import { createTray, updateTrayStatus } from './tray';
+import * as winston from 'winston';
+import Store from 'electron-store';
+import { ConnectionManager } from './connection/manager';
+import { JobProcessor } from './job-processor';
+import { PrintJob } from './connection/websocket';
+
+// Track if app is quitting
+let isQuitting = false;
+
+// Configure logger
+export const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.printf(({ timestamp, level, message }) => {
+      return `${timestamp} [${level}]: ${message}`;
+    })
+  ),
+  transports: [
+    new winston.transports.Console(),
+    new winston.transports.File({ filename: 'bloom-print-agent.log' })
+  ]
+});
+
+let mainWindow: BrowserWindow | null = null;
+let tray: Tray | null = null;
+let connectionManager: ConnectionManager | null = null;
+let jobProcessor: JobProcessor | null = null;
+
+// Persistent settings storage
+const store: any = new Store({
+  defaults: {
+    thermalPrinter: '',
+    laserPrinter: '',
+    backendUrl: 'https://api.hellobloom.ca'
+  }
+});
+
+// Prevent multiple instances
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+}
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 800,
+    height: 600,
+    show: true, // Show window on startup for testing
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+
+  // Load the settings UI
+  mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+
+  // Handle window close - hide instead of quit
+  mainWindow.on('close', (event) => {
+    if (!isQuitting) {
+      event.preventDefault();
+      mainWindow?.hide();
+    }
+  });
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
+
+  logger.info('Settings window created');
+}
+
+// IPC Handlers
+function setupIPCHandlers() {
+  // Get available printers
+  ipcMain.handle('get-printers', async () => {
+    try {
+      const { webContents } = mainWindow || {};
+      if (!webContents) return [];
+
+      const printers = await webContents.getPrintersAsync();
+      logger.info(`Found ${printers.length} printers`);
+      return printers;
+    } catch (error) {
+      logger.error('Failed to get printers:', error);
+      return [];
+    }
+  });
+
+  // Save settings
+  ipcMain.handle('save-settings', async (_event, settings) => {
+    try {
+      store.set('thermalPrinter', settings.thermalPrinter);
+      store.set('laserPrinter', settings.laserPrinter);
+      logger.info('Settings saved:', settings);
+    } catch (error) {
+      logger.error('Failed to save settings:', error);
+      throw error;
+    }
+  });
+
+  // Get settings
+  ipcMain.handle('get-settings', async () => {
+    try {
+      return {
+        thermalPrinter: store.get('thermalPrinter'),
+        laserPrinter: store.get('laserPrinter'),
+        backendUrl: store.get('backendUrl')
+      };
+    } catch (error) {
+      logger.error('Failed to get settings:', error);
+      return {};
+    }
+  });
+
+  // Test print
+  ipcMain.handle('test-print', async (_event, printerName, type) => {
+    try {
+      logger.info(`Test print requested: ${type} on ${printerName}`);
+
+      // Create a simple test page
+      const testHTML = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial; padding: 20px; }
+            h1 { color: #597485; }
+          </style>
+        </head>
+        <body>
+          <h1>🌸 Bloom Print Agent Test</h1>
+          <p>Printer: ${printerName}</p>
+          <p>Type: ${type}</p>
+          <p>Date: ${new Date().toLocaleString()}</p>
+          <p>This is a test print to verify printer connectivity.</p>
+        </body>
+        </html>
+      `;
+
+      // Create hidden window for printing
+      const printWindow = new BrowserWindow({
+        show: false,
+        webPreferences: { nodeIntegration: false }
+      });
+
+      await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(testHTML)}`);
+
+      // Print silently
+      await printWindow.webContents.print({
+        silent: true,
+        printBackground: false,
+        deviceName: printerName
+      });
+
+      printWindow.destroy();
+      logger.info('Test print completed');
+    } catch (error) {
+      logger.error('Test print failed:', error);
+      throw error;
+    }
+  });
+
+  // Get recent jobs
+  ipcMain.handle('get-recent-jobs', async () => {
+    if (jobProcessor) {
+      return jobProcessor.getRecentJobs();
+    }
+    return [];
+  });
+
+  logger.info('IPC handlers registered');
+}
+
+// Set up connection manager and job processor
+function setupConnectionManager() {
+  const backendUrl = store.get('backendUrl') || 'https://api.hellobloom.ca';
+
+  // Initialize connection manager
+  connectionManager = new ConnectionManager(backendUrl);
+  jobProcessor = new JobProcessor();
+
+  // Listen for connection status changes
+  connectionManager.on('status', (status: string) => {
+    logger.info(`Connection status: ${status}`);
+
+    // Update tray status
+    if (tray) {
+      updateTrayStatus(tray, status as any, () => {
+        if (mainWindow === null) {
+          createWindow();
+        }
+        mainWindow?.show();
+        mainWindow?.focus();
+      });
+    }
+
+    // Notify renderer window
+    if (mainWindow) {
+      mainWindow.webContents.send('connection-status', status);
+    }
+  });
+
+  // Listen for print jobs
+  connectionManager.on('printJob', async (job: PrintJob) => {
+    logger.info(`📥 Received print job: ${job.id}`);
+
+    // Get printer settings
+    const thermalPrinter = store.get('thermalPrinter') || '';
+    const laserPrinter = store.get('laserPrinter') || '';
+
+    try {
+      // Process the job
+      await jobProcessor!.processJob(job, thermalPrinter, laserPrinter);
+
+      // Notify backend of success
+      await connectionManager!.sendJobStatus(job.id, 'COMPLETED');
+
+      logger.info(`✅ Print job completed: ${job.id}`);
+
+      // Notify renderer of new job
+      if (mainWindow) {
+        mainWindow.webContents.send('print-job', job);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error(`❌ Print job failed: ${job.id} - ${errorMessage}`);
+
+      // Notify backend of failure
+      try {
+        await connectionManager!.sendJobStatus(job.id, 'FAILED', errorMessage);
+      } catch (statusError) {
+        logger.error('Failed to send job status to backend:', statusError);
+      }
+    }
+  });
+
+  // Start connection
+  connectionManager.connect();
+  logger.info('Connection manager started');
+}
+
+app.whenReady().then(() => {
+  logger.info('Bloom Print Agent starting...');
+
+  // Set up IPC handlers
+  setupIPCHandlers();
+
+  // Create system tray
+  tray = createTray(() => {
+    if (mainWindow === null) {
+      createWindow();
+    }
+    mainWindow?.show();
+    mainWindow?.focus();
+  });
+
+  // Create window (shown for testing)
+  createWindow();
+
+  // Set up connection manager and start connecting to backend
+  setupConnectionManager();
+
+  // Auto-start on login (Windows/Mac)
+  app.setLoginItemSettings({
+    openAtLogin: true,
+    openAsHidden: true
+  });
+
+  logger.info('Bloom Print Agent ready - running in system tray');
+});
+
+app.on('window-all-closed', () => {
+  // Don't quit on window close - keep running in tray
+  // app.quit() only called when user clicks "Quit" in tray menu
+});
+
+app.on('second-instance', () => {
+  // Someone tried to run a second instance, focus our window
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  }
+});
+
+app.on('before-quit', () => {
+  isQuitting = true;
+
+  // Disconnect from backend
+  if (connectionManager) {
+    logger.info('Disconnecting from backend...');
+    connectionManager.disconnect();
+  }
+});
+
+// Export for other modules
+export { mainWindow };

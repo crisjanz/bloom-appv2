@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Order Ticket - Exact Measurements</title>
+  <style>
+    @page {
+      size: 11in 8.5in landscape;
+      margin: 0;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 11pt;
+      line-height: 1.4;
+      margin: 0;
+      padding: 0;
+    }
+
+    .page {
+      width: 11in;
+      height: 8.5in;
+      display: flex;
+      position: relative;
+      border: 2px solid #ccc;
+    }
+
+    /* LEFT SIDE: 7" wide */
+    .left-side {
+      width: 7in;
+      height: 8.5in;
+      display: flex;
+      flex-direction: column;
+      border-right: 2px dashed #666;
+    }
+
+    /* Shop Records: 7" × 5 5/8" */
+    .shop-records {
+      width: 7in;
+      height: 5.625in; /* 5 5/8" */
+      padding: 0.4in;
+      border-bottom: 2px dashed #666;
+      position: relative;
+    }
+
+    /* Driver Slip: 7" × 2 5/8" */
+    .driver-slip {
+      width: 7in;
+      height: 2.625in; /* 2 5/8" */
+      padding: 0.4in;
+    }
+
+    /* RIGHT SIDE: 4" wide × 8.5" tall, divided into 3 equal sections */
+    .right-side {
+      width: 4in;
+      height: 8.5in;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Each section: 4" × 2.833" (8.5 ÷ 3) */
+    .right-section {
+      width: 4in;
+      height: 2.833in;
+      padding: 0.3in;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      border-bottom: 1px dashed #999;
+    }
+
+    .right-section:last-child {
+      border-bottom: none;
+    }
+
+    /* Fold line indicators */
+    .right-section::after {
+      content: '— fold line —';
+      position: absolute;
+      right: 0.1in;
+      font-size: 7pt;
+      color: #999;
+      width: 3.8in;
+      text-align: right;
+      margin-top: 2.7in;
+    }
+
+    .right-section:last-child::after {
+      content: '';
+    }
+
+    /* Cut line indicator */
+    .page::before {
+      content: '✂';
+      position: absolute;
+      left: 7in;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 20pt;
+      color: #666;
+      background: white;
+      padding: 5px;
+      z-index: 10;
+    }
+
+    /* Section styling */
+    .header-line {
+      display: flex;
+      justify-content: space-between;
+      font-weight: bold;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #000;
+      font-size: 10pt;
+    }
+
+    .field-group {
+      margin-bottom: 10px;
+      font-size: 10pt;
+    }
+
+    .field-label {
+      font-weight: bold;
+      margin-bottom: 2px;
+    }
+
+    .field-value {
+      margin-left: 0;
+    }
+
+    .two-column {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .order-line {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 2px;
+      font-size: 9pt;
+    }
+
+    .order-line.total {
+      font-weight: bold;
+      font-size: 10pt;
+      margin-top: 4px;
+      padding-top: 4px;
+      border-top: 2px solid #000;
+    }
+
+    .signature-line {
+      position: absolute;
+      bottom: 0.3in;
+      left: 0.4in;
+      right: 0.4in;
+      padding-top: 40px;
+      border-top: 2px solid #000;
+      text-align: center;
+      font-size: 10pt;
+    }
+
+    /* Card message section */
+    .card-message {
+      font-size: 14pt;
+      font-weight: bold;
+      line-height: 1.5;
+      overflow: hidden;
+    }
+
+    /* Business info section */
+    .business-info {
+      font-size: 12pt;
+    }
+
+    .business-info .name {
+      font-size: 20pt;
+      font-weight: bold;
+      color: #597485;
+      margin-bottom: 8px;
+    }
+
+    .business-info .details {
+      font-size: 10pt;
+      color: #666;
+      line-height: 1.5;
+    }
+
+    /* Address label section */
+    .address-label {
+      font-size: 13pt;
+      line-height: 1.5;
+    }
+
+    .address-label .name {
+      font-weight: bold;
+      font-size: 14pt;
+      margin-bottom: 8px;
+    }
+
+    .address-label .date-order {
+      margin-top: 12px;
+      font-size: 10pt;
+      font-weight: bold;
+    }
+
+    .print-button {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 15px 30px;
+      background: #597485;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-size: 14pt;
+      cursor: pointer;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      z-index: 1000;
+    }
+
+    .print-button:hover {
+      background: #4a5f70;
+    }
+
+    /* Product details area - no box */
+    .product-details {
+      flex: 1;
+      font-size: 9pt;
+      border-left: 2px solid #000;
+      padding-left: 12px;
+    }
+
+    .product-details-title {
+      font-weight: bold;
+      font-size: 9pt;
+      margin-bottom: 8px;
+    }
+
+    .product-item {
+      margin-bottom: 6px;
+    }
+
+    .product-name {
+      font-weight: bold;
+      margin-bottom: 2px;
+      font-size: 9pt;
+    }
+
+    /* First item: 4 lines max */
+    .product-item:first-of-type .product-description {
+      font-size: 8pt;
+      color: #333;
+      line-height: 1.3;
+      margin-bottom: 2px;
+      display: -webkit-box;
+      -webkit-line-clamp: 4;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    /* Other items: 2 lines max */
+    .product-item:not(:first-of-type) .product-description {
+      font-size: 8pt;
+      color: #333;
+      line-height: 1.3;
+      margin-bottom: 2px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    /* Items that should hide description when too many items */
+    .product-item.hide-description .product-description {
+      display: none;
+    }
+
+    /* Divider line between products and financials */
+    .financial-divider {
+      border-top: 2px solid #000;
+      margin-top: 12px;
+      padding-top: 12px;
+    }
+
+    /* Remove borders from driver slip field groups */
+    .driver-slip .field-group {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    @media print {
+      .print-button {
+        display: none;
+      }
+      .page {
+        border: none;
+      }
+      .page::before,
+      .left-side,
+      .shop-records,
+      .driver-slip {
+        border-color: transparent !important;
+      }
+      .right-section::after {
+        display: none;
+      }
+      .product-details {
+        border-color: #ddd;
+      }
+    }
+  </style>
+</head>
+<body>
+  <button class="print-button" onclick="window.print()">🖨️ Print Preview</button>
+
+  <div class="page">
+    <!-- LEFT SIDE (7" wide) -->
+    <div class="left-side">
+      <!-- TOP: Shop Records (7" × 5 5/8") -->
+      <div class="shop-records">
+        <div class="header-line">
+          <span>Delivery Date: <strong>Sat. Dec 14, 2025</strong></span>
+          <span># 000004446</span>
+        </div>
+
+        <div class="two-column">
+          <div class="field-group">
+            <div class="field-label">Recipient:</div>
+            <div class="field-value">
+              <strong>Sarah Johnson</strong><br>
+              (604) 555-5678<br>
+              456 Oak Street<br>
+              Vancouver, BC V6B 2K9
+            </div>
+          </div>
+
+          <div class="field-group">
+            <div class="field-label">Sender:</div>
+            <div class="field-value">
+              <strong>John Smith</strong><br>
+              (604) 555-1234<br>
+              Placed on: Dec 12, 2025<br>
+              By: Cristian
+            </div>
+          </div>
+        </div>
+
+        <!-- Two column layout: Financial Summary | Product Details -->
+        <div class="two-column financial-divider" style="align-items: stretch;">
+          <!-- LEFT: Financial Summary Only -->
+          <div>
+            <div class="order-line">
+              <span>Subtotal:</span>
+              <span>CA$114.98</span>
+            </div>
+            <div class="order-line">
+              <span>Delivery:</span>
+              <span>CA$15.00</span>
+            </div>
+            <div class="order-line">
+              <span>Discount:</span>
+              <span>-CA$0.00</span>
+            </div>
+            <div class="order-line">
+              <span>GST (5%):</span>
+              <span>CA$5.75</span>
+            </div>
+            <div class="order-line">
+              <span>PST (7%):</span>
+              <span>CA$8.05</span>
+            </div>
+            <div class="order-line total">
+              <span>Total:</span>
+              <span>CA$143.78</span>
+            </div>
+
+            <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #ddd;">
+              <div class="field-label">Payment Method:</div>
+              <div class="order-line">
+                <span>Credit Card</span>
+                <span>CA$143.78</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT: Product Details with Descriptions -->
+          <div class="product-details">
+            <div class="product-details-title">Products:</div>
+
+            <div class="product-item">
+              <div class="product-name">1x Dozen Red Roses in Vase - CA$89.99</div>
+              <div class="product-description">Premium long-stem red roses arranged in crystal vase with baby's breath and greens. Classic romantic arrangement.</div>
+            </div>
+
+            <div class="product-item">
+              <div class="product-name">1x Deluxe Box of Chocolates - CA$24.99</div>
+              <div class="product-description">Assorted Belgian chocolates, 16-piece gift box with ribbon.</div>
+            </div>
+
+            <!-- Wire Order Example -->
+            <div class="product-item" style="display: none;">
+              <div class="product-name">1x .TWR04-1A MAKE MERRY - CA$69.74</div>
+              <div class="product-description">FTD Wire Order: Make Merry arrangement. Red roses, white lilies, evergreens in ceramic container. Code: TWR04-1A. Ref: 71-3628AA</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BOTTOM: Driver Slip (7" × 2 5/8") -->
+      <div class="driver-slip" style="position: relative;">
+        <div class="header-line">
+          <span>Delivery Date: <strong>Sat. Dec 14, 2025</strong></span>
+          <span>Order # 000004446</span>
+        </div>
+
+        <div class="two-column">
+          <div class="field-group">
+            <div class="field-label">Recipient:</div>
+            <div class="field-value">
+              <strong>Sarah Johnson</strong><br>
+              456 Oak Street<br>
+              Vancouver, BC V6B 2K9<br>
+              (604) 555-5678
+            </div>
+          </div>
+
+          <div class="field-group">
+            <div class="field-label">Products:</div>
+            <div class="field-value">
+              Dozen Red Roses in Vase<br>
+              Deluxe Box of Chocolates
+            </div>
+          </div>
+        </div>
+
+        <div class="two-column" style="margin-top: 10px;">
+          <div class="field-group">
+            <div class="field-label">Delivery Instructions:</div>
+            <div class="field-value">
+              Please call before delivery. Ring doorbell at side entrance.
+            </div>
+          </div>
+
+          <div class="field-group">
+            <div class="field-label">Signature:</div>
+            <div style="border-top: 2px solid #000; margin-top: 30px; padding-top: 5px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT SIDE (4" wide × 8.5" tall, 3 equal sections) -->
+    <div class="right-side">
+      <!-- Section 1: Card Message (4" × 2.833") -->
+      <div class="right-section card-message">
+        <div>
+          HAPPY BIRTHDAY SARAH!<br>
+          <br>
+          WISHING YOU A WONDERFUL<br>
+          DAY FILLED WITH JOY<br>
+          AND LAUGHTER.<br>
+          <br>
+          WITH LOVE,<br>
+          JOHN
+        </div>
+      </div>
+
+      <!-- Section 2: Business Info (4" × 2.833") -->
+      <div class="right-section business-info">
+        <div class="name">🌸 BLOOM</div>
+        <div class="details">
+          123 Main Street<br>
+          Vancouver, BC V6B 1A1<br>
+          (604) 555-BLOOM<br>
+          www.hellobloom.ca
+        </div>
+      </div>
+
+      <!-- Section 3: Address Label (4" × 2.833") -->
+      <div class="right-section address-label">
+        <div>
+          <div class="name">Sarah Johnson</div>
+          <div>456 Oak Street</div>
+          <div>Vancouver, BC V6B 2K9</div>
+          <div>(604) 555-5678</div>
+          <div class="date-order">
+            Dec 14, 2025 - Sat<br>
+            # 000004446
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Smart overflow handling: Remove descriptions from last items backward if content doesn't fit
+    function handleProductOverflow() {
+      const productDetails = document.querySelector('.product-details');
+      const productItems = Array.from(document.querySelectorAll('.product-item'));
+
+      if (!productDetails || productItems.length <= 1) return;
+
+      // Get the container height (the shop-records section)
+      const container = document.querySelector('.shop-records');
+      const containerHeight = container.offsetHeight;
+
+      // Check if content is overflowing
+      function isOverflowing() {
+        return container.scrollHeight > containerHeight;
+      }
+
+      // Start from the last item and work backward (but never touch the first item)
+      let currentIndex = productItems.length - 1;
+
+      while (isOverflowing() && currentIndex > 0) {
+        // Add hide-description class to current item
+        productItems[currentIndex].classList.add('hide-description');
+        currentIndex--;
+
+        // Give browser time to reflow
+        // Note: In production, you might need a small delay here
+      }
+    }
+
+    // Run when page loads and when window resizes
+    window.addEventListener('load', handleProductOverflow);
+    window.addEventListener('resize', handleProductOverflow);
+  </script>
+</body>
+</html>
