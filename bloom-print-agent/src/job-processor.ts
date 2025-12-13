@@ -104,23 +104,31 @@ export class JobProcessor {
 
       printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
 
-      printWindow.webContents.on('did-finish-load', () => {
-        printWindow.webContents.print(
-          {
-            silent: true,
-            printBackground: true,
-            deviceName: printerName
-          },
-          (success, errorType) => {
-            printWindow.destroy();
+      printWindow.webContents.on('did-finish-load', async () => {
+        try {
+          // Use node-printer for reliable Windows printing
+          const printer = require('@thiagoelg/node-printer');
 
-            if (success) {
+          // Send HTML directly to printer
+          printer.printDirect({
+            data: html,
+            printer: printerName,
+            type: 'RAW',
+            success: (jobID: string) => {
+              logger.info(`✅ Print job sent successfully: ${jobID}`);
+              printWindow.destroy();
               resolve();
-            } else {
-              reject(new Error(`Print failed: ${errorType}`));
+            },
+            error: (err: Error) => {
+              logger.error('❌ Print job failed:', err);
+              printWindow.destroy();
+              reject(err);
             }
-          }
-        );
+          });
+        } catch (error) {
+          printWindow.destroy();
+          reject(error);
+        }
       });
 
       printWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {

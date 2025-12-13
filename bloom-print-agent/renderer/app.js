@@ -179,9 +179,14 @@ function setupEventListeners() {
   });
 
   // View logs
-  viewLogs.addEventListener('click', () => {
-    // TODO: Open log file location
-    alert('Log viewer coming soon!');
+  viewLogs.addEventListener('click', async () => {
+    try {
+      const logPath = await window.electronAPI.viewLogs();
+      console.log('Opened logs at:', logPath);
+    } catch (error) {
+      console.error('Failed to open logs:', error);
+      alert('Failed to open logs: ' + error.message);
+    }
   });
 
   // Listen for connection status updates

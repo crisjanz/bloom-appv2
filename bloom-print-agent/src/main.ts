@@ -10,20 +10,36 @@ import { PrintJob } from './connection/websocket';
 // Track if app is quitting
 let isQuitting = false;
 
-// Configure logger
-export const logger = winston.createLogger({
-  level: 'info',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.printf(({ timestamp, level, message }) => {
-      return `${timestamp} [${level}]: ${message}`;
-    })
-  ),
-  transports: [
-    new winston.transports.Console(),
-    new winston.transports.File({ filename: 'bloom-print-agent.log' })
-  ]
-});
+// Configure logger (will be initialized after app is ready)
+export let logger: winston.Logger;
+
+function initializeLogger() {
+  const fs = require('fs');
+  const logDir = path.join(app.getPath('userData'), 'logs');
+
+  // Create logs directory if it doesn't exist
+  if (!fs.existsSync(logDir)) {
+    fs.mkdirSync(logDir, { recursive: true });
+  }
+
+  const logFile = path.join(logDir, 'agent-test.log');
+
+  logger = winston.createLogger({
+    level: 'info',
+    format: winston.format.combine(
+      winston.format.timestamp(),
+      winston.format.printf(({ timestamp, level, message }) => {
+        return `${timestamp} [${level}]: ${message}`;
+      })
+    ),
+    transports: [
+      new winston.transports.Console(),
+      new winston.transports.File({ filename: logFile })
+    ]
+  });
+
+  logger.info('Logger initialized at: ' + logFile);
+}
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -59,6 +75,16 @@ function createWindow() {
 
   // Load the settings UI
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+
+  // When page finishes loading, send current connection status
+  mainWindow.webContents.on('did-finish-load', () => {
+    if (connectionManager) {
+      const status = connectionManager.getStatus();
+      const connectionStatus = status.websocket ? 'connected' : (status.polling ? 'reconnecting' : 'disconnected');
+      mainWindow?.webContents.send('connection-status', connectionStatus);
+      logger.info(`Sent initial connection status to renderer: ${connectionStatus}`);
+    }
+  });
 
   // Handle window close - hide instead of quit
   mainWindow.on('close', (event) => {
@@ -149,19 +175,46 @@ function setupIPCHandlers() {
         webPreferences: { nodeIntegration: false }
       });
 
+      logger.info('Loading test HTML into print window...');
       await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(testHTML)}`);
 
-      // Print silently
-      await printWindow.webContents.print({
-        silent: true,
-        printBackground: false,
-        deviceName: printerName
+      logger.info(`Sending print job to: ${printerName}`);
+
+      // Use node-printer for reliable Windows printing
+      const printer = require('@thiagoelg/node-printer');
+
+      // Convert HTML to plain text for simple test
+      const testText = `
+╔════════════════════════════════════╗
+║   🌸 BLOOM PRINT AGENT TEST       ║
+╚════════════════════════════════════╝
+
+Printer: ${printerName}
+Type: ${type}
+Date: ${new Date().toLocaleString()}
+
+This is a test print to verify
+printer connectivity.
+
+`;
+
+      printer.printDirect({
+        data: testText,
+        printer: printerName,
+        type: 'RAW',
+        success: (jobID: string) => {
+          logger.info(`✅ Test print job sent: ${jobID}`);
+        },
+        error: (err: Error) => {
+          logger.error('❌ Test print failed:', err);
+          throw err;
+        }
       });
 
       printWindow.destroy();
-      logger.info('Test print completed');
+      logger.info('Test print queued for: ' + printerName);
     } catch (error) {
-      logger.error('Test print failed:', error);
+      logger.error('❌ Test print failed:', error);
       throw error;
     }
   });
@@ -172,6 +225,15 @@ function setupIPCHandlers() {
       return jobProcessor.getRecentJobs();
     }
     return [];
+  });
+
+  // View logs
+  ipcMain.handle('view-logs', async () => {
+    const { app, shell } = require('electron');
+    const path = require('path');
+    const logPath = path.join(app.getPath('userData'), 'logs', 'agent-test.log');
+    await shell.openPath(logPath);
+    return logPath;
   });
 
   logger.info('IPC handlers registered');
@@ -246,6 +308,9 @@ function setupConnectionManager() {
 }
 
 app.whenReady().then(() => {
+  // Initialize logger first
+  initializeLogger();
+
   logger.info('Bloom Print Agent starting...');
 
   // Set up IPC handlers

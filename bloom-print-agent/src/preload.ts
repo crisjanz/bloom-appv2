@@ -26,7 +26,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('test-print', printerName, type),
 
   // Get recent jobs
-  getRecentJobs: () => ipcRenderer.invoke('get-recent-jobs')
+  getRecentJobs: () => ipcRenderer.invoke('get-recent-jobs'),
+
+  // View logs
+  viewLogs: () => ipcRenderer.invoke('view-logs')
 });
 
 // Declare types for TypeScript
@@ -40,6 +43,7 @@ declare global {
       getSettings: () => Promise<any>;
       testPrint: (printerName: string, type: 'thermal' | 'laser') => Promise<void>;
       getRecentJobs: () => Promise<any[]>;
+      viewLogs: () => Promise<string>;
     };
   }
 }
