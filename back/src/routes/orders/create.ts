@@ -1,7 +1,8 @@
 import express from 'express';
-import { PrismaClient, OrderStatus } from '@prisma/client';
+import { PrismaClient, OrderStatus, PrintJobType } from '@prisma/client';
 import { calculateTax } from '../../utils/taxCalculator';
 import { triggerStatusNotifications } from '../../utils/notificationTriggers';
+import { printService } from '../../services/printService';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -143,6 +144,30 @@ router.post('/create', async (req, res) => {
             console.error(`❌ Order confirmation notification failed for order #${updatedOrder.orderNumber}:`, error);
             // TODO: Log to monitoring service for production
           });
+
+        if (updatedOrder.type === 'DELIVERY') {
+          printService.queuePrintJob({
+            type: PrintJobType.ORDER_TICKET,
+            orderId: updatedOrder.id,
+            order: updatedOrder as any,
+            template: 'delivery-ticket-v1',
+            priority: 10
+          }).catch((error) => {
+            console.error(`❌ Failed to queue delivery print job for order #${updatedOrder.orderNumber}:`, error);
+          });
+        }
+
+        if (updatedOrder.orderSource === 'POS' || updatedOrder.orderSource === 'WALKIN') {
+          printService.queuePrintJob({
+            type: PrintJobType.RECEIPT,
+            orderId: updatedOrder.id,
+            order: updatedOrder as any,
+            template: 'receipt-v1',
+            priority: 10
+          }).catch((error) => {
+            console.error(`❌ Failed to queue receipt print job for order #${updatedOrder.orderNumber}:`, error);
+          });
+        }
 
       } catch (error) {
         console.error(`❌ Failed to update order ${order.id} to PAID:`, error);

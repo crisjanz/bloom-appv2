@@ -3,6 +3,8 @@ import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
 import { PrismaClient } from '@prisma/client';
+import { createServer } from 'http';
+import { WebSocketServer } from 'ws';
 import authRouter from "./routes/auth";
 
 import productsRouter from './routes/products';
@@ -52,12 +54,15 @@ import ftdSettingsRouter from './routes/ftd/settings';
 import imagesRouter from './routes/images';
 import addOnGroupsRouter from './routes/addon-groups';
 import dashboardRouter from './routes/dashboard';
+import printJobsRouter from './routes/print-jobs';
 import { startFtdMonitor } from './services/ftdMonitor';
 import { startTokenRefreshSchedule } from './services/ftdAuthService';
+import { printService } from './services/printService';
 
 dotenv.config();
 
 const app = express();
+const server = createServer(app);
 const prisma = new PrismaClient();
 
 async function ensureOrderSchema() {
@@ -222,6 +227,47 @@ app.use('/api/reports', reportsRouter);
 app.use('/api/ftd/orders', ftdOrdersRouter);
 app.use('/api/ftd/settings', ftdSettingsRouter);
 app.use('/api/images', imagesRouter);
+app.use('/api/print-jobs', printJobsRouter);
+
+const wss = new WebSocketServer({
+  server,
+  path: '/print-agent'
+});
+
+wss.on('connection', (ws) => {
+  console.log('📡 Print agent connected');
+
+  ws.on('message', (data) => {
+    try {
+      const message = JSON.parse(data.toString());
+
+      if (message.type === 'JOB_STATUS') {
+        printService
+          .updateJobStatus(message.jobId, message.status, message.agentId, message.errorMessage)
+          .catch((error) => {
+            console.error('Failed to update print job status from WebSocket:', error);
+          });
+
+        ws.send(JSON.stringify({ type: 'ACK', jobId: message.jobId }));
+      } else if (message.type === 'HEARTBEAT') {
+        ws.send(JSON.stringify({
+          type: 'HEARTBEAT_ACK',
+          timestamp: new Date().toISOString()
+        }));
+      }
+    } catch (error) {
+      console.error('Error handling print agent message:', error);
+    }
+  });
+
+  ws.on('close', () => {
+    console.log('📡 Print agent disconnected');
+  });
+
+  ws.on('error', (error) => {
+    console.error('WebSocket error:', error);
+  });
+});
 
 app.get('/api/health', (req, res) => {
   res.json({
@@ -237,8 +283,9 @@ async function startServer() {
 
   const PORT = Number(process.env.PORT) || 4000;
 
-  app.listen(PORT, '0.0.0.0', () => {
+  server.listen(PORT, '0.0.0.0', () => {
     console.log(`Custom backend running on http://localhost:${PORT}`);
+    console.log('🖨️ Print agent WebSocket available at /print-agent');
 
     // Start FTD integration services
     console.log("🌸 Initializing FTD Wire Order Integration...");
