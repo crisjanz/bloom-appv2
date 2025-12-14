@@ -234,6 +234,9 @@ const wss = new WebSocketServer({
   path: '/print-agent'
 });
 
+// Connect WebSocket server to print service for broadcasting
+printService.setWebSocketServer(wss);
+
 wss.on('connection', (ws) => {
   console.log('📡 Print agent connected');
 

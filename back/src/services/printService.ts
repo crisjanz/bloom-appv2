@@ -1,8 +1,18 @@
 import { PrismaClient, PrintJobStatus, PrintJobType, Order } from '@prisma/client';
+import { WebSocketServer } from 'ws';
 
 const prisma = new PrismaClient();
 
 export class PrintService {
+  private wss: WebSocketServer | null = null;
+
+  /**
+   * Set WebSocket server for broadcasting
+   */
+  setWebSocketServer(wss: WebSocketServer) {
+    this.wss = wss;
+  }
+
   /**
    * Queue a print job for an order (non-blocking)
    */
@@ -14,7 +24,7 @@ export class PrintService {
     priority?: number;
   }): Promise<void> {
     try {
-      await prisma.printJob.create({
+      const printJob = await prisma.printJob.create({
         data: {
           type: params.type,
           orderId: params.orderId,
@@ -25,6 +35,29 @@ export class PrintService {
         }
       });
       console.log(`🖨️ Print job queued: ${params.type} for order ${params.orderId ?? '(manual)'}`);
+
+      // Broadcast to all connected print agents via WebSocket
+      if (this.wss) {
+        const message = JSON.stringify({
+          type: 'PRINT_JOB',
+          job: {
+            id: printJob.id,
+            type: printJob.type,
+            orderId: printJob.orderId,
+            data: params.order,
+            template: printJob.template,
+            priority: printJob.priority,
+            createdAt: printJob.createdAt
+          }
+        });
+
+        this.wss.clients.forEach((client) => {
+          if (client.readyState === 1) { // 1 = OPEN
+            client.send(message);
+            console.log(`📤 Print job sent to agent via WebSocket: ${printJob.id}`);
+          }
+        });
+      }
     } catch (error) {
       console.error('Failed to queue print job:', error);
       throw error;
