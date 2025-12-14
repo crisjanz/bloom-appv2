@@ -348,7 +348,7 @@ const OrdersListPage: React.FC = () => {
                     </TableCell>
                     <TableCell
                       isHeader
-                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 min-w-[180px]"
                     >
                       Actions
                     </TableCell>
@@ -399,8 +399,8 @@ const OrdersListPage: React.FC = () => {
                         </span>
                       </TableCell>
 
-                      <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                        <div className="flex items-center gap-3">
+                      <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400 min-w-[180px]">
+                        <div className="flex items-center gap-3 flex-nowrap">
                           <button
                             onClick={() => handleView(order.id)}
                             className="text-sm font-medium text-[#597485] hover:text-[#4e6575] hover:underline"
