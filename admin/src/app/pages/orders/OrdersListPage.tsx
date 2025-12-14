@@ -91,6 +91,34 @@ const OrdersListPage: React.FC = () => {
     navigate(`/orders/${id}/edit`);
   };
 
+  const handlePrint = async (orderId: string) => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000'}/api/print-jobs`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          type: 'ORDER_TICKET',
+          orderId,
+          template: 'delivery-ticket-v1',
+          priority: 10
+        })
+      });
+
+      if (response.ok) {
+        alert('✅ Print job sent! Check your print agent.');
+      } else {
+        const error = await response.json();
+        alert(`Failed to print: ${error.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Print error:', error);
+      alert('Failed to send print job. Make sure print agent is connected.');
+    }
+  };
+
   const handleStatusFilterChange = (value: string) => {
     setStatusFilter(value);
   };
@@ -386,6 +414,18 @@ const OrdersListPage: React.FC = () => {
                           >
                             Edit
                           </button>
+                          {order.type === 'DELIVERY' && (
+                            <>
+                              <span className="text-gray-300 dark:text-gray-600">|</span>
+                              <button
+                                onClick={() => handlePrint(order.id)}
+                                className="text-sm font-medium text-[#597485] hover:text-[#4e6575] hover:underline"
+                                title="Print Order Ticket"
+                              >
+                                Print
+                              </button>
+                            </>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
