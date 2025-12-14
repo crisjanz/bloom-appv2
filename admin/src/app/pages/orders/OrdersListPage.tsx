@@ -414,7 +414,7 @@ const OrdersListPage: React.FC = () => {
                           >
                             Edit
                           </button>
-                          {order.type === 'DELIVERY' && (
+                          {order.fulfillmentType === 'DELIVERY' && (
                             <>
                               <span className="text-gray-300 dark:text-gray-600">|</span>
                               <button
