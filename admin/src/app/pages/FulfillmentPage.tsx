@@ -175,7 +175,13 @@ const FulfillmentPage: React.FC = () => {
 
       if (data.imageUrl) {
         setProductImage(data.imageUrl);
-        alert('✅ Image found! Save it to the wire product library if correct.');
+
+        // Auto-save to wire product library
+        if (wireProductCode) {
+          await saveImageToLibrary(data.imageUrl);
+        }
+
+        alert('✅ Image found and saved to library!');
       }
 
     } catch (error: any) {
@@ -183,6 +189,67 @@ const FulfillmentPage: React.FC = () => {
       alert(`Failed to fetch image: ${error.message}`);
     } finally {
       setFetchingImage(false);
+    }
+  };
+
+  const handleImageUpload = async (file: File) => {
+    try {
+      setFetchingImage(true);
+      const token = localStorage.getItem('token');
+
+      // Upload to Cloudflare R2 via backend
+      const formData = new FormData();
+      formData.append('image', file);
+      if (wireProductCode) {
+        formData.append('productCode', wireProductCode);
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/wire-products/upload-image`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to upload image');
+      }
+
+      const data = await response.json();
+
+      if (data.imageUrl) {
+        setProductImage(data.imageUrl);
+        alert('✅ Image uploaded successfully!');
+      }
+
+    } catch (error: any) {
+      console.error('Error uploading image:', error);
+      alert(`Failed to upload image: ${error.message}`);
+    } finally {
+      setFetchingImage(false);
+    }
+  };
+
+  const saveImageToLibrary = async (imageUrl: string) => {
+    if (!wireProductCode) return;
+
+    try {
+      const token = localStorage.getItem('token');
+
+      await fetch(`${import.meta.env.VITE_API_URL}/api/wire-products/${wireProductCode}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ imageUrl })
+      });
+
+      console.log('✅ Saved image to wire product library');
+    } catch (error) {
+      console.error('Error saving to library:', error);
     }
   };
 
@@ -220,26 +287,28 @@ const FulfillmentPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-8">
+      {/* Back to Orders Link */}
+      <div className="max-w-4xl mx-auto mb-4">
+        <button
+          onClick={() => navigate('/delivery')}
+          className="text-[#597485] hover:text-[#4e6575] font-medium flex items-center gap-2"
+        >
+          ← Back to Orders
+        </button>
+      </div>
+
       <div className="max-w-4xl mx-auto">
         {/* Header with minimal info */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
-          <div className="flex justify-between items-start mb-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                Order #{order.orderNumber}
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400">
-                {order.recipientCustomer
-                  ? `${order.recipientCustomer.firstName} ${order.recipientCustomer.lastName}`
-                  : `${order.customer.firstName} ${order.customer.lastName}`}
-              </p>
-            </div>
-            <button
-              onClick={() => navigate('/delivery')}
-              className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-            >
-              ✕ Close
-            </button>
+          <div className="mb-4">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              Order #{order.orderNumber}
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400">
+              {order.recipientCustomer
+                ? `${order.recipientCustomer.firstName} ${order.recipientCustomer.lastName}`
+                : `${order.customer.firstName} ${order.customer.lastName}`}
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-4 text-sm">
@@ -291,22 +360,41 @@ const FulfillmentPage: React.FC = () => {
               </div>
 
               {wireProductCode && (
-                <div className="space-y-2">
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                    Product Code: {wireProductCode}
-                  </div>
-                  <button
-                    onClick={() => {
-                      const url = prompt('Enter image URL (e.g., petals.ca/ch77aa-s):');
-                      if (url) handleFetchImage(url);
-                    }}
-                    disabled={fetchingImage}
-                    className="px-4 py-2 bg-[#597485] text-white rounded hover:bg-[#4e6575] disabled:opacity-50"
-                  >
-                    {fetchingImage ? 'Fetching...' : '🔗 Fetch from URL'}
-                  </button>
+                <div className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  Product Code: {wireProductCode}
                 </div>
               )}
+
+              <div className="flex flex-col gap-3 items-center">
+                <input
+                  type="file"
+                  id="imageUpload"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImageUpload(file);
+                  }}
+                  className="hidden"
+                />
+                <button
+                  onClick={() => document.getElementById('imageUpload')?.click()}
+                  disabled={fetchingImage}
+                  className="px-4 py-2 bg-[#597485] text-white rounded hover:bg-[#4e6575] disabled:opacity-50"
+                >
+                  {fetchingImage ? 'Uploading...' : '📤 Upload Image'}
+                </button>
+
+                <button
+                  onClick={() => {
+                    const url = prompt('Enter image URL (e.g., petals.ca/ch77aa-s):');
+                    if (url) handleFetchImage(url);
+                  }}
+                  disabled={fetchingImage}
+                  className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 disabled:opacity-50"
+                >
+                  {fetchingImage ? 'Fetching...' : '🔗 Fetch from URL'}
+                </button>
+              </div>
             </div>
           )}
 

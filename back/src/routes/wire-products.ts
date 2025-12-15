@@ -1,11 +1,16 @@
 import express from 'express';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
+import multer from 'multer';
 import { PrismaClient } from '@prisma/client';
 import { normalizeProductCode } from '../utils/wireProductExtractor';
+import { uploadToR2 } from '../utils/r2Client';
 
 const router = express.Router();
 const prisma = new PrismaClient();
+
+// Configure multer for memory storage
+const upload = multer({ storage: multer.memoryStorage() });
 
 /**
  * Fetch image from external URL (petals.ca, etc.)
@@ -93,6 +98,62 @@ router.get('/fetch-image', async (req, res) => {
     console.error('Error fetching image:', error);
     res.status(500).json({
       error: 'Failed to fetch image from URL',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * Upload image to Cloudflare R2 and save to wire product library
+ * POST /api/wire-products/upload-image
+ */
+router.post('/upload-image', upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image file provided' });
+    }
+
+    const { productCode } = req.body;
+
+    console.log(`📤 Uploading image to R2 (product code: ${productCode || 'none'})`);
+
+    // Upload to Cloudflare R2
+    const { url } = await uploadToR2({
+      folder: 'wire-products',
+      buffer: req.file.buffer,
+      mimeType: req.file.mimetype,
+      originalName: req.file.originalname
+    });
+
+    console.log(`✅ Image uploaded: ${url}`);
+
+    // If product code provided, save to library
+    if (productCode) {
+      const normalizedCode = normalizeProductCode(productCode);
+
+      await prisma.wireProductLibrary.upsert({
+        where: { productCode: normalizedCode },
+        update: { imageUrl: url },
+        create: {
+          productCode: normalizedCode,
+          imageUrl: url,
+          timesUsed: 0
+        }
+      });
+
+      console.log(`✅ Saved image to wire product library: ${normalizedCode}`);
+    }
+
+    res.json({
+      success: true,
+      imageUrl: url,
+      message: 'Image uploaded successfully'
+    });
+
+  } catch (error: any) {
+    console.error('Error uploading image:', error);
+    res.status(500).json({
+      error: 'Failed to upload image',
       details: error.message
     });
   }

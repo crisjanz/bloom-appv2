@@ -77,6 +77,9 @@ export default function App() {
           <Route path="/pos" element={<POSPage />} />
 	  <Route path="/pos/fullscreen" element={<FullscreenPOS />} />
 
+          {/* Fulfillment - OUTSIDE AppLayout for fullscreen iPad view */}
+          <Route path="/fulfillment/:id" element={<FulfillmentPage />} />
+
           {/* Main dashboard layout */}
           <Route path="/" element={<ProtectedRoute requiredRoles={[EmployeeType.ADMIN]}><AppLayout /></ProtectedRoute>}>
             <Route index element={<Home />} />
@@ -106,7 +109,6 @@ export default function App() {
             <Route path="orders" element={<OrdersListPage />} />
             <Route path="orders/:id/edit" element={<OrderEditPage />} />
             <Route path="orders/:id" element={<OrderEditPage />} />
-            <Route path="fulfillment/:id" element={<FulfillmentPage />} />
             
             {/* Delivery Management route */}
             <Route path="delivery" element={<DeliveryManagementPage />} />
