@@ -24,8 +24,8 @@ router.get('/fetch-image', async (req, res) => {
       return res.status(400).json({ error: 'URL parameter required' });
     }
 
-    // Ensure HTTPS
-    const fetchUrl = url.startsWith('http') ? url : `https://${url}`;
+    // Default to HTTP (petals.ca redirects to canadaflowers.ca on HTTPS)
+    const fetchUrl = url.startsWith('http') ? url : `http://${url}`;
 
     console.log(`🔍 Fetching image from: ${fetchUrl}`);
 
