@@ -184,6 +184,9 @@ const OrderSections: React.FC<OrderSectionsProps> = ({ order, onEdit }) => {
             <div key={item.id} className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700 last:border-b-0">
               <div>
                 <div className="font-medium text-gray-900 dark:text-white">{item.customName}</div>
+                {item.description && (
+                  <div className="text-sm text-gray-600 dark:text-gray-400">{item.description}</div>
+                )}
                 <div className="text-sm text-gray-500 dark:text-gray-400">
                   Qty: {item.quantity} × {formatCurrency(item.unitPrice)}
                 </div>

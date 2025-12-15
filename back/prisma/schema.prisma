@@ -433,10 +433,11 @@ model OrderItem {
   product   Product? @relation(fields: [productId], references: [id])
   productId String?
 
-  customName String?
-  unitPrice  Int
-  quantity   Int
-  rowTotal   Int
+  customName  String?
+  description String?
+  unitPrice   Int
+  quantity    Int
+  rowTotal    Int
 }
 
 // CUSTOMER COMMUNICATION TRACKING

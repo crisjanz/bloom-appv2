@@ -29,7 +29,7 @@ const mapDomainOrderToFrontend = (domainOrder: DomainOrder): Order => {
     pst: domainOrder.taxBreakdown.find(t => t.taxType?.toUpperCase().includes('PST'))?.taxAmount?.amount || 0,
     cardMessage: domainOrder.cardMessage || null,
     specialInstructions: domainOrder.specialInstructions || null,
-    occasion: domainOrder.cardMessage || null, // Using cardMessage as occasion for now
+    occasion: domainOrder.occasion || null,
     customer: {
       id: domainOrder.customerId,
       firstName: domainOrder.customerSnapshot?.firstName || 'Unknown',
@@ -53,6 +53,7 @@ const mapDomainOrderToFrontend = (domainOrder: DomainOrder): Order => {
     orderItems: domainOrder.items.map(item => ({
       id: item.id,
       customName: item.name,
+      description: item.description || null,
       unitPrice: item.unitPrice.amount,
       quantity: item.quantity,
       rowTotal: item.totalPrice?.amount ?? (item.unitPrice.amount * item.quantity),

@@ -53,6 +53,7 @@ export interface Order {
   orderItems: Array<{
     id: string;
     customName: string;
+    description?: string | null;
     unitPrice: number;
     quantity: number;
     rowTotal: number;

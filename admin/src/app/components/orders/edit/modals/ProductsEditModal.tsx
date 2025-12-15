@@ -5,6 +5,7 @@ import Label from '@shared/ui/forms/Label';
 interface OrderItem {
   id: string;
   customName: string;
+  description?: string;
   unitPrice: number;
   quantity: number;
   rowTotal: number;
@@ -53,6 +54,7 @@ const addProduct = () => {
   const newProduct: OrderItem = {
     id: `temp-${Date.now()}`,
     customName: '',
+    description: '',
     unitPrice: 0,
     quantity: 1,
     rowTotal: 0
@@ -106,6 +108,16 @@ const handleSave = () => {
                   onChange={(e) => updateProduct(index, 'customName', e.target.value)}
                   placeholder="Enter product name"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#597485] focus:border-transparent dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+              <div>
+                <Label>Product Description</Label>
+                <textarea
+                  value={product.description || ''}
+                  onChange={(e) => updateProduct(index, 'description', e.target.value)}
+                  placeholder="Optional description"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#597485] focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  rows={2}
                 />
               </div>
 

@@ -49,6 +49,7 @@ router.post('/create', async (req, res) => {
         
         return {
           customName: product.description,
+          description: product.description,
           unitPrice,
           quantity,
           rowTotal
@@ -235,6 +236,7 @@ router.post('/save-draft', async (req, res) => {
         
         return {
           customName: product.description,
+          description: product.description,
           unitPrice,
           quantity,
           rowTotal

@@ -52,7 +52,8 @@ export interface Order extends DomainEntity {
   cardMessage?: string
   specialInstructions?: string
   internalNotes?: string
-  
+  occasion?: string
+
   // Customer information snapshot (for historical records)
   customerSnapshot: CustomerSnapshot
   

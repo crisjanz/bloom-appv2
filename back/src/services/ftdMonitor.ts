@@ -355,6 +355,8 @@ async function autoCreateBloomOrder(ftdOrder: any) {
       }
     });
 
+    const productDescription = ftdOrder.productDescription || 'Imported FTD product';
+
     // Map FTD status to Bloom OrderStatus
     const bloomStatus = mapFtdStatusToBloomStatus(ftdOrder.status);
 
@@ -377,7 +379,8 @@ async function autoCreateBloomOrder(ftdOrder: any) {
         totalTax: 0,
         orderItems: {
           create: {
-            customName: ftdOrder.productDescription || "FTD Wire Order",
+            customName: 'FTD Imported Product',
+            description: productDescription,
             unitPrice: ftdOrder.totalAmount || 0, // Already in cents
             quantity: 1,
             rowTotal: ftdOrder.totalAmount || 0 // Already in cents
