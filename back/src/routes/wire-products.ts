@@ -51,11 +51,13 @@ router.get('/fetch-image', async (req, res) => {
       'main img:first',                     // First image in main content
       'article img:first',                  // First image in article
       'img[src*="product"]',                // Image with "product" in URL
-      'img:first'                           // Fallback to first image
+      'img[src*="uploads"]',                // Image with "uploads" in URL
+      'img[src*="cdn"]',                    // Image with "cdn" in URL
     ];
 
     let imageUrl: string | null = null;
 
+    // First try specific selectors
     for (const selector of imageSelectors) {
       const element = $(selector).first();
 
@@ -75,6 +77,46 @@ router.get('/fetch-image', async (req, res) => {
           }
 
           console.log(`✅ Found image: ${imageUrl} (using selector: ${selector})`);
+          break;
+        }
+      }
+    }
+
+    // If no image found, try finding largest image on page
+    if (!imageUrl) {
+      console.log('No image found with specific selectors, trying all images...');
+      const allImages = $('img');
+
+      for (let i = 0; i < allImages.length; i++) {
+        const img = allImages.eq(i);
+        const src = img.attr('src') || img.attr('data-src');
+
+        if (src) {
+          // Skip tiny images, logos, icons
+          const width = img.attr('width');
+          const height = img.attr('height');
+
+          // Skip if clearly too small
+          if ((width && parseInt(width) < 100) || (height && parseInt(height) < 100)) {
+            continue;
+          }
+
+          // Skip common non-product images
+          if (src.includes('logo') || src.includes('icon') || src.includes('avatar')) {
+            continue;
+          }
+
+          imageUrl = src;
+
+          // Convert relative URLs to absolute
+          if (imageUrl.startsWith('/')) {
+            const urlObj = new URL(fetchUrl);
+            imageUrl = `${urlObj.protocol}//${urlObj.host}${imageUrl}`;
+          } else if (imageUrl.startsWith('//')) {
+            imageUrl = `https:${imageUrl}`;
+          }
+
+          console.log(`✅ Found image (from all images): ${imageUrl}`);
           break;
         }
       }
