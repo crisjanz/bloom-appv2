@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import flatpickr from 'flatpickr';
 import 'flatpickr/dist/flatpickr.css';
 import OrderCommunicationModal from '@app/components/delivery/OrderCommunicationModal';
@@ -395,6 +396,11 @@ const DeliveryPage: React.FC = () => {
     setSelectedOrderForComm(null);
   };
 
+  const handleFulfill = (order: DeliveryOrder, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent navigation to order edit
+    navigate(`/fulfillment/${order.id}`);
+  };
+
   // Quick filter handlers - filter client-side from allOrders
   const handleTodayFilter = () => {
     if (!timezone || !allOrders) return;
@@ -535,15 +541,28 @@ const DeliveryPage: React.FC = () => {
         />
       </td>
 
-      {/* Communication Button */}
+      {/* Action Buttons */}
       <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-        <button
-          onClick={(e) => handleOpenCommunication(order, e)}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#597485] text-white rounded hover:bg-[#4e6575] transition-colors text-sm"
-        >
-          <PhoneIcon className="w-4 h-4" />
-          Contact
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={(e) => handleOpenCommunication(order, e)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#597485] text-white rounded hover:bg-[#4e6575] transition-colors text-sm"
+          >
+            <PhoneIcon className="w-4 h-4" />
+            Contact
+          </button>
+          <button
+            onClick={(e) => handleFulfill(order, e)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-white rounded transition-colors text-sm ${
+              order.status === 'COMPLETED' || order.status === 'DELIVERED'
+                ? 'bg-green-600 hover:bg-green-700'
+                : 'bg-[#597485] hover:bg-[#4e6575]'
+            }`}
+          >
+            <PackageIcon className="w-4 h-4" />
+            Fulfill
+          </button>
+        </div>
       </td>
       </tr>
     );

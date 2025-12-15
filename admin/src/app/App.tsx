@@ -32,8 +32,9 @@ import CustomersPage from "./pages/customers/CustomersPage";
 import CustomerFormPage from "./pages/customers/CustomerFormPage";
 import DuplicatesPage from "./pages/customers/DuplicatesPage";
 import ViewProductPage from "./pages/products/ViewProductPage";
-import OrdersListPage from "./pages/orders/OrdersListPage"; 
+import OrdersListPage from "./pages/orders/OrdersListPage";
 import OrderEditPage from "./pages/orders/OrderEditPage";
+import FulfillmentPage from "./pages/FulfillmentPage";
 import SettingsIndexPage from "./pages/settings";
 import BusinessPage from "./pages/settings/business";
 import PaymentsPage from "./pages/settings/payments";
@@ -105,6 +106,7 @@ export default function App() {
             <Route path="orders" element={<OrdersListPage />} />
             <Route path="orders/:id/edit" element={<OrderEditPage />} />
             <Route path="orders/:id" element={<OrderEditPage />} />
+            <Route path="fulfillment/:id" element={<FulfillmentPage />} />
             
             {/* Delivery Management route */}
             <Route path="delivery" element={<DeliveryManagementPage />} />
