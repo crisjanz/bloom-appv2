@@ -282,7 +282,7 @@ async function createFtdOrder(externalId: string, listData: any, detailedData: a
 
       // Order content from detail endpoint
       cardMessage: cleanString(deliveryInfo.cardMessage),
-      occasion: deliveryInfo.occasion,
+      occasion: null, // Don't use FTD occasion field - card message already captured above
       productDescription: buildProductDescription(detailedData),
       productCode: detailedData.orderItemId,
 
@@ -373,7 +373,7 @@ async function autoCreateBloomOrder(ftdOrder: any) {
         deliveryTime: ftdOrder.deliveryTime,
         cardMessage: ftdOrder.cardMessage,
         specialInstructions: ftdOrder.deliveryInstructions,
-        occasion: ftdOrder.occasion,
+        occasion: null, // Don't use FTD occasion - card message already set above
         deliveryFee: 0,
         paymentAmount: ftdOrder.totalAmount || 0, // Already in cents
         totalTax: 0,
@@ -588,7 +588,7 @@ export async function refreshFtdOrderDetails(ftdOrderId: string) {
       deliveryTime: null,
       deliveryInstructions: mergedInstructions,
       cardMessage: cleanString(deliveryInfo.cardMessage),
-      occasion: deliveryInfo.occasion,
+      occasion: null, // Don't use FTD occasion - card message already captured above
       productDescription: buildProductDescription(detailed),
       totalAmount: extractTotalAmount(detailed),
       ftdRawData: detailed,
