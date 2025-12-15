@@ -91,38 +91,54 @@ router.get('/fetch-image', async (req, res) => {
     if (!imageUrl) {
       console.log('No image found with specific selectors, trying all images...');
       const allImages = $('img');
+      console.log(`Found ${allImages.length} total images on page`);
 
       for (let i = 0; i < allImages.length; i++) {
         const img = allImages.eq(i);
         const src = img.attr('src') || img.attr('data-src');
+
+        console.log(`Image ${i}: src="${src}"`);
 
         if (src) {
           // Skip tiny images, logos, icons
           const width = img.attr('width');
           const height = img.attr('height');
 
-          // Skip if clearly too small
-          if ((width && parseInt(width) < 100) || (height && parseInt(height) < 100)) {
+          // Skip if clearly too small (but allow if no size specified)
+          if (width && parseInt(width) < 100) {
+            console.log(`  Skipping - width too small: ${width}`);
+            continue;
+          }
+          if (height && parseInt(height) < 100) {
+            console.log(`  Skipping - height too small: ${height}`);
             continue;
           }
 
-          // Skip common non-product images
-          if (src.includes('logo') || src.includes('icon') || src.includes('avatar')) {
+          // Skip common non-product images (but allow if contains "product")
+          const srcLower = src.toLowerCase();
+          if (srcLower.includes('product')) {
+            // This is clearly a product image - use it!
+            imageUrl = src;
+          } else if (srcLower.includes('logo') || srcLower.includes('icon') || srcLower.includes('avatar') || srcLower.includes('flag')) {
+            console.log(`  Skipping - looks like logo/icon`);
             continue;
+          } else {
+            // Use this image
+            imageUrl = src;
           }
 
-          imageUrl = src;
+          if (imageUrl) {
+            // Convert relative URLs to absolute
+            if (imageUrl.startsWith('/')) {
+              const urlObj = new URL(fetchUrl);
+              imageUrl = `${urlObj.protocol}//${urlObj.host}${imageUrl}`;
+            } else if (imageUrl.startsWith('//')) {
+              imageUrl = `https:${imageUrl}`;
+            }
 
-          // Convert relative URLs to absolute
-          if (imageUrl.startsWith('/')) {
-            const urlObj = new URL(fetchUrl);
-            imageUrl = `${urlObj.protocol}//${urlObj.host}${imageUrl}`;
-          } else if (imageUrl.startsWith('//')) {
-            imageUrl = `https:${imageUrl}`;
+            console.log(`✅ Found image (from all images): ${imageUrl}`);
+            break;
           }
-
-          console.log(`✅ Found image (from all images): ${imageUrl}`);
-          break;
         }
       }
     }
