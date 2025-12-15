@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import flatpickr from 'flatpickr';
 import 'flatpickr/dist/flatpickr.css';
 import OrderCommunicationModal from '@app/components/delivery/OrderCommunicationModal';
