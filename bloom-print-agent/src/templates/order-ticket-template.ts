@@ -555,7 +555,7 @@ export function parseOrderForTicket(orderData: any): OrderTicketData {
       items: (order.orderItems || []).map((item: any) => ({
         quantity: item.quantity || 1,
         name: item.customName || 'Unknown Item',
-        description: item.product?.description || item.customDescription || '',
+        description: item.description || '',
         unitPrice: item.unitPrice || 0,
         total: item.rowTotal || 0
       })),
