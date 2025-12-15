@@ -123,6 +123,7 @@ if (updateData.orderItems || updateData.recalculateTotal) {
     const newOrderItems = updateData.orderItems.map((item: any) => ({
       orderId: id,
       customName: item.customName,
+      description: item.description || null,
       unitPrice: item.unitPrice,
       quantity: item.quantity,
       rowTotal: item.unitPrice * item.quantity
