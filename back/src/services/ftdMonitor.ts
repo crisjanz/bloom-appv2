@@ -360,6 +360,12 @@ async function autoCreateBloomOrder(ftdOrder: any) {
     // Map FTD status to Bloom OrderStatus
     const bloomStatus = mapFtdStatusToBloomStatus(ftdOrder.status);
 
+    // Calculate delivery fee and product price
+    // FTD total includes everything - we split it: $15 delivery + remaining for product
+    const ftdTotal = ftdOrder.totalAmount || 0; // Already in cents
+    const deliveryFee = 1500; // $15.00 flat rate in cents
+    const productPrice = Math.max(0, ftdTotal - deliveryFee); // Product = Total - Delivery
+
     // Create Bloom order
     const bloomOrder = await prisma.order.create({
       data: {
@@ -374,16 +380,16 @@ async function autoCreateBloomOrder(ftdOrder: any) {
         cardMessage: ftdOrder.cardMessage,
         specialInstructions: ftdOrder.deliveryInstructions,
         occasion: null, // Don't use FTD occasion - card message already set above
-        deliveryFee: 0,
-        paymentAmount: ftdOrder.totalAmount || 0, // Already in cents
-        totalTax: 0,
+        deliveryFee: deliveryFee, // $15.00 flat rate
+        paymentAmount: ftdTotal, // Keep FTD total
+        totalTax: 0, // FTD handles taxes
         orderItems: {
           create: {
             customName: 'FTD Imported Product',
             description: productDescription,
-            unitPrice: ftdOrder.totalAmount || 0, // Already in cents
+            unitPrice: productPrice, // Total minus delivery fee
             quantity: 1,
-            rowTotal: ftdOrder.totalAmount || 0 // Already in cents
+            rowTotal: productPrice // Total minus delivery fee
           }
         }
       }
