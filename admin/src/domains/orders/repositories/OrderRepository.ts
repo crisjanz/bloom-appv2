@@ -138,6 +138,7 @@ export class OrderRepository extends BaseRepository<Order> {
       id: item.id,
       productId: item.productId || '',
       name: item.customName,
+      description: item.description || undefined,
       unitPrice: { amount: item.unitPrice, currency: 'CAD' },
       quantity: item.quantity,
       totalPrice: { amount: item.rowTotal, currency: 'CAD' },
@@ -187,6 +188,7 @@ export class OrderRepository extends BaseRepository<Order> {
       requestedDeliveryDate: backendOrder.deliveryDate ? new Date(backendOrder.deliveryDate) : undefined,
       cardMessage: backendOrder.cardMessage,
       specialInstructions: backendOrder.specialInstructions,
+      occasion: backendOrder.occasion,
       customerSnapshot
     } as Order
   }
