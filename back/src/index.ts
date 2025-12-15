@@ -55,6 +55,7 @@ import imagesRouter from './routes/images';
 import addOnGroupsRouter from './routes/addon-groups';
 import dashboardRouter from './routes/dashboard';
 import printJobsRouter from './routes/print-jobs';
+import wireProductsRouter from './routes/wire-products';
 import { startFtdMonitor } from './services/ftdMonitor';
 import { startTokenRefreshSchedule } from './services/ftdAuthService';
 import { printService } from './services/printService';
@@ -228,6 +229,7 @@ app.use('/api/ftd/orders', ftdOrdersRouter);
 app.use('/api/ftd/settings', ftdSettingsRouter);
 app.use('/api/images', imagesRouter);
 app.use('/api/print-jobs', printJobsRouter);
+app.use('/api/wire-products', wireProductsRouter);
 
 const wss = new WebSocketServer({
   server,

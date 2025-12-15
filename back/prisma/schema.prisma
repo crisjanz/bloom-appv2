@@ -1436,3 +1436,25 @@ model HomepageSettings {
   announcementBanner Json // {message, bgColor, textColor, fontSize, fontWeight, isActive, link}
   updatedAt          DateTime @updatedAt
 }
+
+// Wire Product Library for FTD/Teleflora/Wire-in product images and descriptions
+model WireProductLibrary {
+  id              String   @id @default(cuid())
+  productCode     String   @unique // "TWR14-4A", "B9-5140s", "ch77aa-s"
+  productName     String?  // "Teleflora's Festive Pines"
+  description     String?  @db.Text // Full description
+  imageUrl        String?  // Supabase URL or external URL
+  source          String?  // "FTD", "Teleflora", "Petals.ca", etc.
+  externalUrl     String?  // Original link like "petals.ca/ch77aa-s"
+
+  // Usage tracking
+  timesUsed       Int      @default(0)
+  lastUsedAt      DateTime?
+
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([productCode])
+  @@index([source])
+}

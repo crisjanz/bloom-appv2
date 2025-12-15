@@ -8,7 +8,8 @@
     "start": "npm run build && electron .",
     "dev": "tsc && electron . --no-sandbox",
     "build:win": "npm run build && electron-builder --win",
-    "build:mac": "npm run build && electron-builder --mac"
+    "build:mac": "npm run build && electron-builder --mac",
+    "build:mac-intel": "npm run build && electron-builder --mac --x64"
   },
   "keywords": [
     "bloom",
@@ -20,7 +21,6 @@
   "license": "MIT",
   "type": "commonjs",
   "dependencies": {
-    "@thiagoelg/node-printer": "^0.6.2",
     "axios": "^1.13.2",
     "electron-store": "^11.0.2",
     "pdfkit": "^0.17.2",

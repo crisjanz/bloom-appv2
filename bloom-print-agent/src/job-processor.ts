@@ -72,10 +72,18 @@ export class JobProcessor {
   private async printOrderTicket(job: PrintJob, printerName: string): Promise<void> {
     logger.info(`Printing order ticket to ${printerName}`);
 
-    // Parse order data and generate professional ticket
-    const ticketData = parseOrderForTicket(job.data);
-    const ticketHTML = generateOrderTicketHTML(ticketData);
-    await this.printHTML(ticketHTML, printerName);
+    try {
+      // Parse order data and generate professional ticket
+      logger.info(`Order data received: ${JSON.stringify(job.data).substring(0, 500)}...`);
+      const ticketData = parseOrderForTicket(job.data);
+      logger.info(`Ticket data parsed: ${JSON.stringify(ticketData).substring(0, 500)}...`);
+      const ticketHTML = generateOrderTicketHTML(ticketData);
+      logger.info(`HTML generated, length: ${ticketHTML.length} characters`);
+      await this.printHTML(ticketHTML, printerName);
+    } catch (error) {
+      logger.error('Failed to generate ticket:', error);
+      throw error;
+    }
   }
 
   /**
@@ -106,23 +114,39 @@ export class JobProcessor {
 
       printWindow.webContents.on('did-finish-load', async () => {
         try {
-          // Use node-printer for reliable Windows printing
-          const printer = require('@thiagoelg/node-printer');
+          // Wait for CSS and fonts to render
+          await new Promise(resolve => setTimeout(resolve, 1000));
 
-          // Send HTML directly to printer
-          printer.printDirect({
-            data: html,
-            printer: printerName,
-            type: 'RAW',
-            success: (jobID: string) => {
-              logger.info(`✅ Print job sent successfully: ${jobID}`);
-              printWindow.destroy();
+          // Generate PDF and use Mac's lpr command (Electron's print is broken)
+          const { exec } = require('child_process');
+          const fs = require('fs');
+          const os = require('os');
+          const path = require('path');
+
+          const pdfPath = path.join(os.tmpdir(), `bloom-order-${Date.now()}.pdf`);
+
+          const pdfData = await printWindow.webContents.printToPDF({
+            printBackground: true,
+            landscape: true,
+            pageSize: 'Letter'
+          });
+
+          fs.writeFileSync(pdfPath, pdfData);
+          printWindow.destroy();
+
+          logger.info(`PDF generated: ${pdfPath}`);
+
+          // Use Mac's lpr command to actually print
+          exec(`lpr -P "${printerName}" "${pdfPath}"`, (error: any, stdout: any, stderr: any) => {
+            if (error) {
+              logger.error(`Print command failed: ${error.message}`);
+              logger.error(`stderr: ${stderr}`);
+              fs.unlinkSync(pdfPath);
+              reject(new Error(`Print failed: ${error.message}`));
+            } else {
+              logger.info('✅ Print job sent successfully via lpr');
+              fs.unlinkSync(pdfPath);
               resolve();
-            },
-            error: (err: Error) => {
-              logger.error('❌ Print job failed:', err);
-              printWindow.destroy();
-              reject(err);
             }
           });
         } catch (error) {

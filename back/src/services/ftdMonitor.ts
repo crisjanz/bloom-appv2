@@ -3,6 +3,7 @@ import { PrismaClient, AddressType, OrderStatus, FtdOrderStatus } from "@prisma/
 import { sendFtdOrderNotification } from "./ftdNotification";
 import { isWithinBusinessHours } from "../utils/businessHours";
 import transactionService from "./transactionService";
+import { extractWireProductInfo, normalizeProductCode } from "../utils/wireProductExtractor";
 
 const prisma = new PrismaClient();
 const axiosClient = axios.create();
@@ -356,6 +357,45 @@ async function autoCreateBloomOrder(ftdOrder: any) {
     });
 
     const productDescription = ftdOrder.productDescription || 'Imported FTD product';
+
+    // Extract wire product info and check library for existing image
+    const wireProductInfo = extractWireProductInfo(productDescription);
+    let wireProductImageUrl: string | null = null;
+
+    if (wireProductInfo.productCode) {
+      const normalizedCode = normalizeProductCode(wireProductInfo.productCode);
+      console.log(`📦 Extracted wire product code: ${normalizedCode} (${wireProductInfo.source})`);
+
+      // Check if product exists in library
+      const existingWireProduct = await prisma.wireProductLibrary.findUnique({
+        where: { productCode: normalizedCode }
+      });
+
+      if (existingWireProduct) {
+        // Update usage stats
+        await prisma.wireProductLibrary.update({
+          where: { productCode: normalizedCode },
+          data: {
+            timesUsed: { increment: 1 },
+            lastUsedAt: new Date()
+          }
+        });
+        wireProductImageUrl = existingWireProduct.imageUrl;
+      } else {
+        // Create new library entry (without image yet - will be added manually later)
+        await prisma.wireProductLibrary.create({
+          data: {
+            productCode: normalizedCode,
+            productName: wireProductInfo.fullDescription.substring(0, 100), // Truncate for name
+            description: wireProductInfo.fullDescription,
+            source: wireProductInfo.source,
+            externalUrl: wireProductInfo.externalUrl,
+            timesUsed: 1,
+            lastUsedAt: new Date()
+          }
+        });
+      }
+    }
 
     // Map FTD status to Bloom OrderStatus
     const bloomStatus = mapFtdStatusToBloomStatus(ftdOrder.status);

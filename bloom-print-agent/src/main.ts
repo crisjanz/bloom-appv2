@@ -180,39 +180,38 @@ function setupIPCHandlers() {
 
       logger.info(`Sending print job to: ${printerName}`);
 
-      // Use node-printer for reliable Windows printing
-      const printer = require('@thiagoelg/node-printer');
+      // Generate PDF and use Mac's lpr command (Electron's print is broken)
+      const { exec } = require('child_process');
+      const fs = require('fs');
+      const os = require('os');
+      const path = require('path');
 
-      // Convert HTML to plain text for simple test
-      const testText = `
-╔════════════════════════════════════╗
-║   🌸 BLOOM PRINT AGENT TEST       ║
-╚════════════════════════════════════╝
+      const pdfPath = path.join(os.tmpdir(), `bloom-test-${Date.now()}.pdf`);
 
-Printer: ${printerName}
-Type: ${type}
-Date: ${new Date().toLocaleString()}
-
-This is a test print to verify
-printer connectivity.
-
-`;
-
-      printer.printDirect({
-        data: testText,
-        printer: printerName,
-        type: 'RAW',
-        success: (jobID: string) => {
-          logger.info(`✅ Test print job sent: ${jobID}`);
-        },
-        error: (err: Error) => {
-          logger.error('❌ Test print failed:', err);
-          throw err;
-        }
+      const pdfData = await printWindow.webContents.printToPDF({
+        printBackground: true,
+        pageSize: 'Letter',
+        landscape: true
       });
 
+      fs.writeFileSync(pdfPath, pdfData);
       printWindow.destroy();
-      logger.info('Test print queued for: ' + printerName);
+
+      logger.info(`PDF generated: ${pdfPath}`);
+      logger.info(`Sending to printer: ${printerName}`);
+
+      // Use Mac's lpr command to actually print
+      exec(`lpr -P "${printerName}" "${pdfPath}"`, (error: any, stdout: any, stderr: any) => {
+        if (error) {
+          logger.error(`Print command failed: ${error.message}`);
+          logger.error(`stderr: ${stderr}`);
+        } else {
+          logger.info('✅ Test print sent successfully via lpr');
+        }
+
+        // Clean up PDF file
+        fs.unlinkSync(pdfPath);
+      });
     } catch (error) {
       logger.error('❌ Test print failed:', error);
       throw error;
