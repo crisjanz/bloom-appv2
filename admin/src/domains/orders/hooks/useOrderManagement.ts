@@ -71,6 +71,26 @@ export const useOrderManagement = (orderId?: string) => {
     }
   }, [order, updateOrder])
 
+  // Direct update wrapper that updates local state
+  const updateOrderDirect = useCallback(async (updates: any) => {
+    if (!order) return null
+
+    setSaving(true)
+    setError(null)
+    try {
+      const updatedOrder = await updateOrder(order.id, updates)
+      setOrder(updatedOrder)
+      return updatedOrder
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to update order'
+      setError(message)
+      console.error('Error updating order:', err)
+      return null
+    } finally {
+      setSaving(false)
+    }
+  }, [order, updateOrder])
+
   // Auto-load order when ID changes
   useEffect(() => {
     if (orderId) {
@@ -88,6 +108,7 @@ export const useOrderManagement = (orderId?: string) => {
     error,
     fetchOrder,
     updateOrderStatus,
-    updateOrderField
+    updateOrderField,
+    updateOrderDirect // Expose direct update for complex updates like orderItems
   }
 }

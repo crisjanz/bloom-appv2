@@ -93,7 +93,7 @@ const OrderEditPage: React.FC = () => {
   const { getBusinessDateString } = useBusinessTimezone();
   
   // MIGRATION: Use domain hook for order management
-  const { order: domainOrder, loading, saving, error, fetchOrder, updateOrderStatus, updateOrderField } = useOrderManagement(id);
+  const { order: domainOrder, loading, saving, error, fetchOrder, updateOrderStatus, updateOrderField, updateOrderDirect } = useOrderManagement(id);
   const order = domainOrder ? mapDomainOrderToFrontend(domainOrder) : null;
   const [activeModal, setActiveModal] = useState<string | null>(null);
   
@@ -258,7 +258,14 @@ const OrderEditPage: React.FC = () => {
       console.log('Sending update data:', updateData);
 
       // MIGRATION: Use domain hook for updates
-      const result = await updateOrderField(section, updateData[section] || updateData);
+      // For products (and other sections with multiple fields), use updateOrderDirect
+      // to avoid double-wrapping. For single field updates, use updateOrderField.
+      let result;
+      if (section === 'products' || section === 'delivery' || section === 'payment' || section === 'images') {
+        result = await updateOrderDirect(updateData);
+      } else {
+        result = await updateOrderField(section, updateData[section] || updateData);
+      }
       console.log('Update result:', result);
       
       if (result) {
