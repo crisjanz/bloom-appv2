@@ -34,7 +34,12 @@ router.get('/fetch-image', async (req, res) => {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
       },
-      timeout: 10000
+      timeout: 10000,
+      maxRedirects: 5,
+      validateStatus: (status) => status < 500, // Accept redirects
+      httpsAgent: new (require('https').Agent)({
+        rejectUnauthorized: false // Allow self-signed/mismatched certs for scraping
+      })
     });
 
     // Parse HTML with cheerio
