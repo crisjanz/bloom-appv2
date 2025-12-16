@@ -82,6 +82,51 @@ router.get('/fetch-image', async (req, res) => {
 
     console.log(`🔍 Fetching image from: ${fetchUrl}`);
 
+    // Check if URL is a direct image link (ends with image extension)
+    const isDirectImage = /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(fetchUrl);
+
+    if (isDirectImage) {
+      console.log('✅ Direct image URL detected, downloading directly...');
+
+      // Download the image directly
+      const imageResponse = await axios.get(fetchUrl, {
+        responseType: 'arraybuffer',
+        timeout: 10000,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        },
+        httpsAgent: new (require('https').Agent)({
+          rejectUnauthorized: false
+        })
+      });
+
+      // Determine file extension from content-type or URL
+      const contentType = imageResponse.headers['content-type'] || 'image/jpeg';
+      const ext = contentType.split('/')[1]?.split(';')[0] || fetchUrl.split('.').pop() || 'jpg';
+
+      // Upload to R2
+      console.log(`☁️ Uploading to Cloudflare R2...`);
+      const { url: r2Url } = await uploadToR2({
+        folder: 'wire-products',
+        buffer: Buffer.from(imageResponse.data),
+        mimeType: contentType,
+        originalName: `google-image.${ext}`
+      });
+
+      console.log(`✅ Image uploaded to R2: ${r2Url}`);
+
+      return res.json({
+        success: true,
+        imageUrl: r2Url,
+        sourceUrl: fetchUrl,
+        originalImageUrl: fetchUrl,
+        message: 'Image downloaded and saved!'
+      });
+    }
+
+    // Otherwise, scrape the webpage for images
+    console.log('🔍 Webpage URL detected, scraping for images...');
+
     // Fetch the page HTML
     const response = await axios.get(fetchUrl, {
       headers: {
