@@ -97,12 +97,13 @@ const FulfillmentPage: React.FC = () => {
     }
 
     // Wire-in product - check WireProductLibrary
-    if (firstItem.description) {
+    const searchText = firstItem.description || firstItem.customName || '';
+    if (searchText) {
       try {
         const token = localStorage.getItem('token');
 
-        // Extract product code from description
-        const codeMatch = firstItem.description.match(/\b([A-Z]{2,3}\d{1,2}-\d+[A-Z]?|[A-Z]\d{1,2}-\d+[a-z]?)\b/);
+        // Extract product code from description or customName
+        const codeMatch = searchText.match(/\b([A-Z]{2,3}\d{1,2}-\d+[A-Z]?|[A-Z]\d{1,2}-\d+[a-z]?)\b/);
 
         if (codeMatch) {
           const productCode = codeMatch[1];
@@ -449,10 +450,11 @@ const FulfillmentPage: React.FC = () => {
 
                 <button
                   onClick={() => {
-                    // Try to extract petals.ca URL from description
-                    const description = order.orderItems[0]?.description || '';
-                    console.log('Order item description:', description);
-                    const defaultUrl = extractPetalsUrl(description);
+                    // Try to extract petals.ca URL from description or customName
+                    const item = order.orderItems[0];
+                    const searchText = item?.description || item?.customName || '';
+                    console.log('Searching for URL in:', searchText);
+                    const defaultUrl = extractPetalsUrl(searchText);
                     console.log('Extracted URL:', defaultUrl);
 
                     const url = prompt(
