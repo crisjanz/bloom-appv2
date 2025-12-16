@@ -387,11 +387,11 @@ const FulfillmentPage: React.FC = () => {
 
           {productImage ? (
             <div>
-              <div className="w-full">
+              <div className="flex justify-center">
                 <img
                   src={productImage}
                   alt="Product"
-                  className="w-full rounded-lg shadow-lg object-contain"
+                  className="max-w-[768px] w-full rounded-lg shadow-lg object-contain"
                 />
               </div>
 
