@@ -48,7 +48,7 @@ const FulfillmentPage: React.FC = () => {
   const [wireProductCode, setWireProductCode] = useState<string | null>(null);
   const [fetchingImage, setFetchingImage] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
-  const [saveForm, setSaveForm] = useState({ productName: '', description: '' });
+  const [saveForm, setSaveForm] = useState({ productCode: '', productName: '', description: '' });
 
   // Load order on mount
   useEffect(() => {
@@ -275,8 +275,8 @@ const FulfillmentPage: React.FC = () => {
   };
 
   const handleSaveToLibrary = async () => {
-    if (!wireProductCode || !productImage) {
-      alert('Product code or image missing');
+    if (!saveForm.productCode || !productImage) {
+      alert('Product code and image are required');
       return;
     }
 
@@ -284,7 +284,7 @@ const FulfillmentPage: React.FC = () => {
       const token = localStorage.getItem('token');
 
       // Update or create wire product with full details
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/wire-products/${wireProductCode}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/wire-products/${saveForm.productCode}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -301,7 +301,12 @@ const FulfillmentPage: React.FC = () => {
 
       alert('Saved to wire product library!');
       setShowSaveModal(false);
-      setSaveForm({ productName: '', description: '' });
+      setSaveForm({ productCode: '', productName: '', description: '' });
+
+      // Update wireProductCode if it was manually entered
+      if (!wireProductCode) {
+        setWireProductCode(saveForm.productCode);
+      }
     } catch (error: any) {
       console.error('Error saving to library:', error);
       alert(`Failed to save: ${error.message}`);
@@ -406,17 +411,22 @@ const FulfillmentPage: React.FC = () => {
               </div>
 
               {/* Save to Library Button */}
-              {wireProductCode && (
-                <div className="mt-4 flex justify-center">
-                  <button
-                    onClick={() => setShowSaveModal(true)}
-                    className="flex items-center gap-2 px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-                  >
-                    <SaveIcon className="w-4 h-4" />
-                    Save to Library
-                  </button>
-                </div>
-              )}
+              <div className="mt-4 flex justify-center">
+                <button
+                  onClick={() => {
+                    setSaveForm({
+                      productCode: wireProductCode || '',
+                      productName: '',
+                      description: ''
+                    });
+                    setShowSaveModal(true);
+                  }}
+                  className="flex items-center gap-2 px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                >
+                  <SaveIcon className="w-4 h-4" />
+                  Save to Library
+                </button>
+              </div>
             </div>
           ) : (
             <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-12 text-center">
@@ -546,11 +556,20 @@ const FulfillmentPage: React.FC = () => {
               </h2>
 
               <div className="mb-4">
-                <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                  Product Code: <span className="font-mono font-bold">{wireProductCode}</span>
-                </div>
-
                 <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Product Code <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={saveForm.productCode}
+                      onChange={(e) => setSaveForm({...saveForm, productCode: e.target.value.toUpperCase()})}
+                      placeholder="e.g., CH88AA-U"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono"
+                    />
+                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Product Name (optional)
@@ -589,7 +608,7 @@ const FulfillmentPage: React.FC = () => {
                 <button
                   onClick={() => {
                     setShowSaveModal(false);
-                    setSaveForm({ productName: '', description: '' });
+                    setSaveForm({ productCode: '', productName: '', description: '' });
                   }}
                   className="px-4 py-2 bg-gray-300 hover:bg-gray-400 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg transition-colors"
                 >
