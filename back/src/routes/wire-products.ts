@@ -419,14 +419,24 @@ router.patch('/:code', async (req, res) => {
     const normalizedCode = normalizeProductCode(req.params.code);
     const { imageUrl, productName, description, source, externalUrl } = req.body;
 
-    const updated = await prisma.wireProductLibrary.update({
+    // Use upsert to create if doesn't exist, update if exists
+    const updated = await prisma.wireProductLibrary.upsert({
       where: { productCode: normalizedCode },
-      data: {
+      update: {
         ...(imageUrl !== undefined && { imageUrl }),
         ...(productName !== undefined && { productName }),
         ...(description !== undefined && { description }),
         ...(source !== undefined && { source }),
         ...(externalUrl !== undefined && { externalUrl })
+      },
+      create: {
+        productCode: normalizedCode,
+        imageUrl: imageUrl || null,
+        productName: productName || null,
+        description: description || null,
+        source: source || null,
+        externalUrl: externalUrl || null,
+        timesUsed: 0
       }
     });
 
