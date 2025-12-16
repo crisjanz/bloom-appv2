@@ -49,6 +49,11 @@ const FulfillmentPage: React.FC = () => {
   const [fetchingImage, setFetchingImage] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [saveForm, setSaveForm] = useState({ productCode: '', productName: '', description: '' });
+  const [showImageSearchModal, setShowImageSearchModal] = useState(false);
+  const [imageSearchQuery, setImageSearchQuery] = useState('');
+  const [imageSearchResults, setImageSearchResults] = useState<any[]>([]);
+  const [searchingImages, setSearchingImages] = useState(false);
+  const [selectedImageUrl, setSelectedImageUrl] = useState('');
 
   // Load order on mount
   useEffect(() => {
@@ -250,6 +255,35 @@ const FulfillmentPage: React.FC = () => {
       alert(`Failed to upload image: ${error.message}`);
     } finally {
       setFetchingImage(false);
+    }
+  };
+
+  const handleGoogleImageSearch = async () => {
+    if (!imageSearchQuery.trim()) {
+      alert('Please enter a search query');
+      return;
+    }
+
+    try {
+      setSearchingImages(true);
+      const token = localStorage.getItem('token');
+
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/wire-products/search-google-images?q=${encodeURIComponent(imageSearchQuery)}`,
+        {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }
+      );
+
+      if (!response.ok) throw new Error('Failed to search images');
+
+      const data = await response.json();
+      setImageSearchResults(data.items || []);
+    } catch (error: any) {
+      console.error('Error searching images:', error);
+      alert(`Failed to search images: ${error.message}`);
+    } finally {
+      setSearchingImages(false);
     }
   };
 
@@ -494,6 +528,21 @@ const FulfillmentPage: React.FC = () => {
                     </>
                   )}
                 </button>
+
+                <button
+                  onClick={() => {
+                    const item = order.orderItems[0];
+                    const searchText = item?.description || item?.customName || '';
+                    // Extract product code or use the text as search query
+                    const codeMatch = searchText.match(/\b([A-Z]{2,3}\d{1,2}-\d+[A-Z]?|[A-Z]\d{1,2}-\d+[a-z]?)\b/);
+                    setImageSearchQuery(codeMatch ? codeMatch[1] : searchText);
+                    setShowImageSearchModal(true);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  <PhotoIcon className="w-4 h-4" />
+                  Search Google Images
+                </button>
               </div>
             </div>
           )}
@@ -609,6 +658,109 @@ const FulfillmentPage: React.FC = () => {
                   onClick={() => {
                     setShowSaveModal(false);
                     setSaveForm({ productCode: '', productName: '', description: '' });
+                  }}
+                  className="px-4 py-2 bg-gray-300 hover:bg-gray-400 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Google Image Search Modal */}
+      {showImageSearchModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                Search Google Images
+              </h2>
+
+              {/* Search Input */}
+              <div className="flex gap-2 mb-4">
+                <input
+                  type="text"
+                  value={imageSearchQuery}
+                  onChange={(e) => setImageSearchQuery(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleGoogleImageSearch()}
+                  placeholder="Enter search query..."
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+                <button
+                  onClick={handleGoogleImageSearch}
+                  disabled={searchingImages}
+                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50"
+                >
+                  {searchingImages ? 'Searching...' : 'Search'}
+                </button>
+              </div>
+
+              {/* Image Results Grid */}
+              {imageSearchResults.length > 0 && (
+                <div className="mb-4">
+                  <div className="grid grid-cols-4 gap-4 mb-4">
+                    {imageSearchResults.map((item, index) => (
+                      <div
+                        key={index}
+                        onClick={() => setSelectedImageUrl(item.link)}
+                        className={`cursor-pointer border-2 rounded-lg overflow-hidden transition-all hover:scale-105 ${
+                          selectedImageUrl === item.link
+                            ? 'border-blue-600 shadow-lg'
+                            : 'border-gray-300 dark:border-gray-600'
+                        }`}
+                      >
+                        <img
+                          src={item.image?.thumbnailLink || item.link}
+                          alt={item.title}
+                          className="w-full h-32 object-cover"
+                        />
+                        <div className="p-2 bg-gray-50 dark:bg-gray-700">
+                          <div className="text-xs text-gray-600 dark:text-gray-400 truncate">
+                            {item.title}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Selected URL Field */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Selected Image URL
+                </label>
+                <input
+                  type="text"
+                  value={selectedImageUrl}
+                  onChange={(e) => setSelectedImageUrl(e.target.value)}
+                  placeholder="Click an image above or paste URL here..."
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    if (selectedImageUrl) {
+                      setShowImageSearchModal(false);
+                      handleFetchImage(selectedImageUrl);
+                    } else {
+                      alert('Please select an image or enter a URL');
+                    }
+                  }}
+                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                >
+                  Fetch Image
+                </button>
+                <button
+                  onClick={() => {
+                    setShowImageSearchModal(false);
+                    setImageSearchResults([]);
+                    setSelectedImageUrl('');
                   }}
                   className="px-4 py-2 bg-gray-300 hover:bg-gray-400 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg transition-colors"
                 >

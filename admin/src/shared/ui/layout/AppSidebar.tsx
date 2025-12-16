@@ -55,6 +55,7 @@ const navItems: NavItem[] = [
     path: "/products",
     subItems: [
       { name: "Categories", path: "/products/categories", pro: false, icon: <GridIcon /> },
+      { name: "External Product Library", path: "/wire-products", pro: false, icon: <BoxCubeIcon /> },
     ],
   },
 

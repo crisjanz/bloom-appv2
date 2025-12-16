@@ -9,8 +9,61 @@ import { uploadToR2 } from '../utils/r2Client';
 const router = express.Router();
 const prisma = new PrismaClient();
 
+// Google Custom Search API configuration
+const GOOGLE_API_KEY = process.env.GOOGLE_CSE_API_KEY;
+const GOOGLE_CSE_ID = process.env.GOOGLE_CSE_ID;
+
 // Configure multer for memory storage
 const upload = multer({ storage: multer.memoryStorage() });
+
+/**
+ * Search Google Images using Custom Search API
+ * GET /api/wire-products/search-google-images?q=CH88AA-U
+ */
+router.get('/search-google-images', async (req, res) => {
+  try {
+    const { q } = req.query;
+
+    if (!q || typeof q !== 'string') {
+      return res.status(400).json({ error: 'Search query (q) parameter required' });
+    }
+
+    if (!GOOGLE_API_KEY || !GOOGLE_CSE_ID) {
+      return res.status(500).json({
+        error: 'Google Custom Search API not configured',
+        message: 'Please add GOOGLE_CSE_API_KEY and GOOGLE_CSE_ID to .env file'
+      });
+    }
+
+    console.log(`🔍 Searching Google Images for: ${q}`);
+
+    // Call Google Custom Search API
+    const response = await axios.get('https://www.googleapis.com/customsearch/v1', {
+      params: {
+        key: GOOGLE_API_KEY,
+        cx: GOOGLE_CSE_ID,
+        q: q,
+        searchType: 'image',
+        num: 10 // Number of results (max 10 per request)
+      }
+    });
+
+    console.log(`✅ Found ${response.data.items?.length || 0} images`);
+
+    res.json({
+      success: true,
+      items: response.data.items || [],
+      searchInformation: response.data.searchInformation
+    });
+
+  } catch (error: any) {
+    console.error('Error searching Google Images:', error.response?.data || error.message);
+    res.status(500).json({
+      error: 'Failed to search Google Images',
+      details: error.response?.data?.error?.message || error.message
+    });
+  }
+});
 
 /**
  * Fetch image from external URL (petals.ca, etc.)
