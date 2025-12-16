@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
+import { ChevronLeftIcon, PhotoIcon, LinkIcon, ArrowUpIcon, CheckCircleIcon } from '@shared/assets/icons';
 
 interface Order {
   id: string;
@@ -142,7 +143,7 @@ const FulfillmentPage: React.FC = () => {
 
       if (!response.ok) throw new Error('Failed to update status');
 
-      alert('✅ Status updated successfully!');
+      alert('Status updated successfully!');
 
       // Reload order to get updated status
       await loadOrder(order.id);
@@ -189,7 +190,7 @@ const FulfillmentPage: React.FC = () => {
           await saveImageToLibrary(data.imageUrl);
         }
 
-        alert('✅ Image found and saved to library!');
+        alert('Image found and saved to library!');
       }
 
     } catch (error: any) {
@@ -229,7 +230,7 @@ const FulfillmentPage: React.FC = () => {
 
       if (data.imageUrl) {
         setProductImage(data.imageUrl);
-        alert('✅ Image uploaded successfully!');
+        alert('Image uploaded successfully!');
       }
 
     } catch (error: any) {
@@ -255,7 +256,7 @@ const FulfillmentPage: React.FC = () => {
         body: JSON.stringify({ imageUrl })
       });
 
-      console.log('✅ Saved image to wire product library');
+      console.log('Saved image to wire product library');
     } catch (error) {
       console.error('Error saving to library:', error);
     }
@@ -296,52 +297,47 @@ const FulfillmentPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-8">
       {/* Back to Orders Link */}
-      <div className="max-w-4xl mx-auto mb-4">
+      <div className="max-w-6xl mx-auto mb-3">
         <button
           onClick={() => navigate('/delivery')}
-          className="text-[#597485] hover:text-[#4e6575] font-medium flex items-center gap-2"
+          className="text-[#597485] hover:text-[#4e6575] font-medium flex items-center gap-1"
         >
-          ← Back to Orders
+          <ChevronLeftIcon className="w-4 h-4" />
+          Back to Orders
         </button>
       </div>
 
-      <div className="max-w-4xl mx-auto">
-        {/* Header with minimal info */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
-          <div className="mb-4">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Order #{order.orderNumber}
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400">
-              {order.recipientCustomer
-                ? `${order.recipientCustomer.firstName} ${order.recipientCustomer.lastName}`
-                : `${order.customer.firstName} ${order.customer.lastName}`}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            {order.deliveryAddress && (
-              <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">Address:</span>
-                <div className="text-gray-600 dark:text-gray-400">
-                  {order.deliveryAddress.address1}<br />
-                  {order.deliveryAddress.city}, {order.deliveryAddress.province}
-                </div>
+      <div className="max-w-6xl mx-auto">
+        {/* Compact Header */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-3 mb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                Order #{order.orderNumber}
+              </h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {order.recipientCustomer
+                  ? `${order.recipientCustomer.firstName} ${order.recipientCustomer.lastName}`
+                  : `${order.customer.firstName} ${order.customer.lastName}`}
+              </p>
+            </div>
+            {order.deliveryDate && (
+              <div className="text-right text-sm">
+                <div className="text-gray-900 dark:text-white font-medium">{formatDate(new Date(order.deliveryDate))}</div>
+                {order.deliveryTime && <div className="text-gray-500">{order.deliveryTime}</div>}
               </div>
             )}
-            {order.deliveryDate && (
+          </div>
+
+          <div className="mt-2 flex gap-6 text-xs text-gray-600 dark:text-gray-400">
+            {order.deliveryAddress && (
               <div>
-                <span className="font-medium text-gray-700 dark:text-gray-300">Delivery:</span>
-                <div className="text-gray-600 dark:text-gray-400">
-                  {formatDate(new Date(order.deliveryDate))}
-                  {order.deliveryTime && ` - ${order.deliveryTime}`}
-                </div>
+                {order.deliveryAddress.address1}, {order.deliveryAddress.city}
               </div>
             )}
             {order.cardMessage && (
-              <div className="col-span-2">
-                <span className="font-medium text-gray-700 dark:text-gray-300">Card Message:</span>
-                <div className="text-gray-600 dark:text-gray-400 italic">"{order.cardMessage}"</div>
+              <div className="italic flex-1 truncate" title={order.cardMessage}>
+                "{order.cardMessage}"
               </div>
             )}
           </div>
@@ -354,17 +350,18 @@ const FulfillmentPage: React.FC = () => {
           </h2>
 
           {productImage ? (
-            <div className="flex justify-center">
+            <div className="w-full">
               <img
                 src={productImage}
                 alt="Product"
-                className="max-w-full max-h-96 rounded-lg shadow-lg object-contain"
+                className="w-full rounded-lg shadow-lg object-contain"
               />
             </div>
           ) : (
             <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-12 text-center">
-              <div className="text-gray-500 dark:text-gray-400 mb-4">
-                📷 No product image available
+              <div className="flex flex-col items-center gap-2 text-gray-500 dark:text-gray-400 mb-4">
+                <PhotoIcon className="w-12 h-12" />
+                <span>No product image available</span>
               </div>
 
               {wireProductCode && (
@@ -387,9 +384,16 @@ const FulfillmentPage: React.FC = () => {
                 <button
                   onClick={() => document.getElementById('imageUpload')?.click()}
                   disabled={fetchingImage}
-                  className="px-4 py-2 bg-[#597485] text-white rounded hover:bg-[#4e6575] disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 py-2 bg-[#597485] text-white rounded hover:bg-[#4e6575] disabled:opacity-50"
                 >
-                  {fetchingImage ? 'Uploading...' : '📤 Upload Image'}
+                  {fetchingImage ? (
+                    'Uploading...'
+                  ) : (
+                    <>
+                      <ArrowUpIcon className="w-4 h-4" />
+                      Upload Image
+                    </>
+                  )}
                 </button>
 
                 <button
@@ -406,9 +410,16 @@ const FulfillmentPage: React.FC = () => {
                     if (url) handleFetchImage(url);
                   }}
                   disabled={fetchingImage}
-                  className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 disabled:opacity-50"
                 >
-                  {fetchingImage ? 'Fetching...' : '🔗 Fetch from URL'}
+                  {fetchingImage ? (
+                    'Fetching...'
+                  ) : (
+                    <>
+                      <LinkIcon className="w-4 h-4" />
+                      Fetch from URL
+                    </>
+                  )}
                 </button>
               </div>
             </div>

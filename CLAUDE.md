@@ -2,14 +2,15 @@
 
 
 ## 🔧 Behavior Rules
-- Be concise and technical. Avoid filler text or long explanations.  
-- When asked to **edit**, directly modify code or Markdown.  
-- When asked to **analyze**, summarize findings in ≤150 words.  
-- Never repeat entire files unless explicitly requested.  
-- Treat all `/docs/*.md` paths as live documentation — fetch them only when relevant.  
-- Assume the working timezone is `America/Vancouver`.  
-- Default stack: **React 19 + Vite 6 (admin)**, **Express + Prisma + PostgreSQL (back)**.  
+- Be concise and technical. Avoid filler text or long explanations.
+- When asked to **edit**, directly modify code or Markdown.
+- When asked to **analyze**, summarize findings in ≤150 words.
+- Never repeat entire files unless explicitly requested.
+- Treat all `/docs/*.md` paths as live documentation — fetch them only when relevant.
+- Assume the working timezone is `America/Vancouver`.
+- Default stack: **React 19 + Vite 6 (admin)**, **Express + Prisma + PostgreSQL (back)**.
 - Language: TypeScript for both front- and backend.
+- **UI Icons**: NEVER use emojis (📷 🔗 ✅ etc.) in user-facing UI. Always use Heroicons or existing icon library from `@shared/assets/icons`.
 
 ---
 
