@@ -450,9 +450,10 @@ const FulfillmentPage: React.FC = () => {
                 <button
                   onClick={() => {
                     // Try to extract petals.ca URL from description
-                    const defaultUrl = order.orderItems[0]?.description
-                      ? extractPetalsUrl(order.orderItems[0].description)
-                      : '';
+                    const description = order.orderItems[0]?.description || '';
+                    console.log('Order item description:', description);
+                    const defaultUrl = extractPetalsUrl(description);
+                    console.log('Extracted URL:', defaultUrl);
 
                     const url = prompt(
                       'Enter image URL (e.g., petals.ca/ch77aa-s):',
