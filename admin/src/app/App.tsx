@@ -61,6 +61,7 @@ import TaxExportPage from "./pages/reports/TaxExportPage";
 import TransactionsReportPage from "./pages/reports/TransactionsReportPage";
 import FtdOrdersPage from "./pages/ftd/FtdOrdersPage";
 import FtdLivePage from "./pages/ftd/FtdLivePage";
+import WireProductsPage from "./pages/wire-products/WireProductsPage";
 
 export default function App() {
   return (
@@ -134,6 +135,9 @@ export default function App() {
           {/* FTD Wire Orders routes */}
             <Route path="ftd-orders" element={<FtdOrdersPage />} />
             <Route path="ftd-live" element={<FtdLivePage />} />
+
+            {/* Wire Product Library */}
+            <Route path="wire-products" element={<WireProductsPage />} />
 
             {/* Reports */}
             <Route path="reports/sales" element={<SalesReportPage />} />
