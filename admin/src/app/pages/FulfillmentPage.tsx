@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
-import { ChevronLeftIcon, PhotoIcon, LinkIcon, ArrowUpIcon, CheckCircleIcon } from '@shared/assets/icons';
+import { ChevronLeftIcon, PhotoIcon, LinkIcon, ArrowUpIcon, CheckCircleIcon, SaveIcon } from '@shared/assets/icons';
 
 interface Order {
   id: string;
@@ -47,6 +47,8 @@ const FulfillmentPage: React.FC = () => {
   const [productImage, setProductImage] = useState<string | null>(null);
   const [wireProductCode, setWireProductCode] = useState<string | null>(null);
   const [fetchingImage, setFetchingImage] = useState(false);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [saveForm, setSaveForm] = useState({ productName: '', description: '' });
 
   // Load order on mount
   useEffect(() => {
@@ -262,6 +264,40 @@ const FulfillmentPage: React.FC = () => {
     }
   };
 
+  const handleSaveToLibrary = async () => {
+    if (!wireProductCode || !productImage) {
+      alert('Product code or image missing');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+
+      // Update or create wire product with full details
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/wire-products/${wireProductCode}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          imageUrl: productImage,
+          productName: saveForm.productName || null,
+          description: saveForm.description || null
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to save to library');
+
+      alert('Saved to wire product library!');
+      setShowSaveModal(false);
+      setSaveForm({ productName: '', description: '' });
+    } catch (error: any) {
+      console.error('Error saving to library:', error);
+      alert(`Failed to save: ${error.message}`);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -350,12 +386,27 @@ const FulfillmentPage: React.FC = () => {
           </h2>
 
           {productImage ? (
-            <div className="w-full">
-              <img
-                src={productImage}
-                alt="Product"
-                className="w-full rounded-lg shadow-lg object-contain"
-              />
+            <div>
+              <div className="w-full">
+                <img
+                  src={productImage}
+                  alt="Product"
+                  className="w-full rounded-lg shadow-lg object-contain"
+                />
+              </div>
+
+              {/* Save to Library Button */}
+              {wireProductCode && (
+                <div className="mt-4 flex justify-center">
+                  <button
+                    onClick={() => setShowSaveModal(true)}
+                    className="flex items-center gap-2 px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                  >
+                    <SaveIcon className="w-4 h-4" />
+                    Save to Library
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-12 text-center">
@@ -472,6 +523,71 @@ const FulfillmentPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Save to Library Modal */}
+      {showSaveModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                Save to Wire Product Library
+              </h2>
+
+              <div className="mb-4">
+                <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                  Product Code: <span className="font-mono font-bold">{wireProductCode}</span>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Product Name (optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={saveForm.productName}
+                      onChange={(e) => setSaveForm({...saveForm, productName: e.target.value})}
+                      placeholder="e.g., Sunny Day Bouquet"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Description (optional)
+                    </label>
+                    <textarea
+                      value={saveForm.description}
+                      onChange={(e) => setSaveForm({...saveForm, description: e.target.value})}
+                      placeholder="Product details..."
+                      rows={3}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleSaveToLibrary}
+                  className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => {
+                    setShowSaveModal(false);
+                    setSaveForm({ productName: '', description: '' });
+                  }}
+                  className="px-4 py-2 bg-gray-300 hover:bg-gray-400 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

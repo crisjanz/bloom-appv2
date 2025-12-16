@@ -11,6 +11,7 @@
 - Default stack: **React 19 + Vite 6 (admin)**, **Express + Prisma + PostgreSQL (back)**.
 - Language: TypeScript for both front- and backend.
 - **UI Icons**: NEVER use emojis (📷 🔗 ✅ etc.) in user-facing UI. Always use Heroicons or existing icon library from `@shared/assets/icons`.
+- **Git Workflow**: ALWAYS ask user before running `git push`. Wait for confirmation. User may have additional changes.
 
 ---
 

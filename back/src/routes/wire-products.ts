@@ -150,10 +150,39 @@ router.get('/fetch-image', async (req, res) => {
       });
     }
 
+    // Download the image and upload to Cloudflare R2
+    console.log(`📥 Downloading image from: ${imageUrl}`);
+    const imageResponse = await axios.get(imageUrl, {
+      responseType: 'arraybuffer',
+      timeout: 10000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      },
+      httpsAgent: new (require('https').Agent)({
+        rejectUnauthorized: false
+      })
+    });
+
+    // Determine file extension from content-type
+    const contentType = imageResponse.headers['content-type'] || 'image/jpeg';
+    const ext = contentType.split('/')[1]?.split(';')[0] || 'jpg';
+
+    // Upload to R2
+    console.log(`☁️ Uploading to Cloudflare R2...`);
+    const { url: r2Url } = await uploadToR2({
+      folder: 'wire-products',
+      buffer: Buffer.from(imageResponse.data),
+      mimeType: contentType,
+      originalName: `scraped-image.${ext}`
+    });
+
+    console.log(`✅ Image uploaded to R2: ${r2Url}`);
+
     res.json({
       success: true,
-      imageUrl,
+      imageUrl: r2Url,
       sourceUrl: fetchUrl,
+      originalImageUrl: imageUrl,
       message: 'Image found! Review and save if correct.'
     });
 
