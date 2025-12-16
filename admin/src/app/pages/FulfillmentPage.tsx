@@ -188,9 +188,18 @@ const FulfillmentPage: React.FC = () => {
       if (data.imageUrl) {
         setProductImage(data.imageUrl);
 
-        // Auto-save to wire product library
-        if (wireProductCode) {
-          await saveImageToLibrary(data.imageUrl);
+        // Extract product code if not already set
+        let currentProductCode = wireProductCode;
+        console.log('Current wireProductCode:', currentProductCode);
+        if (!currentProductCode && order?.orderItems[0]) {
+          const searchText = order.orderItems[0].description || order.orderItems[0].customName || '';
+          console.log('Extracting code from:', searchText);
+          const codeMatch = searchText.match(/\b([A-Z]{2,3}\d{1,2}-\d+[A-Z]?|[A-Z]\d{1,2}-\d+[a-z]?)\b/);
+          if (codeMatch) {
+            currentProductCode = codeMatch[1];
+            console.log('Extracted product code:', currentProductCode);
+            setWireProductCode(currentProductCode);
+          }
         }
 
         alert('Image found and saved to library!');
