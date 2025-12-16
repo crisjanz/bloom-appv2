@@ -11,6 +11,7 @@ interface Order {
   deliveryTime: string | null;
   cardMessage: string | null;
   specialInstructions: string | null;
+  images?: string[];
   customer: {
     firstName: string;
     lastName: string;
@@ -91,17 +92,23 @@ const FulfillmentPage: React.FC = () => {
   };
 
   const determineProductImage = async (order: Order) => {
+    // First priority: Order-specific images (fetched/uploaded for this order)
+    if (order.images && order.images.length > 0) {
+      setProductImage(order.images[0]);
+      return;
+    }
+
     if (!order.orderItems || order.orderItems.length === 0) return;
 
     const firstItem = order.orderItems[0];
 
-    // Local product - use product images
+    // Second priority: Local product - use product images
     if (firstItem.productId && firstItem.product?.images && firstItem.product.images.length > 0) {
       setProductImage(firstItem.product.images[0]);
       return;
     }
 
-    // Wire-in product - check WireProductLibrary
+    // Third priority: Wire-in product - check WireProductLibrary
     const searchText = firstItem.description || firstItem.customName || '';
     if (searchText) {
       try {
@@ -207,7 +214,12 @@ const FulfillmentPage: React.FC = () => {
           }
         }
 
-        alert('Image found and saved to library!');
+        // Save image to order
+        if (order) {
+          await saveImageToOrder(data.imageUrl);
+        }
+
+        alert('Image saved!');
       }
 
     } catch (error: any) {
@@ -247,6 +259,12 @@ const FulfillmentPage: React.FC = () => {
 
       if (data.imageUrl) {
         setProductImage(data.imageUrl);
+
+        // Save image to order
+        if (order) {
+          await saveImageToOrder(data.imageUrl);
+        }
+
         alert('Image uploaded successfully!');
       }
 
@@ -287,13 +305,46 @@ const FulfillmentPage: React.FC = () => {
     }
   };
 
-  const saveImageToLibrary = async (imageUrl: string) => {
-    if (!wireProductCode) return;
+  const saveImageToOrder = async (imageUrl: string) => {
+    if (!order) return;
 
     try {
       const token = localStorage.getItem('token');
 
-      await fetch(`${import.meta.env.VITE_API_URL}/api/wire-products/${wireProductCode}`, {
+      // Add image to order's images array (avoid duplicates)
+      const currentImages = order.images || [];
+      const updatedImages = currentImages.includes(imageUrl)
+        ? currentImages
+        : [...currentImages, imageUrl];
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/${order.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ images: updatedImages })
+      });
+
+      if (!response.ok) throw new Error('Failed to save image to order');
+
+      // Update local order state
+      setOrder({ ...order, images: updatedImages });
+
+      console.log('Image saved to order');
+    } catch (error) {
+      console.error('Error saving image to order:', error);
+    }
+  };
+
+  const saveImageToLibrary = async (imageUrl: string, productCode?: string) => {
+    const codeToUse = productCode || wireProductCode;
+    if (!codeToUse) return;
+
+    try {
+      const token = localStorage.getItem('token');
+
+      await fetch(`${import.meta.env.VITE_API_URL}/api/wire-products/${codeToUse}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
