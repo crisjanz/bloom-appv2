@@ -155,6 +155,14 @@ const FulfillmentPage: React.FC = () => {
     }
   };
 
+  const extractPetalsUrl = (description: string): string | null => {
+    if (!description) return null;
+
+    // Look for petals.ca/XXXXX pattern (without http/https)
+    const match = description.match(/petals\.ca\/[\w-]+/i);
+    return match ? match[0] : null;
+  };
+
   const handleFetchImage = async (url: string) => {
     try {
       setFetchingImage(true);
@@ -386,7 +394,15 @@ const FulfillmentPage: React.FC = () => {
 
                 <button
                   onClick={() => {
-                    const url = prompt('Enter image URL (e.g., petals.ca/ch77aa-s):');
+                    // Try to extract petals.ca URL from description
+                    const defaultUrl = order.orderItems[0]?.description
+                      ? extractPetalsUrl(order.orderItems[0].description)
+                      : '';
+
+                    const url = prompt(
+                      'Enter image URL (e.g., petals.ca/ch77aa-s):',
+                      defaultUrl || ''
+                    );
                     if (url) handleFetchImage(url);
                   }}
                   disabled={fetchingImage}
