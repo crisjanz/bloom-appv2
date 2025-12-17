@@ -4,7 +4,7 @@ import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api';
 import SignaturePad from 'react-signature-canvas';
 
 const mapContainerStyle = { width: '100%', height: '220px' };
-const defaultCenter = { lat: 49.2827, lng: -123.1207 };
+const defaultCenter = { lat: 53.9171, lng: -122.7497 }; // Prince George, BC
 
 function normalizeApiBaseUrl(baseUrl) {
   if (!baseUrl) return '';
@@ -14,6 +14,16 @@ function normalizeApiBaseUrl(baseUrl) {
 
 const DEFAULT_API_BASE = import.meta.env.DEV ? '/api' : 'https://api.hellobloom.ca/api';
 const API_BASE = normalizeApiBaseUrl(import.meta.env.VITE_API_URL || DEFAULT_API_BASE);
+
+function formatGeocodeAddress(address) {
+  if (!address) return '';
+
+  const parts = [address.address1, address.city, address.province, address.postalCode].filter(Boolean);
+  if (parts.length === 0) return '';
+
+  const base = parts.join(', ');
+  return base.toLowerCase().includes('canada') ? base : `${base}, Canada`;
+}
 
 export default function DriverRoute() {
   const [searchParams] = useSearchParams();
@@ -26,6 +36,8 @@ export default function DriverRoute() {
   const [driverNotes, setDriverNotes] = useState('');
   const [recipientName, setRecipientName] = useState('');
   const sigPadRef = useRef(null);
+  const mapRef = useRef(null);
+  const [stopCoordinates, setStopCoordinates] = useState({});
 
   const { isLoaded: mapsLoaded } = useJsApiLoader({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''
@@ -96,13 +108,135 @@ export default function DriverRoute() {
     return [];
   }, [data]);
 
+  const mapItems = useMemo(() => {
+    if (!data) return [];
+
+    if (data.type === 'route') {
+      return stops.map((stop) => ({
+        id: stop.id,
+        label: stop.sequence?.toString?.() ?? '',
+        address: stop.order?.address
+      }));
+    }
+
+    if (data.type === 'standalone') {
+      return [
+        {
+          id: data.order.id,
+          label: '',
+          address: data.order.address
+        }
+      ];
+    }
+
+    return [];
+  }, [data, stops]);
+
+  const markers = useMemo(() => {
+    return mapItems
+      .map((item) => {
+        const address = item.address;
+        if (!address) return null;
+
+        const coords = stopCoordinates[item.id];
+        if (coords) {
+          return { id: item.id, label: item.label, position: coords };
+        }
+
+        if (typeof address.latitude === 'number' && typeof address.longitude === 'number') {
+          return { id: item.id, label: item.label, position: { lat: address.latitude, lng: address.longitude } };
+        }
+
+        return null;
+      })
+      .filter(Boolean);
+  }, [mapItems, stopCoordinates]);
+
   const currentCenter = useMemo(() => {
-    const firstWithCoords = stops.find((stop) => stop.order?.address?.latitude && stop.order?.address?.longitude);
-    if (firstWithCoords) {
-      return { lat: firstWithCoords.order.address.latitude, lng: firstWithCoords.order.address.longitude };
+    if (markers.length > 0) {
+      return markers[0].position;
     }
     return defaultCenter;
-  }, [stops]);
+  }, [markers]);
+
+  useEffect(() => {
+    if (!mapsLoaded || mapItems.length === 0) return;
+
+    const google = window.google;
+    if (!google?.maps?.Geocoder) return;
+
+    let cancelled = false;
+    const geocoder = new google.maps.Geocoder();
+
+    const geocodeOne = (address) => {
+      return new Promise((resolve, reject) => {
+        geocoder.geocode(
+          {
+            address,
+            region: 'ca',
+            componentRestrictions: { country: 'CA' }
+          },
+          (results, status) => {
+            if (status === 'OK' && results && results[0]) {
+              resolve(results[0]);
+              return;
+            }
+            reject(new Error(`Geocode failed: ${status}`));
+          }
+        );
+      });
+    };
+
+    const run = async () => {
+      const updates = {};
+
+      for (const item of mapItems) {
+        if (cancelled) return;
+        if (stopCoordinates[item.id]) continue;
+
+        const address = item.address;
+        const addressStr = formatGeocodeAddress(address);
+        if (!addressStr) continue;
+
+        try {
+          const result = await geocodeOne(addressStr);
+          const location = result.geometry?.location;
+          if (location) {
+            updates[item.id] = { lat: location.lat(), lng: location.lng() };
+          }
+        } catch (err) {
+          console.warn('Failed to geocode map address', { itemId: item.id, addressStr, err });
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 120));
+      }
+
+      if (!cancelled && Object.keys(updates).length > 0) {
+        setStopCoordinates((prev) => ({ ...prev, ...updates }));
+      }
+    };
+
+    run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [mapsLoaded, mapItems, stopCoordinates]);
+
+  useEffect(() => {
+    if (!mapsLoaded || !mapRef.current || markers.length === 0) return;
+    const google = window.google;
+    if (!google?.maps?.LatLngBounds) return;
+
+    const bounds = new google.maps.LatLngBounds();
+    markers.forEach((marker) => bounds.extend(marker.position));
+
+    mapRef.current.fitBounds(bounds, 48);
+
+    if (markers.length === 1) {
+      mapRef.current.setZoom(14);
+    }
+  }, [mapsLoaded, markers]);
 
   const openGoogleMaps = (address) => {
     if (!address) return;
@@ -152,16 +286,24 @@ export default function DriverRoute() {
 
           <div className="h-[240px] border-b">
             {mapsLoaded ? (
-              <GoogleMap mapContainerStyle={mapContainerStyle} center={currentCenter} zoom={12}>
-                {stops.map((stop) =>
-                  stop.order?.address?.latitude && stop.order?.address?.longitude ? (
-                    <Marker
-                      key={stop.id}
-                      position={{ lat: stop.order.address.latitude, lng: stop.order.address.longitude }}
-                      label={stop.sequence.toString()}
-                    />
-                  ) : null
-                )}
+              <GoogleMap
+                mapContainerStyle={mapContainerStyle}
+                center={currentCenter}
+                zoom={12}
+                onLoad={(map) => {
+                  mapRef.current = map;
+                }}
+                onUnmount={() => {
+                  mapRef.current = null;
+                }}
+              >
+                {markers.map((marker) => (
+                  <Marker
+                    key={marker.id}
+                    position={marker.position}
+                    label={marker.label ? marker.label.toString() : undefined}
+                  />
+                ))}
               </GoogleMap>
             ) : (
               <div className="flex h-full items-center justify-center text-sm text-gray-500">Loading map…</div>

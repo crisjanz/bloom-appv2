@@ -44,7 +44,8 @@ router.get('/route', async (req, res) => {
             address1: true,
             city: true,
             province: true,
-            postalCode: true
+            postalCode: true,
+            country: true
           }
         },
         orderItems: {
@@ -81,7 +82,9 @@ router.get('/route', async (req, res) => {
                           select: {
                             address1: true,
                             city: true,
-                            province: true
+                            province: true,
+                            postalCode: true,
+                            country: true
                           }
                         }
                       }
@@ -117,7 +120,9 @@ router.get('/route', async (req, res) => {
           address: {
             address1: order.deliveryAddress?.address1 || '',
             city: order.deliveryAddress?.city || '',
-            province: order.deliveryAddress?.province || ''
+            province: order.deliveryAddress?.province || '',
+            postalCode: order.deliveryAddress?.postalCode || '',
+            country: order.deliveryAddress?.country || 'CA'
           },
           specialInstructions: order.specialInstructions || '',
           items: order.orderItems.map((item) => ({
@@ -156,12 +161,16 @@ router.get('/route', async (req, res) => {
                 ? {
                     address1: stop.order.deliveryAddress.address1,
                     city: stop.order.deliveryAddress.city,
-                    province: stop.order.deliveryAddress.province
+                    province: stop.order.deliveryAddress.province,
+                    postalCode: stop.order.deliveryAddress.postalCode || '',
+                    country: stop.order.deliveryAddress.country || 'CA'
                   }
                 : {
                     address1: '',
                     city: '',
-                    province: ''
+                    province: '',
+                    postalCode: '',
+                    country: 'CA'
                   }
             },
             driverNotes: stop.driverNotes,
@@ -186,7 +195,9 @@ router.get('/route', async (req, res) => {
         address: {
           address1: order.deliveryAddress?.address1 || '',
           city: order.deliveryAddress?.city || '',
-          province: order.deliveryAddress?.province || ''
+          province: order.deliveryAddress?.province || '',
+          postalCode: order.deliveryAddress?.postalCode || '',
+          country: order.deliveryAddress?.country || 'CA'
         },
         specialInstructions: order.specialInstructions || '',
         cardMessage: order.cardMessage || '',
