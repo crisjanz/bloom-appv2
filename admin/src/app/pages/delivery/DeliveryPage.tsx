@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import flatpickr from 'flatpickr';
 import 'flatpickr/dist/flatpickr.css';
 import OrderCommunicationModal from '@app/components/delivery/OrderCommunicationModal';
@@ -20,6 +20,7 @@ import StatusSelect from '@shared/ui/forms/StatusSelect';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
 import { getStatusOptions, OrderType as FulfillmentOrderType } from '@shared/utils/orderStatusHelpers';
 import { useNavigate } from 'react-router';
+import useRoutes from '@shared/hooks/useRoutes';
 // MIGRATION: Use domain hook for delivery management
 import { useDeliveryManagement } from '@domains/orders/hooks/useDeliveryManagement';
 import { OrderStatus as DomainOrderStatus } from '@domains/orders/entities/Order';
@@ -99,6 +100,20 @@ const DeliveryPage: React.FC = () => {
   // Communication modal state
   const [communicationModalOpen, setCommunicationModalOpen] = useState(false);
   const [selectedOrderForComm, setSelectedOrderForComm] = useState<any>(null);
+
+  // Route assignments for badge/linking
+  const { routes: routeSummaries } = useRoutes(selectedDate);
+  const assignedOrderIds = useMemo(() => {
+    const ids = new Set<string>();
+    routeSummaries.forEach((route) => {
+      route.stops.forEach((stop) => {
+        if (stop.order?.id) {
+          ids.add(stop.order.id);
+        }
+      });
+    });
+    return ids;
+  }, [routeSummaries]);
 
   // Helper to filter orders by delivery date
   const filterOrdersByDate = (orders: any, targetDate: string) => {
@@ -468,6 +483,11 @@ const DeliveryPage: React.FC = () => {
           <span className="font-semibold text-gray-900 dark:text-white">
             #{order.orderNumber}
           </span>
+          {assignedOrderIds.has(order.id) && (
+            <span className="px-2 py-0.5 text-xs font-medium rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+              In Route
+            </span>
+          )}
           {(order.status === 'CANCELLED' || order.status === 'REJECTED') && (
             <span className="px-2 py-0.5 text-xs font-medium rounded bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
               {order.status === 'CANCELLED' ? 'CANCELLED' : 'REJECTED'}
@@ -586,6 +606,11 @@ const DeliveryPage: React.FC = () => {
                 <>Manage deliveries and pickups for {formatDate(selectedDate)}</>
               )}
             </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button onClick={() => navigate('/delivery/routes')}>
+              Route Builder
+            </Button>
           </div>
         </div>
 

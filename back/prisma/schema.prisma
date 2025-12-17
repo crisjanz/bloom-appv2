@@ -66,6 +66,22 @@ enum PrintJobStatus {
   FAILED
 }
 
+enum RouteStatus {
+  PLANNED // Route created but not started
+  IN_PROGRESS // Driver has started deliveries
+  COMPLETED // All stops delivered
+  CANCELLED // Route cancelled
+}
+
+enum StopStatus {
+  PENDING // Not yet visited
+  EN_ROUTE // Driver heading there
+  ARRIVED // Driver at location
+  DELIVERED // Successfully delivered
+  ATTEMPTED // Delivery attempted but failed
+  SKIPPED // Skipped
+}
+
 enum EmployeeType {
   CASHIER
   DESIGNER
@@ -415,6 +431,7 @@ model Order {
   // Communication history
   communications OrderCommunication[]
   printJobs      PrintJob[]
+  routeStop      RouteStop?           @relation("RouteStopOrder")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -423,6 +440,57 @@ model Order {
   @@index([status])
   @@index([orderSource])
   @@index([externalSource])
+}
+
+model Route {
+  id          String   @id @default(uuid())
+  routeNumber Int      @unique @default(autoincrement())
+  name        String?
+  date        DateTime
+
+  driverId String?
+  driver   Employee? @relation("DriverRoutes", fields: [driverId], references: [id], onDelete: SetNull)
+
+  status      RouteStatus @default(PLANNED)
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stops RouteStop[]
+
+  @@index([date])
+  @@index([driverId])
+  @@index([status])
+}
+
+model RouteStop {
+  id      String @id @default(uuid())
+  routeId String
+  route   Route  @relation(fields: [routeId], references: [id], onDelete: Cascade)
+
+  orderId String @unique
+  order   Order  @relation("RouteStopOrder", fields: [orderId], references: [id], onDelete: Restrict)
+
+  sequence Int
+
+  status      StopStatus @default(PENDING)
+  arrivedAt   DateTime?
+  deliveredAt DateTime?
+
+  driverNotes   String?
+  signatureUrl  String?
+  photoUrl      String?
+  recipientName String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([routeId, sequence])
+  @@index([routeId])
+  @@index([orderId])
 }
 
 model OrderItem {
@@ -639,6 +707,7 @@ model Employee {
   events              Event[] // Wedding/event manager
   eventPayments       EventPayment[] // Event payment tracking
   communications      OrderCommunication[] // Customer communications
+  routes              Route[]              @relation("DriverRoutes")
 }
 
 model MessageSuggestion {
@@ -1439,21 +1508,21 @@ model HomepageSettings {
 
 // Wire Product Library for FTD/Teleflora/Wire-in product images and descriptions
 model WireProductLibrary {
-  id              String   @id @default(cuid())
-  productCode     String   @unique // "TWR14-4A", "B9-5140s", "ch77aa-s"
-  productName     String?  // "Teleflora's Festive Pines"
-  description     String?  @db.Text // Full description
-  imageUrl        String?  // Supabase URL or external URL
-  source          String?  // "FTD", "Teleflora", "Petals.ca", etc.
-  externalUrl     String?  // Original link like "petals.ca/ch77aa-s"
+  id          String  @id @default(cuid())
+  productCode String  @unique // "TWR14-4A", "B9-5140s", "ch77aa-s"
+  productName String? // "Teleflora's Festive Pines"
+  description String? @db.Text // Full description
+  imageUrl    String? // Supabase URL or external URL
+  source      String? // "FTD", "Teleflora", "Petals.ca", etc.
+  externalUrl String? // Original link like "petals.ca/ch77aa-s"
 
   // Usage tracking
-  timesUsed       Int      @default(0)
-  lastUsedAt      DateTime?
+  timesUsed  Int       @default(0)
+  lastUsedAt DateTime?
 
   // Timestamps
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([productCode])
   @@index([source])

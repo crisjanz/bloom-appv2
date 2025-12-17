@@ -40,6 +40,7 @@ import BusinessPage from "./pages/settings/business";
 import PaymentsPage from "./pages/settings/payments";
 import DeliverySettingsPage from "./pages/settings/delivery";
 import DeliveryManagementPage from "./pages/delivery/DeliveryPage";
+import RouteBuilderPage from "./pages/delivery/RouteBuilderPage";
 import NotificationsPage from "./pages/settings/notifications";
 import OrdersPage from "./pages/settings/orders";
 import DiscountsPage from "./pages/settings/discounts";
@@ -113,6 +114,7 @@ export default function App() {
             
             {/* Delivery Management route */}
             <Route path="delivery" element={<DeliveryManagementPage />} />
+            <Route path="delivery/routes" element={<RouteBuilderPage />} />
             
             {/* Customer routes */}
             <Route path="customers" element={<CustomersPage />} />
