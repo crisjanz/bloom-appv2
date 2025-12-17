@@ -116,16 +116,7 @@ export function generateOrderTicketHTML(data: OrderTicketData): string {
       width: 7in;
       height: 2.625in;
       padding: 0.4in;
-    }
-
-    .signature-with-qr {
-      display: flex;
-      gap: 12px;
-      align-items: flex-end;
-    }
-
-    .signature-area {
-      flex: 1;
+      position: relative;
     }
 
     .signature-line {
@@ -134,9 +125,20 @@ export function generateOrderTicketHTML(data: OrderTicketData): string {
       padding-top: 5px;
     }
 
-    .qr-block {
+    .driver-slip-qr {
+      position: absolute;
+      top: 0.35in;
+      right: 0.35in;
       width: 1.2in;
       text-align: center;
+    }
+
+    .driver-slip .header-line {
+      margin-right: 1.35in;
+    }
+
+    .driver-slip-top-row {
+      margin-right: 1.35in;
     }
 
     .qr-label {
@@ -455,13 +457,22 @@ export function generateOrderTicketHTML(data: OrderTicketData): string {
       </div>
 
       <!-- BOTTOM: Driver Slip (7" × 2 5/8") -->
-      <div class="driver-slip" style="position: relative;">
+      <div class="driver-slip">
+        ${data.driverRouteQrCodeDataUrl
+          ? `
+        <div class="driver-slip-qr">
+          <div class="qr-label">Scan for Route</div>
+          <img class="qr-image" src="${data.driverRouteQrCodeDataUrl}" alt="Driver route QR code" />
+        </div>
+        `
+          : ''}
+
         <div class="header-line">
           <span>Delivery Date: <strong>${formatDate(data.deliveryDate)}</strong></span>
           <span>Order # ${data.orderNumber}</span>
         </div>
 
-        <div class="two-column">
+        <div class="two-column driver-slip-top-row">
           <div class="field-group">
             <div class="field-label">Recipient:</div>
             <div class="field-value">
@@ -489,21 +500,8 @@ export function generateOrderTicketHTML(data: OrderTicketData): string {
           </div>
 
           <div class="field-group">
-            <div class="signature-with-qr">
-              <div class="signature-area">
-                <div class="field-label">Signature:</div>
-                <div class="signature-line"></div>
-              </div>
-
-              ${data.driverRouteQrCodeDataUrl
-                ? `
-              <div class="qr-block">
-                <div class="qr-label">Scan for Route</div>
-                <img class="qr-image" src="${data.driverRouteQrCodeDataUrl}" alt="Driver route QR code" />
-              </div>
-              `
-                : ''}
-            </div>
+            <div class="field-label">Signature:</div>
+            <div class="signature-line"></div>
           </div>
         </div>
       </div>
