@@ -6,6 +6,15 @@ import SignaturePad from 'react-signature-canvas';
 const mapContainerStyle = { width: '100%', height: '220px' };
 const defaultCenter = { lat: 49.2827, lng: -123.1207 };
 
+function normalizeApiBaseUrl(baseUrl) {
+  if (!baseUrl) return '';
+  const trimmed = baseUrl.replace(/\/$/, '');
+  return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
+}
+
+const DEFAULT_API_BASE = import.meta.env.DEV ? '/api' : 'https://api.hellobloom.ca/api';
+const API_BASE = normalizeApiBaseUrl(import.meta.env.VITE_API_URL || DEFAULT_API_BASE);
+
 export default function DriverRoute() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token') || '';
@@ -32,7 +41,7 @@ export default function DriverRoute() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/driver/route?token=${encodeURIComponent(token)}`);
+      const res = await fetch(`${API_BASE}/driver/route?token=${encodeURIComponent(token)}`);
       const body = await res.json();
       if (!res.ok) {
         throw new Error(body?.error || 'Failed to load route');
@@ -54,7 +63,7 @@ export default function DriverRoute() {
     async (stopId) => {
       const signatureDataUrl = sigPadRef.current?.toDataURL('image/png');
       try {
-        const res = await fetch(`/api/driver/route/stop/${stopId}/deliver`, {
+        const res = await fetch(`${API_BASE}/driver/route/stop/${stopId}/deliver`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
