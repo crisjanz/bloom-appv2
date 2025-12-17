@@ -5,6 +5,8 @@ export interface OrderTicketData {
   orderDate: string;
   deliveryDate: string;
   deliveryTime: string;
+  driverRouteUrl?: string;
+  driverRouteQrCodeDataUrl?: string;
 
   // Customer (who ordered)
   customerName: string;
@@ -114,6 +116,39 @@ export function generateOrderTicketHTML(data: OrderTicketData): string {
       width: 7in;
       height: 2.625in;
       padding: 0.4in;
+    }
+
+    .signature-with-qr {
+      display: flex;
+      gap: 12px;
+      align-items: flex-end;
+    }
+
+    .signature-area {
+      flex: 1;
+    }
+
+    .signature-line {
+      border-top: 2px solid #000;
+      margin-top: 30px;
+      padding-top: 5px;
+    }
+
+    .qr-block {
+      width: 1.2in;
+      text-align: center;
+    }
+
+    .qr-label {
+      font-size: 7pt;
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+
+    .qr-image {
+      width: 1.15in;
+      height: 1.15in;
+      object-fit: contain;
     }
 
     /* RIGHT SIDE: 4" wide × 8.5" tall, divided into 3 equal sections */
@@ -454,8 +489,21 @@ export function generateOrderTicketHTML(data: OrderTicketData): string {
           </div>
 
           <div class="field-group">
-            <div class="field-label">Signature:</div>
-            <div style="border-top: 2px solid #000; margin-top: 30px; padding-top: 5px;"></div>
+            <div class="signature-with-qr">
+              <div class="signature-area">
+                <div class="field-label">Signature:</div>
+                <div class="signature-line"></div>
+              </div>
+
+              ${data.driverRouteQrCodeDataUrl
+                ? `
+              <div class="qr-block">
+                <div class="qr-label">Scan for Route</div>
+                <img class="qr-image" src="${data.driverRouteQrCodeDataUrl}" alt="Driver route QR code" />
+              </div>
+              `
+                : ''}
+            </div>
           </div>
         </div>
       </div>
@@ -539,6 +587,7 @@ export function parseOrderForTicket(orderData: any): OrderTicketData {
       orderDate: new Date(order.createdAt).toLocaleDateString(),
       deliveryDate: order.deliveryDate ? new Date(order.deliveryDate).toLocaleDateString() : 'TBD',
       deliveryTime: order.deliveryTime || 'TBD',
+      driverRouteUrl: order.driverRouteUrl || '',
 
       customerName: `${order.customer?.firstName || ''} ${order.customer?.lastName || ''}`.trim() || 'Unknown',
       customerPhone: order.customer?.phone || '',

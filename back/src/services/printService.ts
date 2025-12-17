@@ -1,5 +1,6 @@
 import { PrismaClient, PrintJobStatus, PrintJobType, Order } from '@prisma/client';
 import { WebSocketServer } from 'ws';
+import { buildRouteViewUrl, generateRouteToken } from '../utils/routeToken';
 
 const prisma = new PrismaClient();
 
@@ -24,11 +25,30 @@ export class PrintService {
     priority?: number;
   }): Promise<void> {
     try {
+      let jobData: any = params.order as any;
+
+      if (params.type === PrintJobType.ORDER_TICKET) {
+        try {
+          const orderId = params.orderId || (params.order as any)?.id;
+
+          if (orderId) {
+            const token = generateRouteToken(orderId);
+            jobData = {
+              ...jobData,
+              driverRouteToken: token,
+              driverRouteUrl: buildRouteViewUrl(token),
+            };
+          }
+        } catch (error) {
+          console.error('Failed to generate driver route token for print job:', error);
+        }
+      }
+
       const printJob = await prisma.printJob.create({
         data: {
           type: params.type,
           orderId: params.orderId,
-          data: params.order as any,
+          data: jobData,
           template: params.template,
           priority: params.priority ?? 0,
           status: PrintJobStatus.PENDING
@@ -44,7 +64,7 @@ export class PrintService {
             id: printJob.id,
             type: printJob.type,
             orderId: printJob.orderId,
-            data: params.order,
+            data: jobData,
             template: printJob.template,
             priority: printJob.priority,
             createdAt: printJob.createdAt

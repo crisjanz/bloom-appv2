@@ -94,6 +94,7 @@ Default backend: `https://api.hellobloom.ca`
 - **Content**:
   - Left: Shop records + driver slip
   - Right: Card message + logo + recipient address (folds into gift tag)
+  - Driver slip: includes QR code linking to the driver route view (scan to open route/order page)
 
 ### 3. Report (Laser)
 - **Trigger**: Manual (future)
