@@ -127,40 +127,18 @@ class StripeService {
   }
 
   /**
-   * Create or retrieve a Stripe customer
+   * Create a new Stripe customer
+   *
+   * NOTE: This does NOT search for existing customers - that's handled by
+   * providerCustomerService checking the local ProviderCustomer table.
+   * After migration, all existing Stripe customers are already linked.
+   *
+   * This method only creates NEW customers to avoid security risks of
+   * auto-linking wrong customers based on phone/email typos.
    */
   async createCustomer(data: CustomerData): Promise<Stripe.Customer> {
     try {
-      let existingCustomer = null;
-
-      // First, search by phone number if provided (primary identifier)
-      if (data.phone) {
-        const phoneCustomers = await this.stripe.customers.search({
-          query: `phone:'${data.phone}'`,
-          limit: 1,
-        });
-        if (phoneCustomers.data.length > 0) {
-          existingCustomer = phoneCustomers.data[0];
-        }
-      }
-
-      // If not found by phone, search by email as fallback
-      if (!existingCustomer && data.email) {
-        const emailCustomers = await this.stripe.customers.list({
-          email: data.email,
-          limit: 1,
-        });
-        if (emailCustomers.data.length > 0) {
-          existingCustomer = emailCustomers.data[0];
-        }
-      }
-
-      if (existingCustomer) {
-        console.log(`✅ Found existing Stripe customer: ${existingCustomer.id} (${data.phone || data.email})`);
-        return existingCustomer;
-      }
-
-      // Create new customer if none found
+      // Create new Stripe customer (no search)
       const customer = await this.stripe.customers.create({
         email: data.email,
         name: data.name,
@@ -260,38 +238,17 @@ class StripeService {
 
   /**
    * Find customer by phone or email
+   *
+   * ⚠️ DEPRECATED: Do not use this method for customer creation.
+   * After migration, all Stripe customer IDs are stored in the local
+   * ProviderCustomer table. Searching Stripe directly is a security risk
+   * (typos could link wrong customers) and bypasses our local database.
+   *
+   * Use providerCustomerService.getProviderCustomer() instead.
    */
   async findCustomerByContact(phone?: string, email?: string): Promise<Stripe.Customer | null> {
-    try {
-      let customer = null;
-
-      // Search by phone first
-      if (phone) {
-        const phoneCustomers = await this.stripe.customers.search({
-          query: `phone:'${phone}'`,
-          limit: 1,
-        });
-        if (phoneCustomers.data.length > 0) {
-          customer = phoneCustomers.data[0];
-        }
-      }
-
-      // Search by email if not found by phone
-      if (!customer && email) {
-        const emailCustomers = await this.stripe.customers.list({
-          email: email,
-          limit: 1,
-        });
-        if (emailCustomers.data.length > 0) {
-          customer = emailCustomers.data[0];
-        }
-      }
-
-      return customer;
-    } catch (error) {
-      console.error('❌ Failed to find customer by contact:', error);
-      return null;
-    }
+    console.warn('⚠️ DEPRECATED: findCustomerByContact() should not be used. Use local ProviderCustomer table instead.');
+    return null; // Always return null to prevent Stripe DB searches
   }
 
   /**

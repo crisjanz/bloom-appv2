@@ -224,34 +224,20 @@ class ProviderCustomerService {
 
   /**
    * Sync customer data with payment provider
+   *
+   * NOTE: This is for updating existing provider customer metadata only.
+   * Do NOT use this to create new provider customers - that would bypass
+   * our migration and create duplicate customers in Stripe.
    */
   async syncCustomerWithProvider(customerId: string, provider: PaymentProvider) {
     try {
       const providerCustomer = await this.getProviderCustomer(customerId, provider);
-      
+
       if (!providerCustomer) {
-        throw new Error(`Customer ${customerId} not linked to ${provider}`);
+        throw new Error(`Customer ${customerId} not linked to ${provider}. Cannot sync without existing link.`);
       }
 
-      if (provider === 'STRIPE') {
-        // Fetch latest data from Stripe
-        const stripeCustomer = await stripeService.createCustomer({
-          email: providerCustomer.customer.email || '',
-          name: `${providerCustomer.customer.firstName} ${providerCustomer.customer.lastName}`,
-          phone: providerCustomer.customer.phone || undefined,
-        });
-
-        // Update local metadata
-        await this.updateProviderCustomerMetadata(
-          customerId,
-          provider,
-          stripeCustomer
-        );
-
-        console.log(`✅ Synced customer ${customerId} with Stripe`);
-      }
-      // TODO: Add Square sync when Square service is ready
-
+      console.log(`⚠️ Sync is disabled post-migration. Provider customer links are managed via import only.`);
       return providerCustomer;
     } catch (error) {
       console.error(`❌ Failed to sync customer with ${provider}:`, error);

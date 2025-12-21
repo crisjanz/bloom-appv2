@@ -272,55 +272,17 @@ router.get('/health', async (req, res) => {
 /**
  * Find customer and get saved payment methods
  * POST /api/stripe/customer/payment-methods
+ *
+ * ⚠️ DEPRECATED: This endpoint is disabled after migration.
+ * All Stripe customer IDs are now stored in the ProviderCustomer table.
+ * Use the local database to find customers instead of searching Stripe directly.
  */
 router.post('/customer/payment-methods', async (req, res) => {
-  try {
-    const { phone, email } = req.body;
-
-    if (!phone && !email) {
-      return res.status(400).json({ 
-        error: 'Phone number or email is required' 
-      });
-    }
-
-    // Find customer by contact
-    const customer = await stripeService.findCustomerByContact(phone, email);
-    
-    if (!customer) {
-      return res.json({
-        success: true,
-        customer: null,
-        paymentMethods: [],
-      });
-    }
-
-    // Get saved payment methods
-    const paymentMethods = await stripeService.getCustomerPaymentMethods(customer.id);
-
-    res.json({
-      success: true,
-      customer: {
-        id: customer.id,
-        name: customer.name,
-        email: customer.email,
-        phone: customer.phone,
-      },
-      paymentMethods: paymentMethods.map(pm => ({
-        id: pm.id,
-        type: pm.card?.brand,
-        last4: pm.card?.last4,
-        expMonth: pm.card?.exp_month,
-        expYear: pm.card?.exp_year,
-      })),
-    });
-
-  } catch (error) {
-    console.error('❌ Failed to get customer payment methods:', error);
-    res.status(500).json({ 
-      error: 'Failed to retrieve payment methods',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
+  return res.status(410).json({
+    success: false,
+    error: 'This endpoint is deprecated. Stripe customer IDs are now managed via the local ProviderCustomer table.',
+    message: 'Use the customer lookup endpoint with local database instead.',
+  });
 });
 
 /**

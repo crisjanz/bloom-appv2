@@ -52,6 +52,7 @@ type ImportResult = {
   createdRecipients: number;
   skippedCustomers: number;
   skippedRecipients: number;
+  stripeLinked: number; // NEW: Track Stripe customer ID links
   errors: Array<{
     customerId: string;
     error: string;
@@ -127,6 +128,7 @@ router.post('/floranext-complete', (req: Request, res: Response) => {
         createdRecipients: 0,
         skippedCustomers: 0,
         skippedRecipients: 0,
+        stripeLinked: 0, // NEW: Track Stripe links
         errors: [],
       };
 
@@ -153,6 +155,11 @@ router.post('/floranext-complete', (req: Request, res: Response) => {
       for (const item of customers) {
         const customer: FloranextCustomer = item.customer || {};
         const recipients: FloranextRecipient[] = item.recipients || [];
+
+        // NEW: Extract Stripe customer IDs from merged data
+        const stripeCustomerIds: string[] = item.stripe_customer_id
+          ? [item.stripe_customer_id]
+          : (item.stripeCustomerIds || []);
 
         const floranextCustomerId = customer.entity_id?.toString();
         if (!floranextCustomerId) {
@@ -310,6 +317,40 @@ router.post('/floranext-complete', (req: Request, res: Response) => {
                 });
 
                 result.createdRecipients++;
+              }
+            }
+
+            // NEW: Link Stripe customer IDs to the ProviderCustomer table
+            if (stripeCustomerIds && stripeCustomerIds.length > 0) {
+              for (const stripeCustomerId of stripeCustomerIds) {
+                try {
+                  // Check if link already exists
+                  const existingLink = await tx.providerCustomer.findUnique({
+                    where: {
+                      customerId_provider: {
+                        customerId: senderCustomer.id,
+                        provider: 'STRIPE',
+                      },
+                    },
+                  });
+
+                  if (!existingLink) {
+                    await tx.providerCustomer.create({
+                      data: {
+                        customerId: senderCustomer.id,
+                        provider: 'STRIPE',
+                        providerCustomerId: stripeCustomerId,
+                        providerEmail: email || null,
+                        lastSyncAt: new Date(),
+                      },
+                    });
+                    result.stripeLinked++;
+                    console.log(`✅ Linked Stripe customer ${stripeCustomerId} to ${senderCustomer.id}`);
+                  }
+                } catch (err) {
+                  console.error(`⚠️  Failed to link Stripe customer ${stripeCustomerId}:`, err);
+                  // Don't fail the whole import if just the Stripe link fails
+                }
               }
             }
           });

@@ -11,6 +11,7 @@ interface ImportResult {
   createdRecipients: number;
   skippedCustomers: number;
   skippedRecipients: number;
+  stripeLinked?: number; // NEW: Track Stripe customer ID links
   errors: Array<{
     customerId: string;
     error: string;
@@ -90,10 +91,10 @@ const ImportJsonCard = () => {
         <div className="rounded-lg bg-blue-50 p-4 text-sm text-blue-800 dark:bg-blue-900/20 dark:text-blue-300">
           <p className="font-semibold mb-2">📦 Complete Import</p>
           <p className="mb-2">
-            Upload your FloraNext complete export JSON file (from the export script).
+            Upload your merged customer data JSON file (FloraNext + Stripe).
           </p>
           <p className="text-xs">
-            This will import all customers and their recipients, creating proper relationships.
+            This will import all customers, recipients, and link Stripe customer IDs to your POS.
           </p>
         </div>
 
@@ -165,6 +166,13 @@ const ImportJsonCard = () => {
                 <p className="text-xs">
                   Skipped: {result.skippedCustomers} customers, {result.skippedRecipients} recipients
                   (already imported)
+                </p>
+              </div>
+            )}
+            {result.stripeLinked !== undefined && result.stripeLinked > 0 && (
+              <div className="mt-2 pt-2 border-t border-current/20">
+                <p className="text-xs font-semibold text-green-700 dark:text-green-400">
+                  🔗 Linked {result.stripeLinked} Stripe customer IDs
                 </p>
               </div>
             )}
