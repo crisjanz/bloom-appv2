@@ -165,7 +165,7 @@ class ProviderCustomerService {
   }
 
   /**
-   * Update provider customer metadata
+   * Update provider customer metadata (updates PRIMARY provider customer)
    */
   async updateProviderCustomerMetadata(
     customerId: string,
@@ -173,12 +173,16 @@ class ProviderCustomerService {
     metadata: any
   ) {
     try {
+      // Get the primary provider customer
+      const primaryProviderCustomer = await this.getProviderCustomer(customerId, provider);
+
+      if (!primaryProviderCustomer) {
+        throw new Error(`No ${provider} customer found for customer ${customerId}`);
+      }
+
       const providerCustomer = await prisma.providerCustomer.update({
         where: {
-          customerId_provider: {
-            customerId,
-            provider,
-          },
+          id: primaryProviderCustomer.id,
         },
         data: {
           providerMetadata: metadata,
@@ -223,16 +227,20 @@ class ProviderCustomerService {
   }
 
   /**
-   * Deactivate provider customer link
+   * Deactivate provider customer link (deactivates PRIMARY provider customer)
    */
   async deactivateProviderCustomer(customerId: string, provider: PaymentProvider) {
     try {
+      // Get the primary provider customer
+      const primaryProviderCustomer = await this.getProviderCustomer(customerId, provider);
+
+      if (!primaryProviderCustomer) {
+        throw new Error(`No ${provider} customer found for customer ${customerId}`);
+      }
+
       const providerCustomer = await prisma.providerCustomer.update({
         where: {
-          customerId_provider: {
-            customerId,
-            provider,
-          },
+          id: primaryProviderCustomer.id,
         },
         data: {
           isActive: false,
