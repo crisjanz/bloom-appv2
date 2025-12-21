@@ -321,15 +321,20 @@ router.post('/floranext-complete', (req: Request, res: Response) => {
             }
 
             // NEW: Link Stripe customer IDs to the ProviderCustomer table
+            // Supports MULTIPLE Stripe IDs per customer (FloraNext creates duplicates)
+            // First Stripe ID is marked as PRIMARY for future transactions
             if (stripeCustomerIds && stripeCustomerIds.length > 0) {
-              for (const stripeCustomerId of stripeCustomerIds) {
+              for (let idx = 0; idx < stripeCustomerIds.length; idx++) {
+                const stripeCustomerId = stripeCustomerIds[idx];
+                const isFirstStripeId = idx === 0;
+
                 try {
-                  // Check if link already exists
+                  // Check if THIS specific Stripe ID is already linked to ANY customer
                   const existingLink = await tx.providerCustomer.findUnique({
                     where: {
-                      customerId_provider: {
-                        customerId: senderCustomer.id,
+                      provider_providerCustomerId: {
                         provider: 'STRIPE',
+                        providerCustomerId: stripeCustomerId,
                       },
                     },
                   });
@@ -341,11 +346,15 @@ router.post('/floranext-complete', (req: Request, res: Response) => {
                         provider: 'STRIPE',
                         providerCustomerId: stripeCustomerId,
                         providerEmail: email || null,
+                        isPrimary: isFirstStripeId, // First one is primary/master
                         lastSyncAt: new Date(),
                       },
                     });
                     result.stripeLinked++;
-                    console.log(`✅ Linked Stripe customer ${stripeCustomerId} to ${senderCustomer.id}`);
+                    const primaryLabel = isFirstStripeId ? ' (PRIMARY)' : '';
+                    console.log(`✅ Linked Stripe customer ${stripeCustomerId} to ${senderCustomer.id}${primaryLabel}`);
+                  } else {
+                    console.log(`⚠️  Stripe customer ${stripeCustomerId} already linked to customer ${existingLink.customerId}`);
                   }
                 } catch (err) {
                   console.error(`⚠️  Failed to link Stripe customer ${stripeCustomerId}:`, err);

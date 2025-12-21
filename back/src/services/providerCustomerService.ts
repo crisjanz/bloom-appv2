@@ -48,20 +48,39 @@ class ProviderCustomerService {
 
   /**
    * Get provider customer by local customer ID and provider
+   * Returns the PRIMARY provider customer for future transactions
    */
   async getProviderCustomer(customerId: string, provider: PaymentProvider) {
     try {
-      const providerCustomer = await prisma.providerCustomer.findUnique({
+      // Get the PRIMARY provider customer for this customer
+      const providerCustomer = await prisma.providerCustomer.findFirst({
         where: {
-          customerId_provider: {
-            customerId,
-            provider,
-          },
+          customerId,
+          provider,
+          isActive: true,
+          isPrimary: true, // Use primary Stripe ID
         },
         include: {
           customer: true,
         },
       });
+
+      // Fallback: if no primary found, get the first active one
+      if (!providerCustomer) {
+        return await prisma.providerCustomer.findFirst({
+          where: {
+            customerId,
+            provider,
+            isActive: true,
+          },
+          include: {
+            customer: true,
+          },
+          orderBy: {
+            createdAt: 'asc', // Oldest first
+          },
+        });
+      }
 
       return providerCustomer;
     } catch (error) {
@@ -177,17 +196,23 @@ class ProviderCustomerService {
 
   /**
    * Get all provider customers for a local customer
+   * Use this to access saved payment methods from ALL linked Stripe IDs
    */
-  async getAllProviderCustomers(customerId: string) {
+  async getAllProviderCustomers(customerId: string, provider?: PaymentProvider) {
     try {
       const providerCustomers = await prisma.providerCustomer.findMany({
         where: {
           customerId,
           isActive: true,
+          ...(provider && { provider }), // Optional provider filter
         },
         include: {
           customer: true,
         },
+        orderBy: [
+          { isPrimary: 'desc' }, // Primary first
+          { createdAt: 'asc' },  // Then oldest first
+        ],
       });
 
       return providerCustomers;

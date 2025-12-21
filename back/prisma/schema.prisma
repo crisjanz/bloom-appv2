@@ -1180,6 +1180,7 @@ model ProviderCustomer {
   // Provider-specific metadata
   providerMetadata Json? // Store provider response data
   isActive         Boolean   @default(true)
+  isPrimary        Boolean   @default(false) // Primary Stripe ID for future transactions
   lastSyncAt       DateTime? // Last time we synced with provider
 
   // Timestamps
@@ -1190,9 +1191,11 @@ model ProviderCustomer {
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   // Constraints
-  @@unique([customerId, provider]) // One provider customer per local customer per provider
-  @@unique([provider, providerCustomerId]) // Provider customer IDs must be unique per provider
+  // REMOVED: @@unique([customerId, provider]) to allow multiple Stripe IDs per customer
+  // (FloraNext/Stripe creates duplicate customers per transaction)
+  @@unique([provider, providerCustomerId]) // Each Stripe ID can only be used once
   @@index([customerId])
+  @@index([customerId, provider]) // Index for efficient lookup
   @@index([provider, providerCustomerId])
   @@map("provider_customers")
 }
