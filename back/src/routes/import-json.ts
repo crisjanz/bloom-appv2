@@ -153,15 +153,31 @@ router.post('/floranext-complete', (req: Request, res: Response) => {
 
       // Process each customer with their recipients
       for (const item of customers) {
-        const customer: FloranextCustomer = item.customer || {};
-        const recipients: FloranextRecipient[] = item.recipients || [];
+        // Detect format: FloraNext format has nested 'customer' object, merged format is flat
+        const isFloranextFormat = item.customer !== undefined;
 
-        // NEW: Extract Stripe customer IDs from merged data
-        const stripeCustomerIds: string[] = item.stripe_customer_id
-          ? [item.stripe_customer_id]
-          : (item.stripeCustomerIds || []);
+        let customer: any;
+        let recipients: any[];
+        let stripeCustomerIds: string[];
+        let floranextCustomerId: string | undefined;
 
-        const floranextCustomerId = customer.entity_id?.toString();
+        if (isFloranextFormat) {
+          // FloraNext format: { customer: {...}, recipients: [...] }
+          customer = item.customer;
+          recipients = item.recipients || [];
+          stripeCustomerIds = item.stripe_customer_id
+            ? [item.stripe_customer_id]
+            : (item.stripeCustomerIds || []);
+          floranextCustomerId = customer.entity_id?.toString();
+        } else {
+          // Merged format: { firstName, lastName, email, stripeCustomerIds, recipients: [...] }
+          customer = item;
+          recipients = item.recipients || [];
+          stripeCustomerIds = item.stripeCustomerIds || [];
+          // For merged format, use email or generate a unique ID
+          floranextCustomerId = item.email || `MERGED-${Date.now()}-${Math.random()}`;
+        }
+
         if (!floranextCustomerId) {
           result.skippedCustomers++;
           continue;
@@ -179,10 +195,21 @@ router.post('/floranext-complete', (req: Request, res: Response) => {
         try {
           await prisma.$transaction(async (tx) => {
             // Create or find sender customer
-            const firstName = clean(customer.billing_firstname || customer.name?.split(' ')[0] || 'Customer');
-            const lastName = clean(customer.billing_lastname || customer.name?.split(' ').slice(1).join(' ') || floranextCustomerId);
+            // Handle both FloraNext format and merged format
+            const firstName = clean(
+              customer.firstName ||
+              customer.billing_firstname ||
+              customer.name?.split(' ')[0] ||
+              'Customer'
+            );
+            const lastName = clean(
+              customer.lastName ||
+              customer.billing_lastname ||
+              customer.name?.split(' ').slice(1).join(' ') ||
+              floranextCustomerId
+            );
             const email = clean(customer.email);
-            const phone = normalizePhone(customer.billing_telephone);
+            const phone = normalizePhone(customer.phone || customer.billing_telephone);
 
             // Check if customer already exists by email
             let senderCustomer = email ? await tx.customer.findUnique({
@@ -195,24 +222,32 @@ router.post('/floranext-complete', (req: Request, res: Response) => {
               const hasThisFloranextId = existingNotes.includes(`FloraNext ID: ${floranextCustomerId}`);
 
               if (!hasThisFloranextId) {
+                const importNote = isFloranextFormat
+                  ? `FloraNext ID: ${floranextCustomerId}`
+                  : `Imported from merged data`;
+
                 await tx.customer.update({
                   where: { id: senderCustomer.id },
                   data: {
                     notes: existingNotes
-                      ? `${existingNotes}\nFloraNext ID: ${floranextCustomerId}`
-                      : `Imported from FloraNext. FloraNext ID: ${floranextCustomerId}`,
+                      ? `${existingNotes}\n${importNote}`
+                      : `${importNote}`,
                   },
                 });
               }
             } else {
               // Create new customer
+              const importNote = isFloranextFormat
+                ? `Imported from FloraNext. FloraNext ID: ${floranextCustomerId}`
+                : `Imported from merged data (FloraNext + Stripe)`;
+
               senderCustomer = await tx.customer.create({
                 data: {
                   firstName,
                   lastName,
                   email: email || null,
                   phone: phone || null,
-                  notes: `Imported from FloraNext. FloraNext ID: ${floranextCustomerId}`,
+                  notes: importNote,
                 },
               });
               result.createdCustomers++;
