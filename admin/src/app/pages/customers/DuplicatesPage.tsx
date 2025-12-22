@@ -62,6 +62,7 @@ export default function DuplicatesPage() {
   const [filterLevel, setFilterLevel] = useState<'all' | 'high' | 'medium' | 'low'>('all');
   const [mergingGroupId, setMergingGroupId] = useState<string | null>(null);
   const [selectedTargets, setSelectedTargets] = useState<Record<string, string>>({});
+  const [selectedCustomers, setSelectedCustomers] = useState<Record<string, Set<string>>>({}); // Track which customers to merge per group
   const [addressReviewGroup, setAddressReviewGroup] = useState<DuplicateGroup | null>(null);
   const [loadingAddresses, setLoadingAddresses] = useState(false);
   const [addressReviewData, setAddressReviewData] = useState<AddressReviewData | null>(null);
@@ -100,12 +101,16 @@ export default function DuplicatesPage() {
 
       setDuplicates(data);
 
-      // Initialize suggested targets
+      // Initialize suggested targets and select all customers by default
       const targets: Record<string, string> = {};
+      const customerSelections: Record<string, Set<string>> = {};
       data.duplicateGroups.forEach(group => {
         targets[group.id] = group.suggestedTarget;
+        // Select all customers in the group by default
+        customerSelections[group.id] = new Set(group.customers.map(c => c.id));
       });
       setSelectedTargets(targets);
+      setSelectedCustomers(customerSelections);
     } catch (error) {
       console.error('Failed to load duplicates:', error);
       alert('Failed to load duplicate customers. Please restart the backend server and try again.');
@@ -220,9 +225,22 @@ export default function DuplicatesPage() {
       return;
     }
 
-    const sourceIds = group.customers
-      .filter(c => c.id !== targetId)
-      .map(c => c.id);
+    // Only merge selected customers
+    const selectedIds = selectedCustomers[group.id] || new Set(group.customers.map(c => c.id));
+
+    // Ensure target is selected
+    if (!selectedIds.has(targetId)) {
+      showNotification('error', 'Target customer must be included in merge');
+      return;
+    }
+
+    // Require at least 2 customers selected
+    if (selectedIds.size < 2) {
+      showNotification('error', 'Please select at least 2 customers to merge');
+      return;
+    }
+
+    const sourceIds = Array.from(selectedIds).filter(id => id !== targetId);
 
     const targetCustomer = group.customers.find(c => c.id === targetId);
     if (!targetCustomer) return;
@@ -292,9 +310,26 @@ export default function DuplicatesPage() {
       setAddressReviewData(null);
       setSelectedAddresses(new Set());
 
-      // Remove the merged group from the current list
+      // Update or remove the group
       if (duplicates && addressReviewGroup) {
-        const updatedGroups = duplicates.duplicateGroups.filter(g => g.id !== addressReviewGroup.id);
+        const mergedIds = new Set([addressReviewData.targetCustomerId, ...addressReviewData.sourceCustomerIds]);
+        const updatedGroups = duplicates.duplicateGroups.map(g => {
+          if (g.id === addressReviewGroup.id) {
+            // Keep unselected customers in the group
+            const remainingCustomers = g.customers.filter(c => !mergedIds.has(c.id));
+            if (remainingCustomers.length > 1) {
+              // Group still has duplicates
+              return {
+                ...g,
+                customers: remainingCustomers,
+              };
+            }
+            // Group no longer has duplicates, will be filtered out
+            return null;
+          }
+          return g;
+        }).filter((g): g is DuplicateGroup => g !== null);
+
         const highConfidence = updatedGroups.filter((g) => g.confidence >= 90).length;
         const mediumConfidence = updatedGroups.filter(
           (g) => g.confidence >= 70 && g.confidence < 90
@@ -658,19 +693,40 @@ export default function DuplicatesPage() {
                     className={`rounded-lg border p-4 transition-all ${
                       selectedTargets[group.id] === customer.id
                         ? 'border-blue-500 bg-blue-50 shadow-md dark:border-blue-500 dark:bg-blue-900/20'
-                        : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800/50'
+                        : selectedCustomers[group.id]?.has(customer.id)
+                        ? 'border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-800/50'
+                        : 'border-gray-200 bg-gray-50 opacity-60 dark:border-gray-700 dark:bg-gray-800/30'
                     }`}
                   >
                     <div className="mb-3 flex items-start justify-between">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={selectedCustomers[group.id]?.has(customer.id) ?? true}
+                          onChange={() => {
+                            const newSelections = { ...selectedCustomers };
+                            if (!newSelections[group.id]) {
+                              newSelections[group.id] = new Set(group.customers.map(c => c.id));
+                            }
+                            if (newSelections[group.id].has(customer.id)) {
+                              newSelections[group.id].delete(customer.id);
+                            } else {
+                              newSelections[group.id].add(customer.id);
+                            }
+                            setSelectedCustomers(newSelections);
+                          }}
+                          className="h-4 w-4 text-blue-600 rounded"
+                          title="Include in merge"
+                        />
                         <input
                           type="radio"
                           name={`target-${group.id}`}
                           checked={selectedTargets[group.id] === customer.id}
+                          disabled={!selectedCustomers[group.id]?.has(customer.id)}
                           onChange={() =>
                             setSelectedTargets({ ...selectedTargets, [group.id]: customer.id })
                           }
-                          className="h-4 w-4 text-blue-600"
+                          className="h-4 w-4 text-blue-600 disabled:opacity-40"
                         />
                         <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                           Keep This
