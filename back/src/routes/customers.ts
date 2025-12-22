@@ -429,6 +429,15 @@ router.post("/merge", async (req, res) => {
       });
 
       for (const rel of senderRecipients) {
+        // Skip self-referential relationships (sender = recipient)
+        if (rel.recipientId === targetId) {
+          // Delete the relationship - it would be A → A which doesn't make sense
+          await prisma.customerRecipient.delete({
+            where: { id: rel.id }
+          });
+          continue;
+        }
+
         // Check if target already has this recipient relationship
         const existingRel = await prisma.customerRecipient.findUnique({
           where: {
@@ -461,6 +470,15 @@ router.post("/merge", async (req, res) => {
       });
 
       for (const rel of recipientSenders) {
+        // Skip self-referential relationships (sender = recipient)
+        if (rel.senderId === targetId) {
+          // Delete the relationship - it would be A → A which doesn't make sense
+          await prisma.customerRecipient.delete({
+            where: { id: rel.id }
+          });
+          continue;
+        }
+
         // Check if this sender already has target as recipient
         const existingRel = await prisma.customerRecipient.findUnique({
           where: {
