@@ -560,8 +560,34 @@ router.delete("/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
-    // Unlink orders from this customer (set customerId to null)
-    // Orders retain all customer data (name, address, etc.), just lose the FK reference
+    // Delete all related data before deleting customer
+
+    // 1. Delete payment transactions
+    await prisma.paymentTransaction.deleteMany({
+      where: { customerId: id }
+    });
+
+    // 2. Delete events
+    await prisma.event.deleteMany({
+      where: { customerId: id }
+    });
+
+    // 3. Delete provider customer links (Stripe IDs)
+    await prisma.providerCustomer.deleteMany({
+      where: { customerId: id }
+    });
+
+    // 4. Delete customer-recipient relationships (where this customer is sender)
+    await prisma.customerRecipient.deleteMany({
+      where: { senderId: id }
+    });
+
+    // 5. Delete customer-recipient relationships (where this customer is recipient)
+    await prisma.customerRecipient.deleteMany({
+      where: { recipientId: id }
+    });
+
+    // 6. Unlink orders from this customer (set customerId to null)
     const orderCount = await prisma.order.count({
       where: { customerId: id }
     });
@@ -571,10 +597,15 @@ router.delete("/:id", async (req, res) => {
         where: { customerId: id },
         data: { customerId: null as any }
       });
-      console.log(`Unlinked ${orderCount} orders from customer ${id}`);
     }
 
-    // Delete all addresses associated with this customer
+    // Also unlink orders where this customer is the recipient
+    await prisma.order.updateMany({
+      where: { recipientCustomerId: id },
+      data: { recipientCustomerId: null as any }
+    });
+
+    // 7. Delete all addresses associated with this customer
     const addressCount = await prisma.address.count({
       where: { customerId: id }
     });
@@ -583,10 +614,9 @@ router.delete("/:id", async (req, res) => {
       await prisma.address.deleteMany({
         where: { customerId: id }
       });
-      console.log(`Deleted ${addressCount} addresses for customer ${id}`);
     }
 
-    // Now safe to delete customer
+    // 8. Finally delete the customer
     await prisma.customer.delete({ where: { id } });
 
     res.json({
@@ -596,7 +626,7 @@ router.delete("/:id", async (req, res) => {
     });
   } catch (err) {
     console.error("Failed to delete customer:", err);
-    res.status(500).json({ error: "Failed to delete customer" });
+    res.status(500).json({ error: "Failed to delete customer", details: err instanceof Error ? err.message : 'Unknown error' });
   }
 });
 
