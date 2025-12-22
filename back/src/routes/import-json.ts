@@ -217,10 +217,22 @@ router.post('/floranext-complete', (req: Request, res: Response) => {
             const email = clean(customer.email);
             const phone = normalizePhone(customer.phone || customer.billing_telephone);
 
-            // Check if customer already exists by email
-            let senderCustomer = email ? await tx.customer.findUnique({
-              where: { email },
-            }) : null;
+            // Check if customer already exists by email OR phone
+            let senderCustomer = null;
+
+            // First try by email (fastest, uses unique index)
+            if (email) {
+              senderCustomer = await tx.customer.findUnique({
+                where: { email },
+              });
+            }
+
+            // If not found by email, try by phone (for guest/phone-only customers)
+            if (!senderCustomer && phone) {
+              senderCustomer = await tx.customer.findFirst({
+                where: { phone },
+              });
+            }
 
             if (senderCustomer) {
               // Customer exists - update their notes to track this FloraNext ID
