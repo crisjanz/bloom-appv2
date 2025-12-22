@@ -145,6 +145,68 @@ export default function DuplicatesPage() {
     showNotification('info', 'Group marked as "Not Duplicates" and hidden from list');
   };
 
+  const handleDeleteGroup = async (group: DuplicateGroup) => {
+    if (!confirm(`Delete all ${group.customers.length} customers in this group? This cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const customerIds = group.customers.map(c => c.id);
+
+      for (const customerId of customerIds) {
+        await apiClient.delete(`/api/customers/${customerId}`);
+      }
+
+      showNotification('success', `Deleted ${group.customers.length} customer(s) successfully!`);
+
+      // Remove group from UI
+      if (duplicates) {
+        const updatedGroups = duplicates.duplicateGroups.filter(g => g.id !== group.id);
+        setDuplicates({
+          ...duplicates,
+          duplicateGroups: updatedGroups,
+          totalDuplicates: updatedGroups.length,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to delete customers:', error);
+      showNotification('error', 'Failed to delete customers. Please try again.');
+    }
+  };
+
+  const handleDeleteCustomer = async (customerId: string, groupId: string) => {
+    if (!confirm('Delete this customer? This cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await apiClient.delete(`/api/customers/${customerId}`);
+      showNotification('success', 'Customer deleted successfully!');
+
+      // Remove customer from group in UI
+      if (duplicates) {
+        const updatedGroups = duplicates.duplicateGroups.map(g => {
+          if (g.id === groupId) {
+            return {
+              ...g,
+              customers: g.customers.filter(c => c.id !== customerId),
+            };
+          }
+          return g;
+        }).filter(g => g.customers.length > 1); // Remove groups with less than 2 customers
+
+        setDuplicates({
+          ...duplicates,
+          duplicateGroups: updatedGroups,
+          totalDuplicates: updatedGroups.length,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to delete customer:', error);
+      showNotification('error', 'Failed to delete customer. Please try again.');
+    }
+  };
+
   const clearDismissed = () => {
     setDismissedGroups(new Set());
     localStorage.removeItem('dismissedDuplicateGroups');
@@ -554,6 +616,15 @@ export default function DuplicatesPage() {
                 </div>
                 <div className="flex gap-2">
                   <button
+                    onClick={() => handleDeleteGroup(group)}
+                    className="inline-flex items-center rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-50 dark:border-red-600 dark:bg-gray-800 dark:text-red-400 dark:hover:bg-red-900/20"
+                  >
+                    <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Delete All
+                  </button>
+                  <button
                     onClick={() => handleDismissGroup(group)}
                     className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                   >
@@ -668,12 +739,23 @@ export default function DuplicatesPage() {
                       </div>
                     </div>
 
-                    <Link
-                      to={`/customers/${customer.id}`}
-                      className="mt-3 inline-flex text-xs font-medium text-[#597485] hover:underline"
-                    >
-                      View Details →
-                    </Link>
+                    <div className="mt-3 flex items-center justify-between">
+                      <Link
+                        to={`/customers/${customer.id}`}
+                        className="inline-flex text-xs font-medium text-[#597485] hover:underline"
+                      >
+                        View Details →
+                      </Link>
+                      <button
+                        onClick={() => handleDeleteCustomer(customer.id, group.id)}
+                        className="inline-flex items-center rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                        title="Delete this customer"
+                      >
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

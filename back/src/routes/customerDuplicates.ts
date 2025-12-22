@@ -124,6 +124,7 @@ router.get('/find-duplicates', async (req, res) => {
       let highestConfidence = 0;
       let matchType = '';
       let reason = '';
+      let hasExactMatch = false; // Track if group has exact email/phone matches
 
       // Compare with remaining customers
       for (let j = i + 1; j < customers.length; j++) {
@@ -133,6 +134,7 @@ router.get('/find-duplicates', async (req, res) => {
         let confidence = 0;
         let currentMatchType = '';
         let currentReason = '';
+        let isExactMatch = false;
 
         // 1. Exact email match (100% confidence)
         if (
@@ -143,6 +145,7 @@ router.get('/find-duplicates', async (req, res) => {
           confidence = 100;
           currentMatchType = 'exact_email';
           currentReason = `Exact email match: ${customer.email}`;
+          isExactMatch = true;
         }
         // 2. Exact phone match (100% confidence)
         else if (
@@ -154,6 +157,7 @@ router.get('/find-duplicates', async (req, res) => {
           confidence = 100;
           currentMatchType = 'exact_phone';
           currentReason = `Exact phone match: ${customer.phone}`;
+          isExactMatch = true;
         }
         // 3. Exact name match (95% confidence)
         else if (
@@ -203,14 +207,23 @@ router.get('/find-duplicates', async (req, res) => {
         }
 
         // Add to group if above threshold
+        // Don't mix exact matches (email/phone) with name-only matches
         if (confidence >= threshold) {
-          group.push(other);
-          processedIds.add(other.id);
+          const shouldAdd = !hasExactMatch || isExactMatch;
 
-          if (confidence > highestConfidence) {
-            highestConfidence = confidence;
-            matchType = currentMatchType;
-            reason = currentReason;
+          if (shouldAdd) {
+            group.push(other);
+            processedIds.add(other.id);
+
+            if (isExactMatch) {
+              hasExactMatch = true;
+            }
+
+            if (confidence > highestConfidence) {
+              highestConfidence = confidence;
+              matchType = currentMatchType;
+              reason = currentReason;
+            }
           }
         }
       }
