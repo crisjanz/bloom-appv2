@@ -487,6 +487,37 @@ router.post("/merge", async (req, res) => {
         });
       }
 
+      // Transfer ProviderCustomer links (Stripe IDs, Square IDs, etc.)
+      const providerCustomers = await prisma.providerCustomer.findMany({
+        where: { customerId: sourceId }
+      });
+
+      for (const pc of providerCustomers) {
+        // Check if target already has this specific provider customer ID
+        const existingProviderLink = await prisma.providerCustomer.findUnique({
+          where: {
+            provider_providerCustomerId: {
+              provider: pc.provider,
+              providerCustomerId: pc.providerCustomerId
+            }
+          }
+        });
+
+        if (!existingProviderLink) {
+          // Transfer provider customer to target
+          await prisma.providerCustomer.update({
+            where: { id: pc.id },
+            data: { customerId: targetId }
+          });
+        } else if (existingProviderLink.customerId !== targetId) {
+          // This Stripe ID is already linked to a different customer - skip it
+          console.log(`⚠️  Skipping ${pc.provider} ID ${pc.providerCustomerId} - already linked to another customer`);
+        } else {
+          // Already linked to target, just delete the duplicate
+          await prisma.providerCustomer.delete({ where: { id: pc.id } });
+        }
+      }
+
       // Delete source customer
       await prisma.customer.delete({
         where: { id: sourceId }
