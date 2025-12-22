@@ -319,6 +319,54 @@ router.post("/merge", async (req, res) => {
       }
     }
 
+    // Get target customer to merge data into
+    let targetCustomer = await prisma.customer.findUnique({
+      where: { id: targetId }
+    });
+
+    if (!targetCustomer) {
+      return res.status(404).json({ error: 'Target customer not found' });
+    }
+
+    // Merge customer data from all sources
+    const updateData: any = {};
+
+    for (const sourceId of sourceIds) {
+      const sourceCustomer = await prisma.customer.findUnique({
+        where: { id: sourceId }
+      });
+
+      if (!sourceCustomer) continue;
+
+      // Fill in missing data from source customers
+      if (!targetCustomer.email && sourceCustomer.email) {
+        updateData.email = sourceCustomer.email;
+        targetCustomer.email = sourceCustomer.email; // Update in-memory for next iteration
+      }
+      if (!targetCustomer.phone && sourceCustomer.phone) {
+        updateData.phone = sourceCustomer.phone;
+        targetCustomer.phone = sourceCustomer.phone;
+      }
+      // Merge notes
+      if (sourceCustomer.notes && sourceCustomer.notes.trim()) {
+        const existingNotes = targetCustomer.notes || '';
+        if (!existingNotes.includes(sourceCustomer.notes)) {
+          updateData.notes = existingNotes
+            ? `${existingNotes}\n---\nMerged from duplicate:\n${sourceCustomer.notes}`
+            : sourceCustomer.notes;
+          targetCustomer.notes = updateData.notes;
+        }
+      }
+    }
+
+    // Update target customer with merged data
+    if (Object.keys(updateData).length > 0) {
+      await prisma.customer.update({
+        where: { id: targetId },
+        data: updateData
+      });
+    }
+
     // For each source customer, transfer their data to the target
     for (const sourceId of sourceIds) {
       // Transfer all orders
