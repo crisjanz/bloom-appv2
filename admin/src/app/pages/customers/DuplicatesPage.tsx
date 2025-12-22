@@ -269,6 +269,55 @@ export default function DuplicatesPage() {
         }
       }
 
+      // If no addresses, merge directly without review modal
+      if (allAddresses.length === 0) {
+        setLoadingAddresses(false);
+        setAddressReviewGroup(null);
+
+        // Merge directly without address review
+        setMergingGroupId(group.id);
+        try {
+          const response = await apiClient.post('/api/customers/merge', {
+            sourceIds: sourceIds,
+            targetId: targetId,
+            keepAddressIds: []
+          });
+          const result = response.data;
+
+          showNotification(
+            'success',
+            `Successfully merged ${result.customersMerged} customer(s)! ${result.ordersMerged} orders and ${result.transactionsMerged} transactions transferred.`
+          );
+
+          // Remove merged group from UI
+          if (duplicates) {
+            const mergedIds = new Set([targetId, ...sourceIds]);
+            const updatedGroups = duplicates.duplicateGroups.map(g => {
+              if (g.id === group.id) {
+                const remainingCustomers = g.customers.filter(c => !mergedIds.has(c.id));
+                if (remainingCustomers.length > 1) {
+                  return { ...g, customers: remainingCustomers };
+                }
+                return null;
+              }
+              return g;
+            }).filter((g): g is DuplicateGroup => g !== null);
+
+            setDuplicates({
+              ...duplicates,
+              duplicateGroups: updatedGroups,
+              totalDuplicates: updatedGroups.length,
+            });
+          }
+        } catch (error) {
+          console.error('Failed to merge customers:', error);
+          showNotification('error', 'Failed to merge customers. Please try again.');
+        } finally {
+          setMergingGroupId(null);
+        }
+        return;
+      }
+
       setAddressReviewData({
         targetCustomerId: targetId,
         sourceCustomerIds: sourceIds,
