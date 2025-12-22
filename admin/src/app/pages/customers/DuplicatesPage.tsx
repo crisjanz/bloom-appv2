@@ -225,11 +225,29 @@ export default function DuplicatesPage() {
         `Successfully merged ${result.customersMerged} customer(s)! ${result.ordersMerged} orders, ${result.addressesMerged} addresses, and ${result.transactionsMerged} transactions transferred.`
       );
 
-      // Close modal and reload
+      // Close modal and remove merged group from UI without re-running detection
       setAddressReviewGroup(null);
       setAddressReviewData(null);
       setSelectedAddresses(new Set());
-      await loadDuplicates();
+
+      // Remove the merged group from the current list
+      if (duplicates && addressReviewGroup) {
+        const updatedGroups = duplicates.duplicateGroups.filter(g => g.id !== addressReviewGroup.id);
+        const highConfidence = updatedGroups.filter((g) => g.confidence >= 90).length;
+        const mediumConfidence = updatedGroups.filter(
+          (g) => g.confidence >= 70 && g.confidence < 90
+        ).length;
+        const lowConfidence = updatedGroups.filter((g) => g.confidence < 70).length;
+
+        setDuplicates({
+          ...duplicates,
+          duplicateGroups: updatedGroups,
+          totalDuplicates: updatedGroups.length,
+          highConfidence,
+          mediumConfidence,
+          lowConfidence,
+        });
+      }
     } catch (error) {
       console.error('Failed to merge customers:', error);
       showNotification('error', 'Failed to merge customers. Please try again.');
@@ -355,6 +373,25 @@ export default function DuplicatesPage() {
             )}
           </div>
           <div className="flex gap-2">
+            <button
+              onClick={loadDuplicates}
+              disabled={loading}
+              className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+            >
+              {loading ? (
+                <>
+                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-white"></div>
+                  Scanning...
+                </>
+              ) : (
+                <>
+                  <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Refresh
+                </>
+              )}
+            </button>
             {dismissedGroups.size > 0 && (
               <button
                 onClick={clearDismissed}

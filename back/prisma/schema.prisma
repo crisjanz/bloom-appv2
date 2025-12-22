@@ -316,6 +316,9 @@ model Customer {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([phone]) // Speed up duplicate detection by phone
+  @@index([firstName, lastName]) // Speed up duplicate detection by name
 }
 
 // Junction table for Customer-to-Customer recipient relationships
