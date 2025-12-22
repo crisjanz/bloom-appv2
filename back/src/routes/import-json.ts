@@ -236,22 +236,67 @@ router.post('/floranext-complete', (req: Request, res: Response) => {
 
             if (senderCustomer) {
               // Customer exists - update their notes to track this FloraNext ID
+              // Also fill in missing data (phone, address, etc.)
               const existingNotes = senderCustomer.notes || '';
               const hasThisFloranextId = existingNotes.includes(`FloraNext ID: ${floranextCustomerId}`);
 
+              const updateData: any = {};
+
+              // Fill in missing phone
+              if (!senderCustomer.phone && phone) {
+                updateData.phone = phone;
+              }
+
+              // Update notes if needed
               if (!hasThisFloranextId) {
                 const importNote = isFloranextFormat
                   ? `FloraNext ID: ${floranextCustomerId}`
                   : `Imported from merged data`;
 
+                updateData.notes = existingNotes
+                  ? `${existingNotes}\n${importNote}`
+                  : `${importNote}`;
+              }
+
+              // Update customer if there are changes
+              if (Object.keys(updateData).length > 0) {
                 await tx.customer.update({
                   where: { id: senderCustomer.id },
-                  data: {
-                    notes: existingNotes
-                      ? `${existingNotes}\n${importNote}`
-                      : `${importNote}`,
-                  },
+                  data: updateData,
                 });
+              }
+
+              // Create billing address if customer has no home address and import has billing data
+              if (!senderCustomer.homeAddressId) {
+                const billingStreet = clean(customer.billing_street);
+                const billingCity = clean(customer.billing_city);
+                const billingProvince = clean(customer.billing_region);
+                const billingPostalCode = clean(customer.billing_postcode);
+
+                if (billingStreet && billingCity && billingProvince && billingPostalCode) {
+                  const billingAddress = await tx.address.create({
+                    data: {
+                      firstName,
+                      lastName,
+                      address1: billingStreet,
+                      address2: null,
+                      city: billingCity,
+                      province: billingProvince,
+                      postalCode: billingPostalCode,
+                      country: normalizeCountry(customer.billing_country_id),
+                      phone: phone || null,
+                      company: null,
+                      label: 'Billing',
+                      customerId: senderCustomer.id,
+                    },
+                  });
+
+                  // Set as home address
+                  await tx.customer.update({
+                    where: { id: senderCustomer.id },
+                    data: { homeAddressId: billingAddress.id },
+                  });
+                }
               }
             } else {
               // Create new customer
@@ -269,6 +314,37 @@ router.post('/floranext-complete', (req: Request, res: Response) => {
                 },
               });
               result.createdCustomers++;
+
+              // Create sender's billing address if data available
+              const billingStreet = clean(customer.billing_street);
+              const billingCity = clean(customer.billing_city);
+              const billingProvince = clean(customer.billing_region);
+              const billingPostalCode = clean(customer.billing_postcode);
+
+              if (billingStreet && billingCity && billingProvince && billingPostalCode) {
+                const billingAddress = await tx.address.create({
+                  data: {
+                    firstName,
+                    lastName,
+                    address1: billingStreet,
+                    address2: null,
+                    city: billingCity,
+                    province: billingProvince,
+                    postalCode: billingPostalCode,
+                    country: normalizeCountry(customer.billing_country_id),
+                    phone: phone || null,
+                    company: null,
+                    label: 'Billing',
+                    customerId: senderCustomer.id,
+                  },
+                });
+
+                // Set as home address
+                await tx.customer.update({
+                  where: { id: senderCustomer.id },
+                  data: { homeAddressId: billingAddress.id },
+                });
+              }
             }
 
             // Create each recipient
