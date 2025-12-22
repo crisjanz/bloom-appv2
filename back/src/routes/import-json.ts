@@ -34,6 +34,7 @@ type FloranextRecipient = {
   entity_id: string;
   firstname: string;
   lastname: string;
+  email?: string;
   company?: string;
   street?: string;
   city?: string;
@@ -76,6 +77,11 @@ const normalizePhone = (rawValue: string | undefined): string | null => {
   const digits = rawValue.replace(/\D/g, '');
   if (!digits || /^0+$/.test(digits)) return null;
   return digits;
+};
+
+const normalizeEmail = (rawValue: string | undefined | null): string => {
+  if (!rawValue) return '';
+  return rawValue.toLowerCase().trim();
 };
 
 const clean = (value: string | undefined | null): string => value?.trim() ?? '';
@@ -269,7 +275,24 @@ router.post('/floranext-complete', (req: Request, res: Response) => {
               const postalCode = clean(recipient.postcode);
               const country = normalizeCountry(recipient.country_id);
               const recipientPhone = normalizePhone(recipient.telephone);
+              const recipientEmail = clean(recipient.email);
               const company = clean(recipient.company);
+
+              // IMPORTANT: Skip self-referential recipients (pickup orders)
+              // If recipient has same email as sender, it's the same person
+              // Recipient name is just temporary (who's picking up), use sender's actual info
+              if (recipientEmail && email && normalizeEmail(recipientEmail) === normalizeEmail(email)) {
+                console.log(`⚠️  Skipping self-referential recipient: ${recipientFirstName} ${recipientLastName} (same email as sender)`);
+                result.skippedRecipients++;
+                continue;
+              }
+
+              // Also check by phone if no email on recipient
+              if (!recipientEmail && recipientPhone && phone && recipientPhone === phone) {
+                console.log(`⚠️  Skipping self-referential recipient: ${recipientFirstName} ${recipientLastName} (same phone as sender)`);
+                result.skippedRecipients++;
+                continue;
+              }
 
               if (!address1 || !city || !province || !postalCode) {
                 result.skippedRecipients++;
