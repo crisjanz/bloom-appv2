@@ -54,7 +54,7 @@ export default function RecipientAddressesCard({
           type="button"
           onClick={onAdd}
           disabled={disabled}
-          className="inline-flex items-center gap-2 rounded-lg bg-[#597485] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#4e6575] disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-60"
         >
           Add Recipient
         </button>
@@ -116,14 +116,14 @@ export default function RecipientAddressesCard({
                           <button
                             type="button"
                             onClick={() => onView(recipient)}
-                            className="text-sm font-medium text-[#597485] hover:text-[#4e6575]"
+                            className="text-sm font-medium text-brand-500 hover:text-brand-600"
                           >
                             View
                           </button>
                           <button
                             type="button"
                             onClick={() => onEdit(recipient.id)}
-                            className="text-sm font-medium text-[#597485] hover:text-[#4e6575]"
+                            className="text-sm font-medium text-brand-500 hover:text-brand-600"
                           >
                             Edit
                           </button>
@@ -146,7 +146,7 @@ export default function RecipientAddressesCard({
                   type="button"
                   onClick={() => onPageChange(Math.max(page - 1, 0))}
                   disabled={page === 0}
-                  className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:border-[#597485] hover:text-[#597485] disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:text-gray-300 dark:hover:border-[#597485]"
+                  className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:border-brand-500 hover:text-brand-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:text-gray-300 dark:hover:border-brand-500"
                 >
                   Previous
                 </button>
@@ -159,7 +159,7 @@ export default function RecipientAddressesCard({
                     onPageChange(Math.min(page + 1, Math.max(Math.ceil(totalCount / pageSize) - 1, 0)))
                   }
                   disabled={(page + 1) * pageSize >= totalCount}
-                  className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:border-[#597485] hover:text-[#597485] disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:text-gray-300 dark:hover:border-[#597485]"
+                  className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:border-brand-500 hover:text-brand-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:text-gray-300 dark:hover:border-brand-500"
                 >
                   Next
                 </button>

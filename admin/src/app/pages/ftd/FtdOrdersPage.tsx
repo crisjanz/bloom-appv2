@@ -1,8 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useFtdOrders } from '../../../domains/ftd/hooks/useFtdOrders';
 import { FtdOrder } from '../../../domains/ftd/types/ftdTypes';
-import StatusBadge from '@app/components/orders/StatusBadge';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
+import StandardTable, { ColumnDef } from '@shared/ui/components/ui/table/StandardTable';
+import PageBreadcrumb from '@shared/ui/common/PageBreadCrumb';
+import ComponentCard from '@shared/ui/common/ComponentCard';
+import Label from '@shared/ui/forms/Label';
+import InputField from '@shared/ui/forms/input/InputField';
+import Select from '@shared/ui/forms/Select';
+import DatePicker from '@shared/ui/forms/date-picker';
+import { getOrderStatusColor } from '@shared/utils/statusColors';
+import { getStatusDisplayText } from '@shared/utils/orderStatusHelpers';
+
+// Inline SVG icons
+const PencilIcon = ({ className = '' }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+  </svg>
+);
+
+const ArrowPathIcon = ({ className = '' }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+  </svg>
+);
 
 const statusFilters = [
   { value: '', label: 'All statuses' },
@@ -56,45 +77,156 @@ export default function FtdOrdersPage() {
     }
   };
 
-  const handleStatCardClick = (statusType: string) => {
-    switch (statusType) {
-      case 'needsAction':
-        setStatusFilter('NEEDS_ACTION');
-        break;
-      case 'accepted':
-        setStatusFilter('ACCEPTED');
-        break;
-      case 'delivered':
-        setStatusFilter('DELIVERED');
-        break;
-      case 'all':
-        setStatusFilter('');
-        break;
-    }
-  };
-
   const renderProductSummary = (order: FtdOrder) => {
     const description = order.importedPayload?.productDescription || order.orderItems?.[0]?.customName;
     return description || '—';
   };
 
-  return (
-    <div className="p-6 max-w-full overflow-x-hidden">
-      <div className="flex justify-between items-center mb-6">
+  // Define table columns
+  const columns: ColumnDef<FtdOrder>[] = [
+    {
+      key: 'orderNumber',
+      header: 'Order #',
+      className: 'w-[100px]',
+      render: (order) => (
         <div>
-          <h1 className="text-3xl font-bold text-black dark:text-white">FTD Wire Orders</h1>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+          <div className="text-sm font-medium text-gray-800 dark:text-white/90 whitespace-nowrap">
+            #{order.orderNumber}
+          </div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">
+            {order.externalStatus || '—'}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      className: 'w-[160px]',
+      render: (order) => {
+        const displayText = getStatusDisplayText(order.status, order.orderType as any);
+        const statusColor = getOrderStatusColor(order.status);
+        return (
+          <div className="flex items-center gap-2">
+            <span className={`text-2xl leading-none ${statusColor}`}>•</span>
+            <span className={`text-sm font-medium ${statusColor}`}>{displayText}</span>
+          </div>
+        );
+      },
+    },
+    {
+      key: 'customer',
+      header: 'Customer',
+      render: (order) => {
+        const customerName = order.customer
+          ? `${order.customer.firstName ?? ''} ${order.customer.lastName ?? ''}`.trim() || 'Unknown'
+          : 'Unknown';
+        return (
+          <div className="max-w-[120px] truncate" title={customerName}>
+            {customerName}
+          </div>
+        );
+      },
+    },
+    {
+      key: 'recipient',
+      header: 'Recipient',
+      render: (order) => {
+        const recipientName = order.recipientCustomer
+          ? `${order.recipientCustomer.firstName ?? ''} ${order.recipientCustomer.lastName ?? ''}`.trim() || 'Unknown'
+          : order.deliveryAddress
+          ? `${order.deliveryAddress.firstName ?? ''} ${order.deliveryAddress.lastName ?? ''}`.trim()
+          : 'Unknown';
+        return (
+          <div className="max-w-[120px] truncate" title={recipientName}>
+            {recipientName}
+          </div>
+        );
+      },
+    },
+    {
+      key: 'delivery',
+      header: 'Delivery',
+      render: (order) => (
+        <div className="whitespace-nowrap">
+          {order.deliveryDate
+            ? formatDate(order.deliveryDate) || new Date(order.deliveryDate).toLocaleDateString()
+            : 'ASAP'}
+        </div>
+      ),
+    },
+    {
+      key: 'product',
+      header: 'Product',
+      render: (order) => {
+        const productSummary = renderProductSummary(order);
+        return (
+          <div className="max-w-[200px] truncate" title={productSummary}>
+            {productSummary}
+          </div>
+        );
+      },
+    },
+    {
+      key: 'amount',
+      header: 'Amount',
+      className: 'text-right',
+      render: (order) => (
+        <div className="whitespace-nowrap font-medium">
+          ${(order.paymentAmount / 100).toFixed(2)}
+        </div>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      className: 'w-[100px]',
+      render: (order) => (
+        <div className="flex items-center gap-3">
+          <a
+            href={`/orders/${order.id}/edit`}
+            onClick={(e) => e.stopPropagation()}
+            className="text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors"
+            title="Edit order"
+          >
+            <PencilIcon className="w-5 h-5" />
+          </a>
+          {order.ftdOrderId && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRefreshDetails(order.ftdOrderId);
+              }}
+              className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+              title="Refresh FTD details"
+            >
+              <ArrowPathIcon className="w-5 h-5" />
+            </button>
+          )}
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <div className="p-6">
+      <PageBreadcrumb />
+
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">FTD Wire Orders</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             Incoming wire orders from the FTD network
           </p>
         </div>
-
         <button
           onClick={handleUpdate}
           disabled={updating || loading}
-          className="flex items-center gap-2 px-4 py-2 bg-[#597485] hover:bg-[#4e6575] text-white rounded-xl transition-colors disabled:opacity-50"
+          className="inline-flex items-center px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
         >
           <svg
-            className={`w-4 h-4 ${updating ? 'animate-spin' : ''}`}
+            className={`w-4 h-4 mr-2 ${updating ? 'animate-spin' : ''}`}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -110,235 +242,73 @@ export default function FtdOrdersPage() {
         </button>
       </div>
 
-      {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <StatCard
-            label="Needs Action"
-            count={stats.needsAction}
-            color="orange"
-            onClick={() => handleStatCardClick('needsAction')}
-            active={statusFilter === 'NEEDS_ACTION'}
-          />
-          <StatCard
-            label="Accepted"
-            count={stats.accepted}
-            color="blue"
-            onClick={() => handleStatCardClick('accepted')}
-            active={statusFilter === 'ACCEPTED'}
-          />
-          <StatCard
-            label="Delivered"
-            count={stats.delivered}
-            color="green"
-            onClick={() => handleStatCardClick('delivered')}
-            active={statusFilter === 'DELIVERED'}
-          />
-          <StatCard
-            label="Total Orders"
-            count={stats.totalOrders}
-            color="gray"
-            onClick={() => handleStatCardClick('all')}
-            active={statusFilter === ''}
-          />
-        </div>
-      )}
-
-      <div className="bg-white dark:bg-boxdark rounded-xl p-4 mb-6">
-        <div className="flex flex-wrap gap-4 items-end">
-          <div className="flex-1 min-w-[200px]">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Search <span className="text-xs text-gray-500">(searches all orders)</span>
-            </label>
-            <input
-              type="text"
+      {/* Card with Filters + Table */}
+      <ComponentCard>
+        {/* Filters */}
+        <div className="space-y-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <InputField
+              label="Search"
               placeholder="Search by name or phone..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-2 border border-stroke dark:border-strokedark rounded-lg bg-white dark:bg-boxdark text-black dark:text-white placeholder:text-gray-400"
             />
+
+            <div className={searchQuery ? 'opacity-50 pointer-events-none' : ''}>
+              <DatePicker
+                id="ftd-delivery-date"
+                label="Delivery Date"
+                placeholder="Select delivery date"
+                defaultDate={dateFilter || undefined}
+                onChange={(selectedDates) => {
+                  if (selectedDates.length > 0) {
+                    const date = selectedDates[0];
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    setDateFilter(`${year}-${month}-${day}`);
+                  } else {
+                    setDateFilter('');
+                  }
+                }}
+              />
+            </div>
+
+            <div>
+              <Select
+                label="FTD Status"
+                value={statusFilter}
+                onChange={(value) => setStatusFilter(value)}
+                options={statusFilters}
+                disabled={!!searchQuery}
+              />
+            </div>
           </div>
 
-          <div className="flex-1 min-w-[200px]">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Delivery Date
-            </label>
-            <input
-              type="date"
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-              disabled={!!searchQuery}
-              className={`w-full px-4 py-2 border border-stroke dark:border-strokedark rounded-lg bg-white dark:bg-boxdark text-black dark:text-white ${
-                searchQuery ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
-            />
-          </div>
-
-          <div className="flex-1 min-w-[200px]">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              FTD Status
-            </label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              disabled={!!searchQuery}
-              className={`w-full px-4 py-2 border border-stroke dark:border-strokedark rounded-lg bg-white dark:bg-boxdark text-black dark:text-white ${
-                searchQuery ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
+          <div>
+            <button
+              onClick={() => {
+                setDateFilter('');
+                setSearchQuery('');
+                setStatusFilter('');
+              }}
+              className="text-sm text-brand-500 hover:text-brand-600 font-medium"
             >
-              {statusFilters.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+              Clear all filters
+            </button>
           </div>
-
-          <button
-            onClick={() => {
-              setDateFilter('');
-              setSearchQuery('');
-              setStatusFilter('');
-            }}
-            className="px-4 py-2 bg-gray-200 dark:bg-meta-4 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-meta-3"
-          >
-            Clear All
-          </button>
         </div>
-      </div>
 
-      <div className="bg-white dark:bg-boxdark rounded-xl overflow-hidden">
-        {loading && orders.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">Loading orders...</div>
-        ) : orders.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">No FTD orders found for the selected filters</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 dark:bg-meta-4">
-                <tr>
-                  <th className="px-2 py-2 text-left text-xs font-semibold">Order #</th>
-                  <th className="px-2 py-2 text-left text-xs font-semibold">Status</th>
-                  <th className="px-2 py-2 text-left text-xs font-semibold">Customer</th>
-                  <th className="px-2 py-2 text-left text-xs font-semibold">Recipient</th>
-                  <th className="px-2 py-2 text-left text-xs font-semibold">Delivery</th>
-                  <th className="px-2 py-2 text-left text-xs font-semibold">Product</th>
-                  <th className="px-2 py-2 text-left text-xs font-semibold text-right">Amount</th>
-                  <th className="px-2 py-2 text-left text-xs font-semibold">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {orders.map((order) => (
-                  <tr
-                    key={order.id}
-                    className="border-t border-stroke dark:border-strokedark hover:bg-gray-50 dark:hover:bg-meta-4"
-                  >
-                    <td className="px-2 py-2 text-xs font-medium">
-                      <div className="whitespace-nowrap">#{order.orderNumber}</div>
-                      <div className="text-gray-500 text-[10px] mt-0.5">
-                        {order.externalStatus || '—'}
-                      </div>
-                    </td>
-                    <td className="px-2 py-2 text-xs">
-                      <StatusBadge status={order.status as any} />
-                    </td>
-                    <td className="px-2 py-2 text-xs">
-                      <div className="max-w-[120px] truncate" title={
-                        order.customer
-                          ? `${order.customer.firstName ?? ''} ${order.customer.lastName ?? ''}`.trim()
-                          : 'Unknown'
-                      }>
-                        {order.customer
-                          ? `${order.customer.firstName ?? ''} ${order.customer.lastName ?? ''}`.trim() || 'Unknown'
-                          : 'Unknown'}
-                      </div>
-                    </td>
-                    <td className="px-2 py-2 text-xs">
-                      <div className="max-w-[120px] truncate" title={
-                        order.recipientCustomer
-                          ? `${order.recipientCustomer.firstName ?? ''} ${order.recipientCustomer.lastName ?? ''}`.trim()
-                          : order.deliveryAddress
-                          ? `${order.deliveryAddress.firstName ?? ''} ${order.deliveryAddress.lastName ?? ''}`.trim()
-                          : 'Unknown'
-                      }>
-                        {order.recipientCustomer
-                          ? `${order.recipientCustomer.firstName ?? ''} ${order.recipientCustomer.lastName ?? ''}`.trim() || 'Unknown'
-                          : order.deliveryAddress
-                          ? `${order.deliveryAddress.firstName ?? ''} ${order.deliveryAddress.lastName ?? ''}`.trim()
-                          : 'Unknown'}
-                      </div>
-                    </td>
-                    <td className="px-2 py-2 text-xs whitespace-nowrap">
-                      {order.deliveryDate
-                        ? formatDate(order.deliveryDate) || new Date(order.deliveryDate).toLocaleDateString()
-                        : 'ASAP'}
-                    </td>
-                    <td className="px-2 py-2 text-xs">
-                      <div className="max-w-[200px] truncate" title={renderProductSummary(order)}>
-                        {renderProductSummary(order)}
-                      </div>
-                    </td>
-                    <td className="px-2 py-2 text-xs whitespace-nowrap text-right font-medium">
-                      ${(order.paymentAmount / 100).toFixed(2)}
-                    </td>
-                    <td className="px-2 py-2 text-xs whitespace-nowrap">
-                      <div className="flex gap-2">
-                        <a
-                          href={`/orders/${order.id}/edit`}
-                          className="text-blue-500 hover:underline"
-                        >
-                          Edit
-                        </a>
-                        {order.ftdOrderId && (
-                          <button
-                            onClick={() => handleRefreshDetails(order.ftdOrderId)}
-                            className="text-green-600 hover:underline"
-                            title="Refresh FTD details"
-                          >
-                            🔄
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function StatCard({
-  label,
-  count,
-  color,
-  onClick,
-  active
-}: {
-  label: string;
-  count: number;
-  color: string;
-  onClick: () => void;
-  active?: boolean;
-}) {
-  const colors: Record<string, string> = {
-    orange: 'border-l-warning-500',
-    blue: 'border-l-blue-light-500',
-    green: 'border-l-success-500',
-    gray: 'border-l-gray-400'
-  };
-
-  return (
-    <div
-      onClick={onClick}
-      className={`bg-white dark:bg-boxdark rounded-xl p-4 border-l-4 ${colors[color]} cursor-pointer transition-all hover:shadow-lg ${
-        active ? 'ring-2 ring-[#597485]' : ''
-      }`}
-    >
-      <div className="text-2xl font-bold text-black dark:text-white">{count}</div>
-      <div className="text-sm text-gray-600 dark:text-gray-400">{label}</div>
+        {/* Table */}
+        <StandardTable
+          columns={columns}
+          data={orders}
+          loading={loading && orders.length === 0}
+          emptyState={{
+            message: "No FTD orders found for the selected filters",
+          }}
+        />
+      </ComponentCard>
     </div>
   );
 }

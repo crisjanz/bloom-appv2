@@ -78,7 +78,7 @@ const OrderCompletionSummary: FC<Props> = ({
           Transaction Complete!
         </h1>
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          Transaction: <span className="font-mono font-semibold text-[#597485]">{transactionNumber || transactionId}</span>
+          Transaction: <span className="font-mono font-semibold text-brand-500">{transactionNumber || transactionId}</span>
         </p>
       </div>
 
@@ -86,7 +86,7 @@ const OrderCompletionSummary: FC<Props> = ({
       <div className="bg-white dark:bg-boxdark rounded-lg border border-stroke dark:border-strokedark p-4">
         <div className="flex justify-between items-center mb-3">
           <span className="font-medium text-black dark:text-white">Total:</span>
-          <span className="text-xl font-bold text-[#597485]">${totalAmount.toFixed(2)}</span>
+          <span className="text-xl font-bold text-brand-500">${totalAmount.toFixed(2)}</span>
         </div>
 
         {/* Compact Payment Methods */}
@@ -154,9 +154,9 @@ const OrderCompletionSummary: FC<Props> = ({
 <div className="grid grid-cols-4 gap-3">
   <button
     onClick={onSendReceipt}
-    className="relative h-20 flex flex-col justify-center items-center rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-boxdark hover:border-[#597485] hover:shadow-lg transition-all text-gray-800 dark:text-white"
+    className="relative h-20 flex flex-col justify-center items-center rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-boxdark hover:border-brand-500 hover:shadow-lg transition-all text-gray-800 dark:text-white"
   >
-    <MailIcon className="w-6 h-6 text-[#597485] mb-1" />
+    <MailIcon className="w-6 h-6 text-brand-500 mb-1" />
     <span className="text-xs font-medium">Send Receipt</span>
     
     {/* Selection indicator circle */}
@@ -187,14 +187,14 @@ const OrderCompletionSummary: FC<Props> = ({
 
   <button
     onClick={onNewOrder}
-    className="relative h-20 flex flex-col justify-center items-center rounded-xl border-2 border-[#597485] bg-[#597485] hover:bg-[#4e6575] hover:shadow-lg transition-all text-white"
+    className="relative h-20 flex flex-col justify-center items-center rounded-xl border-2 border-brand-500 bg-brand-500 hover:bg-brand-600 hover:shadow-lg transition-all text-white"
   >
     <PlusIcon className="w-6 h-6 text-white mb-1" />
     <span className="text-xs font-medium">New Order</span>
     
     {/* Selection indicator circle - filled for primary action */}
     <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-white border-2 border-white">
-      <div className="w-2 h-2 rounded-full bg-[#597485] mx-auto mt-0.5" />
+      <div className="w-2 h-2 rounded-full bg-brand-500 mx-auto mt-0.5" />
     </div>
   </button>
 </div>
@@ -202,15 +202,15 @@ const OrderCompletionSummary: FC<Props> = ({
       {/* Compact Quick Stats */}
       <div className="grid grid-cols-3 gap-3 text-center py-2">
         <div>
-          <div className="text-lg font-bold text-[#597485]">{completedOrders.length}</div>
+          <div className="text-lg font-bold text-brand-500">{completedOrders.length}</div>
           <div className="text-xs text-gray-600 dark:text-gray-400">Orders</div>
         </div>
         <div>
-          <div className="text-lg font-bold text-[#597485]">{paymentMethods.length}</div>
+          <div className="text-lg font-bold text-brand-500">{paymentMethods.length}</div>
           <div className="text-xs text-gray-600 dark:text-gray-400">Methods</div>
         </div>
         <div>
-          <div className="text-lg font-bold text-[#597485]">
+          <div className="text-lg font-bold text-brand-500">
             {formatBusinessDate ? formatBusinessDate(new Date(), { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </div>
           <div className="text-xs text-gray-600 dark:text-gray-400">Time</div>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import InputField from '@shared/ui/forms/input/InputField';
 import Select from '@shared/ui/forms/Select';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
+import { Modal } from '@shared/ui/components/ui/modal';
 
 type Props = {
   open: boolean;
@@ -343,16 +344,16 @@ export default function CreateDiscountModal({ open, onClose, onSuccess, editingD
           onClick={() => setTriggerType('COUPON_CODE')}
           className={`w-full p-6 rounded-xl border-2 transition-all ${
             triggerType === 'COUPON_CODE'
-              ? 'border-[#597485] bg-[#597485]/5'
-              : 'border-gray-200 dark:border-gray-700 hover:border-[#597485]/50'
+              ? 'border-brand-500 bg-brand-500/5'
+              : 'border-gray-200 dark:border-gray-700 hover:border-brand-500/50'
           }`}
         >
           <div className="flex items-center gap-4">
             <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-              triggerType === 'COUPON_CODE' ? 'border-[#597485]' : 'border-gray-300'
+              triggerType === 'COUPON_CODE' ? 'border-brand-500' : 'border-gray-300'
             }`}>
               {triggerType === 'COUPON_CODE' && (
-                <div className="w-3 h-3 rounded-full bg-[#597485]"></div>
+                <div className="w-3 h-3 rounded-full bg-brand-500"></div>
               )}
             </div>
             <div className="flex-1 text-left">
@@ -368,16 +369,16 @@ export default function CreateDiscountModal({ open, onClose, onSuccess, editingD
           onClick={() => setTriggerType('AUTOMATIC_PRODUCT')}
           className={`w-full p-6 rounded-xl border-2 transition-all ${
             triggerType === 'AUTOMATIC_PRODUCT'
-              ? 'border-[#597485] bg-[#597485]/5'
-              : 'border-gray-200 dark:border-gray-700 hover:border-[#597485]/50'
+              ? 'border-brand-500 bg-brand-500/5'
+              : 'border-gray-200 dark:border-gray-700 hover:border-brand-500/50'
           }`}
         >
           <div className="flex items-center gap-4">
             <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-              triggerType === 'AUTOMATIC_PRODUCT' ? 'border-[#597485]' : 'border-gray-300'
+              triggerType === 'AUTOMATIC_PRODUCT' ? 'border-brand-500' : 'border-gray-300'
             }`}>
               {triggerType === 'AUTOMATIC_PRODUCT' && (
-                <div className="w-3 h-3 rounded-full bg-[#597485]"></div>
+                <div className="w-3 h-3 rounded-full bg-brand-500"></div>
               )}
             </div>
             <div className="flex-1 text-left">
@@ -393,16 +394,16 @@ export default function CreateDiscountModal({ open, onClose, onSuccess, editingD
           onClick={() => setTriggerType('AUTOMATIC_CATEGORY')}
           className={`w-full p-6 rounded-xl border-2 transition-all ${
             triggerType === 'AUTOMATIC_CATEGORY'
-              ? 'border-[#597485] bg-[#597485]/5'
-              : 'border-gray-200 dark:border-gray-700 hover:border-[#597485]/50'
+              ? 'border-brand-500 bg-brand-500/5'
+              : 'border-gray-200 dark:border-gray-700 hover:border-brand-500/50'
           }`}
         >
           <div className="flex items-center gap-4">
             <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-              triggerType === 'AUTOMATIC_CATEGORY' ? 'border-[#597485]' : 'border-gray-300'
+              triggerType === 'AUTOMATIC_CATEGORY' ? 'border-brand-500' : 'border-gray-300'
             }`}>
               {triggerType === 'AUTOMATIC_CATEGORY' && (
-                <div className="w-3 h-3 rounded-full bg-[#597485]"></div>
+                <div className="w-3 h-3 rounded-full bg-brand-500"></div>
               )}
             </div>
             <div className="flex-1 text-left">
@@ -574,7 +575,7 @@ export default function CreateDiscountModal({ open, onClose, onSuccess, editingD
         <button
           type="submit"
           disabled={loading}
-          className="px-6 py-3 bg-[#597485] hover:bg-[#4e6575] disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
+          className="px-6 py-3 bg-brand-500 hover:bg-brand-600 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
         >
           {loading ? 'Creating...' : 'Create Discount'}
         </button>
@@ -583,29 +584,20 @@ export default function CreateDiscountModal({ open, onClose, onSuccess, editingD
   );
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100000] p-4">
-      <div className="bg-white dark:bg-boxdark rounded-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
-        
+    <>
+      <Modal
+        isOpen={open}
+        onClose={onClose}
+        className="max-w-6xl max-h-[90vh] overflow-y-auto"
+      >
         {/* Header */}
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-xl font-semibold text-black dark:text-white">
-                {editingDiscount ? 'Edit Discount' : 'Create New Discount'}
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                Configure your discount settings
-              </p>
-            </div>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
+          <h3 className="text-xl font-semibold text-black dark:text-white">
+            {editingDiscount ? 'Edit Discount' : 'Create New Discount'}
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+            Configure your discount settings
+          </p>
         </div>
 
         {/* Content */}
@@ -621,8 +613,8 @@ export default function CreateDiscountModal({ open, onClose, onSuccess, editingD
                   onClick={() => setDiscountType(type.id as DiscountType)}
                   className={`p-4 rounded-lg border-2 transition-all text-center ${
                     discountType === type.id
-                      ? 'border-[#597485] bg-[#597485]/5'
-                      : 'border-gray-200 dark:border-gray-700 hover:border-[#597485]/50'
+                      ? 'border-brand-500 bg-brand-500/5'
+                      : 'border-gray-200 dark:border-gray-700 hover:border-brand-500/50'
                   }`}
                 >
                   <div className="font-medium text-black dark:text-white text-sm">
@@ -655,8 +647,8 @@ export default function CreateDiscountModal({ open, onClose, onSuccess, editingD
                     }}
                     className={`p-4 rounded-lg border-2 transition-all text-center ${
                       applicationMethod === method.id
-                        ? 'border-[#597485] bg-[#597485]/5'
-                        : 'border-gray-200 dark:border-gray-700 hover:border-[#597485]/50'
+                        ? 'border-brand-500 bg-brand-500/5'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-brand-500/50'
                     }`}
                   >
                     <div className="font-medium text-black dark:text-white text-sm">
@@ -726,7 +718,7 @@ export default function CreateDiscountModal({ open, onClose, onSuccess, editingD
                       <div className="space-y-3">
                         {loadingCategories ? (
                           <div className="flex items-center gap-2 text-sm text-gray-500">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#597485]"></div>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand-500"></div>
                             Loading categories...
                           </div>
                         ) : (
@@ -755,13 +747,13 @@ export default function CreateDiscountModal({ open, onClose, onSuccess, editingD
                                 return category ? (
                                   <span
                                     key={categoryId}
-                                    className="inline-flex items-center gap-1 px-2 py-1 bg-[#597485]/10 text-[#597485] rounded text-xs"
+                                    className="inline-flex items-center gap-1 px-2 py-1 bg-brand-500/10 text-brand-500 rounded text-xs"
                                   >
                                     {category.name}
                                     <button
                                       type="button"
                                       onClick={() => setSelectedCategories(prev => prev.filter(id => id !== categoryId))}
-                                      className="hover:text-[#597485]/70"
+                                      className="hover:text-brand-500/70"
                                     >
                                       ×
                                     </button>
@@ -791,7 +783,7 @@ export default function CreateDiscountModal({ open, onClose, onSuccess, editingD
                           <div className="max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-lg">
                             {loadingProducts ? (
                               <div className="flex items-center gap-2 text-sm text-gray-500 p-3">
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#597485]"></div>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand-500"></div>
                                 Loading products...
                               </div>
                             ) : filteredProducts.length === 0 ? (
@@ -835,13 +827,13 @@ export default function CreateDiscountModal({ open, onClose, onSuccess, editingD
                                 return product ? (
                                   <span
                                     key={productId}
-                                    className="inline-flex items-center gap-1 px-2 py-1 bg-[#597485]/10 text-[#597485] rounded text-xs"
+                                    className="inline-flex items-center gap-1 px-2 py-1 bg-brand-500/10 text-brand-500 rounded text-xs"
                                   >
                                     {product.name}
                                     <button
                                       type="button"
                                       onClick={() => setSelectedProducts(prev => prev.filter(id => id !== productId))}
-                                      className="hover:text-[#597485]/70"
+                                      className="hover:text-brand-500/70"
                                     >
                                       ×
                                     </button>
@@ -994,7 +986,7 @@ export default function CreateDiscountModal({ open, onClose, onSuccess, editingD
                   <button
                     type="submit"
                     disabled={loading}
-                    className="px-6 py-3 bg-[#597485] hover:bg-[#4e6575] disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
+                    className="px-6 py-3 bg-brand-500 hover:bg-brand-600 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
                   >
                     {loading ? (editingDiscount ? 'Updating...' : 'Creating...') : (editingDiscount ? 'Update Discount' : 'Create Discount')}
                   </button>
@@ -1003,36 +995,38 @@ export default function CreateDiscountModal({ open, onClose, onSuccess, editingD
             </form>
           )}
         </div>
-      </div>
+      </Modal>
 
       {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100001] p-4">
-          <div className="bg-white dark:bg-boxdark rounded-2xl max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold text-black dark:text-white mb-4">
-              Delete Discount
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Are you sure you want to delete "{editingDiscount?.name}"? This action cannot be undone.
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDelete}
-                disabled={loading}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
-              >
-                {loading ? 'Deleting...' : 'Delete'}
-              </button>
-            </div>
+      <Modal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        className="max-w-md"
+      >
+        <div className="p-6">
+          <h3 className="text-lg font-semibold text-black dark:text-white mb-4">
+            Delete Discount
+          </h3>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            Are you sure you want to delete "{editingDiscount?.name}"? This action cannot be undone.
+          </p>
+          <div className="flex gap-3 justify-end">
+            <button
+              onClick={() => setShowDeleteConfirm(false)}
+              className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleDelete}
+              disabled={loading}
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
+            >
+              {loading ? 'Deleting...' : 'Delete'}
+            </button>
           </div>
         </div>
-      )}
-    </div>
+      </Modal>
+    </>
   );
 }

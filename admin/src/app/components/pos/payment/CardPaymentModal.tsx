@@ -132,7 +132,7 @@ function SquareManualEntryForm({ total, orderIds, customerEmail, customerPhone, 
           onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
           placeholder="1234 5678 9012 3456"
           maxLength={19}
-          className="w-full px-4 py-3 border border-stroke dark:border-strokedark rounded-xl focus:border-[#597485] focus:ring-2 focus:ring-[#597485]/20 bg-white dark:bg-boxdark text-black dark:text-white"
+          className="w-full px-4 py-3 border border-stroke dark:border-strokedark rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 bg-white dark:bg-boxdark text-black dark:text-white"
         />
       </div>
 
@@ -148,7 +148,7 @@ function SquareManualEntryForm({ total, orderIds, customerEmail, customerPhone, 
             onChange={(e) => setExpiry(formatExpiry(e.target.value))}
             placeholder="MM/YY"
             maxLength={5}
-            className="w-full px-4 py-3 border border-stroke dark:border-strokedark rounded-xl focus:border-[#597485] focus:ring-2 focus:ring-[#597485]/20 bg-white dark:bg-boxdark text-black dark:text-white"
+            className="w-full px-4 py-3 border border-stroke dark:border-strokedark rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 bg-white dark:bg-boxdark text-black dark:text-white"
           />
         </div>
         <div>
@@ -161,7 +161,7 @@ function SquareManualEntryForm({ total, orderIds, customerEmail, customerPhone, 
             onChange={(e) => setCvv(e.target.value.replace(/\D/g, '').substring(0, 4))}
             placeholder="123"
             maxLength={4}
-            className="w-full px-4 py-3 border border-stroke dark:border-strokedark rounded-xl focus:border-[#597485] focus:ring-2 focus:ring-[#597485]/20 bg-white dark:bg-boxdark text-black dark:text-white"
+            className="w-full px-4 py-3 border border-stroke dark:border-strokedark rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 bg-white dark:bg-boxdark text-black dark:text-white"
           />
         </div>
       </div>
@@ -176,7 +176,7 @@ function SquareManualEntryForm({ total, orderIds, customerEmail, customerPhone, 
           value={postalCode}
           onChange={(e) => setPostalCode(e.target.value.toUpperCase())}
           placeholder="K1A 0A6"
-          className="w-full px-4 py-3 border border-stroke dark:border-strokedark rounded-xl focus:border-[#597485] focus:ring-2 focus:ring-[#597485]/20 bg-white dark:bg-boxdark text-black dark:text-white"
+          className="w-full px-4 py-3 border border-stroke dark:border-strokedark rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 bg-white dark:bg-boxdark text-black dark:text-white"
         />
       </div>
       
@@ -198,7 +198,7 @@ function SquareManualEntryForm({ total, orderIds, customerEmail, customerPhone, 
         <button
           type="submit"
           disabled={isProcessing || !cardNumber || !expiry || !cvv}
-          className="flex-1 py-3 px-4 bg-[#597485] hover:bg-[#4e6575] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
+          className="flex-1 py-3 px-4 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
         >
           {isProcessing ? 'Processing...' : `Pay $${total.toFixed(2)}`}
         </button>
@@ -282,7 +282,7 @@ function StripePaymentForm({ onComplete, onCancel }: {
         <button
           type="submit"
           disabled={!stripe || isProcessing}
-          className="flex-1 py-3 px-4 bg-[#597485] hover:bg-[#4e6575] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
+          className="flex-1 py-3 px-4 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
         >
           {isProcessing ? 'Processing...' : 'Complete Payment'}
         </button>
@@ -526,7 +526,7 @@ export default function CardPaymentModal({
               <div>
                 <h2 className="text-xl font-bold text-black dark:text-white">{cardLabel}</h2>
                 <p className="text-gray-600 dark:text-gray-400">Amount: ${total.toFixed(2)}</p>
-                <p className="text-sm text-[#597485] font-medium">{providerLabel} • {modeLabel}{savedCardsLabel}</p>
+                <p className="text-sm text-brand-500 font-medium">{providerLabel} • {modeLabel}{savedCardsLabel}</p>
               </div>
             </div>
             <button
@@ -551,7 +551,7 @@ export default function CardPaymentModal({
                   onClick={() => setPaymentMode('terminal')}
                   className={`py-1.5 px-2 text-sm rounded-lg font-medium transition-colors ${
                     paymentMode === 'terminal'
-                      ? 'bg-[#597485] text-white'
+                      ? 'bg-brand-500 text-white'
                       : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
                   }`}
                 >
@@ -561,7 +561,7 @@ export default function CardPaymentModal({
                   onClick={() => setPaymentMode('manual')}
                   className={`py-1.5 px-2 text-sm rounded-lg font-medium transition-colors ${
                     paymentMode === 'manual'
-                      ? 'bg-[#597485] text-white'
+                      ? 'bg-brand-500 text-white'
                       : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
                   }`}
                 >
@@ -578,7 +578,7 @@ export default function CardPaymentModal({
                   onClick={() => setProvider('square')}
                   className={`py-1.5 px-2 text-sm rounded-lg font-medium transition-colors ${
                     provider === 'square'
-                      ? 'bg-[#597485] text-white'
+                      ? 'bg-brand-500 text-white'
                       : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
                   }`}
                 >
@@ -588,7 +588,7 @@ export default function CardPaymentModal({
                   onClick={() => setProvider('stripe')}
                   className={`py-1.5 px-2 text-sm rounded-lg font-medium transition-colors ${
                     provider === 'stripe'
-                      ? 'bg-[#597485] text-white'
+                      ? 'bg-brand-500 text-white'
                       : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
                   }`}
                 >
@@ -610,8 +610,8 @@ export default function CardPaymentModal({
                   onClick={() => setSelectedSavedCard(selectedSavedCard === card.id ? null : card.id)}
                   className={`w-full p-3 border rounded-xl text-left transition-colors ${
                     selectedSavedCard === card.id
-                      ? 'border-[#597485] bg-[#597485]/5'
-                      : 'border-stroke dark:border-strokedark hover:border-[#597485]/50'
+                      ? 'border-brand-500 bg-brand-500/5'
+                      : 'border-stroke dark:border-strokedark hover:border-brand-500/50'
                   }`}
                 >
                   <div className="flex items-center justify-between">
@@ -629,7 +629,7 @@ export default function CardPaymentModal({
                       </div>
                     </div>
                     {selectedSavedCard === card.id && (
-                      <div className="text-[#597485]">✓</div>
+                      <div className="text-brand-500">✓</div>
                     )}
                   </div>
                 </button>
@@ -640,7 +640,7 @@ export default function CardPaymentModal({
               <button
                 onClick={handleSavedCardPayment}
                 disabled={isProcessing}
-                className="w-full mt-3 py-3 px-4 bg-[#597485] hover:bg-[#4e6575] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
+                className="w-full mt-3 py-3 px-4 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
               >
                 {isProcessing ? 'Processing...' : `Pay $${total.toFixed(2)} with saved card`}
               </button>
@@ -649,7 +649,7 @@ export default function CardPaymentModal({
             <div className="mt-3 text-center">
               <button
                 onClick={() => setShowSavedCards(false)}
-                className="text-sm text-[#597485] hover:text-[#4e6575]"
+                className="text-sm text-brand-500 hover:text-brand-600"
               >
                 Use a different card
               </button>
@@ -675,7 +675,7 @@ export default function CardPaymentModal({
                     Please follow prompts on {provider} card reader
                   </div>
                   <div className="mt-4">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#597485] mx-auto"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500 mx-auto"></div>
                   </div>
                 </div>
               ) : (
@@ -689,7 +689,7 @@ export default function CardPaymentModal({
                   
                   <button
                     onClick={handleTerminalPayment}
-                    className="w-full py-4 bg-[#597485] hover:bg-[#4e6575] text-white rounded-xl font-medium transition-colors mb-4"
+                    className="w-full py-4 bg-brand-500 hover:bg-brand-600 text-white rounded-xl font-medium transition-colors mb-4"
                   >
                     Start {provider === 'stripe' ? 'Stripe' : 'Square'} Processing
                   </button>
@@ -712,7 +712,7 @@ export default function CardPaymentModal({
                     </Elements>
                   ) : (
                     <div className="text-center py-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#597485] mx-auto mb-4"></div>
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500 mx-auto mb-4"></div>
                       <p className="text-gray-600 dark:text-gray-400">Initializing Stripe...</p>
                     </div>
                   )}

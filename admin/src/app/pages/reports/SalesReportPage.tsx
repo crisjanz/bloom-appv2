@@ -295,8 +295,8 @@ const SalesReportPage: React.FC = () => {
                   onClick={() => handlePresetChange(preset)}
                   className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                     datePreset === preset
-                      ? 'border-[#597485] bg-[#597485] text-white'
-                      : 'border-gray-300 text-gray-700 hover:border-[#597485] hover:text-[#597485]'
+                      ? 'border-brand-500 bg-brand-500 text-white'
+                      : 'border-gray-300 text-gray-700 hover:border-brand-500 hover:text-brand-500'
                   }`}
                 >
                   {preset === 'TODAY'
@@ -312,14 +312,14 @@ const SalesReportPage: React.FC = () => {
               <button
                 type="button"
                 onClick={handlePrint}
-                className="rounded-lg border border-[#597485] px-4 py-2 text-sm font-medium text-[#597485] transition-colors hover:bg-[#597485]/10"
+                className="rounded-lg border border-brand-500 px-4 py-2 text-sm font-medium text-brand-500 transition-colors hover:bg-brand-500/10"
               >
                 Print Report
               </button>
               <button
                 type="button"
                 onClick={() => refreshAll()}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-[#597485] transition-colors hover:border-[#597485] hover:bg-[#597485]/10"
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-brand-500 transition-colors hover:border-brand-500 hover:bg-brand-500/10"
               >
                 Refresh
               </button>
@@ -333,7 +333,7 @@ const SalesReportPage: React.FC = () => {
                   value={customStartDate}
                   max={customEndDate}
                   onChange={(event) => handleCustomStartChange(event.target.value)}
-                  className="h-11 w-full rounded-lg border border-gray-300 px-3 text-sm shadow-sm focus:border-[#597485] focus:outline-none focus:ring-2 focus:ring-[#597485]/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                  className="h-11 w-full rounded-lg border border-gray-300 px-3 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                 />
               </div>
               <div className="space-y-1">
@@ -343,7 +343,7 @@ const SalesReportPage: React.FC = () => {
                   value={customEndDate}
                   min={customStartDate}
                   onChange={(event) => handleCustomEndChange(event.target.value)}
-                  className="h-11 w-full rounded-lg border border-gray-300 px-3 text-sm shadow-sm focus:border-[#597485] focus:outline-none focus:ring-2 focus:ring-[#597485]/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                  className="h-11 w-full rounded-lg border border-gray-300 px-3 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                 />
               </div>
               <div className="space-y-1">
@@ -383,7 +383,7 @@ const SalesReportPage: React.FC = () => {
         <ComponentCard title="Key Metrics">
         {summaryLoading && !summaryData ? (
           <div className="flex h-32 items-center justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-[#597485]" />
+            <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-brand-500" />
           </div>
         ) : summaryData ? (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -414,7 +414,7 @@ const SalesReportPage: React.FC = () => {
       <ComponentCard title="Orders">
         {ordersLoading && !orders.length ? (
           <div className="flex h-40 items-center justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-[#597485]" />
+            <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-brand-500" />
           </div>
         ) : orders.length ? (
           <div className="space-y-4">
@@ -448,7 +448,7 @@ const SalesReportPage: React.FC = () => {
                     className={`rounded-lg border px-3 py-1.5 ${
                       isFirstPage
                         ? 'cursor-not-allowed border-gray-200 text-gray-400'
-                        : 'border-gray-300 text-gray-700 hover:border-[#597485] hover:text-[#597485]'
+                        : 'border-gray-300 text-gray-700 hover:border-brand-500 hover:text-brand-500'
                     }`}
                   >
                     Previous
@@ -463,7 +463,7 @@ const SalesReportPage: React.FC = () => {
                     className={`rounded-lg border px-3 py-1.5 ${
                       isLastPage
                         ? 'cursor-not-allowed border-gray-200 text-gray-400'
-                        : 'border-gray-300 text-gray-700 hover:border-[#597485] hover:text-[#597485]'
+                        : 'border-gray-300 text-gray-700 hover:border-brand-500 hover:text-brand-500'
                     }`}
                   >
                     Next

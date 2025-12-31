@@ -106,7 +106,7 @@ type PaymentTile = {
   icon: ReactNode;
 };
 
-const iconWrapperClass = 'h-7 w-7 text-[#597485]';
+const iconWrapperClass = 'h-7 w-7 text-brand-500';
 
 const PAYMENT_TILES: PaymentTile[] = [
   {
@@ -754,8 +754,8 @@ const PaymentController: FC<Props> = ({
                         onClick={() => paymentState.toggleQuickAction('emailReceipt')}
                         className={`flex items-center justify-center rounded-lg px-3 py-1 text-xs font-semibold transition ${
                           paymentState.quickActions.emailReceipt
-                            ? 'bg-[#597485] text-white shadow-md'
-                            : 'bg-gray-100 text-gray-600 hover:text-[#597485]'
+                            ? 'bg-brand-500 text-white shadow-md'
+                            : 'bg-gray-100 text-gray-600 hover:text-brand-500'
                         }`}
                       >
                         Email Receipt
@@ -764,8 +764,8 @@ const PaymentController: FC<Props> = ({
                         onClick={() => paymentState.toggleQuickAction('printReceipt')}
                         className={`flex items-center justify-center rounded-lg px-3 py-1 text-xs font-semibold transition ${
                           paymentState.quickActions.printReceipt
-                            ? 'bg-[#597485] text-white shadow-md'
-                            : 'bg-gray-100 text-gray-600 hover:text-[#597485]'
+                            ? 'bg-brand-500 text-white shadow-md'
+                            : 'bg-gray-100 text-gray-600 hover:text-brand-500'
                         }`}
                       >
                         Print Receipt
@@ -780,9 +780,9 @@ const PaymentController: FC<Props> = ({
                       key={tile.id}
                       onClick={() => handleTileClick(tile.id)}
                       disabled={paymentState.isProcessing}
-                      className="group relative flex h-full flex-col rounded-2xl bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-[#597485]/20 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-boxdark"
+                      className="group relative flex h-full flex-col rounded-2xl bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-boxdark"
                     >
-                      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#597485]/10 text-[#597485]">
+                      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-500/10 text-brand-500">
                         {tile.icon}
                       </div>
                       <div className="text-lg font-semibold text-black dark:text-white">
@@ -806,7 +806,7 @@ const PaymentController: FC<Props> = ({
                 </div>
 
                 {paymentState.isProcessing && (
-                  <div className="rounded-2xl border border-[#597485]/30 bg-[#597485]/5 px-4 py-3 text-sm text-[#597485]">
+                  <div className="rounded-2xl border border-brand-500/30 bg-brand-500/5 px-4 py-3 text-sm text-brand-500">
                     Processing payment… do not close the browser.
                   </div>
                 )}
@@ -925,7 +925,7 @@ const PaymentController: FC<Props> = ({
                     onClick={() => paymentDiscounts.setManualDiscountType('percent')}
                     className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
                       paymentDiscounts.manualDiscountType === 'percent'
-                        ? 'bg-[#597485] text-white'
+                        ? 'bg-brand-500 text-white'
                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
                   >
@@ -935,7 +935,7 @@ const PaymentController: FC<Props> = ({
                     onClick={() => paymentDiscounts.setManualDiscountType('amount')}
                     className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
                       paymentDiscounts.manualDiscountType === 'amount'
-                        ? 'bg-[#597485] text-white'
+                        ? 'bg-brand-500 text-white'
                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
                   >
@@ -965,7 +965,7 @@ const PaymentController: FC<Props> = ({
                 <div className="flex justify-end">
                   <button
                     onClick={handleApplyManualDiscount}
-                    className="rounded-lg bg-[#597485] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#4e6575]"
+                    className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-600"
                   >
                     Apply Discount
                   </button>
@@ -1005,7 +1005,7 @@ const PaymentController: FC<Props> = ({
                 <div className="flex flex-wrap gap-3">
                   <button
                     onClick={handleApplyCoupon}
-                    className="rounded-lg bg-[#597485] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#4e6575]"
+                    className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-600"
                   >
                     Apply Coupon
                   </button>

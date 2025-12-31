@@ -447,6 +447,362 @@ npx prisma validate
 
 ---
 
+## 🚀 Advanced Integration Patterns
+
+### 1. WebSocket Integration Pattern
+
+**Pattern to Follow:** See `/back/src/services/printService.ts` and `/back/src/index.ts`
+
+**Use Case:** Real-time client updates (print jobs, notifications, live status updates)
+
+**Backend Setup:**
+
+```typescript
+// In /back/src/index.ts
+import { WebSocketServer } from 'ws';
+
+const wss = new WebSocketServer({ noServer: true });
+
+// Upgrade HTTP connections to WebSocket
+server.on('upgrade', (request, socket, head) => {
+  const pathname = new URL(request.url, 'http://localhost').pathname;
+
+  if (pathname === '/print-agent') {
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      wss.emit('connection', ws, request);
+    });
+  } else {
+    socket.destroy();
+  }
+});
+
+// Handle connections
+wss.on('connection', (ws) => {
+  console.log('✅ WebSocket client connected');
+
+  ws.on('message', (message) => {
+    const data = JSON.parse(message.toString());
+    // Handle messages (HEARTBEAT, STATUS_UPDATE, etc.)
+  });
+
+  ws.on('close', () => {
+    console.log('❌ WebSocket client disconnected');
+  });
+});
+```
+
+**Service Pattern:**
+
+```typescript
+// /back/src/services/myWebSocketService.ts
+import { WebSocketServer } from 'ws';
+
+let wss: WebSocketServer | null = null;
+
+export function setWebSocketServer(server: WebSocketServer) {
+  wss = server;
+}
+
+export function broadcastToClients(message: object) {
+  if (!wss) return;
+
+  wss.clients.forEach((client) => {
+    if (client.readyState === 1) { // OPEN
+      client.send(JSON.stringify(message));
+    }
+  });
+}
+```
+
+**Client Pattern (Electron/Browser):**
+
+```typescript
+// Electron/Node.js client
+import WebSocket from 'ws';
+
+const ws = new WebSocket('ws://localhost:4000/print-agent');
+
+ws.on('open', () => {
+  console.log('✅ Connected to backend');
+  // Send heartbeat
+  ws.send(JSON.stringify({ type: 'HEARTBEAT', agentId: 'agent-123' }));
+});
+
+ws.on('message', (data) => {
+  const message = JSON.parse(data.toString());
+  // Handle server messages (JOB_CREATED, STATUS_UPDATE, etc.)
+});
+
+ws.on('close', () => {
+  console.log('❌ Disconnected, attempting reconnect...');
+  setTimeout(() => connectWebSocket(), 5000);
+});
+```
+
+**✅ DO:**
+- Use message types for routing (`{ type: 'JOB_CREATED', data: {...} }`)
+- Implement heartbeat/ping-pong for connection health
+- Handle reconnection logic on client
+- Broadcast to all clients or target specific ones by ID
+- Check `client.readyState === 1` before sending
+
+**❌ DON'T:**
+- Send unstructured messages (always use JSON with type field)
+- Forget to handle client disconnections
+- Block the main thread with WebSocket operations
+- Skip error handling for malformed messages
+
+---
+
+### 2. Image Upload Pattern (Cloudflare R2)
+
+**Pattern to Follow:** See `/back/src/routes/wire-products.ts` and `/back/src/utils/r2Client.ts`
+
+**Use Case:** Upload images to Cloudflare R2 and get public URLs
+
+**R2 Client Setup:**
+
+```typescript
+// /back/src/utils/r2Client.ts
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+
+const R2_ACCOUNT_ID = process.env.CLOUDFLARE_R2_ACCOUNT_ID!;
+const R2_ACCESS_KEY_ID = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID!;
+const R2_SECRET_ACCESS_KEY = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY!;
+const R2_BUCKET = process.env.CLOUDFLARE_R2_BUCKET!;
+const R2_PUBLIC_URL = process.env.CLOUDFLARE_R2_PUBLIC_URL!;
+
+const r2Client = new S3Client({
+  region: 'auto',
+  endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  credentials: {
+    accessKeyId: R2_ACCESS_KEY_ID,
+    secretAccessKey: R2_SECRET_ACCESS_KEY,
+  },
+});
+
+export async function uploadToR2(
+  fileBuffer: Buffer,
+  fileName: string,
+  contentType: string
+): Promise<string> {
+  const key = `${Date.now()}-${fileName}`;
+
+  await r2Client.send(
+    new PutObjectCommand({
+      Bucket: R2_BUCKET,
+      Key: key,
+      Body: fileBuffer,
+      ContentType: contentType,
+    })
+  );
+
+  return `${R2_PUBLIC_URL}/${key}`;
+}
+```
+
+**Route Implementation:**
+
+```typescript
+// Upload from external URL
+router.post('/api/resource/upload-from-url', async (req, res) => {
+  try {
+    const { imageUrl } = req.body;
+
+    // Fetch image from external source
+    const response = await fetch(imageUrl);
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const contentType = response.headers.get('content-type') || 'image/jpeg';
+
+    // Upload to R2
+    const r2Url = await uploadToR2(buffer, 'image.jpg', contentType);
+
+    res.json({ url: r2Url });
+  } catch (error) {
+    console.error('Upload failed:', error);
+    res.status(500).json({ error: 'Upload failed' });
+  }
+});
+
+// Upload from multipart form data
+router.post('/api/resource/upload', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file provided' });
+    }
+
+    const r2Url = await uploadToR2(
+      req.file.buffer,
+      req.file.originalname,
+      req.file.mimetype
+    );
+
+    res.json({ url: r2Url });
+  } catch (error) {
+    console.error('Upload failed:', error);
+    res.status(500).json({ error: 'Upload failed' });
+  }
+});
+```
+
+**✅ DO:**
+- Generate unique filenames (use timestamp + original name)
+- Set correct Content-Type headers
+- Store resulting R2 URL in database
+- Handle upload errors gracefully
+- Validate file types and sizes before upload
+
+**❌ DON'T:**
+- Upload files synchronously without error handling
+- Store uploaded files locally (use R2 directly)
+- Expose R2 credentials to frontend
+- Skip file validation (size, type)
+
+---
+
+### 3. Batch Operations & Data Merge Pattern
+
+**Pattern to Follow:** See `/back/src/routes/customerDuplicates.ts`
+
+**Use Case:** Merge duplicate records, bulk updates, batch processing
+
+**Duplicate Detection Pattern:**
+
+```typescript
+router.get('/api/resources/duplicates', async (req, res) => {
+  try {
+    // Fetch all records
+    const resources = await prisma.resource.findMany({
+      select: { id: true, name: true, email: true, phone: true }
+    });
+
+    // Group by similarity (fuzzy matching)
+    const groups: Record<string, typeof resources> = {};
+
+    for (const resource of resources) {
+      // Create similarity key (lowercase, trimmed)
+      const key = `${resource.name?.toLowerCase().trim()}_${resource.email?.toLowerCase().trim()}`;
+
+      if (!groups[key]) {
+        groups[key] = [];
+      }
+      groups[key].push(resource);
+    }
+
+    // Filter groups with duplicates only
+    const duplicates = Object.values(groups).filter(group => group.length > 1);
+
+    res.json({ duplicates });
+  } catch (error) {
+    console.error('Duplicate detection failed:', error);
+    res.status(500).json({ error: 'Detection failed' });
+  }
+});
+```
+
+**Merge Operation Pattern:**
+
+```typescript
+router.post('/api/resources/merge', async (req, res) => {
+  try {
+    const { masterResourceId, duplicateResourceIds } = req.body;
+
+    // Use transaction for atomicity
+    await prisma.$transaction(async (tx) => {
+      // 1. Reassign all foreign key relationships
+      await tx.relatedItem.updateMany({
+        where: { resourceId: { in: duplicateResourceIds } },
+        data: { resourceId: masterResourceId }
+      });
+
+      // 2. Consolidate unique relationships (prevent duplicates)
+      const existingLinks = await tx.resourceLink.findMany({
+        where: { resourceId: masterResourceId },
+        select: { linkedId: true }
+      });
+      const existingLinkedIds = new Set(existingLinks.map(l => l.linkedId));
+
+      const duplicateLinks = await tx.resourceLink.findMany({
+        where: { resourceId: { in: duplicateResourceIds } }
+      });
+
+      // Create only non-duplicate links
+      for (const link of duplicateLinks) {
+        if (!existingLinkedIds.has(link.linkedId)) {
+          await tx.resourceLink.create({
+            data: {
+              resourceId: masterResourceId,
+              linkedId: link.linkedId
+            }
+          });
+        }
+      }
+
+      // 3. Delete old links
+      await tx.resourceLink.deleteMany({
+        where: { resourceId: { in: duplicateResourceIds } }
+      });
+
+      // 4. Delete duplicate records
+      await tx.resource.deleteMany({
+        where: { id: { in: duplicateResourceIds } }
+      });
+    });
+
+    res.json({ success: true, message: 'Resources merged successfully' });
+  } catch (error) {
+    console.error('Merge failed:', error);
+    res.status(500).json({ error: 'Merge operation failed' });
+  }
+});
+```
+
+**Bulk Update Pattern:**
+
+```typescript
+router.post('/api/resources/bulk-update', async (req, res) => {
+  try {
+    const { resourceIds, updates } = req.body;
+
+    // Validate updates
+    const UpdateSchema = z.object({
+      status: z.enum(['ACTIVE', 'INACTIVE']).optional(),
+      categoryId: z.string().uuid().optional()
+    });
+
+    const validatedUpdates = UpdateSchema.parse(updates);
+
+    // Perform bulk update
+    const result = await prisma.resource.updateMany({
+      where: { id: { in: resourceIds } },
+      data: validatedUpdates
+    });
+
+    res.json({ updated: result.count });
+  } catch (error) {
+    console.error('Bulk update failed:', error);
+    res.status(500).json({ error: 'Bulk update failed' });
+  }
+});
+```
+
+**✅ DO:**
+- Use transactions for multi-step merge operations
+- Validate all IDs exist before merging
+- Reassign foreign key relationships to master record
+- Prevent duplicate relationships (check existing before creating)
+- Provide detailed success/error messages
+- Log merge operations for audit trail
+
+**❌ DON'T:**
+- Skip transaction wrapper (data consistency critical)
+- Allow self-referential relationships (validate sender ≠ recipient)
+- Delete records without reassigning relationships (data loss)
+- Skip validation of input IDs
+- Forget to handle cascade delete constraints
+
+---
+
 ## 📝 Documentation Requirements
 
 ### 1. Update API Endpoints Documentation

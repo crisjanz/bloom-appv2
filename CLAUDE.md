@@ -1,12 +1,22 @@
 # Bloom App - Claude Code Instructions
 
+## 👤 Working with Cristian
+- **Communication style**: Concise, technical, no filler. Show code, explain only if asked.
+- **Decision-making**: When changing established patterns or architecture, ASK first with 2 options briefly presented.
+- **Context continuity**: If uncertain about past decisions, search episodic memory before suggesting alternatives.
+- **Session transitions**: Before major refactors or pattern changes, suggest: "Should I note this change for future sessions?"
+- **Git workflow**: ALWAYS ask before `git push`. User may have additional changes pending.
+- **No apologies or preambles** unless something actually went wrong.
+- **Background**: 15+ years cabinetry, self-taught developer, owns flower shop (In Your Vase Flowers). Prefers learning by doing.
+
+---
 
 ## 🔧 Behavior Rules
 - Be concise and technical. Avoid filler text or long explanations.
 - When asked to **edit**, directly modify code or Markdown.
 - When asked to **analyze**, summarize findings in ≤150 words.
 - Never repeat entire files unless explicitly requested.
-- Treat all `/docs/*.md` paths as live documentation — fetch them only when relevant.
+- Treat all `/docs/*.md` paths as live documentation – fetch them only when relevant.
 - Assume the working timezone is `America/Vancouver`.
 - Default stack: **React 19 + Vite 6 (admin)**, **Express + Prisma + PostgreSQL (back)**.
 - Language: TypeScript for both front- and backend.
@@ -15,7 +25,7 @@
 
 ---
 
-## 🏗️ Repository Overview
+## 🗂️ Repository Overview
 | Area | Path | Description |
 |------|------|-------------|
 | **Admin (frontend)** | `admin/src/` | TailAdmin-based React SPA for POS & operations. |
@@ -25,11 +35,202 @@
 
 ---
 
+## 🚀 Deployment & Environments
+- **Local development**: `npm run dev` in respective directories (back/:4000, admin/:5173, www/:5175)
+- **Staging/Testing**: Render.com (backend) + Cloudflare Pages (frontend) - **NOT production, just another test environment**
+- **Production (future)**: Will be separate domain, deployed only when fully ready for customers
+- **Current phase**: All development is pre-production testing. No live customers yet.
+
+---
+
+## 🎨 Standard UI Patterns for List Pages
+
+**ALL list/table pages MUST follow this standardized layout:**
+
+```tsx
+<div className="p-6">
+  <PageBreadcrumb />
+
+  {/* Header - OUTSIDE card */}
+  <div className="flex items-center justify-between mb-6">
+    <div>
+      <h1 className="text-2xl font-semibold">Title</h1>
+      <p className="text-sm text-gray-500">Description</p>
+    </div>
+    <Link to="..." className="bg-brand-500 hover:bg-brand-600 ...">
+      + Add Item
+    </Link>
+  </div>
+
+  {/* Card with Filters + Table - INSIDE card */}
+  <ComponentCard>
+    <Filters /> {/* if needed */}
+    <StandardTable columns={...} data={...} pagination={...} />
+  </ComponentCard>
+</div>
+```
+
+**Required components:**
+- `StandardTable` for all tables (no custom table HTML)
+- `DatePicker` from `@shared/ui/forms/date-picker` (NEVER `<input type="date">`)
+- Status with colored dots: `<span className="text-2xl ${color}">•</span> <span>{text}</span>`
+- Actions with icons (Eye, Pencil, Trash) - NO text links
+- Pagination always visible (even "Page 1 of 1")
+- `getOrderStatusColor()` from `@shared/utils/statusColors` for consistent status colors
+
+---
+
+## 📝 Standard Form & Modal Patterns
+
+**ALL forms and modals MUST use shared components:**
+
+### Shared Components
+
+**Input Components:**
+- `InputField` from `@shared/ui/forms/input/InputField` - Use for ALL text/number/email inputs
+- `PhoneInput` from `@shared/ui/forms/PhoneInput` - **Use for ALL phone number inputs** (auto-formats display, saves digits only)
+- `Select` from `@shared/ui/forms/Select` - Use for dropdowns
+- `DatePicker` from `@shared/ui/forms/date-picker` - Use for date selection
+- `Label` from `@shared/ui/forms/Label` - Use for textarea labels (InputField/Select have built-in labels)
+- NEVER use raw `<input>`, `<select>`, or `<input type="date">`
+- NEVER use `InputField` with `type="tel"` - always use `PhoneInput` instead
+
+**IMPORTANT - Null/Undefined Values:**
+- **ALWAYS** use `|| ''` for all input values to prevent null/undefined errors
+- Example: `value={formData.firstName || ''}` NOT `value={formData.firstName}`
+- React throws warnings when input values are null/undefined
+- This applies to InputField, textarea, and all form inputs
+
+**Button Components:**
+- `LoadingButton` from `@shared/ui/components/ui/button/LoadingButton` - Buttons with loading states
+- `FormFooter` from `@shared/ui/components/ui/form/FormFooter` - Standard Cancel/Save button layout
+
+**Error Display:**
+- `FormError` from `@shared/ui/components/ui/form/FormError` - Standardized error messages
+
+**Modal Components:**
+- `Modal` from `@shared/ui/components/ui/modal` - **Use for ALL modals**
+- NEVER create custom modal wrappers with `fixed inset-0` divs
+- NEVER use `bg-black/50` or `bg-gray-900/50` - Modal component handles background
+
+### Modal Pattern
+
+**IMPORTANT - ALL modals MUST use the shared Modal component**
+
+```tsx
+import { Modal } from '@shared/ui/components/ui/modal';
+
+<Modal
+  isOpen={isModalOpen}
+  onClose={handleClose}
+  className="max-w-2xl"  // optional: customize width/height
+>
+  <div className="p-6">
+    <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+      Modal Title
+    </h2>
+    {/* Modal content */}
+  </div>
+</Modal>
+```
+
+**What Modal component provides:**
+- **Background overlay**: `bg-black/40 backdrop-blur-[3px]` (dark transparent with subtle blur)
+- **Large close button**: Top-right corner with hover effects
+- **Responsive**: Centers on screen, handles overflow
+- **Dark mode**: Automatic dark mode support
+- **Keyboard**: ESC key closes modal
+- **Body scroll lock**: Prevents background scrolling
+
+**DO NOT:**
+- ❌ Create custom `<div className="fixed inset-0 bg-black/50">` wrappers
+- ❌ Build custom close buttons (use Modal's built-in)
+- ❌ Use different background opacities across modals
+- ❌ Handle ESC key or click-outside manually
+
+### Form Footer Pattern
+
+```tsx
+<FormFooter
+  onCancel={handleCancel}
+  onSubmit={handleSubmit}
+  submitting={isSubmitting}
+  submitText="Save Changes"
+  submitIcon={<SaveIcon className="w-4 h-4" />}
+  variant="primary" // or "danger" for delete actions
+/>
+```
+
+### LoadingButton Pattern
+
+```tsx
+<LoadingButton
+  onClick={handleAction}
+  loading={isLoading}
+  loadingText="Saving..."
+  variant="primary" // primary | secondary | danger
+  icon={<SaveIcon className="w-4 h-4" />}
+>
+  Save Changes
+</LoadingButton>
+```
+
+### FormError Pattern
+
+```tsx
+<FormError error={errorMessage} />
+// or
+<FormError errors={['Error 1', 'Error 2']} />
+```
+
+### PhoneInput Pattern
+
+**IMPORTANT - ALL phone number fields MUST use PhoneInput component**
+
+```tsx
+<PhoneInput
+  label="Phone"
+  value={customer.phone || ''}
+  onChange={(value) => setCustomer({ ...customer, phone: value })}
+/>
+```
+
+**How it works:**
+- **Display**: Auto-formats as `(###) ###-####` while typing
+- **Database**: Saves as digits only (e.g., `2503015062`)
+- **Handles**:
+  - 10-digit numbers: `2503015062`
+  - 11-digit with leading 1: `12503015062` → strips to `2503015062`
+  - International numbers: `+441234567890` (kept as-is with +)
+  - Any formatting input: `250-301-5062`, `(250) 301-5062`, etc.
+
+**Why this matters:**
+- Database stores digits only for consistency
+- UI always shows formatted for readability
+- Users can paste any format
+- Handles North American country code (leading 1) automatically
+
+### Brand Colors
+
+- **Primary button**: `bg-brand-500 hover:bg-brand-600`
+- **Secondary button**: `bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600`
+- **Danger button**: `bg-red-500 hover:bg-red-600`
+- **NEVER use** `#597485` or `#4e6575` (old colors)
+
+### Grid Layouts
+
+- 2-column forms: `grid grid-cols-1 sm:grid-cols-2 gap-4`
+- 3-column forms: `grid grid-cols-1 sm:grid-cols-3 gap-4`
+- Spacing: `space-y-4` for form fields
+
+---
+
 ## 📚 Documentation Map
 | Topic | File | Summary |
 |-------|------|----------|
 | **System architecture & stack** | `docs/System_Reference.md` | Full architecture, data models, services, and dev workflow. |
 | **API reference** | `docs/API_Endpoints.md` | Complete Express route list. |
+| **Coding patterns & conventions** | `docs/AI_IMPLEMENTATION_GUIDE.md` | Required patterns for AI implementers: useApiClient, Zod validation, Prisma, TailAdmin, WebSocket, R2 uploads, batch operations. |
 | **Auth & security** | `docs/Auth_Security_Critical_Fixes.md` | Hardening status and test checklist. |
 | **Mobile UX & responsive design** | `docs/Mobile_UX_Guidelines.md` | Tailwind responsive patterns, breakpoints, and mobile-first design. |
 | **Current progress** | `docs/Progress_Tracker.markdown` | Implemented vs active work. |
@@ -39,12 +240,17 @@
 
 ## ⚙️ Recommended Workflow for Claude
 1. **At startup**, use this file for context.
-2. When asked to change or design a feature:
+2. When asked to **implement** a feature (write code):
+   - Read `AI_IMPLEMENTATION_GUIDE.md` for required patterns and conventions.
    - Read `System_Reference.md` for technical background.
    - Read `Progress_Tracker.markdown` for current implementation state.
    - Read `API_Endpoints.md` for endpoint details.
    - Read `Mobile_UX_Guidelines.md` for any mobile/responsive design work.
-3. When writing documentation or plans, follow existing Markdown formatting and emoji status keys (✅, 🛠️, 🔜, 💡).
+3. When asked to **design or plan** a feature:
+   - Read `System_Reference.md` for technical background.
+   - Read `Progress_Tracker.markdown` for current implementation state.
+   - Read `API_Endpoints.md` for endpoint details.
+4. When writing documentation or plans, follow existing Markdown formatting and emoji status keys (✅, 🛠️, 📜, 💡).
 
 ---
 
@@ -81,8 +287,8 @@ npx prisma migrate dev --name descriptive_name
 ```
 
 **Why migrations matter:**
-- Production uses `prisma migrate deploy` (auto-runs on Render)
-- `db push` bypasses migration history → requires manual `migrate resolve` on production
+- Staging uses `prisma migrate deploy` (auto-runs on Render)
+- `db push` bypasses migration history → requires manual `migrate resolve` on staging
 - Migrations = trackable, reversible, production-safe
 
 ---
@@ -92,7 +298,5 @@ npx prisma migrate dev --name descriptive_name
 # Start servers
 cd back && npm run dev:back   # Backend on :4000
 cd admin && npm run dev        # Admin Frontend on :5173
-cd www && npm run dev		# Customer frontend on :5175
+cd www && npm run dev          # Customer frontend on :5175
 ```
-
-

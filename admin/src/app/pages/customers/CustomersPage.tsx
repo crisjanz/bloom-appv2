@@ -1,17 +1,29 @@
 import { useCallback, useEffect, useState } from "react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableRow,
-} from "@shared/ui/components/ui/table";
 import InputField from "@shared/ui/forms/input/InputField";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useApiClient } from "@shared/hooks/useApiClient";
+import StandardTable, { ColumnDef } from "@shared/ui/components/ui/table/StandardTable";
+import Pagination from "@shared/ui/components/ui/pagination/Pagination";
+import EmptyState from "@shared/ui/components/ui/empty-state/EmptyState";
+import PageBreadcrumb from "@shared/ui/common/PageBreadCrumb";
+import ComponentCard from "@shared/ui/common/ComponentCard";
+import { formatPhoneDisplay } from "@shared/ui/forms/PhoneInput";
 
 // MIGRATION: Use domain hook for better customer management
 import { useCustomerSearch } from "@domains/customers/hooks/useCustomerService.ts";
+
+// Inline SVG icons
+const PencilIcon = ({ className = '' }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+  </svg>
+);
+
+const TrashIcon = ({ className = '' }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+  </svg>
+);
 
 // MIGRATION: Use proper Customer type (will be replaced with domain entity)
 type Customer = {
@@ -34,12 +46,11 @@ export default function CustomersPage() {
     isSearching
   } = useCustomerSearch();
 
+  const navigate = useNavigate();
   const [allCustomers, setAllCustomers] = useState<Customer[]>([]);
   const [totalCustomers, setTotalCustomers] = useState(0);
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
-  const [isMerging, setIsMerging] = useState(false);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(50);
 
@@ -102,78 +113,6 @@ export default function CustomersPage() {
     [fetchCustomers, page]
   );
 
-  // Toggle customer selection
-  const toggleCustomerSelection = (customerId: string) => {
-    setSelectedCustomers((prev) =>
-      prev.includes(customerId)
-        ? prev.filter((id) => id !== customerId)
-        : [...prev, customerId]
-    );
-  };
-
-  // Merge selected customers
-  const handleMergeCustomers = async () => {
-    if (selectedCustomers.length < 2) {
-      alert("Please select at least 2 customers to merge.");
-      return;
-    }
-
-    // Show dialog to choose which customer to keep
-    const selectedCustomerData = allCustomers.filter((c) =>
-      selectedCustomers.includes(c.id)
-    );
-
-    const customerList = selectedCustomerData
-      .map((c, i) => `${i + 1}. ${c.firstName} ${c.lastName} (${c.email || c.phone})`)
-      .join("\n");
-
-    const choice = prompt(
-      `Select which customer to KEEP (enter number 1-${selectedCustomers.length}):\n\n${customerList}\n\nAll other customers will be merged into this one and deleted.`
-    );
-
-    const choiceNum = parseInt(choice || "");
-    if (!choiceNum || choiceNum < 1 || choiceNum > selectedCustomers.length) {
-      alert("Invalid selection. Merge cancelled.");
-      return;
-    }
-
-    const targetCustomer = selectedCustomerData[choiceNum - 1];
-    const sourceIds = selectedCustomers.filter((id) => id !== targetCustomer.id);
-
-    const confirmed = window.confirm(
-      `Merge ${sourceIds.length} customer(s) into:\n${targetCustomer.firstName} ${targetCustomer.lastName}\n\n` +
-      `This will transfer all orders and addresses to this customer and delete the others.\n\n` +
-      `Continue?`
-    );
-
-    if (!confirmed) return;
-
-    setIsMerging(true);
-
-    try {
-      const response = await apiClient.post("/api/customers/merge", {
-        sourceIds,
-        targetId: targetCustomer.id,
-      });
-      const data = response.data;
-
-      await refreshCustomers(page);
-      setSelectedCustomers([]);
-
-      alert(
-        `Successfully merged ${data.customersMerged} customer(s)!\n\n` +
-        `${data.ordersMerged} order(s) transferred\n` +
-        `${data.addressesMerged} unique address(es) transferred\n` +
-        `${data.transactionsMerged} payment transaction(s) transferred`
-      );
-    } catch (error) {
-      console.error("Failed to merge customers:", error);
-      alert("Failed to merge customers. Please try again.");
-    } finally {
-      setIsMerging(false);
-    }
-  };
-
   // Delete customer
   const handleDeleteCustomer = async (customerId: string, customerName: string) => {
     const confirmed = window.confirm(
@@ -213,234 +152,149 @@ export default function CustomersPage() {
   // MIGRATION: Use search results if searching, otherwise show paginated customers
   const isSearchingActive = searchTerm.length >= 3;
   const displayedCustomers = isSearchingActive ? searchResults : allCustomers;
-  const totalPages = Math.max(Math.ceil(totalCustomers / pageSize), 1);
-  const startIndex = page * pageSize;
-  const endIndex = Math.min(startIndex + displayedCustomers.length, totalCustomers);
-  const showPagination = !isSearchingActive && totalCustomers > pageSize;
+
+  // Define table columns
+  const columns: ColumnDef<Customer>[] = [
+    {
+      key: 'name',
+      header: 'Customer Name',
+      className: 'w-[250px] max-w-[250px]',
+      render: (customer) => {
+        const name = `${customer.firstName} ${customer.lastName}`;
+        return (
+          <div className="max-w-[250px] truncate">
+            <span className="text-sm font-medium text-gray-800 dark:text-white/90 whitespace-nowrap" title={name}>
+              {name}
+            </span>
+          </div>
+        );
+      },
+    },
+    {
+      key: 'email',
+      header: 'Email',
+      className: 'w-[250px]',
+      render: (customer) => (
+        <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+          {customer.email || "—"}
+        </span>
+      ),
+    },
+    {
+      key: 'phone',
+      header: 'Phone',
+      className: 'w-[180px]',
+      render: (customer) => (
+        <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+          {customer.phone ? formatPhoneDisplay(customer.phone) : "—"}
+        </span>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      className: 'w-[80px]',
+      render: (customer) => (
+        <div className="flex items-center gap-3">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/customers/${customer.id}`);
+            }}
+            className="text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors"
+            title="Edit customer"
+          >
+            <PencilIcon className="w-5 h-5" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDeleteCustomer(customer.id, `${customer.firstName} ${customer.lastName}`);
+            }}
+            disabled={deletingId === customer.id}
+            className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Delete customer"
+          >
+            <TrashIcon className="w-5 h-5" />
+          </button>
+        </div>
+      ),
+    },
+  ];
+
+  // Empty state configuration
+  const getEmptyState = () => {
+    if (isSearchingActive) {
+      return {
+        message: `No customers found matching "${searchTerm}"`,
+      };
+    }
+    return {
+      message: "No customers yet. Add your first customer to get started.",
+    };
+  };
 
   return (
-    <div className="p-4">
-      <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-        {/* Custom Header */}
-        <div className="flex justify-between items-center px-6 py-5">
-          <div>
-            <h3 className="text-base font-medium text-gray-800 dark:text-white/90">
-              Customers
-            </h3>
-            {selectedCustomers.length > 0 && (
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                {selectedCustomers.length} customer(s) selected
-              </p>
-            )}
-          </div>
-          <div className="flex gap-3">
-            {selectedCustomers.length >= 2 && (
-              <button
-                onClick={handleMergeCustomers}
-                disabled={isMerging}
-                className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                </svg>
-                {isMerging ? "Merging..." : "Merge Selected"}
-              </button>
-            )}
-            <Link
-              to="/customers/duplicates"
-              className="inline-flex items-center px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg transition-colors"
-            >
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
-              Find Duplicates
-            </Link>
-            <Link
-              to="/customers/new"
-              className="inline-flex items-center px-4 py-2 bg-[#597485] hover:bg-[#4e6575] text-white text-sm font-medium rounded-lg transition-colors"
-            >
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Add Customer
-            </Link>
-          </div>
+    <div className="p-6">
+      <PageBreadcrumb />
+
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Customers</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Manage customer information
+          </p>
         </div>
-
-        {/* Card Body - Starts Here */}
-        <div className="p-4 border-t border-gray-100 dark:border-gray-800 sm:p-6">
-          
-          {/* Search Box */}
-          <div className="mb-6">
-            <InputField
-              label="Search Customers"
-              placeholder="Search by name or email..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="focus:border-[#597485] focus:ring-[#597485]/20"
-            />
-          </div>
-
-          {/* TailAdmin Table Container */}
-          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
-            <div className="max-w-full overflow-x-auto">
-              <Table>
-                {/* Table Header */}
-                <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
-                  <TableRow>
-                    <TableCell
-                      isHeader
-                      className="px-5 py-3 font-medium text-gray-500 text-center text-theme-xs dark:text-gray-400"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedCustomers.length === displayedCustomers.length && displayedCustomers.length > 0}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedCustomers(displayedCustomers.map((c) => c.id));
-                          } else {
-                            setSelectedCustomers([]);
-                          }
-                        }}
-                        className="w-4 h-4 cursor-pointer"
-                      />
-                    </TableCell>
-                    <TableCell
-                      isHeader
-                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                    >
-                      Customer Name
-                    </TableCell>
-                    <TableCell
-                      isHeader
-                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                    >
-                      Email
-                    </TableCell>
-                    <TableCell
-                      isHeader
-                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                    >
-                      Actions
-                    </TableCell>
-                  </TableRow>
-                </TableHeader>
-
-                {/* Table Body */}
-                <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-                  {/* MIGRATION: Show loading state */}
-                  {(loading || isSearching) && (
-                    <TableRow>
-                      <TableCell colSpan={4} className="px-5 py-8 text-center">
-                        <div className="flex items-center justify-center space-x-2">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#597485]"></div>
-                          <span className="text-gray-500">Loading customers...</span>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-
-                  {/* MIGRATION: Show customers with improved search functionality */}
-                  {!loading && !isSearching && displayedCustomers.map((c) => (
-                    <TableRow key={c.id}>
-                      <TableCell className="px-5 py-4 sm:px-6 text-center">
-                        <input
-                          type="checkbox"
-                          checked={selectedCustomers.includes(c.id)}
-                          onChange={() => toggleCustomerSelection(c.id)}
-                          className="w-4 h-4 cursor-pointer"
-                        />
-                      </TableCell>
-                      <TableCell className="px-5 py-4 sm:px-6 text-start">
-                        <span className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                          {c.firstName} {c.lastName}
-                        </span>
-                      </TableCell>
-                      <TableCell className="px-5 py-4 sm:px-6 text-start">
-                        <span className="text-gray-500 text-theme-sm dark:text-gray-400">
-                          {c.email || "No email"}
-                        </span>
-                      </TableCell>
-                      <TableCell className="px-5 py-4 sm:px-6 text-start">
-                        <div className="flex items-center gap-4">
-                          <Link
-                            to={`/customers/${c.id}`}
-                            className="text-sm font-medium text-[#597485] hover:text-[#4e6575] hover:underline"
-                          >
-                            Edit
-                          </Link>
-                          <button
-                            onClick={() => handleDeleteCustomer(c.id, `${c.firstName} ${c.lastName}`)}
-                            disabled={deletingId === c.id}
-                            className="text-sm font-medium text-red-600 hover:text-red-700 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {deletingId === c.id ? "Deleting..." : "Delete"}
-                          </button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-          </Table>
+        <div className="flex gap-3">
+          <Link
+            to="/customers/duplicates"
+            className="inline-flex items-center px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            Find Duplicates
+          </Link>
+          <Link
+            to="/customers/new"
+            className="inline-flex items-center px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            + Add Customer
+          </Link>
         </div>
       </div>
 
-      {showPagination && (
-        <div className="mt-4 flex flex-col gap-3 border border-gray-200 bg-white px-4 py-3 text-sm dark:border-white/[0.05] dark:bg-white/[0.03] sm:flex-row sm:items-center sm:justify-between">
-          <div className="text-gray-600 dark:text-gray-400">
-            Showing {startIndex + 1}–{endIndex} of {totalCustomers}
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
-              disabled={page === 0 || loading}
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:border-[#597485] hover:text-[#597485] disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:text-gray-300 dark:hover:border-[#597485]"
-            >
-              Previous
-            </button>
-            <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
-              Page {page + 1} / {totalPages}
-            </div>
-            <button
-              type="button"
-              onClick={() => setPage((prev) => Math.min(prev + 1, totalPages - 1))}
-              disabled={page + 1 >= totalPages || loading}
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:border-[#597485] hover:text-[#597485] disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:text-gray-300 dark:hover:border-[#597485]"
-            >
-              Next
-            </button>
-          </div>
+      {/* Card with Filters + Table */}
+      <ComponentCard>
+        {/* Search/Filters */}
+        <div className="space-y-4 mb-6">
+          <InputField
+            label="Search Customers"
+            placeholder="Search by name or email..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
-      )}
 
-      {/* MIGRATION: Improved empty states */}
-          {!loading && !isSearching && displayedCustomers.length === 0 && (
-            <div className="text-center py-8">
-              {searchTerm.length >= 3 ? (
-                <div>
-                  <p className="text-gray-500 dark:text-gray-400 mb-2">
-                    No customers found matching "{searchTerm}"
-                  </p>
-                  <p className="text-sm text-gray-400 dark:text-gray-500">
-                    Try a different search term or add a new customer
-                  </p>
-                </div>
-              ) : (
-                <div>
-                  <p className="text-gray-500 dark:text-gray-400 mb-2">
-                    No customers yet
-                  </p>
-                  <p className="text-sm text-gray-400 dark:text-gray-500">
-                    Add your first customer to get started
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-
-        </div>
-      </div>
+        {/* Table */}
+        <StandardTable
+          columns={columns}
+          data={displayedCustomers}
+          loading={loading || isSearching}
+          emptyState={getEmptyState()}
+          pagination={
+            !isSearchingActive
+              ? {
+                  currentPage: page + 1,
+                  totalItems: totalCustomers,
+                  itemsPerPage: pageSize,
+                  onPageChange: (newPage) => setPage(newPage - 1),
+                }
+              : undefined
+          }
+        />
+      </ComponentCard>
     </div>
   );
 }

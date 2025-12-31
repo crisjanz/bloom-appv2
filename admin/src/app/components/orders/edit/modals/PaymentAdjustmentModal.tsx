@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { SaveIcon, CreditCardIcon } from '@shared/assets/icons';
 import Label from '@shared/ui/forms/Label';
 import Select from '@shared/ui/forms/Select';
+import { Modal } from '@shared/ui/components/ui/modal';
 
 interface PaymentAdjustmentModalProps {
   oldTotal: number;
@@ -228,24 +229,27 @@ const PaymentAdjustmentModal: React.FC<PaymentAdjustmentModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[100000]">
-      <div className="bg-white dark:bg-gray-800 rounded-lg max-w-lg w-full shadow-xl">
-        <div className="p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center">
-              <CreditCardIcon className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
-            </div>
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                Payment Adjustment Required
-              </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Order total has changed for {customerName}
-              </p>
-            </div>
+    <Modal
+      isOpen={true}
+      onClose={onCancel}
+      className="max-w-lg"
+    >
+      <div className="p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center">
+            <CreditCardIcon className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
           </div>
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+              Payment Adjustment Required
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Order total has changed for {customerName}
+            </p>
+          </div>
+        </div>
 
-          {/* Order Summary */}
+        {/* Order Summary */}
           <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-6">
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
@@ -441,8 +445,7 @@ const PaymentAdjustmentModal: React.FC<PaymentAdjustmentModalProps> = ({
             </button>
           </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 };
 

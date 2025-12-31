@@ -18,7 +18,7 @@ const SalesTrendChart: React.FC<SalesTrendChartProps> = ({ data, loading }) => {
   if (loading) {
     return (
       <div className="flex h-60 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-[#597485]" />
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-brand-500" />
       </div>
     );
   }
@@ -42,7 +42,7 @@ const SalesTrendChart: React.FC<SalesTrendChartProps> = ({ data, loading }) => {
       toolbar: { show: false },
       fontFamily: 'Outfit, sans-serif'
     },
-    colors: ['#597485', '#8ba3b5'],
+    colors: ['brand-500', '#8ba3b5'],
     stroke: {
       curve: 'smooth',
       width: [3, 2],

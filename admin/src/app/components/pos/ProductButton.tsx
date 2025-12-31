@@ -66,7 +66,7 @@ export default function ProductButton({ product, onClick }: Props) {
           />
         ) : (
           <div className="w-full h-full bg-gray-50 dark:bg-gray-800 rounded-xl flex items-center justify-center">
-            <svg className="w-8 h-8 text-[#597485] group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-8 h-8 text-brand-500 group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
             </svg>
           </div>
@@ -75,10 +75,10 @@ export default function ProductButton({ product, onClick }: Props) {
 
       {/* Product Info - Fixed height and centered */}
       <div className="bg-white dark:bg-boxdark h-16 flex flex-col justify-center items-center px-2">
-        <div className="text-xs font-semibold text-black dark:text-white group-hover:text-[#597485] transition-colors text-center leading-tight mb-1 line-clamp-2">
+        <div className="text-xs font-semibold text-black dark:text-white group-hover:text-brand-500 transition-colors text-center leading-tight mb-1 line-clamp-2">
           {displayName}
         </div>
-        <div className="text-sm font-bold text-[#597485] text-center">
+        <div className="text-sm font-bold text-brand-500 text-center">
           ${price}
         </div>
       </div>

@@ -87,7 +87,7 @@ export default function CashPaymentModal({ open, total, onComplete, onCancel }: 
                 value={cashReceived}
                 onChange={(e) => setCashReceived(e.target.value)}
                 onKeyDown={handleKeyDown}
-                className="w-full pl-10 pr-4 py-4 text-xl font-semibold border border-stroke dark:border-strokedark rounded-xl focus:border-[#597485] focus:ring-2 focus:ring-[#597485]/20 bg-white dark:bg-boxdark text-black dark:text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                className="w-full pl-10 pr-4 py-4 text-xl font-semibold border border-stroke dark:border-strokedark rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 bg-white dark:bg-boxdark text-black dark:text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 min="0"
                 step="0.01"
                 autoFocus
@@ -142,7 +142,7 @@ export default function CashPaymentModal({ open, total, onComplete, onCancel }: 
             <button
               onClick={handleComplete}
               disabled={!isValid}
-              className="flex-1 py-3 px-4 bg-[#597485] hover:bg-[#4e6575] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
+              className="flex-1 py-3 px-4 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
             >
               Complete Payment
             </button>

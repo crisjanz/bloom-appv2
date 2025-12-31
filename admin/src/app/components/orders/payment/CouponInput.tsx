@@ -47,7 +47,7 @@ const CouponInput: React.FC<Props> = ({
         />
         {isValidating && (
           <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-            <div className="animate-spin h-4 w-4 border-2 border-[#597485] border-t-transparent rounded-full"></div>
+            <div className="animate-spin h-4 w-4 border-2 border-brand-500 border-t-transparent rounded-full"></div>
           </div>
         )}
       </div>

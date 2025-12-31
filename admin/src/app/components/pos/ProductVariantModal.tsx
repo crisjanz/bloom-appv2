@@ -1,5 +1,6 @@
 import React from 'react';
 import { ProductHelper } from '../../../domains/products/entities/Product';
+import { Modal } from '@shared/ui/components/ui/modal';
 
 type Variant = {
   id: string;
@@ -78,8 +79,11 @@ export default function ProductVariantModal({ open, product, onClose, onSelectVa
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100000]">
-      <div className="bg-white dark:bg-boxdark rounded-2xl max-w-md w-full mx-4 max-h-[80vh] overflow-y-auto">
+    <Modal
+      isOpen={open}
+      onClose={onClose}
+      className="max-w-md max-h-[80vh] overflow-y-auto"
+    >
         
         {/* Header */}
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
@@ -128,16 +132,16 @@ export default function ProductVariantModal({ open, product, onClose, onSelectVa
               <button
                 key={variant.id}
                 onClick={() => handleVariantSelect(variant)}
-                className="w-full p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-[#597485] hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 text-left group"
+                className="w-full p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-brand-500 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 text-left group"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-black dark:text-white group-hover:text-[#597485]">
+                      <span className="font-medium text-black dark:text-white group-hover:text-brand-500">
                         {variant.displayName}
                       </span>
                       {variant.isDefault && (
-                        <span className="px-2 py-0.5 text-xs bg-[#597485] text-white rounded-full">
+                        <span className="px-2 py-0.5 text-xs bg-brand-500 text-white rounded-full">
                           Default
                         </span>
                       )}
@@ -149,7 +153,7 @@ export default function ProductVariantModal({ open, product, onClose, onSelectVa
                     )}
                   </div>
                   <div className="text-right">
-                    <div className="text-lg font-bold text-[#597485]">
+                    <div className="text-lg font-bold text-brand-500">
                       ${variant.displayPrice.toFixed(2)}
                     </div>
                   </div>
@@ -168,7 +172,6 @@ export default function ProductVariantModal({ open, product, onClose, onSelectVa
             Cancel
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

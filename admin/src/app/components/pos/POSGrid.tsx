@@ -79,7 +79,7 @@ export default function POSGrid({ onAddProduct, onShowCustomModal, onDeliveryOrd
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full bg-gray-50 dark:bg-gray-900">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#597485]"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-500"></div>
       </div>
     );
   }
@@ -94,7 +94,7 @@ export default function POSGrid({ onAddProduct, onShowCustomModal, onDeliveryOrd
           {!isPWA && (
             <button
               onClick={isFullscreen ? exitFullscreen : enterFullscreen}
-              className="text-gray-600 dark:text-gray-400 hover:text-[#597485] transition-colors"
+              className="text-gray-600 dark:text-gray-400 hover:text-brand-500 transition-colors"
               title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
             >
               {isFullscreen ? (
@@ -110,14 +110,14 @@ export default function POSGrid({ onAddProduct, onShowCustomModal, onDeliveryOrd
           )}
           
           {/* Settings Icon */}
-          <button className="text-gray-600 dark:text-gray-400 hover:text-[#597485] transition-colors" title='Settings'>
+          <button className="text-gray-600 dark:text-gray-400 hover:text-brand-500 transition-colors" title='Settings'>
             <SettingsIcon className="w-8 h-8" />
           </button>
           
           {/* Back to Dashboard - Using GridIcon */}
           <button
             onClick={() => window.location.href = '/'}
-            className="text-gray-600 dark:text-gray-400 hover:text-[#597485] transition-colors" title='Back to Dashboard'>
+            className="text-gray-600 dark:text-gray-400 hover:text-brand-500 transition-colors" title='Back to Dashboard'>
             <GridIcon className="w-8 h-8" />
           </button>
         </div>
@@ -148,7 +148,7 @@ export default function POSGrid({ onAddProduct, onShowCustomModal, onDeliveryOrd
               placeholder="Search products..."
               value={searchTerm}
               onChange={(e) => updateSearchTerm(e.target.value)}
-              className="pl-12 py-3 text-lg rounded-2xl bg-white dark:bg-boxdark border-0 shadow-sm focus:border-[#597485] focus:ring-[#597485]/20"
+              className="pl-12 py-3 text-lg rounded-2xl bg-white dark:bg-boxdark border-0 shadow-sm focus:border-brand-500 focus:ring-brand-500/20"
             />
           </div>
         </div>
@@ -165,7 +165,7 @@ export default function POSGrid({ onAddProduct, onShowCustomModal, onDeliveryOrd
               onClick={() => updateActiveTab('all')}
               className={`px-5 py-2.5 rounded-lg font-medium whitespace-nowrap transition-all duration-200 text-sm flex-shrink-0 ${
                 activeTab === 'all'
-                  ? 'bg-[#597485] text-white shadow-md'
+                  ? 'bg-brand-500 text-white shadow-md'
                   : 'bg-white dark:bg-boxdark text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 shadow-sm'
               }`}
             >
@@ -179,7 +179,7 @@ export default function POSGrid({ onAddProduct, onShowCustomModal, onDeliveryOrd
                 onClick={() => updateActiveTab(tab.id)}
                 className={`px-5 py-2.5 rounded-lg font-medium whitespace-nowrap transition-all duration-200 text-sm flex-shrink-0 ${
                   activeTab === tab.id
-                    ? 'bg-[#597485] text-white shadow-md'
+                    ? 'bg-brand-500 text-white shadow-md'
                     : 'bg-white dark:bg-boxdark text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 shadow-sm'
                 }`}
               >
@@ -215,7 +215,7 @@ export default function POSGrid({ onAddProduct, onShowCustomModal, onDeliveryOrd
           {/* Custom Item Button - Fixed size */}
           <button
             onClick={onShowCustomModal}
-            className="bg-white dark:bg-boxdark rounded-2xl shadow-md items-center hover:shadow-xl transition-all duration-300 flex flex-col overflow-hidden group transform hover:scale-105 active:scale-95 border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-[#597485]"
+            className="bg-white dark:bg-boxdark rounded-2xl shadow-md items-center hover:shadow-xl transition-all duration-300 flex flex-col overflow-hidden group transform hover:scale-105 active:scale-95 border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-brand-500"
             style={{ 
               width: '130px',   // 1.25"
               height: '168px'   // 1.75"
@@ -223,7 +223,7 @@ export default function POSGrid({ onAddProduct, onShowCustomModal, onDeliveryOrd
           >
             {/* Image area */}
             <div className="flex-1 bg-white dark:bg-boxdark flex items-center justify-center p-3 relative overflow-hidden">
-              <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 group-hover:text-[#597485] group-hover:scale-110 transition-all duration-300">
+              <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 group-hover:text-brand-500 group-hover:scale-110 transition-all duration-300">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
@@ -232,10 +232,10 @@ export default function POSGrid({ onAddProduct, onShowCustomModal, onDeliveryOrd
 
             {/* Text area - Fixed centered */}
             <div className="bg-white dark:bg-boxdark h-16 flex flex-col justify-center items-center px-2">
-              <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 group-hover:text-[#597485] transition-colors text-center leading-tight mb-1">
+              <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 group-hover:text-brand-500 transition-colors text-center leading-tight mb-1">
                 Add Custom
               </div>
-              <div className="text-sm font-bold text-[#597485] text-center">
+              <div className="text-sm font-bold text-brand-500 text-center">
                 Item
               </div>
             </div>

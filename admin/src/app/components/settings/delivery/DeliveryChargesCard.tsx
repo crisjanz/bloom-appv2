@@ -218,7 +218,7 @@ console.log("🎯 Test distance calculated:", mockDistance);
         {/* LEFT COLUMN - Settings */}
         <div>
           <div className="flex items-center gap-2 mb-6">
-            <SettingsIcon className="w-5 h-5" style={{ color: '#597485' }} />
+            <SettingsIcon className="w-5 h-5" style={{ color: 'brand-500' }} />
             <h3 className="text-lg font-medium text-gray-900 dark:text-white">
               Delivery Settings
             </h3>
@@ -355,7 +355,7 @@ console.log("🎯 Test distance calculated:", mockDistance);
                       onClick={testDeliveryFee}
                       disabled={!testAddress}
                       className="px-4 py-2 text-sm"
-                      style={{ backgroundColor: '#597485' }}
+                      style={{ backgroundColor: 'brand-500' }}
                     >
                       Test
                     </Button>
@@ -379,7 +379,7 @@ console.log("🎯 Test distance calculated:", mockDistance);
         {/* RIGHT COLUMN - Zones Management */}
         <div>
           <div className="flex items-center gap-2 mb-6">
-            <TruckIcon className="w-5 h-5" style={{ color: '#597485' }} />
+            <TruckIcon className="w-5 h-5" style={{ color: 'brand-500' }} />
             <h3 className="text-lg font-medium text-gray-900 dark:text-white">
               Delivery Zones
             </h3>
@@ -515,7 +515,7 @@ console.log("🎯 Test distance calculated:", mockDistance);
                         onClick={handleUpdateZone}
                         disabled={!newZone.name || newZone.fee < 0}
                         className="flex-1"
-                        style={{ backgroundColor: '#597485' }}
+                        style={{ backgroundColor: 'brand-500' }}
                       >
                         Update Zone
                       </Button>
@@ -540,7 +540,7 @@ console.log("🎯 Test distance calculated:", mockDistance);
                       onClick={handleAddZone}
                       disabled={!newZone.name || newZone.fee < 0}
                       className="w-full flex items-center justify-center gap-2"
-                      style={{ backgroundColor: '#597485' }}
+                      style={{ backgroundColor: 'brand-500' }}
                     >
                       <PlusIcon className="w-4 h-4" />
                       Add Zone
@@ -559,7 +559,7 @@ console.log("🎯 Test distance calculated:", mockDistance);
           onClick={handleSave}
           disabled={isSaving}
           className="px-8 py-3"
-          style={{ backgroundColor: '#597485' }}
+          style={{ backgroundColor: 'brand-500' }}
         >
           {isSaving ? 'Saving...' : 'Save Delivery Settings'}
         </Button>

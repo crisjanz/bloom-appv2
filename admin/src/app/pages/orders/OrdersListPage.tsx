@@ -1,27 +1,26 @@
 // pages/orders/OrdersListPage.tsx
-import { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableRow,
-} from '@shared/ui/components/ui/table';
-import Badge from '@shared/ui/components/ui/badge/Badge';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router';
+import { Link } from 'react-router';
 import ComponentCard from '@shared/ui/common/ComponentCard';
-import { statusOptions as importedStatusOptions } from '@app/components/orders/types';
+import PageBreadcrumb from '@shared/ui/common/PageBreadCrumb';
+import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
+import { useOrderLists } from '@domains/orders/hooks/useOrderLists';
+import StandardTable, { ColumnDef } from '@shared/ui/components/ui/table/StandardTable';
 import StatusBadge from '@app/components/orders/StatusBadge';
 import Label from '@shared/ui/forms/Label';
 import Select from '@shared/ui/forms/Select';
-import PageBreadcrumb from '@shared/ui/common/PageBreadCrumb';
-import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
-// MIGRATION: Use domain hook for better order management
-import { useOrderLists } from '@domains/orders/hooks/useOrderLists';
+import DatePicker from '@shared/ui/forms/date-picker';
+import { statusOptions as importedStatusOptions } from '@app/components/orders/types';
+import { getStatusDisplayText } from '@shared/utils/orderStatusHelpers';
+import { getOrderStatusColor } from '@shared/utils/statusColors';
 
-import type { OrderStatus, OrderType } from '@shared/utils/orderStatusHelpers';
-
-// MIGRATION: Order interface now comes from domain layer
+// Inline SVG icon
+const InboxIcon = ({ className = '' }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 13.5h3.86a2.25 2.25 0 012.012 1.244l.256.512a2.25 2.25 0 002.013 1.244h3.218a2.25 2.25 0 002.013-1.244l.256-.512a2.25 2.25 0 012.013-1.244h3.859m-19.5.338V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18v-4.162c0-.224-.034-.447-.1-.661L19.24 5.338a2.25 2.25 0 00-2.15-1.588H6.911a2.25 2.25 0 00-2.15 1.588L2.35 13.177a2.25 2.25 0 00-.1.661z" />
+  </svg>
+);
 
 // Add "All Status" option to the imported status options
 const statusOptions = [
@@ -29,35 +28,81 @@ const statusOptions = [
   ...importedStatusOptions
 ];
 
+interface Order {
+  id: string;
+  orderNumber: string;
+  status: string;
+  orderType: string;
+  createdAt: string | Date;
+  requestedDeliveryDate?: string | Date;
+  customerSnapshot?: {
+    firstName?: string;
+    lastName?: string;
+  };
+  deliveryInfo?: {
+    recipientName?: string;
+  };
+  totalAmount: {
+    amount: number;
+  };
+  fulfillmentType?: string;
+}
+
 const OrdersListPage: React.FC = () => {
   const navigate = useNavigate();
-  const { formatDate: formatBusinessDate, loading: timezoneLoading } = useBusinessTimezone();
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  const { formatDate: formatBusinessDate, getBusinessDateString, loading: timezoneLoading } = useBusinessTimezone();
 
-  // MIGRATION: Use domain hooks for better order management
+  // Hooks
   const { orders, loading, error, fetchOrders } = useOrderLists();
+
+  // Filter state
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeSearchTerm, setActiveSearchTerm] = useState(''); // Actually used for filtering
+  const [activeSearchTerm, setActiveSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
-  const [orderDate, setOrderDate] = useState('');
+  const [dateFilter, setDateFilter] = useState<'today' | 'tomorrow' | 'future' | 'all'>('all');
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
+
+  // More filters state
   const [deliveryDate, setDeliveryDate] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
+  const [orderDate, setOrderDate] = useState('');
+  const [showDateRange, setShowDateRange] = useState(false);
+  const [dateRangeFrom, setDateRangeFrom] = useState('');
+  const [dateRangeTo, setDateRangeTo] = useState('');
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 25;
+
+  // Get today/tomorrow dates
+  const getTodayDate = () => {
+    if (!getBusinessDateString) return '';
+    return getBusinessDateString(new Date());
+  };
+
+  const getTomorrowDate = () => {
+    if (!getBusinessDateString) return '';
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return getBusinessDateString(tomorrow);
+  };
 
   // Auto-search after 5 seconds of inactivity
   useEffect(() => {
-    if (searchTerm === activeSearchTerm) return; // No change
+    if (searchTerm === activeSearchTerm) return;
 
     const timeoutId = setTimeout(() => {
       setActiveSearchTerm(searchTerm);
-    }, 5000); // 5 second delay
+      setCurrentPage(1);
+    }, 5000);
 
     return () => clearTimeout(timeoutId);
   }, [searchTerm, activeSearchTerm]);
 
-  // Handle Enter key press for immediate search
+  // Handle Enter key for immediate search
   const handleSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       setActiveSearchTerm(searchTerm);
+      setCurrentPage(1);
     }
   };
 
@@ -66,64 +111,53 @@ const OrdersListPage: React.FC = () => {
     const filters: any = {
       status: statusFilter,
       search: activeSearchTerm,
-      limit: 50
+      limit: 200
     };
 
-    // Add date filters if set (use same date for from and to for single-day filtering)
-    if (orderDate) {
-      filters.orderDateFrom = orderDate;
-      filters.orderDateTo = orderDate;
+    // Handle date filter buttons
+    if (dateFilter === 'today') {
+      const today = getTodayDate();
+      if (today) {
+        filters.deliveryDateFrom = today;
+        filters.deliveryDateTo = today;
+      }
+    } else if (dateFilter === 'tomorrow') {
+      const tomorrow = getTomorrowDate();
+      if (tomorrow) {
+        filters.deliveryDateFrom = tomorrow;
+        filters.deliveryDateTo = tomorrow;
+      }
+    } else if (dateFilter === 'future') {
+      const tomorrow = getTomorrowDate();
+      if (tomorrow) {
+        filters.deliveryDateFrom = tomorrow;
+        // No "to" date = all future
+      }
     }
+
+    // More filters - single delivery date (overrides date filter buttons if set)
     if (deliveryDate) {
       filters.deliveryDateFrom = deliveryDate;
       filters.deliveryDateTo = deliveryDate;
     }
 
+    // Date range (overrides single date if enabled)
+    if (showDateRange && dateRangeFrom && dateRangeTo) {
+      filters.deliveryDateFrom = dateRangeFrom;
+      filters.deliveryDateTo = dateRangeTo;
+    }
+
+    // Order date filter
+    if (orderDate) {
+      filters.orderDateFrom = orderDate;
+      filters.orderDateTo = orderDate;
+    }
+
     fetchOrders(filters);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, activeSearchTerm, orderDate, deliveryDate]);
+  }, [statusFilter, activeSearchTerm, dateFilter, deliveryDate, orderDate, dateRangeFrom, dateRangeTo]);
 
-  const handleView = (id: string) => {
-    navigate(`/orders/${id}`);
-  };
-
-  const handleEdit = (id: string) => {
-    navigate(`/orders/${id}/edit`);
-  };
-
-  const handlePrint = async (orderId: string) => {
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:4000'}/api/print-jobs`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          type: 'ORDER_TICKET',
-          orderId,
-          template: 'delivery-ticket-v1',
-          priority: 10
-        })
-      });
-
-      if (response.ok) {
-        alert('✅ Print job sent! Check your print agent.');
-      } else {
-        const error = await response.json();
-        alert(`Failed to print: ${error.error || 'Unknown error'}`);
-      }
-    } catch (error) {
-      console.error('Print error:', error);
-      alert('Failed to send print job. Make sure print agent is connected.');
-    }
-  };
-
-  const handleStatusFilterChange = (value: string) => {
-    setStatusFilter(value);
-  };
-
-  // All currency is stored in cents - always divide by 100
+  // Format currency
   const formatCurrency = (amountInCents: number) => {
     return new Intl.NumberFormat('en-CA', {
       style: 'currency',
@@ -132,19 +166,16 @@ const OrdersListPage: React.FC = () => {
   };
 
   const getIsoString = (input: string | Date) => {
-    if (typeof input === 'string') {
-      return input;
-    }
+    if (typeof input === 'string') return input;
     return input.toISOString();
   };
 
   const formatDate = (dateInput: string | Date) => {
     if (timezoneLoading) return getIsoString(dateInput);
 
-    // Extract just the date part to avoid timezone conversion issues
-    const datePart = getIsoString(dateInput).split('T')[0]; // Get YYYY-MM-DD part
+    const datePart = getIsoString(dateInput).split('T')[0];
     const [year, month, day] = datePart.split('-').map(Number);
-    const date = new Date(year, month - 1, day); // Create date in local timezone
+    const date = new Date(year, month - 1, day);
 
     return formatBusinessDate(date, {
       year: 'numeric',
@@ -153,35 +184,122 @@ const OrdersListPage: React.FC = () => {
     });
   };
 
-  // Format timestamp (for createdAt) - shows full date/time
   const formatTimestamp = (timestamp: string | Date) => {
     if (timezoneLoading) return getIsoString(timestamp);
 
-    // For timestamps, we want to show them in business timezone
     const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
     return formatBusinessDate(date, {
       year: 'numeric',
       month: 'short',
-      day: 'numeric'
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
     });
   };
 
-  // Only show loading spinner on initial load
-  if (loading && orders.length === 0) {
-    return (
-      <div className="p-6">
-        <PageBreadcrumb />
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#597485]"></div>
+  // Handle row click
+  const handleRowClick = (order: Order) => {
+    navigate(`/orders/${order.id}`);
+  };
+
+  // Pagination logic
+  const totalItems = orders.length;
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedOrders = orders.slice(startIndex, endIndex);
+
+  // Define table columns with consistent widths
+  const columns: ColumnDef<Order>[] = [
+    {
+      key: 'status',
+      header: 'Status',
+      className: 'w-[160px]',
+      render: (order) => {
+        const displayText = getStatusDisplayText(order.status, order.orderType as any);
+        const statusColor = getOrderStatusColor(order.status);
+        return (
+          <div className="flex items-center gap-2">
+            <span className={`text-2xl leading-none ${statusColor}`}>•</span>
+            <span className={`text-sm font-medium ${statusColor}`}>{displayText}</span>
+          </div>
+        );
+      },
+    },
+    {
+      key: 'orderNumber',
+      header: 'Order #',
+      className: 'w-[100px]',
+      render: (order) => (
+        <div>
+          <div className="text-sm font-medium text-gray-800 dark:text-white/90 whitespace-nowrap">
+            #{order.orderNumber}
+          </div>
+          <div className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+            {formatDate(order.createdAt)}
+          </div>
         </div>
-      </div>
-    );
-  }
+      ),
+    },
+    {
+      key: 'deliveryDate',
+      header: 'Delivery Date',
+      className: 'w-[140px]',
+      render: (order) => (
+        <span className="text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
+          {order.requestedDeliveryDate ? formatDate(order.requestedDeliveryDate) : '—'}
+        </span>
+      ),
+    },
+    {
+      key: 'recipient',
+      header: 'Recipient',
+      className: 'w-[200px] max-w-[200px]',
+      render: (order) => {
+        const recipient = order.deliveryInfo
+          ? order.deliveryInfo.recipientName || '—'
+          : order.orderType === 'PICKUP' ? 'Pickup' : '—';
+        return (
+          <div className="max-w-[200px] truncate">
+            <span className="text-sm text-gray-700 dark:text-gray-300" title={recipient}>
+              {recipient}
+            </span>
+          </div>
+        );
+      },
+    },
+    {
+      key: 'customer',
+      header: 'Customer',
+      className: 'w-[140px] max-w-[140px]',
+      render: (order) => {
+        const name = order.customerSnapshot
+          ? `${order.customerSnapshot.firstName ?? ''} ${order.customerSnapshot.lastName ?? ''}`.trim() || 'Guest'
+          : 'Guest';
+        return (
+          <div className="max-w-[140px] truncate">
+            <span className="text-sm text-gray-700 dark:text-gray-300" title={name}>
+              {name}
+            </span>
+          </div>
+        );
+      },
+    },
+    {
+      key: 'total',
+      header: 'Total',
+      className: 'text-right w-[100px]',
+      render: (order) => (
+        <span className="text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">
+          {formatCurrency(order.totalAmount.amount)}
+        </span>
+      ),
+    },
+  ];
 
   return (
     <div className="p-6">
       <PageBreadcrumb />
-      
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
@@ -192,273 +310,267 @@ const OrdersListPage: React.FC = () => {
         </div>
         <Link
           to="/orders/new"
-          className="inline-flex items-center px-4 py-2 bg-[#597485] text-white text-sm font-medium rounded-lg hover:bg-[#4e6575] transition-colors"
+          className="inline-flex items-center px-4 py-2 bg-brand-500 text-white text-sm font-medium rounded-lg hover:bg-brand-600 transition-colors"
         >
           + New Order
         </Link>
       </div>
 
-      {/* Single Component Card with Filters and Table */}
-      <ComponentCard title="Orders Management">
-        <div className="space-y-6">
-          {/* Filters Section */}
-          <div className="space-y-6 pb-6 border-b border-gray-200 dark:border-gray-700">
-            {/* Always Visible: Search */}
-            <div className="flex items-end gap-3">
-              <div className="flex-1">
-                <Label>Search Orders</Label>
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  placeholder="Search by order number, customer name... (Press Enter)"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyPress={handleSearchKeyPress}
-                  autoComplete="off"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#597485] focus:border-transparent dark:bg-gray-700 dark:text-white placeholder-gray-400"
+      <ComponentCard>
+        <div className="space-y-4">
+          {/* Always Visible Filters */}
+          <div className="space-y-3">
+            {/* Row 1: Status + Date Filter Buttons + Search + More */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+              {/* Status */}
+              <div className="md:col-span-2">
+                <Label className="text-xs">Status</Label>
+                <Select
+                  options={statusOptions}
+                  value={statusFilter}
+                  onChange={setStatusFilter}
+                  className="text-sm"
                 />
+              </div>
+
+              {/* Date Filter Buttons */}
+              <div className="md:col-span-5">
+                <Label className="text-xs mb-1.5 block">Delivery</Label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setDateFilter('today')}
+                    className={`flex-1 h-[42px] px-3 rounded-lg border text-sm font-medium transition-all ${
+                      dateFilter === 'today'
+                        ? 'bg-brand-500 text-white border-brand-500'
+                        : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-brand-500'
+                    }`}
+                  >
+                    Today
+                  </button>
+                  <button
+                    onClick={() => setDateFilter('tomorrow')}
+                    className={`flex-1 h-[42px] px-3 rounded-lg border text-sm font-medium transition-all ${
+                      dateFilter === 'tomorrow'
+                        ? 'bg-brand-500 text-white border-brand-500'
+                        : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-brand-500'
+                    }`}
+                  >
+                    Tomorrow
+                  </button>
+                  <button
+                    onClick={() => setDateFilter('future')}
+                    className={`flex-1 h-[42px] px-3 rounded-lg border text-sm font-medium transition-all ${
+                      dateFilter === 'future'
+                        ? 'bg-brand-500 text-white border-brand-500'
+                        : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-brand-500'
+                    }`}
+                  >
+                    Future
+                  </button>
+                  <button
+                    onClick={() => setDateFilter('all')}
+                    className={`flex-1 h-[42px] px-3 rounded-lg border text-sm font-medium transition-all ${
+                      dateFilter === 'all'
+                        ? 'bg-brand-500 text-white border-brand-500'
+                        : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-brand-500'
+                    }`}
+                  >
+                    All
+                  </button>
+                </div>
+              </div>
+
+              {/* Search + More Filters Button */}
+              <div className="md:col-span-5">
+                <Label className="text-xs">Search</Label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Order #, customer... (Enter to search)"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onKeyPress={handleSearchKeyPress}
+                    className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent dark:bg-gray-700 dark:text-white placeholder-gray-400"
+                  />
+                  <button
+                    onClick={() => setShowMoreFilters(!showMoreFilters)}
+                    className="px-4 py-2 text-sm font-medium text-brand-500 hover:text-brand-600 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 whitespace-nowrap"
+                  >
+                    {showMoreFilters ? 'Less' : 'More'} Filters
+                  </button>
+                </div>
                 {searchTerm && searchTerm !== activeSearchTerm && (
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Press Enter to search, or wait 5 seconds...
+                    Press Enter or wait 5s...
                   </p>
                 )}
               </div>
-
-              {/* Show/Hide Filters Button */}
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className="px-4 py-2 h-[42px] text-sm font-medium text-[#597485] hover:text-[#4e6575] border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              >
-                {showFilters ? 'Hide Filters' : 'Show Filters'}
-              </button>
             </div>
-
-            {/* Collapsible Filters */}
-            {showFilters && (
-              <div className="space-y-6 pt-4">
-                {/* Row 1: Status Filter */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <Label>Filter by Status</Label>
-                    <Select
-                      options={statusOptions}
-                      placeholder="Select Status"
-                      onChange={handleStatusFilterChange}
-                      value={statusFilter}
-                      className="dark:bg-gray-700"
-                    />
-                  </div>
-                </div>
-
-                {/* Row 2: Date Filters */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Order Date */}
-                  <div>
-                    <Label>Order Date</Label>
-                    <input
-                      type="date"
-                      value={orderDate}
-                      onChange={(e) => setOrderDate(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#597485] focus:border-transparent dark:bg-gray-700 dark:text-white"
-                      placeholder="Select date"
-                    />
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      Filter by when the order was created
-                    </p>
-                  </div>
-
-                  {/* Delivery Date */}
-                  <div>
-                    <Label>Delivery Date</Label>
-                    <input
-                      type="date"
-                      value={deliveryDate}
-                      onChange={(e) => setDeliveryDate(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#597485] focus:border-transparent dark:bg-gray-700 dark:text-white"
-                      placeholder="Select date"
-                    />
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      Filter by scheduled delivery date
-                    </p>
-                  </div>
-                </div>
-
-                {/* Clear Filters Button */}
-                {(orderDate || deliveryDate || statusFilter !== 'ALL' || searchTerm) && (
-                  <div className="flex justify-end">
-                    <button
-                      onClick={() => {
-                        setOrderDate('');
-                        setDeliveryDate('');
-                        setStatusFilter('ALL');
-                        setSearchTerm('');
-                        setActiveSearchTerm('');
-                      }}
-                      className="text-sm text-[#597485] hover:text-[#4e6575] hover:underline"
-                    >
-                      Clear all filters
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
 
-          {/* Table Section */}
-          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
-            <div className="max-w-full overflow-x-auto">
-              <Table>
-                <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
-                  <TableRow>
-                    <TableCell
-                      isHeader
-                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                    >
-                      Order
-                    </TableCell>
-                    <TableCell
-                      isHeader
-                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                    >
-                      Customer
-                    </TableCell>
-                    <TableCell
-                      isHeader
-                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                    >
-                      Recipient
-                    </TableCell>
-                    <TableCell
-                      isHeader
-                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                    >
-                      Delivery Date
-                    </TableCell>
-                    <TableCell
-                      isHeader
-                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                    >
-                      Status
-                    </TableCell>
-                    <TableCell
-                      isHeader
-                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                    >
-                      Total
-                    </TableCell>
-                    <TableCell
-                      isHeader
-                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 min-w-[180px]"
-                    >
-                      Actions
-                    </TableCell>
-                  </TableRow>
-                </TableHeader>
+          {/* More Filters (Collapsible) */}
+          {showMoreFilters && (
+            <div className="pt-3 border-t border-gray-200 dark:border-gray-700 space-y-3">
+              {/* All Date Pickers in One Row - Fixed 4 Column Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                {/* Delivery Date (always in column 1) */}
+                <div>
+                  <DatePicker
+                    id="order-delivery-date"
+                    label="Delivery Date"
+                    placeholder="Select date"
+                    defaultDate={deliveryDate || undefined}
+                    onChange={(selectedDates) => {
+                      if (selectedDates.length > 0) {
+                        const date = selectedDates[0];
+                        const year = date.getFullYear();
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const day = String(date.getDate()).padStart(2, '0');
+                        setDeliveryDate(`${year}-${month}-${day}`);
+                      } else {
+                        setDeliveryDate('');
+                      }
+                      setCurrentPage(1);
+                      setShowDateRange(false);
+                    }}
+                  />
+                </div>
 
-                <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-                  {orders.map((order) => (
-                    <TableRow key={order.id || order.orderNumber} className="transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.05]">
-                      <TableCell className="px-5 py-4 sm:px-6 text-start">
-                        <div>
-                          <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                            #{order.orderNumber}
-                          </span>
-                          <span className="block text-gray-500 text-theme-xs dark:text-gray-400">
-                            {formatTimestamp(order.createdAt)}
-                          </span>
-                        </div>
-                      </TableCell>
+                {/* Order Date (always in column 2) */}
+                <div>
+                  <DatePicker
+                    id="order-created-date"
+                    label="Order Date"
+                    placeholder="Select date"
+                    defaultDate={orderDate || undefined}
+                    onChange={(selectedDates) => {
+                      if (selectedDates.length > 0) {
+                        const date = selectedDates[0];
+                        const year = date.getFullYear();
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const day = String(date.getDate()).padStart(2, '0');
+                        setOrderDate(`${year}-${month}-${day}`);
+                      } else {
+                        setOrderDate('');
+                      }
+                      setCurrentPage(1);
+                    }}
+                  />
+                </div>
 
-                      <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                        {order.customerSnapshot
-                          ? `${order.customerSnapshot.firstName ?? ''} ${order.customerSnapshot.lastName ?? ''}`.trim() || 'Guest'
-                          : 'Guest'}
-                      </TableCell>
-
-                      <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                        {order.deliveryInfo
-                          ? order.deliveryInfo.recipientName || '—'
-                          : order.orderType === 'PICKUP' ? 'Pickup' : '—'
-                        }
-                      </TableCell>
-
-                      <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                        {order.requestedDeliveryDate ? formatDate(order.requestedDeliveryDate) : '—'}
-                      </TableCell>
-
-                      <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                        <StatusBadge
-                          status={order.status}
-                          orderType={order.orderType as any}
-                        />
-                      </TableCell>
-
-                      <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                        <span className="font-medium text-gray-800 dark:text-white">
-                          {formatCurrency(order.totalAmount.amount)}
-                        </span>
-                      </TableCell>
-
-                      <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400 min-w-[180px]">
-                        <div className="flex items-center gap-3 flex-nowrap">
-                          <button
-                            onClick={() => handleView(order.id)}
-                            className="text-sm font-medium text-[#597485] hover:text-[#4e6575] hover:underline"
-                          >
-                            View
-                          </button>
-                          <span className="text-gray-300 dark:text-gray-600">|</span>
-                          <button
-                            onClick={() => handleEdit(order.id)}
-                            className="text-sm font-medium text-[#597485] hover:text-[#4e6575] hover:underline"
-                          >
-                            Edit
-                          </button>
-                          {order.fulfillmentType === 'DELIVERY' && (
-                            <>
-                              <span className="text-gray-300 dark:text-gray-600">|</span>
-                              <button
-                                onClick={() => handlePrint(order.id)}
-                                className="text-sm font-medium text-[#597485] hover:text-[#4e6575] hover:underline"
-                                title="Print Order Ticket"
-                              >
-                                Print
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-            
-            {/* MIGRATION: Enhanced empty states with error handling */}
-            {orders.length === 0 && !loading && (
-              <div className="text-center py-12">
-                {error ? (
-                  <div className="text-red-500 dark:text-red-400">
-                    <div className="mb-2">Failed to load orders</div>
-                    <div className="text-sm">{error}</div>
+                {/* Column 3 & 4: Range Button OR Range Pickers */}
+                {!showDateRange ? (
+                  /* Range Toggle Button (spans columns 3-4) */
+                  <div className="md:col-span-2">
+                    <Label className="text-xs opacity-0">Range</Label>
                     <button
-                      onClick={() => fetchOrders({ status: statusFilter, search: activeSearchTerm, limit: 50 })}
-                      className="mt-3 text-sm text-[#597485] hover:text-[#4e6575] underline"
+                      onClick={() => {
+                        setShowDateRange(true);
+                        setDeliveryDate(''); // Clear single date when enabling range
+                      }}
+                      className="w-full h-[42px] px-4 text-sm font-medium text-brand-500 hover:text-brand-600 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
                     >
-                      Try again
+                      + Date Range
                     </button>
                   </div>
                 ) : (
-                  <div className="text-gray-500 dark:text-gray-400">
-                    {searchTerm || statusFilter !== 'ALL' 
-                      ? 'No orders match your search criteria' 
-                      : 'No orders found'
-                    }
-                  </div>
+                  /* Range Date Pickers */
+                  <>
+                    <div>
+                      <DatePicker
+                        id="order-range-from"
+                        label="Range From"
+                        placeholder="Start date"
+                        defaultDate={dateRangeFrom || undefined}
+                        onChange={(selectedDates) => {
+                          if (selectedDates.length > 0) {
+                            const date = selectedDates[0];
+                            const year = date.getFullYear();
+                            const month = String(date.getMonth() + 1).padStart(2, '0');
+                            const day = String(date.getDate()).padStart(2, '0');
+                            setDateRangeFrom(`${year}-${month}-${day}`);
+                          } else {
+                            setDateRangeFrom('');
+                          }
+                          setCurrentPage(1);
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <DatePicker
+                        id="order-range-to"
+                        label="Range To"
+                        placeholder="End date"
+                        defaultDate={dateRangeTo || undefined}
+                        onChange={(selectedDates) => {
+                          if (selectedDates.length > 0) {
+                            const date = selectedDates[0];
+                            const year = date.getFullYear();
+                            const month = String(date.getMonth() + 1).padStart(2, '0');
+                            const day = String(date.getDate()).padStart(2, '0');
+                            setDateRangeTo(`${year}-${month}-${day}`);
+                          } else {
+                            setDateRangeTo('');
+                          }
+                          setCurrentPage(1);
+                        }}
+                      />
+                    </div>
+                  </>
                 )}
               </div>
-            )}
-          </div>
+
+              {/* Clear Filters */}
+              {(orderDate || deliveryDate || statusFilter !== 'ALL' || searchTerm || dateFilter !== 'all' || showDateRange) && (
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => {
+                      setOrderDate('');
+                      setDeliveryDate('');
+                      setStatusFilter('ALL');
+                      setSearchTerm('');
+                      setActiveSearchTerm('');
+                      setDateFilter('all');
+                      setShowDateRange(false);
+                      setDateRangeFrom('');
+                      setDateRangeTo('');
+                      setCurrentPage(1);
+                    }}
+                    className="text-sm text-brand-500 hover:text-brand-600 hover:underline"
+                  >
+                    Clear all filters
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* StandardTable */}
+          <StandardTable
+            columns={columns}
+            data={paginatedOrders}
+            loading={loading && orders.length === 0}
+            emptyState={{
+              icon: <InboxIcon className="h-12 w-12" />,
+              message: error
+                ? `Failed to load orders: ${error}`
+                : searchTerm || statusFilter !== 'ALL' || dateFilter !== 'all' || deliveryDate || orderDate || showDateRange
+                ? 'No orders match your filters'
+                : 'No orders found',
+              action: error ? {
+                label: 'Retry',
+                onClick: () => fetchOrders({ status: statusFilter, search: activeSearchTerm, limit: 200 })
+              } : undefined
+            }}
+            pagination={{
+              currentPage,
+              totalItems,
+              itemsPerPage,
+              onPageChange: setCurrentPage
+            }}
+            onRowClick={handleRowClick}
+            className="mt-4"
+          />
         </div>
       </ComponentCard>
     </div>

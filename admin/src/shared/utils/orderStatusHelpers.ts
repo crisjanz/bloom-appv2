@@ -51,15 +51,15 @@ export const getStatusDisplayText = (status: OrderStatus, orderType?: OrderType)
     case 'QUALITY_CHECK':
       return 'Quality Check';
     case 'READY_FOR_PICKUP':
-      return 'Ready for Pickup';
+      return 'Ready for PU';
     case 'READY_FOR_DELIVERY':
-      return 'Ready for Delivery';
+      return 'Ready for Del.';
     case 'DELIVERED':
       return 'Delivered';
     case 'PICKED_UP':
       return 'Picked Up';
     case 'FAILED_DELIVERY':
-      return 'Failed Delivery';
+      return 'Failed Del.';
     case 'REFUNDED':
       return 'Refunded';
   }
@@ -79,9 +79,9 @@ export const getStatusDisplayText = (status: OrderStatus, orderType?: OrderType)
   if (status === 'READY') {
     switch (orderType) {
       case 'PICKUP':
-        return 'Ready for Pickup';
+        return 'Ready for PU';
       case 'DELIVERY':
-        return 'Ready for Delivery';
+        return 'Ready for Del.';
       default:
         return 'Ready';
     }
@@ -96,7 +96,7 @@ export const getStatusDisplayText = (status: OrderStatus, orderType?: OrderType)
     case 'IN_DESIGN':
       return 'In Design';
     case 'OUT_FOR_DELIVERY':
-      return 'Out for Delivery';
+      return 'Out for Del.';
     case 'CANCELLED':
       return 'Cancelled';
     case 'REJECTED':

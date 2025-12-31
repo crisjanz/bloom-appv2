@@ -545,7 +545,7 @@ const OrderStatusNotificationsCard = () => {
           <Button
             onClick={saveNotificationSettings}
             disabled={isSaving || isDomainSaving}
-            className="bg-[#597485] hover:bg-[#4e6575]"
+            className="bg-brand-500 hover:bg-brand-600"
           >
             {(isSaving || isDomainSaving) ? 'Saving...' : 'Save Notification Settings'}
           </Button>

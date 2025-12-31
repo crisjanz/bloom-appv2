@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router';
-import { XIcon } from '@shared/assets/icons';
 import PageBreadcrumb from '@shared/ui/common/PageBreadCrumb';
 import ComponentCard from '@shared/ui/common/ComponentCard';
+import { Modal } from '@shared/ui/components/ui/modal';
 import OrderHeader from '@app/components/orders/edit/OrderHeader';
 import OrderSections from '@app/components/orders/edit/OrderSections';
 import { Order } from '@app/components/orders/types';
@@ -194,6 +194,7 @@ const OrderEditPage: React.FC = () => {
     setEditingProducts([]);
     setEditingPayment(null);
     setEditingImages([]);
+    setUpdateCustomerDatabase(false);
   };
 
   // Modified saveSection to accept direct data and handle payment adjustments
@@ -209,7 +210,9 @@ const OrderEditPage: React.FC = () => {
           updateData = { customer: editingCustomer };
           break;
         case 'recipient':
-          updateData = { recipient: editingRecipient, updateDatabase: true };
+          updateData = {
+            deliveryAddress: editingRecipient
+          };
           break;
         case 'delivery':
           updateData = { 
@@ -256,12 +259,13 @@ const OrderEditPage: React.FC = () => {
       }
 
       console.log('Sending update data:', updateData);
+      console.log('editingRecipient state:', editingRecipient);
 
       // MIGRATION: Use domain hook for updates
       // For products (and other sections with multiple fields), use updateOrderDirect
       // to avoid double-wrapping. For single field updates, use updateOrderField.
       let result;
-      if (section === 'products' || section === 'delivery' || section === 'payment' || section === 'images') {
+      if (section === 'products' || section === 'delivery' || section === 'payment' || section === 'images' || section === 'recipient') {
         result = await updateOrderDirect(updateData);
       } else {
         result = await updateOrderField(section, updateData[section] || updateData);
@@ -333,7 +337,7 @@ const OrderEditPage: React.FC = () => {
       <div className="p-6">
         <PageBreadcrumb />
         <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#597485]"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500"></div>
         </div>
       </div>
     );
@@ -350,7 +354,7 @@ const OrderEditPage: React.FC = () => {
             <div className="text-sm">{error}</div>
             <button 
               onClick={() => fetchOrder(id || "")}
-              className="mt-3 text-sm text-[#597485] hover:text-[#4e6575] underline"
+              className="mt-3 text-sm text-brand-500 hover:text-brand-600 underline"
             >
               Try again
             </button>
@@ -388,115 +392,110 @@ const OrderEditPage: React.FC = () => {
       </ComponentCard>
 
       {/* Main Edit Modal */}
-      {activeModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[99999]">
-          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-xl">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                  Edit {activeModal.charAt(0).toUpperCase() + activeModal.slice(1)}
-                </h2>
-                <button
-                  onClick={closeModal}
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                >
-                  <XIcon className="w-6 h-6" />
-                </button>
-              </div>
-              
-              {activeModal === 'customer' && (
-                <CustomerEditModal 
-                  customer={editingCustomer || { firstName: '', lastName: '', email: '', phone: '' }}
-                  onChange={setEditingCustomer}
-                  onSave={() => saveSection('customer')}
-                  onCancel={closeModal}
-                  saving={saving}
-                />
-              )}
+      <Modal
+        isOpen={activeModal !== null}
+        onClose={closeModal}
+        className="max-w-2xl max-h-[90vh] overflow-y-auto"
+      >
+        <div className="p-6">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+            Edit {activeModal?.charAt(0).toUpperCase()}{activeModal?.slice(1)}
+          </h2>
 
-              {activeModal === 'recipient' && (
-                <RecipientEditModal
-                  recipient={editingRecipient || {
-                    firstName: '',
-                    lastName: '',
-                    company: '',
-                    phone: '',
-                    address1: '',
-                    address2: '',
-                    city: '',
-                    province: '',
-                    postalCode: '',
-                    country: 'CA',
-                    addressType: 'RESIDENCE'
-                  }}
-                  onChange={setEditingRecipient}
-                  onSave={() => saveSection('recipient')}
-                  onCancel={closeModal}
-                  saving={saving}
-                />
-              )}
+          {activeModal === 'customer' && (
+            <CustomerEditModal
+              customer={editingCustomer || { firstName: '', lastName: '', email: '', phone: '' }}
+              onChange={setEditingCustomer}
+              onSave={() => saveSection('customer')}
+              onCancel={closeModal}
+              saving={saving}
+            />
+          )}
 
-              {activeModal === 'delivery' && (
-                <DeliveryEditModal 
-                  delivery={editingDelivery || {
-                    deliveryDate: '',
-                    deliveryTime: '',
-                    cardMessage: '',
-                    specialInstructions: '',
-                    occasion: '',
-                    deliveryFee: 0
-                  }}
-                  onChange={setEditingDelivery}
-                  onSave={() => saveSection('delivery')}
-                  onCancel={closeModal}
-                  saving={saving}
-                />
-              )}
+          {activeModal === 'recipient' && (
+            <RecipientEditModal
+              recipient={editingRecipient || {
+                firstName: '',
+                lastName: '',
+                company: '',
+                phone: '',
+                address1: '',
+                address2: '',
+                city: '',
+                province: '',
+                postalCode: '',
+                country: 'CA',
+                addressType: 'RESIDENCE'
+              }}
+              onChange={(updated) => {
+                console.log('RecipientEditModal onChange called with:', updated);
+                setEditingRecipient(updated);
+              }}
+              onSave={() => saveSection('recipient')}
+              onCancel={closeModal}
+              saving={saving}
+            />
+          )}
 
-              {activeModal === 'products' && (
-                <ProductsEditModal 
-                  products={editingProducts}
-                  onChange={setEditingProducts}
-                  onSave={() => saveSection('products')}
-                  onCancel={closeModal}
-                  saving={saving}
-                />
-              )}
+          {activeModal === 'delivery' && (
+            <DeliveryEditModal
+              delivery={editingDelivery || {
+                deliveryDate: '',
+                deliveryTime: '',
+                cardMessage: '',
+                specialInstructions: '',
+                occasion: '',
+                deliveryFee: 0
+              }}
+              onChange={setEditingDelivery}
+              onSave={() => saveSection('delivery')}
+              onCancel={closeModal}
+              saving={saving}
+            />
+          )}
 
-              {activeModal === 'payment' && (
-                <PaymentEditModal 
-                  payment={editingPayment || {
-                    deliveryFee: 0,
-                    discount: 0,
-                    gst: 0,
-                    pst: 0
-                  }}
-                  onChange={setEditingPayment}
-                  onSave={() => saveSection('payment')}
-                  onCancel={closeModal}
-                  saving={saving}
-                />
-              )}
+          {activeModal === 'products' && (
+            <ProductsEditModal
+              products={editingProducts}
+              onChange={setEditingProducts}
+              onSave={() => saveSection('products')}
+              onCancel={closeModal}
+              saving={saving}
+            />
+          )}
 
-              {activeModal === 'images' && (
-                <ImagesEditModal 
-                  images={editingImages}
-                  onChange={setEditingImages}
-                  onSave={(finalImages) => {
-                    if (finalImages) {
-                      saveSection('images', finalImages);
-                    } else {
-                      saveSection('images');
-                    }
-                  }}
-                  onCancel={closeModal}
-                  saving={saving}
-                />
-              )}
-            </div>
-          </div>
+          {activeModal === 'payment' && (
+            <PaymentEditModal
+              payment={editingPayment || {
+                deliveryFee: 0,
+                discount: 0,
+                gst: 0,
+                pst: 0
+              }}
+              onChange={setEditingPayment}
+              onSave={() => saveSection('payment')}
+              onCancel={closeModal}
+              saving={saving}
+            />
+          )}
+
+          {activeModal === 'images' && (
+            <ImagesEditModal
+              images={editingImages}
+              onChange={setEditingImages}
+              onSave={(finalImages) => {
+                if (finalImages) {
+                  saveSection('images', finalImages);
+                } else {
+                  saveSection('images');
+                }
+              }}
+              onCancel={closeModal}
+              saving={saving}
+            />
+          )}
         </div>
-      )}
+      </Modal>
 
       {/* Payment Adjustment Modal */}
       {showPaymentAdjustment && paymentAdjustmentData && (

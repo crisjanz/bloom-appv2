@@ -352,7 +352,7 @@ export default function ProductsCard({
           type="button"
           onClick={handleAddCustomProduct}
           className="inline-flex items-center justify-center rounded-md py-2 px-4 text-center font-medium text-white hover:bg-opacity-90"
-          style={{ backgroundColor: '#597485' }}
+          style={{ backgroundColor: 'brand-500' }}
         >
           <svg
             className="mr-2 h-4 w-4"
@@ -642,7 +642,7 @@ export default function ProductsCard({
                         onChange={(checked) =>
                           handleProductChange(idx, "tax", checked)
                         }
-                        className="checked:bg-[#597485] checked:border-[#597485]"
+                        className="checked:bg-brand-500 checked:border-brand-500"
                       />
                     </div>
                   </td>

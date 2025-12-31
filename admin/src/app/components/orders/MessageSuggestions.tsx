@@ -159,7 +159,7 @@ export default function MessageSuggestions({
           </button>
           <button
             className="px-4 py-2 text-sm font-medium text-white rounded-lg hover:bg-opacity-90"
-            style={{ backgroundColor: '#597485' }}
+            style={{ backgroundColor: 'brand-500' }}
             onClick={onSubmit}
             disabled={!selected}
           >

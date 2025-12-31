@@ -162,7 +162,7 @@ const TaxExportPage: React.FC = () => {
                 setStartDate(event.target.value);
                 setRangeError(null);
               }}
-              className="h-11 w-full rounded-lg border border-gray-300 px-3 text-sm shadow-sm focus:border-[#597485] focus:outline-none focus:ring-2 focus:ring-[#597485]/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+              className="h-11 w-full rounded-lg border border-gray-300 px-3 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
             />
           </div>
           <div className="space-y-1 md:col-span-2">
@@ -175,14 +175,14 @@ const TaxExportPage: React.FC = () => {
                 setEndDate(event.target.value);
                 setRangeError(null);
               }}
-              className="h-11 w-full rounded-lg border border-gray-300 px-3 text-sm shadow-sm focus:border-[#597485] focus:outline-none focus:ring-2 focus:ring-[#597485]/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+              className="h-11 w-full rounded-lg border border-gray-300 px-3 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
             />
           </div>
           <div className="flex items-end gap-2 md:col-span-4">
             <button
               type="button"
               onClick={handleGenerate}
-              className="rounded-lg bg-[#597485] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#4e6575]"
+              className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-600"
               disabled={loading}
             >
               {loading ? 'Generating...' : 'Generate Report'}
@@ -194,7 +194,7 @@ const TaxExportPage: React.FC = () => {
               className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
                 !data || loading
                   ? 'cursor-not-allowed border-gray-200 text-gray-400'
-                  : 'border-[#597485] text-[#597485] hover:bg-[#597485]/10'
+                  : 'border-brand-500 text-brand-500 hover:bg-brand-500/10'
               }`}
             >
               Download CSV
@@ -216,7 +216,7 @@ const TaxExportPage: React.FC = () => {
       <ComponentCard title="Totals">
         {loading && !data ? (
           <div className="flex h-32 items-center justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-[#597485]" />
+            <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-brand-500" />
           </div>
         ) : data ? (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -235,7 +235,7 @@ const TaxExportPage: React.FC = () => {
       <ComponentCard title="Detailed Orders">
         {loading && !data ? (
           <div className="flex h-40 items-center justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-[#597485]" />
+            <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-brand-500" />
           </div>
         ) : data && data.data.length ? (
           <div className="space-y-4">

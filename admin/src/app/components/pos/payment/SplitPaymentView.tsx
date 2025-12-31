@@ -70,7 +70,7 @@ const SplitPaymentView: FC<Props> = ({
           <button
             type="button"
             onClick={onBack}
-            className="text-sm font-medium text-[#597485] transition hover:text-[#4e6575]"
+            className="text-sm font-medium text-brand-500 transition hover:text-brand-600"
           >
             ← Back to payment tiles
           </button>
@@ -98,7 +98,7 @@ const SplitPaymentView: FC<Props> = ({
             </span>
             <div
               className={`mt-1 text-2xl font-bold ${
-                remaining > 0.01 ? 'text-[#597485]' : 'text-green-600 dark:text-green-400'
+                remaining > 0.01 ? 'text-brand-500' : 'text-green-600 dark:text-green-400'
               }`}
             >
               ${remaining.toFixed(2)}
@@ -144,7 +144,7 @@ const SplitPaymentView: FC<Props> = ({
                       value={Number.isFinite(row.amount) ? row.amount.toFixed(2) : ''}
                       onChange={(event) => onChangeAmount(row.id, parseFloat(event.target.value) || 0)}
                       disabled={row.status !== 'pending'}
-                      className="w-32 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium outline-none transition focus:border-[#597485] focus:ring-2 focus:ring-[#597485]/20 disabled:cursor-not-allowed disabled:bg-gray-100 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                      className="w-32 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 disabled:cursor-not-allowed disabled:bg-gray-100 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                     />
                   </div>
                   <div className="flex items-center gap-2">
@@ -159,7 +159,7 @@ const SplitPaymentView: FC<Props> = ({
                       disabled={row.status !== 'pending'}
                       className={`rounded-lg px-4 py-2 text-sm font-semibold text-white transition ${
                         row.status === 'pending'
-                          ? 'bg-[#597485] hover:bg-[#4e6575]'
+                          ? 'bg-brand-500 hover:bg-brand-600'
                           : 'bg-gray-400 cursor-not-allowed'
                       }`}
                     >
@@ -177,7 +177,7 @@ const SplitPaymentView: FC<Props> = ({
             type="button"
             onClick={onAddRow}
             disabled={remaining <= 0.01}
-            className="rounded-lg border border-dashed border-gray-400 px-4 py-2 text-sm font-semibold text-gray-600 transition hover:border-[#597485] hover:text-[#597485] disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-lg border border-dashed border-gray-400 px-4 py-2 text-sm font-semibold text-gray-600 transition hover:border-brand-500 hover:text-brand-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
             + Add Split Row
           </button>

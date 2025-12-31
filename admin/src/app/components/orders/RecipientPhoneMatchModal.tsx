@@ -119,7 +119,7 @@ const RecipientPhoneMatchModal = ({
                     <button
                       type="button"
                       onClick={() => onAddNewAddress(customer)}
-                      className="rounded-lg border border-dashed border-[#597485] px-3 py-1.5 text-xs font-medium text-[#597485] transition hover:bg-[#597485] hover:text-white"
+                      className="rounded-lg border border-dashed border-brand-500 px-3 py-1.5 text-xs font-medium text-brand-500 transition hover:bg-brand-500 hover:text-white"
                     >
                       Add new address
                     </button>
@@ -136,7 +136,7 @@ const RecipientPhoneMatchModal = ({
                             <button
                               type="button"
                               onClick={() => onUseAddress(customer, address)}
-                              className="w-full rounded-lg border border-gray-200 px-4 py-2 text-left transition hover:border-[#597485] hover:bg-gray-50 dark:border-gray-700 dark:hover:border-[#7a9bb0] dark:hover:bg-gray-800"
+                              className="w-full rounded-lg border border-gray-200 px-4 py-2 text-left transition hover:border-brand-500 hover:bg-gray-50 dark:border-gray-700 dark:hover:border-[#7a9bb0] dark:hover:bg-gray-800"
                             >
                               <div className="flex flex-wrap items-center gap-2 text-sm text-black dark:text-white">
                                 <span className="font-medium">
@@ -171,7 +171,7 @@ const RecipientPhoneMatchModal = ({
               <button
                 type="button"
                 onClick={onCreateNewRecipient}
-                className="rounded-lg border border-[#597485] px-4 py-2 text-sm font-semibold text-[#597485] transition hover:bg-[#597485] hover:text-white"
+                className="rounded-lg border border-brand-500 px-4 py-2 text-sm font-semibold text-brand-500 transition hover:bg-brand-500 hover:text-white"
               >
                 Create new recipient
               </button>

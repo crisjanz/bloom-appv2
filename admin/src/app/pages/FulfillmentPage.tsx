@@ -401,7 +401,7 @@ const FulfillmentPage: React.FC = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#597485]"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-500"></div>
       </div>
     );
   }
@@ -412,7 +412,7 @@ const FulfillmentPage: React.FC = () => {
         <div className="text-xl text-gray-500 mb-4">Order not found</div>
         <button
           onClick={() => navigate('/delivery')}
-          className="px-4 py-2 bg-[#597485] text-white rounded hover:bg-[#4e6575]"
+          className="px-4 py-2 bg-brand-500 text-white rounded hover:bg-brand-600"
         >
           Back to Orders
         </button>
@@ -436,7 +436,7 @@ const FulfillmentPage: React.FC = () => {
       <div className="max-w-6xl mx-auto mb-3">
         <button
           onClick={() => navigate('/delivery')}
-          className="text-[#597485] hover:text-[#4e6575] font-medium flex items-center gap-1"
+          className="text-brand-500 hover:text-brand-600 font-medium flex items-center gap-1"
         >
           <ChevronLeftIcon className="w-4 h-4" />
           Back to Orders
@@ -540,7 +540,7 @@ const FulfillmentPage: React.FC = () => {
                 <button
                   onClick={() => document.getElementById('imageUpload')?.click()}
                   disabled={fetchingImage}
-                  className="flex items-center gap-2 px-4 py-2 bg-[#597485] text-white rounded hover:bg-[#4e6575] disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 py-2 bg-brand-500 text-white rounded hover:bg-brand-600 disabled:opacity-50"
                 >
                   {fetchingImage ? (
                     'Uploading...'
@@ -634,7 +634,7 @@ const FulfillmentPage: React.FC = () => {
             <button
               onClick={handleStatusUpdate}
               disabled={updating || selectedStatus === order.status}
-              className="px-8 py-3 bg-[#597485] text-white rounded-lg hover:bg-[#4e6575] disabled:opacity-50 text-lg font-medium"
+              className="px-8 py-3 bg-brand-500 text-white rounded-lg hover:bg-brand-600 disabled:opacity-50 text-lg font-medium"
             >
               {updating ? 'Updating...' : 'Update'}
             </button>

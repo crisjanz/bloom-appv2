@@ -103,14 +103,14 @@ const RecipientUpdateModal: React.FC<Props> = ({
               onClick={() => setSelectedChoice('update')}
               className={`border rounded-xl p-3 cursor-pointer transition-all ${
                 selectedChoice === 'update' 
-                  ? 'border-[#597485] bg-[#597485]/5' 
-                  : 'border-stroke dark:border-strokedark hover:border-[#597485]/50'
+                  ? 'border-brand-500 bg-brand-500/5' 
+                  : 'border-stroke dark:border-strokedark hover:border-brand-500/50'
               }`}
             >
               <div className="flex items-center">
                 <div className={`w-5 h-5 rounded-full border-2 mr-3 flex items-center justify-center ${
                   selectedChoice === 'update' 
-                    ? 'border-[#597485] bg-[#597485]' 
+                    ? 'border-brand-500 bg-brand-500' 
                     : 'border-gray-300 dark:border-gray-600'
                 }`}>
                   {selectedChoice === 'update' && (
@@ -128,14 +128,14 @@ const RecipientUpdateModal: React.FC<Props> = ({
               onClick={() => setSelectedChoice('new')}
               className={`border rounded-xl p-3 cursor-pointer transition-all ${
                 selectedChoice === 'new' 
-                  ? 'border-[#597485] bg-[#597485]/5' 
-                  : 'border-stroke dark:border-strokedark hover:border-[#597485]/50'
+                  ? 'border-brand-500 bg-brand-500/5' 
+                  : 'border-stroke dark:border-strokedark hover:border-brand-500/50'
               }`}
             >
               <div className="flex items-center">
                 <div className={`w-5 h-5 rounded-full border-2 mr-3 flex items-center justify-center ${
                   selectedChoice === 'new' 
-                    ? 'border-[#597485] bg-[#597485]' 
+                    ? 'border-brand-500 bg-brand-500' 
                     : 'border-gray-300 dark:border-gray-600'
                 }`}>
                   {selectedChoice === 'new' && (
@@ -153,14 +153,14 @@ const RecipientUpdateModal: React.FC<Props> = ({
               onClick={() => setSelectedChoice('duplicate')}
               className={`border rounded-xl p-3 cursor-pointer transition-all ${
                 selectedChoice === 'duplicate' 
-                  ? 'border-[#597485] bg-[#597485]/5' 
-                  : 'border-stroke dark:border-strokedark hover:border-[#597485]/50'
+                  ? 'border-brand-500 bg-brand-500/5' 
+                  : 'border-stroke dark:border-strokedark hover:border-brand-500/50'
               }`}
             >
               <div className="flex items-center">
                 <div className={`w-5 h-5 rounded-full border-2 mr-3 flex items-center justify-center ${
                   selectedChoice === 'duplicate' 
-                    ? 'border-[#597485] bg-[#597485]' 
+                    ? 'border-brand-500 bg-brand-500' 
                     : 'border-gray-300 dark:border-gray-600'
                 }`}>
                   {selectedChoice === 'duplicate' && (
@@ -187,7 +187,7 @@ const RecipientUpdateModal: React.FC<Props> = ({
             <button 
               onClick={handleConfirm}
               disabled={!selectedChoice}
-              className="flex-1 py-3 px-4 bg-[#597485] hover:bg-[#4e6575] disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
+              className="flex-1 py-3 px-4 bg-brand-500 hover:bg-brand-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
             >
               Continue
             </button>

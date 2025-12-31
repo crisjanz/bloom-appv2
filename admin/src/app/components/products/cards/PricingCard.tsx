@@ -1,6 +1,7 @@
 import { FC, useMemo, useState } from "react";
 import InputField from "@shared/ui/forms/input/InputField";
 import ComponentCard from "@shared/ui/common/ComponentCard";
+import { Modal } from "@shared/ui/components/ui/modal";
 
 // Simple UUID generator for browser compatibility
 const generateUUID = () => {
@@ -516,12 +517,15 @@ const PricingCard: FC<Props> = ({
       )}
 
       {/* Options Modal */}
-      {isOptionsModalOpen && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-[100000] p-4">
-          <div className="bg-white dark:bg-boxdark p-6 rounded-lg max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-medium mb-4">
-              {editingGroup ? "Edit Option" : "Add Option"}
-            </h3>
+      <Modal
+        isOpen={isOptionsModalOpen}
+        onClose={closeOptionsModal}
+        className="max-w-lg max-h-[90vh] overflow-y-auto"
+      >
+        <div className="p-6">
+          <h3 className="text-lg font-medium mb-4 text-gray-900 dark:text-white">
+            {editingGroup ? "Edit Option" : "Add Option"}
+          </h3>
 
             {/* Group Name */}
             <div className="mb-4">
@@ -600,29 +604,31 @@ const PricingCard: FC<Props> = ({
               ℹ️ All options create variant combinations. Set price adjustment to $0 if the option doesn't affect pricing.
             </div>
 
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={closeOptionsModal}
-                className="px-4 py-2 bg-gray-300 text-black rounded hover:bg-gray-400"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={saveOptionGroup}
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-              >
-                Save
-              </button>
-            </div>
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={closeOptionsModal}
+              className="px-4 py-2 bg-gray-300 dark:bg-gray-700 text-black dark:text-white rounded hover:bg-gray-400 dark:hover:bg-gray-600"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={saveOptionGroup}
+              className="px-4 py-2 bg-brand-500 text-white rounded hover:bg-brand-600"
+            >
+              Save
+            </button>
           </div>
         </div>
-      )}
+      </Modal>
 
       {/* Variants Modal */}
-      {isVariantsModalOpen && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-[100000] p-4">
-          <div className="bg-white dark:bg-boxdark p-6 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-medium mb-4">Manage Variants</h3>
+      <Modal
+        isOpen={isVariantsModalOpen}
+        onClose={() => setIsVariantsModalOpen(false)}
+        className="max-w-4xl max-h-[90vh] overflow-y-auto"
+      >
+        <div className="p-6">
+          <h3 className="text-lg font-medium mb-4 text-gray-900 dark:text-white">Manage Variants</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left text-black dark:text-white">
                 <thead className="text-xs uppercase bg-gray-100 dark:bg-gray-700">
@@ -697,17 +703,16 @@ const PricingCard: FC<Props> = ({
                 </tbody>
               </table>
             </div>
-            <div className="flex justify-end gap-2 mt-4">
-              <button
-                onClick={closeVariantsModal}
-                className="px-4 py-2 bg-gray-300 text-black rounded hover:bg-gray-400"
-              >
-                Close
-              </button>
-            </div>
+          <div className="flex justify-end gap-2 mt-4">
+            <button
+              onClick={closeVariantsModal}
+              className="px-4 py-2 bg-gray-300 dark:bg-gray-700 text-black dark:text-white rounded hover:bg-gray-400 dark:hover:bg-gray-600"
+            >
+              Close
+            </button>
           </div>
         </div>
-      )}
+      </Modal>
     </ComponentCard>
   );
 };

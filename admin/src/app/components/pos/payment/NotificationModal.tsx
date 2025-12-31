@@ -307,7 +307,7 @@ const NotificationModal: FC<NotificationModalProps> = ({
           <Button
             onClick={handleSend}
             disabled={isLoading || isSending || selectedChannels.size === 0}
-            className="bg-[#597485] hover:bg-[#4e6575]"
+            className="bg-brand-500 hover:bg-brand-600"
           >
             {(isLoading || isSending) ? 'Sending...' : `Send ${Array.from(selectedChannels).map(c => c === 'email' ? 'Email' : 'SMS').join(' & ')}`}
           </Button>

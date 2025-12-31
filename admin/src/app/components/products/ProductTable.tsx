@@ -1,13 +1,22 @@
 import { FC } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableRow,
-} from "@shared/ui/components/ui/table";
 import Badge from "@shared/ui/components/ui/badge/Badge";
+import StandardTable, { ColumnDef } from "@shared/ui/components/ui/table/StandardTable";
+import EmptyState from "@shared/ui/components/ui/empty-state/EmptyState";
+
+// Inline SVG icons
+const EyeIcon = ({ className = '' }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+  </svg>
+);
+
+const PencilIcon = ({ className = '' }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+  </svg>
+);
 
 type Variant = {
   price: number;
@@ -36,126 +45,120 @@ const ProductTable: FC<Props> = ({ products }) => {
   const navigate = useNavigate();
   const fallbackImage = "https://cdn-icons-png.flaticon.com/512/4139/4139981.png";
 
-  const handleView = (id: string) => {
-    navigate(`/products/view/${id}`);
+  const handleRowClick = (product: Product) => {
+    navigate(`/products/view/${product.id}`);
   };
 
-  const handleEdit = (id: string) => {
-    navigate(`/products/edit/${id}`);
-  };
+  // Define table columns
+  const columns: ColumnDef<Product>[] = [
+    {
+      key: 'product',
+      header: 'Product',
+      className: 'w-[300px]',
+      render: (product) => (
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 overflow-hidden rounded-md border-0 border-gray-300 dark:border-gray-700 flex-shrink-0">
+            <img
+              src={product.images?.[0] ?? product.image ?? fallbackImage}
+              alt={product.name}
+              className="h-full w-full object-cover border-0"
+            />
+          </div>
+          <span className="text-sm font-medium text-gray-800 dark:text-white truncate">
+            {product.name}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: 'sku',
+      header: 'SKU',
+      className: 'w-[120px]',
+      render: (product) => (
+        <span className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+          {product.sku || "—"}
+        </span>
+      ),
+    },
+    {
+      key: 'category',
+      header: 'Category',
+      className: 'w-[150px]',
+      render: (product) => (
+        <span className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+          {product.category?.name || "—"}
+        </span>
+      ),
+    },
+    {
+      key: 'price',
+      header: 'Price',
+      className: 'w-[100px]',
+      render: (product) => (
+        <span className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+          {product.variants?.[0]?.price != null
+            ? `$${(product.variants[0].price / 100).toFixed(2)}`
+            : "N/A"}
+        </span>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      className: 'w-[120px]',
+      render: (product) => {
+        const isActive = product.isActive;
+        const statusColor = isActive ? 'text-green-500' : 'text-gray-500';
+        const statusText = isActive ? 'Active' : 'Inactive';
+        return (
+          <div className="flex items-center gap-2">
+            <span className={`text-2xl leading-none ${statusColor}`}>•</span>
+            <span className={`text-sm font-medium ${statusColor}`}>{statusText}</span>
+          </div>
+        );
+      },
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      className: 'w-[100px]',
+      render: (product) => (
+        <div className="flex items-center gap-3">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/products/view/${product.id}`);
+            }}
+            className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+            title="View product"
+          >
+            <EyeIcon className="w-5 h-5" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/products/edit/${product.id}`);
+            }}
+            className="text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors"
+            title="Edit product"
+          >
+            <PencilIcon className="w-5 h-5" />
+          </button>
+        </div>
+      ),
+    },
+  ];
 
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
-      <div className="max-w-full overflow-x-auto">
-        <Table>
-          <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
-            <TableRow>
-              <TableCell
-                isHeader
-                className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-              >
-                Product
-              </TableCell>
-              <TableCell
-                isHeader
-                className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-              >
-                SKU
-              </TableCell>
-              <TableCell
-                isHeader
-                className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-              >
-                Category
-              </TableCell>
-              <TableCell
-                isHeader
-                className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-              >
-                Price
-              </TableCell>
-              <TableCell
-                isHeader
-                className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-              >
-                Status
-              </TableCell>
-              <TableCell
-                isHeader
-                className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-              >
-                Actions
-              </TableCell>
-            </TableRow>
-          </TableHeader>
-
-          <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-            {products.map((product) => (
-              <TableRow key={product.id} className="transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.05]">
-                <TableCell className="px-5 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 overflow-hidden rounded-md border-0 border-gray-300 dark:border-gray-700">
-                        <img
-                          src={product.images?.[0] ?? product.image ?? fallbackImage}
-                          alt={product.name}
-                          className="h-full w-full object-cover border-0"
-                        />
-                      </div>
-                    <span className="font-medium text-gray-800 dark:text-white">
-                      {product.name}
-                    </span>
-                  </div>
-                </TableCell>
-
-                <TableCell className="px-5 py-4">
-                  <div className="text-gray-600 dark:text-gray-300">
-                    {product.sku || "—"}
-                  </div>
-                </TableCell>
-
-                <TableCell className="px-5 py-4">
-                  <div className="text-gray-600 dark:text-gray-300">
-                    {product.category?.name || "—"}
-                  </div>
-                </TableCell>
-
-                <TableCell className="px-5 py-4">
-                  <div className="text-gray-600 dark:text-gray-300">
-                    {product.variants?.[0]?.price != null
-                      ? `$${(product.variants[0].price / 100).toFixed(2)}`
-                      : "N/A"}
-                  </div>
-                </TableCell>
-
-                <TableCell className="px-5 py-4">
-                  <Badge size="sm" color={product.isActive ? "success" : "error"}>
-                    {product.isActive ? "Active" : "Inactive"}
-                  </Badge>
-                </TableCell>
-
-                <TableCell className="px-5 py-4">
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => handleView(product.id)}
-                      className="text-sm font-medium text-[#597485] hover:text-[#4e6575] hover:underline"
-                    >
-                      View
-                    </button>
-                    <span className="text-gray-300 dark:text-gray-600">|</span>
-                    <button
-                      onClick={() => handleEdit(product.id)}
-                      className="text-sm font-medium text-[#597485] hover:text-[#4e6575] hover:underline"
-                    >
-                      Edit
-                    </button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-    </div>
+    <StandardTable
+      columns={columns}
+      data={products}
+      loading={false}
+      emptyState={{
+        message: "No products found",
+      }}
+      onRowClick={handleRowClick}
+    />
   );
 };
 

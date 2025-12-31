@@ -167,7 +167,7 @@ const handleActivateAll = async () => {
                   </p>
                 </div>
                 {!item.giftCardInfo.isCustomAmount && (
-                  <div className="text-lg font-semibold text-[#597485]">
+                  <div className="text-lg font-semibold text-brand-500">
                     ${item.giftCardInfo.value}
                   </div>
                 )}
@@ -303,7 +303,7 @@ const handleActivateAll = async () => {
           <button
             onClick={handleActivateAll}
             disabled={activating}
-            className="px-4 py-2 bg-[#597485] text-white rounded-md hover:bg-[#597485]/90 disabled:opacity-50"
+            className="px-4 py-2 bg-brand-500 text-white rounded-md hover:bg-brand-500/90 disabled:opacity-50"
           >
 {activating ? 'Processing...' : 'Create Gift Cards'}
           </button>

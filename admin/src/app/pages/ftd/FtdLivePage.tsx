@@ -85,7 +85,7 @@ export default function FtdLivePage() {
 
               <button
                 onClick={openInNewWindow}
-                className="px-6 py-3 bg-[#597485] text-white rounded-xl hover:bg-[#4e6575] transition-colors flex items-center gap-2"
+                className="px-6 py-3 bg-brand-500 text-white rounded-xl hover:bg-brand-600 transition-colors flex items-center gap-2"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path

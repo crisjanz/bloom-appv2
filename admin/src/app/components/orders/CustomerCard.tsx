@@ -67,7 +67,7 @@ const CustomerCard: FC<Props> = ({
             placeholder="Search by name or phone..."
             value={customerQuery}
             onChange={(e) => setCustomerQuery(e.target.value)}
-            className="h-10 rounded-lg border border-gray-300 bg-transparent px-3 text-sm focus:border-[#597485]"
+            className="h-10 rounded-lg border border-gray-300 bg-transparent px-3 text-sm focus:border-brand-500"
           />
 
           {customerResults.length > 0 && (
@@ -131,7 +131,7 @@ const CustomerCard: FC<Props> = ({
                 }}
                 className="cursor-pointer border-t-2 border-stroke bg-white px-5 py-3 text-sm hover:bg-blue-50 dark:border-strokedark dark:bg-boxdark dark:hover:bg-meta-4"
               >
-                <div className="font-medium text-[#597485] dark:text-blue-400">
+                <div className="font-medium text-brand-500 dark:text-blue-400">
                   + Create new customer with same phone
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">
@@ -154,7 +154,7 @@ const CustomerCard: FC<Props> = ({
             onChange={(e) =>
               setCustomer({ ...customer, firstName: e.target.value })
             }
-            className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-[#597485]"
+            className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-brand-500"
           />
         </div>
 
@@ -167,7 +167,7 @@ const CustomerCard: FC<Props> = ({
             onChange={(e) =>
               setCustomer({ ...customer, lastName: e.target.value })
             }
-            className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-[#597485]"
+            className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-brand-500"
           />
         </div>
 
@@ -203,7 +203,7 @@ const CustomerCard: FC<Props> = ({
             onChange={(e) =>
               setCustomer({ ...customer, email: e.target.value })
             }
-            className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-[#597485]"
+            className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-brand-500"
           />
         </div>
 
@@ -220,7 +220,7 @@ const CustomerCard: FC<Props> = ({
         <div className="flex justify-start md:justify-end">
           <button
             onClick={clearCustomerInfo}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#597485] px-4 text-sm font-medium text-white hover:bg-[#4e6575]"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 text-sm font-medium text-white hover:bg-brand-600"
           >
             Clear Customer Info
           </button>

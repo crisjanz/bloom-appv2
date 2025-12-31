@@ -377,10 +377,10 @@ const RecipientSearchModal = ({
                       onSelectRecipient(selectedCustomerForAddresses);
                       setSelectedCustomerForAddresses(null);
                     }}
-                    className="flex w-full flex-col items-start gap-1 rounded-lg border-2 border-[#597485] bg-[#597485]/5 px-4 py-3 text-left transition hover:bg-[#597485]/10 dark:border-[#7a9bb0] dark:bg-[#7a9bb0]/10 dark:hover:bg-[#7a9bb0]/20"
+                    className="flex w-full flex-col items-start gap-1 rounded-lg border-2 border-brand-500 bg-brand-500/5 px-4 py-3 text-left transition hover:bg-brand-500/10 dark:border-[#7a9bb0] dark:bg-[#7a9bb0]/10 dark:hover:bg-[#7a9bb0]/20"
                   >
                     <div className="flex items-center gap-2">
-                      <span className="rounded bg-[#597485] px-2 py-0.5 text-xs font-medium text-white">
+                      <span className="rounded bg-brand-500 px-2 py-0.5 text-xs font-medium text-white">
                         Home Address
                       </span>
                       {selectedCustomerForAddresses.homeAddress.label && (

@@ -8,6 +8,29 @@ import { extractWireProductInfo, normalizeProductCode } from "../utils/wireProdu
 const prisma = new PrismaClient();
 const axiosClient = axios.create();
 
+/**
+ * Strip phone number to digits only for database storage
+ * Handles: removes all formatting characters, strips leading 1 from 11-digit numbers
+ */
+function stripPhoneNumber(phone: string | undefined | null): string {
+  if (!phone) return '';
+
+  // Keep international numbers (with +)
+  if (phone.startsWith('+')) {
+    return '+' + phone.slice(1).replace(/\D/g, '');
+  }
+
+  // Strip to digits only
+  const digits = phone.replace(/\D/g, '');
+
+  // Remove leading 1 if 11 digits (North American country code)
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return digits.slice(1);
+  }
+
+  return digits;
+}
+
 let currentToken = "";
 let isPolling = false;
 let pollingInterval: NodeJS.Timeout | null = null;
@@ -311,7 +334,8 @@ async function autoCreateBloomOrder(ftdOrder: any) {
     const rawData = ftdOrder.ftdRawData as any;
     const sendingMember = rawData?.sendingMember || {};
     const floristCode = ftdOrder.sendingFloristCode || "unknown";
-    const floristPhone = sendingMember.phone || `ftd-${floristCode}`;
+    const rawFloristPhone = sendingMember.phone || `ftd-${floristCode}`;
+    const floristPhone = stripPhoneNumber(rawFloristPhone);
 
     let senderCustomer = await prisma.customer.findFirst({
       where: { phone: floristPhone }
@@ -350,7 +374,7 @@ async function autoCreateBloomOrder(ftdOrder: any) {
         province: ftdOrder.province || "",
         postalCode: ftdOrder.postalCode || "",
         country: ftdOrder.country || "CA",
-        phone: ftdOrder.recipientPhone,
+        phone: stripPhoneNumber(ftdOrder.recipientPhone),
         addressType: ftdOrder.addressType || AddressType.RESIDENCE,
         customerId: recipientCustomer.id
       }
@@ -504,8 +528,9 @@ async function syncBloomOrderStatus(ftdOrder: any) {
 // Find or create recipient customer
 async function findOrCreateRecipientCustomer(ftdOrder: any) {
   if (ftdOrder.recipientPhone) {
+    const strippedPhone = stripPhoneNumber(ftdOrder.recipientPhone);
     let customer = await prisma.customer.findFirst({
-      where: { phone: ftdOrder.recipientPhone }
+      where: { phone: strippedPhone }
     });
 
     if (customer) return customer;
@@ -536,7 +561,7 @@ async function findOrCreateRecipientCustomer(ftdOrder: any) {
     data: {
       firstName: ftdOrder.recipientFirstName || "Recipient",
       lastName: ftdOrder.recipientLastName || "",
-      phone: ftdOrder.recipientPhone,
+      phone: stripPhoneNumber(ftdOrder.recipientPhone),
       email: ftdOrder.recipientEmail
     }
   });

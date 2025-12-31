@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useCustomerSearch } from '@domains/customers/hooks/useCustomerService.ts';
 import { useTaxRates } from '@shared/hooks/useTaxRates';
 import InputField from '@shared/ui/forms/input/InputField';
+import { formatPhoneDisplay } from '@shared/ui/forms/PhoneInput';
 
 type CartItem = {
   id: string;
@@ -161,7 +162,7 @@ const handleCustomerSelect = (selectedCustomer: any) => {
 <div className="p-6 border-b border-gray-100 dark:border-gray-800">
   <div className="flex items-center justify-between mb-4">
     <h3 className="font-semibold text-black dark:text-white flex items-center gap-2">
-      <div className="w-8 h-8 bg-[#597485] rounded-full flex items-center justify-center overflow-hidden">
+      <div className="w-8 h-8 bg-brand-500 rounded-full flex items-center justify-center overflow-hidden">
         {customer?.image ? (
           <img 
             src={customer.image} 
@@ -180,7 +181,7 @@ const handleCustomerSelect = (selectedCustomer: any) => {
           <span>{customer.name}</span>
           {customer.phone && (
             <span className="text-sm text-gray-500 dark:text-gray-400">
-              • {customer.phone}
+              • {formatPhoneDisplay(customer.phone)}
             </span>
           )}
         </div>
@@ -199,7 +200,7 @@ const handleCustomerSelect = (selectedCustomer: any) => {
     ) : (
       <button
         onClick={() => setShowCustomerSearch(true)}
-        className="w-6 h-6 rounded-full bg-[#597485] hover:bg-[#4e6575] text-white flex items-center justify-center transition-colors"
+        className="w-6 h-6 rounded-full bg-brand-500 hover:bg-brand-600 text-white flex items-center justify-center transition-colors"
       >
         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -216,7 +217,7 @@ const handleCustomerSelect = (selectedCustomer: any) => {
         placeholder="Search customers..."
         value={customerQuery}
         onChange={(e) => setCustomerQuery(e.target.value)}
-        className="rounded-xl focus:border-[#597485] focus:ring-[#597485]/20"
+        className="rounded-xl focus:border-brand-500 focus:ring-brand-500/20"
         autoFocus
       />
       
@@ -320,7 +321,7 @@ const handleCustomerSelect = (selectedCustomer: any) => {
                             onChange={(e) => setTempPrice(e.target.value)}
                             onKeyDown={(e) => handlePriceKeyDown(e, item.id)}
                             onBlur={() => handlePriceBlur(item.id)}
-                            className="w-20 text-sm bg-white dark:bg-boxdark border-2 border-[#597485] rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#597485]/20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            className="w-20 text-sm bg-white dark:bg-boxdark border-2 border-brand-500 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-brand-500/20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             min="0"
                             step="0.01"
                             autoFocus
@@ -328,7 +329,7 @@ const handleCustomerSelect = (selectedCustomer: any) => {
                         ) : (
                           <button
                             onClick={() => handlePriceClick(item.id, itemPrice)}
-                            className="text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-[#597485] hover:bg-gray-50 dark:hover:bg-gray-800 px-2 py-1 rounded-lg transition-all"
+                            className="text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-brand-500 hover:bg-gray-50 dark:hover:bg-gray-800 px-2 py-1 rounded-lg transition-all"
                           >
                             {itemPrice.toFixed(2)}
                           </button>
@@ -474,7 +475,7 @@ const handleCustomerSelect = (selectedCustomer: any) => {
   
   <div className="flex justify-between">
     <span className="text-lg font-bold text-black dark:text-white">Total:</span>
-    <span className="text-xl font-bold text-[#597485]">${total.toFixed(2)}</span>
+    <span className="text-xl font-bold text-brand-500">${total.toFixed(2)}</span>
   </div>
 </div>
     </div>
@@ -485,7 +486,7 @@ const handleCustomerSelect = (selectedCustomer: any) => {
               
               <button
                 onClick={handleTakePayment}
-                className="w-full py-4 bg-[#597485] hover:bg-[#4e6575] text-white rounded-2xl font-bold text-lg transition-all duration-200 flex items-center justify-center gap-2"
+                className="w-full py-4 bg-brand-500 hover:bg-brand-600 text-white rounded-2xl font-bold text-lg transition-all duration-200 flex items-center justify-center gap-2"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -497,13 +498,13 @@ const handleCustomerSelect = (selectedCustomer: any) => {
               <div className="flex justify-center gap-4 pt-1">
                 <button
                   onClick={onSaveDraft}
-                  className="text-xs text-gray-500 hover:text-[#597485] dark:text-gray-400 dark:hover:text-[#597485] transition-colors underline-offset-2 hover:underline"
+                  className="text-xs text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-500 transition-colors underline-offset-2 hover:underline"
                 >
                   Save as Draft
                 </button>
                 <button
                   onClick={onLoadDrafts}
-                  className="text-xs text-gray-500 hover:text-[#597485] dark:text-gray-400 dark:hover:text-[#597485] transition-colors underline-offset-2 hover:underline"
+                  className="text-xs text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-500 transition-colors underline-offset-2 hover:underline"
                 >
                   Load Drafts
                 </button>

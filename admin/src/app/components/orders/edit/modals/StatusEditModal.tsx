@@ -42,7 +42,7 @@ const StatusEditModal: React.FC<StatusEditModalProps> = ({
         <button
           onClick={onSave}
           disabled={saving}
-          className="px-4 py-2 bg-[#597485] text-white rounded-lg hover:bg-[#4e6575] transition-colors disabled:opacity-50 flex items-center gap-2"
+          className="px-4 py-2 bg-brand-500 text-white rounded-lg hover:bg-brand-600 transition-colors disabled:opacity-50 flex items-center gap-2"
         >
           {saving ? (
             <>

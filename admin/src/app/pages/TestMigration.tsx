@@ -67,7 +67,7 @@ export default function TestMigration() {
               )}
               {isSearching && (
                 <div className="mt-2 text-center text-gray-500">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#597485] mx-auto"></div>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand-500 mx-auto"></div>
                   <div className="mt-1 text-sm">Searching...</div>
                 </div>
               )}

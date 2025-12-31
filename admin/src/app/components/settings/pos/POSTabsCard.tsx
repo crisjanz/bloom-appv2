@@ -65,7 +65,7 @@ export default function POSTabsCard() {
     return (
       <ComponentCard title="POS Tab Configuration">
         <div className="flex items-center justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#597485]"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500"></div>
         </div>
       </ComponentCard>
     );
@@ -106,7 +106,7 @@ export default function POSTabsCard() {
                   id={`tab-${tab.id}`}
                   value={tab.name}
                   onChange={(e) => handleTabNameChange(tab.id, e.target.value)}
-                  className="focus:border-[#597485] focus:ring-[#597485]/20"
+                  className="focus:border-brand-500 focus:ring-brand-500/20"
                   placeholder={`Enter ${tab.id} name`}
                 />
               </div>
@@ -126,7 +126,7 @@ export default function POSTabsCard() {
                 onClick={() => setSelectedTab(tab.id)}
                 className={`px-4 py-2 font-medium transition-colors ${
                   selectedTab === tab.id
-                    ? 'text-[#597485] border-b-2 border-[#597485]'
+                    ? 'text-brand-500 border-b-2 border-brand-500'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
                 }`}
               >
@@ -149,7 +149,7 @@ export default function POSTabsCard() {
                     <Checkbox
                       checked={currentTab?.productIds.includes(product.id) || false}
                       onChange={(checked) => handleProductToggle(product.id, checked)}
-                      className="checked:bg-[#597485] checked:border-[#597485]"
+                      className="checked:bg-brand-500 checked:border-brand-500"
                     />
                     <div className="flex-1">
                       <h4 className="font-medium text-black dark:text-white">{product.name}</h4>
@@ -167,7 +167,7 @@ export default function POSTabsCard() {
             <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 <span className="font-medium">{currentTab.name}</span> has{' '}
-                <span className="font-medium text-[#597485]">
+                <span className="font-medium text-brand-500">
                   {currentTab.productIds.length}
                 </span>{' '}
                 product{currentTab.productIds.length !== 1 ? 's' : ''} assigned
@@ -181,7 +181,7 @@ export default function POSTabsCard() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="bg-[#597485] hover:bg-[#4e6575] disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-medium transition-colors"
+            className="bg-brand-500 hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-medium transition-colors"
           >
             {saving ? 'Saving...' : 'Save Tab Configuration'}
           </button>

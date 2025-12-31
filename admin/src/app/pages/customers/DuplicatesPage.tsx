@@ -608,7 +608,7 @@ export default function DuplicatesPage() {
                 onClick={() => setFilterLevel('all')}
                 className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
                   filterLevel === 'all'
-                    ? 'bg-[#597485] text-white'
+                    ? 'bg-brand-500 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
                 }`}
               >
@@ -653,7 +653,7 @@ export default function DuplicatesPage() {
           {loading && (
             <div className="flex items-center justify-center py-12">
               <div className="flex items-center space-x-3">
-                <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-[#597485]"></div>
+                <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-brand-500"></div>
                 <span className="text-gray-500">Analyzing customers...</span>
               </div>
             </div>
@@ -847,7 +847,7 @@ export default function DuplicatesPage() {
                     <div className="mt-3 flex items-center justify-between">
                       <Link
                         to={`/customers/${customer.id}`}
-                        className="inline-flex text-xs font-medium text-[#597485] hover:underline"
+                        className="inline-flex text-xs font-medium text-brand-500 hover:underline"
                       >
                         View Details →
                       </Link>

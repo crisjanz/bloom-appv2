@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { CloseIcon, ChatIcon, CheckCircleIcon, AlertIcon } from '@shared/assets/icons';
+import { ChatIcon, CheckCircleIcon, AlertIcon } from '@shared/assets/icons';
+import PhoneInput from '@shared/ui/forms/PhoneInput';
+import { Modal } from '@shared/ui/components/ui/modal';
 
 type SMSReceiptModalProps = {
   open: boolean;
@@ -45,36 +47,29 @@ const SMSReceiptModal: React.FC<SMSReceiptModalProps> = ({
     }
   };
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-[100000] bg-black bg-opacity-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-[#597485] bg-opacity-10 rounded-lg">
-              <ChatIcon className="w-5 h-5 text-[#597485]" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900">
-              Send SMS Receipt
-            </h3>
-          </div>
-          <button
-            onClick={onCancel}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <CloseIcon className="w-5 h-5 text-gray-500" />
-          </button>
+    <Modal
+      isOpen={open}
+      onClose={onCancel}
+      className="max-w-md"
+    >
+      <div className="flex items-center space-x-3 p-6 border-b border-gray-200 dark:border-gray-700">
+        <div className="p-2 bg-brand-500 bg-opacity-10 rounded-lg">
+          <ChatIcon className="w-5 h-5 text-brand-500" />
         </div>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+          Send SMS Receipt
+        </h3>
+      </div>
 
-        <div className="p-6">
+      <div className="p-6">
           <div className="mb-4">
             <p className="text-sm text-gray-600 mb-4">
               {customerName ? `Send receipt to ${customerName} via SMS` : 'Send receipt via SMS'}
             </p>
             
             {customerPhone && (
-              <div className="flex items-center space-x-2 text-sm text-[#597485] bg-[#597485] bg-opacity-5 p-3 rounded-lg mb-4">
+              <div className="flex items-center space-x-2 text-sm text-brand-500 bg-brand-500 bg-opacity-5 p-3 rounded-lg mb-4">
                 <CheckCircleIcon className="w-4 h-4" />
                 <span>Using saved phone number from customer profile</span>
               </div>
@@ -82,22 +77,11 @@ const SMSReceiptModal: React.FC<SMSReceiptModalProps> = ({
           </div>
 
           <div className="mb-6">
-            <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-              Phone Number
-            </label>
-            <input
-              id="phone"
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              onKeyPress={handleKeyPress}
+            <PhoneInput
+              label="Phone Number"
+              value={phone || ''}
+              onChange={(value) => setPhone(value)}
               placeholder="(604) 217-5706"
-              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#597485] focus:border-[#597485] transition-colors ${
-                !isValid && phone.length > 0
-                  ? 'border-red-300 bg-red-50'
-                  : 'border-gray-300'
-              }`}
-              autoFocus
             />
             {!isValid && phone.length > 0 && (
               <div className="flex items-center space-x-2 mt-2 text-sm text-red-600">
@@ -119,7 +103,7 @@ const SMSReceiptModal: React.FC<SMSReceiptModalProps> = ({
               disabled={!isValid || !phone.trim()}
               className={`flex-1 px-4 py-3 rounded-lg font-medium transition-colors ${
                 isValid && phone.trim()
-                  ? 'bg-[#597485] hover:bg-[#4e6575] text-white'
+                  ? 'bg-brand-500 hover:bg-brand-600 text-white'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
             >
@@ -127,8 +111,7 @@ const SMSReceiptModal: React.FC<SMSReceiptModalProps> = ({
             </button>
           </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 };
 

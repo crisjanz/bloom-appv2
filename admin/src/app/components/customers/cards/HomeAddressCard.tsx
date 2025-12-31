@@ -4,7 +4,7 @@ import InputField from "@shared/ui/forms/input/InputField";
 import Label from "@shared/ui/forms/Label";
 import AddressAutocomplete from "@shared/ui/forms/AddressAutocomplete";
 import Select from "@shared/ui/forms/Select";
-import PhoneInput from "@shared/ui/forms/group-input/PhoneInput"; // Add this import
+import PhoneInput from "@shared/ui/forms/PhoneInput";
 import { ParsedAddress } from "@shared/utils/googlePlaces";
 
 interface HomeAddressCardProps {
@@ -51,15 +51,6 @@ const countryOptions = [
   // Add more countries as needed
 ];
 
-const phoneCountries = [
-  { code: "CA", label: "+1" },
-  { code: "US", label: "+1" },
-  { code: "GB", label: "+44" },
-  { code: "AU", label: "+61" },
-  { code: "DE", label: "+49" },
-  { code: "FR", label: "+33" },
-];
-
 export default function HomeAddressCard({
   homeAddress,
   onAddressChange,
@@ -82,7 +73,7 @@ export default function HomeAddressCard({
               }
             }}
             placeholder="Enter street address"
-            className="focus:border-[#597485] focus:ring-[#597485]/20"
+            className="focus:border-brand-500 focus:ring-brand-500/20"
           />
         </div>
         
@@ -94,7 +85,7 @@ export default function HomeAddressCard({
             placeholder="Apartment, suite, unit, etc."
             value={homeAddress?.address2 || ""}
             onChange={(e) => onAddressChange("address2", e.target.value)}
-            className="focus:border-[#597485] focus:ring-[#597485]/20"
+            className="focus:border-brand-500 focus:ring-brand-500/20"
           />
         </div>
         
@@ -106,7 +97,7 @@ export default function HomeAddressCard({
             placeholder="Enter city"
             value={homeAddress?.city || ""}
             onChange={(e) => onAddressChange("city", e.target.value)}
-            className="focus:border-[#597485] focus:ring-[#597485]/20"
+            className="focus:border-brand-500 focus:ring-brand-500/20"
           />
         </div>
         
@@ -118,7 +109,7 @@ export default function HomeAddressCard({
             placeholder="Enter province or state"
             value={homeAddress?.province || ""}
             onChange={(e) => onAddressChange("province", e.target.value)}
-            className="focus:border-[#597485] focus:ring-[#597485]/20"
+            className="focus:border-brand-500 focus:ring-brand-500/20"
           />
         </div>
         
@@ -130,7 +121,7 @@ export default function HomeAddressCard({
             placeholder="Enter postal or zip code"
             value={homeAddress?.postalCode || ""}
             onChange={(e) => onAddressChange("postalCode", e.target.value)}
-            className="focus:border-[#597485] focus:ring-[#597485]/20"
+            className="focus:border-brand-500 focus:ring-brand-500/20"
           />
         </div>
         
@@ -145,15 +136,11 @@ export default function HomeAddressCard({
         </div>
         
         <div className="md:col-span-2">
-          <Label htmlFor="homePhone">Phone</Label>
           <PhoneInput
-            type="tel"
-            id="homePhone"
+            label="Phone"
             value={homeAddress?.phone || ""}
             onChange={(cleanedPhone) => onAddressChange("phone", cleanedPhone)}
-            countries={phoneCountries}
-            selectPosition="start"
-            placeholder="+1 (555) 000-0000"
+            placeholder="(250) 301-5062"
           />
         </div>
       </div>

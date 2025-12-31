@@ -129,7 +129,7 @@ const GiftCardInput: React.FC<Props> = ({ onGiftCardChange, grandTotal }) => {
                 />
                 {isChecking && (
                   <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                    <div className="animate-spin h-4 w-4 border-2 border-[#597485] border-t-transparent rounded-full"></div>
+                    <div className="animate-spin h-4 w-4 border-2 border-brand-500 border-t-transparent rounded-full"></div>
                   </div>
                 )}
               </div>
@@ -137,7 +137,7 @@ const GiftCardInput: React.FC<Props> = ({ onGiftCardChange, grandTotal }) => {
                 type="button"
                 onClick={handleCheckGiftCard}
                 disabled={!giftCardNumber.trim() || isChecking}
-                className="px-4 py-2 bg-[#597485] text-white rounded-md hover:bg-[#597485]/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-brand-500 text-white rounded-md hover:bg-brand-500/90 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isChecking ? "..." : "Check"}
               </button>

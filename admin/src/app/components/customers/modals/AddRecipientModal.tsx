@@ -172,7 +172,7 @@ export default function AddRecipientModal({
             onClick={() => setActiveTab("search")}
             className={`px-4 py-2 text-sm font-medium transition ${
               activeTab === "search"
-                ? "border-b-2 border-[#597485] text-[#597485]"
+                ? "border-b-2 border-brand-500 text-brand-500"
                 : "text-gray-500 hover:text-gray-700 dark:text-gray-400"
             }`}
           >
@@ -183,7 +183,7 @@ export default function AddRecipientModal({
             onClick={() => setActiveTab("new")}
             className={`px-4 py-2 text-sm font-medium transition ${
               activeTab === "new"
-                ? "border-b-2 border-[#597485] text-[#597485]"
+                ? "border-b-2 border-brand-500 text-brand-500"
                 : "text-gray-500 hover:text-gray-700 dark:text-gray-400"
             }`}
           >
@@ -232,7 +232,7 @@ export default function AddRecipientModal({
                       type="button"
                       onClick={() => handleAttach(result.id)}
                       disabled={saving}
-                      className="rounded-lg bg-[#597485] px-3 py-2 text-sm font-medium text-white hover:bg-[#4e6575] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       Add
                     </button>
@@ -357,7 +357,7 @@ export default function AddRecipientModal({
               <button
                 type="submit"
                 disabled={saving}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#597485] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#4e6575] disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {saving ? "Saving..." : "Create & Add"}
               </button>

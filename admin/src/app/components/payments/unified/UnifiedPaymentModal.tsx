@@ -108,10 +108,10 @@ const UnifiedPaymentModal = ({
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600 dark:text-gray-400">Remaining Balance</span>
-                <span className="font-semibold text-[#597485]">{formatCurrency(Math.max(0, remaining))}</span>
+                <span className="font-semibold text-brand-500">{formatCurrency(Math.max(0, remaining))}</span>
               </div>
               {isProcessing && (
-                <div className="text-sm text-[#597485]">Processing payment…</div>
+                <div className="text-sm text-brand-500">Processing payment…</div>
               )}
               {error && (
                 <div className="text-sm text-red-600 dark:text-red-400">{error}</div>
@@ -141,7 +141,7 @@ const UnifiedPaymentModal = ({
                         )}
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="text-sm font-semibold text-[#597485]">{formatCurrency(payment.amount)}</span>
+                        <span className="text-sm font-semibold text-brand-500">{formatCurrency(payment.amount)}</span>
                         {payment.onRemove && (
                           <button
                             onClick={payment.onRemove}
@@ -188,7 +188,7 @@ const UnifiedPaymentModal = ({
                     />
                     <button
                       onClick={onAutofillAmount}
-                      className="text-xs font-medium text-[#597485] hover:text-[#4e6575]"
+                      className="text-xs font-medium text-brand-500 hover:text-brand-600"
                     >
                       Autofill
                     </button>

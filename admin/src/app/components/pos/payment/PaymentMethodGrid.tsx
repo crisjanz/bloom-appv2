@@ -78,8 +78,8 @@ const PaymentMethodGrid: FC<Props> = ({
                   className={`relative w-full h-24 flex flex-col justify-center items-center rounded-xl border-2 shadow-md transition-all hover:shadow-xl
                     ${
                       isSelected
-                        ? "bg-[#597485] border-[#597485] text-white"
-                        : "bg-white dark:bg-boxdark border-gray-300 dark:border-strokedark hover:border-[#597485]/50 text-gray-800 dark:text-white"
+                        ? "bg-brand-500 border-brand-500 text-white"
+                        : "bg-white dark:bg-boxdark border-gray-300 dark:border-strokedark hover:border-brand-500/50 text-gray-800 dark:text-white"
                     }
                   `}
                 >
@@ -88,7 +88,7 @@ const PaymentMethodGrid: FC<Props> = ({
 
                   {isSelected && (
                     <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-white border-2 border-white flex items-center justify-center">
-                      <div className="w-2 h-2 rounded-full bg-[#597485]" />
+                      <div className="w-2 h-2 rounded-full bg-brand-500" />
                     </div>
                   )}
                 </button>
@@ -105,7 +105,7 @@ const PaymentMethodGrid: FC<Props> = ({
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
           <button
             onClick={() => setShowDiscountModal(true)}
-            className="flex items-center justify-center gap-2 py-3 px-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl text-gray-600 dark:text-gray-400 hover:border-[#597485] hover:text-[#597485] transition-all"
+            className="flex items-center justify-center gap-2 py-3 px-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl text-gray-600 dark:text-gray-400 hover:border-brand-500 hover:text-brand-500 transition-all"
           >
             <span className="text-lg">💰</span>
             <span className="font-medium">Add Discount</span>
@@ -113,7 +113,7 @@ const PaymentMethodGrid: FC<Props> = ({
 
           <button
             onClick={() => setShowGiftCardModal(true)}
-            className="flex items-center justify-center gap-2 py-3 px-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl text-gray-600 dark:text-gray-400 hover:border-[#597485] hover:text-[#597485] transition-all"
+            className="flex items-center justify-center gap-2 py-3 px-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl text-gray-600 dark:text-gray-400 hover:border-brand-500 hover:text-brand-500 transition-all"
           >
             <span className="text-lg">🎁</span>
             <span className="font-medium">Gift Card</span>
@@ -121,7 +121,7 @@ const PaymentMethodGrid: FC<Props> = ({
 
           <button
             onClick={() => setShowCouponModal(true)}
-            className="flex items-center justify-center gap-2 py-3 px-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl text-gray-600 dark:text-gray-400 hover:border-[#597485] hover:text-[#597485] transition-all"
+            className="flex items-center justify-center gap-2 py-3 px-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl text-gray-600 dark:text-gray-400 hover:border-brand-500 hover:text-brand-500 transition-all"
           >
             <span className="text-lg">🎫</span>
             <span className="font-medium">Coupon</span>
@@ -210,7 +210,7 @@ const PaymentMethodGrid: FC<Props> = ({
             // If success is false, modal stays open so user can correct the code
           }}
           disabled={!couponCode}
-          className="flex-1 py-3 px-4 bg-[#597485] hover:bg-[#4e6575] disabled:opacity-50 text-white rounded-xl font-medium transition-colors"
+          className="flex-1 py-3 px-4 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white rounded-xl font-medium transition-colors"
         >
           Add Coupon
         </button>

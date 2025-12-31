@@ -70,7 +70,7 @@ export default function OrderHistoryCard({ customerId, expanded, onToggle }: Ord
     return (
       <ComponentCardCollapsible title="Order History" isOpen={expanded} onToggle={onToggle}>
         <div className="flex items-center justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#597485]"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500"></div>
         </div>
       </ComponentCardCollapsible>
     );
@@ -206,7 +206,7 @@ export default function OrderHistoryCard({ customerId, expanded, onToggle }: Ord
                     <TableCell className="px-5 py-4 text-center">
                       <Link
                         to={`/orders/${order.id}`}
-                        className="text-sm font-medium text-[#597485] hover:text-[#4e6575] hover:underline"
+                        className="text-sm font-medium text-brand-500 hover:text-brand-600 hover:underline"
                       >
                         View
                       </Link>

@@ -47,7 +47,7 @@ export default function AddressesCard({
           type="button"
           onClick={onAdd}
           disabled={disabled}
-          className="inline-flex items-center gap-2 rounded-lg bg-[#597485] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#4e6575] disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-60"
         >
           Add Address
         </button>
@@ -70,7 +70,7 @@ export default function AddressesCard({
               {addresses.map((address) => (
                 <div
                   key={address.id}
-                  className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-[#597485]/40 dark:border-gray-800 dark:bg-white/[0.03]"
+                  className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-brand-500/40 dark:border-gray-800 dark:bg-white/[0.03]"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="min-w-0 space-y-1">
@@ -93,7 +93,7 @@ export default function AddressesCard({
                       <button
                         type="button"
                         onClick={() => onEdit(address)}
-                        className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:border-[#597485] hover:text-[#597485] dark:border-gray-700 dark:text-gray-300 dark:hover:border-[#597485]"
+                        className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:border-brand-500 hover:text-brand-500 dark:border-gray-700 dark:text-gray-300 dark:hover:border-brand-500"
                       >
                         Edit
                       </button>

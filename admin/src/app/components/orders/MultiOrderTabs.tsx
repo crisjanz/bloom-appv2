@@ -136,7 +136,16 @@ export default function MultiOrderTabs({
     const updated = [...orders];
     updated.splice(index, 1);
     setOrders(updated);
-    setActiveTab(Math.max(0, activeTab - (index === activeTab ? 1 : 0)));
+
+    // Calculate new active tab
+    if (index === activeTab) {
+      // Removing the active tab - move to previous tab or stay at 0
+      setActiveTab(Math.max(0, activeTab - 1));
+    } else if (index < activeTab) {
+      // Removing a tab before the active tab - decrement active tab
+      setActiveTab(activeTab - 1);
+    }
+    // If index > activeTab, no change needed
   };
 
   const updateOrder = (index: number, field: keyof OrderEntry, value: any) => {
@@ -180,10 +189,9 @@ export default function MultiOrderTabs({
   onClick={() => setActiveTab(i)}
   className={`relative inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 border-2 ${
     i === activeTab
-      ? "border-[#597485] text-white shadow-sm"
+      ? "bg-brand-500 border-brand-500 text-white shadow-sm"
       : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
   }`}
-  style={i === activeTab ? { backgroundColor: '#597485', color: '#ffffff !important' } : {}}
 >
   <span className="mr-2">Order #{i + 1}</span>
   {orders.length > 1 && (
@@ -194,10 +202,9 @@ export default function MultiOrderTabs({
       }}
       className={`flex h-5 w-5 items-center justify-center rounded-full text-sm transition-colors cursor-pointer ${
         i === activeTab
-          ? "hover:bg-white/20"
+          ? "text-white hover:bg-white/20"
           : "hover:bg-red-100 text-red-500 dark:hover:bg-red-900/20"
       }`}
-      style={i === activeTab ? { color: '#ffffff' } : {}}
       title="Remove this order"
     >
       ×
@@ -213,19 +220,8 @@ export default function MultiOrderTabs({
             className={`inline-flex items-center justify-center rounded-lg border-2 border-dashed px-4 py-2.5 text-sm font-medium transition-all ${
               orders.length >= maxTabs
                 ? "border-gray-300 text-gray-400 cursor-not-allowed dark:border-gray-600 dark:text-gray-500"
-                : "border-[#597485] text-[#597485] hover:text-white dark:border-[#597485] dark:text-[#597485] dark:hover:text-white"
+                : "border-brand-500 text-brand-500 hover:bg-brand-500 hover:text-white dark:border-brand-500 dark:text-brand-500 dark:hover:bg-brand-500 dark:hover:text-white"
             }`}
-            style={{}}
-            onMouseEnter={(e) => {
-              if (orders.length < maxTabs) {
-                e.currentTarget.style.backgroundColor = '#597485';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (orders.length < maxTabs) {
-                e.currentTarget.style.backgroundColor = 'transparent';
-              }
-            }}
           >
             <svg
               className="mr-2 h-4 w-4"

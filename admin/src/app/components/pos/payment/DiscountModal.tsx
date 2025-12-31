@@ -44,7 +44,7 @@ const DiscountModal: FC<Props> = ({ open, onApply, onCancel }) => {
                 onClick={() => setDiscountType('percent')}
                 className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
                   discountType === 'percent' 
-                    ? 'bg-[#597485] text-white' 
+                    ? 'bg-brand-500 text-white' 
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
                 }`}
               >
@@ -54,7 +54,7 @@ const DiscountModal: FC<Props> = ({ open, onApply, onCancel }) => {
                 onClick={() => setDiscountType('amount')}
                 className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
                   discountType === 'amount' 
-                    ? 'bg-[#597485] text-white' 
+                    ? 'bg-brand-500 text-white' 
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
                 }`}
               >
@@ -76,7 +76,7 @@ const DiscountModal: FC<Props> = ({ open, onApply, onCancel }) => {
                 type="number"
                 value={discountValue}
                 onChange={(e) => setDiscountValue(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-stroke dark:border-strokedark rounded-xl focus:border-[#597485] focus:ring-2 focus:ring-[#597485]/20 bg-white dark:bg-boxdark text-black dark:text-white"
+                className="w-full pl-10 pr-4 py-3 border border-stroke dark:border-strokedark rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 bg-white dark:bg-boxdark text-black dark:text-white"
                 placeholder={discountType === 'percent' ? '10' : '5.00'}
                 min="0"
                 step={discountType === 'percent' ? '1' : '0.01'}
@@ -93,7 +93,7 @@ const DiscountModal: FC<Props> = ({ open, onApply, onCancel }) => {
               type="text"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              className="w-full px-4 py-3 border border-stroke dark:border-strokedark rounded-xl focus:border-[#597485] focus:ring-2 focus:ring-[#597485]/20 bg-white dark:bg-boxdark text-black dark:text-white"
+              className="w-full px-4 py-3 border border-stroke dark:border-strokedark rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 bg-white dark:bg-boxdark text-black dark:text-white"
               placeholder="Staff discount, damage, etc."
             />
           </div>
@@ -110,7 +110,7 @@ const DiscountModal: FC<Props> = ({ open, onApply, onCancel }) => {
           <button
             onClick={handleApply}
             disabled={!discountValue || parseFloat(discountValue) <= 0}
-            className="flex-1 py-3 px-4 bg-[#597485] hover:bg-[#4e6575] disabled:opacity-50 text-white rounded-xl font-medium transition-colors"
+            className="flex-1 py-3 px-4 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white rounded-xl font-medium transition-colors"
           >
             Apply Discount
           </button>

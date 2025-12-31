@@ -1,7 +1,9 @@
 import React from 'react';
 import { SaveIcon } from '@shared/assets/icons';
+import InputField from '@shared/ui/forms/input/InputField';
 import Label from '@shared/ui/forms/Label';
 import DeliveryDatePicker from '@shared/ui/forms/DeliveryDatePicker';
+import FormFooter from '@shared/ui/components/ui/form/FormFooter';
 
 interface DeliveryEditModalProps {
   delivery: {
@@ -37,28 +39,22 @@ const DeliveryEditModal: React.FC<DeliveryEditModalProps> = ({
             onChange={(date) => onChange({ ...delivery, deliveryDate: date })}
           />
         </div>
-        <div>
-          <Label>Delivery Time</Label>
-          <input
-            type="text"
-            value={delivery.deliveryTime || ''}
-            onChange={(e) => onChange({ ...delivery, deliveryTime: e.target.value })}
-            placeholder="e.g., 2:00 PM - 4:00 PM"
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#597485] focus:border-transparent dark:bg-gray-700 dark:text-white"
-          />
-        </div>
-      </div>
-
-      <div>
-        <Label>Occasion</Label>
-        <input
+        <InputField
+          label="Delivery Time"
           type="text"
-          value={delivery.occasion || ''}
-          onChange={(e) => onChange({ ...delivery, occasion: e.target.value })}
-          placeholder="e.g., Birthday, Anniversary, Sympathy"
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#597485] focus:border-transparent dark:bg-gray-700 dark:text-white"
+          value={delivery.deliveryTime || ''}
+          onChange={(e) => onChange({ ...delivery, deliveryTime: e.target.value })}
+          placeholder="e.g., 2:00 PM - 4:00 PM"
         />
       </div>
+
+      <InputField
+        label="Occasion"
+        type="text"
+        value={delivery.occasion || ''}
+        onChange={(e) => onChange({ ...delivery, occasion: e.target.value })}
+        placeholder="e.g., Birthday, Anniversary, Sympathy"
+      />
 
       <div>
         <Label>Card Message</Label>
@@ -67,7 +63,7 @@ const DeliveryEditModal: React.FC<DeliveryEditModalProps> = ({
           onChange={(e) => onChange({ ...delivery, cardMessage: e.target.value })}
           placeholder="Message for the card"
           rows={3}
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#597485] focus:border-transparent dark:bg-gray-700 dark:text-white"
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
         />
       </div>
 
@@ -78,47 +74,25 @@ const DeliveryEditModal: React.FC<DeliveryEditModalProps> = ({
           onChange={(e) => onChange({ ...delivery, specialInstructions: e.target.value })}
           placeholder="Delivery instructions"
           rows={3}
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#597485] focus:border-transparent dark:bg-gray-700 dark:text-white"
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
         />
       </div>
 
-      <div>
-        <Label>Delivery Fee ($)</Label>
-        <input
-          type="number"
-          step="0.01"
-          min="0"
-          value={(delivery.deliveryFee / 100).toFixed(2)}
-          onChange={(e) => onChange({ ...delivery, deliveryFee: Math.round(parseFloat(e.target.value) * 100) || 0 })}
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#597485] focus:border-transparent dark:bg-gray-700 dark:text-white"
-        />
-      </div>
-      
-      <div className="flex justify-end gap-3 pt-4">
-        <button
-          onClick={onCancel}
-          className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={onSave}
-          disabled={saving}
-          className="px-4 py-2 bg-[#597485] text-white rounded-lg hover:bg-[#4e6575] transition-colors disabled:opacity-50 flex items-center gap-2"
-        >
-          {saving ? (
-            <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              Saving...
-            </>
-          ) : (
-            <>
-              <SaveIcon className="w-4 h-4" />
-              Save Changes
-            </>
-          )}
-        </button>
-      </div>
+      <InputField
+        label="Delivery Fee ($)"
+        type="number"
+        step="0.01"
+        min="0"
+        value={(delivery.deliveryFee / 100).toFixed(2)}
+        onChange={(e) => onChange({ ...delivery, deliveryFee: Math.round(parseFloat(e.target.value) * 100) || 0 })}
+      />
+
+      <FormFooter
+        onCancel={onCancel}
+        onSubmit={onSave}
+        submitting={saving}
+        submitIcon={<SaveIcon className="w-4 h-4" />}
+      />
     </div>
   );
 };

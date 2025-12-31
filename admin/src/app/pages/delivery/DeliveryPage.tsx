@@ -18,6 +18,7 @@ import Label from '@shared/ui/forms/Label';
 import Button from '@shared/ui/components/ui/button/Button';
 import StatusSelect from '@shared/ui/forms/StatusSelect';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
+import { formatPhoneDisplay } from '@shared/ui/forms/PhoneInput';
 import { getStatusOptions, OrderType as FulfillmentOrderType } from '@shared/utils/orderStatusHelpers';
 import { useNavigate } from 'react-router';
 import useRoutes from '@shared/hooks/useRoutes';
@@ -505,7 +506,7 @@ const DeliveryPage: React.FC = () => {
         </div>
         {order.customer?.phone && (
           <div className="text-xs text-gray-500 dark:text-gray-400">
-            {order.customer.phone}
+            {formatPhoneDisplay(order.customer.phone)}
           </div>
         )}
       </td>
@@ -565,7 +566,7 @@ const DeliveryPage: React.FC = () => {
         <div className="flex gap-2">
           <button
             onClick={(e) => handleOpenCommunication(order, e)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#597485] text-white rounded hover:bg-[#4e6575] transition-colors text-sm"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-500 text-white rounded hover:bg-brand-600 transition-colors text-sm"
           >
             <PhoneIcon className="w-4 h-4" />
             Contact
@@ -575,7 +576,7 @@ const DeliveryPage: React.FC = () => {
             className={`flex items-center gap-1.5 px-3 py-1.5 text-white rounded transition-colors text-sm ${
               order.status === 'COMPLETED' || order.status === 'DELIVERED'
                 ? 'bg-green-600 hover:bg-green-700'
-                : 'bg-[#597485] hover:bg-[#4e6575]'
+                : 'bg-brand-500 hover:bg-brand-600'
             }`}
           >
             <PackageIcon className="w-4 h-4" />
@@ -588,9 +589,9 @@ const DeliveryPage: React.FC = () => {
   };
 
   return (
-    <div className="p-4">
+    <div className="p-6">
       {/* Breadcrumb */}
-      <PageBreadcrumb pageTitle="Delivery Management" />
+      <PageBreadcrumb />
 
       {/* Page Header */}
       <div className="mb-6">
@@ -626,7 +627,7 @@ const DeliveryPage: React.FC = () => {
               value={selectedDate || ""}
               readOnly
               tabIndex={-1}
-              className="h-11 w-48 rounded-lg border appearance-none px-4 py-2.5 text-sm shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 bg-transparent text-gray-800 border-gray-300 focus:border-[#597485] focus:ring-[#597485]/20 dark:border-gray-700 dark:focus:border-[#597485] cursor-pointer"
+              className="h-11 w-48 rounded-lg border appearance-none px-4 py-2.5 text-sm shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 bg-transparent text-gray-800 border-gray-300 focus:border-brand-500 focus:ring-brand-500/20 dark:border-gray-700 dark:focus:border-brand-500 cursor-pointer"
             />
             <span className="absolute text-gray-500 -translate-y-1/2 pointer-events-none right-3 top-1/2 dark:text-gray-400">
               <CalenderIcon className="size-5" />
@@ -639,13 +640,13 @@ const DeliveryPage: React.FC = () => {
               onClick={handleTodayFilter}
               className={`h-11 px-4 rounded-lg border transition-all ${
                 activeFilter === 'today'
-                  ? 'bg-[#597485] text-white border-[#597485] shadow-sm'
-                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#597485] hover:bg-gray-50 dark:hover:bg-gray-700'
+                  ? 'bg-brand-500 text-white border-brand-500 shadow-sm'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-brand-500 hover:bg-gray-50 dark:hover:bg-gray-700'
               }`}
             >
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium">Today</span>
-                <span className={`text-sm font-bold ${activeFilter === 'today' ? '' : 'text-[#597485]'}`}>
+                <span className={`text-sm font-bold ${activeFilter === 'today' ? '' : 'text-brand-500'}`}>
                   ({todayCount})
                 </span>
               </div>
@@ -655,13 +656,13 @@ const DeliveryPage: React.FC = () => {
               onClick={handleTomorrowFilter}
               className={`h-11 px-4 rounded-lg border transition-all ${
                 activeFilter === 'tomorrow'
-                  ? 'bg-[#597485] text-white border-[#597485] shadow-sm'
-                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#597485] hover:bg-gray-50 dark:hover:bg-gray-700'
+                  ? 'bg-brand-500 text-white border-brand-500 shadow-sm'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-brand-500 hover:bg-gray-50 dark:hover:bg-gray-700'
               }`}
             >
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium">Tomorrow</span>
-                <span className={`text-sm font-bold ${activeFilter === 'tomorrow' ? '' : 'text-[#597485]'}`}>
+                <span className={`text-sm font-bold ${activeFilter === 'tomorrow' ? '' : 'text-brand-500'}`}>
                   ({tomorrowCount})
                 </span>
               </div>
@@ -671,13 +672,13 @@ const DeliveryPage: React.FC = () => {
               onClick={handleFutureFilter}
               className={`h-11 px-4 rounded-lg border transition-all ${
                 activeFilter === 'future'
-                  ? 'bg-[#597485] text-white border-[#597485] shadow-sm'
-                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-[#597485] hover:bg-gray-50 dark:hover:bg-gray-700'
+                  ? 'bg-brand-500 text-white border-brand-500 shadow-sm'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-brand-500 hover:bg-gray-50 dark:hover:bg-gray-700'
               }`}
             >
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium">Future (10d)</span>
-                <span className={`text-sm font-bold ${activeFilter === 'future' ? '' : 'text-[#597485]'}`}>
+                <span className={`text-sm font-bold ${activeFilter === 'future' ? '' : 'text-brand-500'}`}>
                   ({futureCount})
                 </span>
               </div>
@@ -688,12 +689,12 @@ const DeliveryPage: React.FC = () => {
 
       {timezoneLoading ? (
         <div className="flex justify-center items-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-[#597485]"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-brand-500"></div>
           <span className="ml-3 text-gray-600 dark:text-gray-400">Loading timezone settings...</span>
         </div>
       ) : loading ? (
         <div className="flex justify-center items-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-[#597485]"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-brand-500"></div>
         </div>
       ) : error ? (
         <div className="flex flex-col items-center justify-center py-12">
@@ -704,14 +705,14 @@ const DeliveryPage: React.FC = () => {
           </div>
           <Button
             onClick={() => window.location.reload()}
-            className="bg-[#597485] hover:bg-[#4e6575] text-white"
+            className="bg-brand-500 hover:bg-brand-600 text-white"
           >
             Try Again
           </Button>
         </div>
       ) : !displayData ? (
         <div className="flex justify-center items-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-[#597485]"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-brand-500"></div>
           <span className="ml-3 text-gray-600 dark:text-gray-400">Loading delivery data...</span>
         </div>
       ) : (

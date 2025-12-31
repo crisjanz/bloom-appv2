@@ -128,7 +128,7 @@ const AvailabilityCard: FC<Props> = ({
           placeholder="Select availability type"
           value={availabilityType}
           onChange={(value) => onChange("availabilityType", value)}
-          className="focus:border-[#597485]"
+          className="focus:border-brand-500"
         />
       </div>
 
@@ -148,7 +148,7 @@ const AvailabilityCard: FC<Props> = ({
               placeholder="Select holiday preset"
               value={holidayPreset}
               onChange={handleHolidayPresetChange}
-              className="focus:border-[#597485]"
+              className="focus:border-brand-500"
             />
           </div>
 
@@ -197,7 +197,7 @@ const AvailabilityCard: FC<Props> = ({
               placeholder="Select holiday preset"
               value={holidayPreset}
               onChange={handleHolidayPresetChange}
-              className="focus:border-[#597485]"
+              className="focus:border-brand-500"
             />
           </div>
 
@@ -239,7 +239,7 @@ const AvailabilityCard: FC<Props> = ({
       id="isTemporarilyUnavailable"
       checked={isTemporarilyUnavailable}
       onChange={(checked) => onChange("isTemporarilyUnavailable", checked)} // Fixed: pass boolean directly
-      className="checked:bg-[#597485]"
+      className="checked:bg-brand-500"
     />
   </div>
 
@@ -267,7 +267,7 @@ const AvailabilityCard: FC<Props> = ({
         value={unavailableMessage}
         onChange={(e) => onChange("unavailableMessage", e.target.value)}
         placeholder="e.g., Waiting on white lilies"
-        className="focus:border-[#597485]"
+        className="focus:border-brand-500"
       />
     </ComponentCard>
   );

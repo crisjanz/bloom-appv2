@@ -199,7 +199,7 @@ export default function WireProductsPage() {
       {/* Products List */}
       {loading ? (
         <div className="flex justify-center items-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#597485]"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-500"></div>
         </div>
       ) : products.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
@@ -241,7 +241,7 @@ export default function WireProductsPage() {
                     className="hidden"
                     disabled={uploadingImage === product.productCode}
                   />
-                  <div className="flex items-center gap-1 px-3 py-1.5 bg-[#597485] hover:bg-[#4e6575] text-white rounded text-sm transition-colors">
+                  <div className="flex items-center gap-1 px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white rounded text-sm transition-colors">
                     {uploadingImage === product.productCode ? (
                       'Uploading...'
                     ) : (
@@ -377,7 +377,7 @@ export default function WireProductsPage() {
               <div className="flex gap-3 mt-6">
                 <button
                   onClick={() => handleUpdateProduct(editingProduct)}
-                  className="flex-1 px-4 py-2 bg-[#597485] hover:bg-[#4e6575] text-white rounded-lg transition-colors"
+                  className="flex-1 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-lg transition-colors"
                 >
                   Save Changes
                 </button>

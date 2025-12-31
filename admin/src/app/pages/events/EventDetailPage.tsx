@@ -4,6 +4,7 @@ import ComponentCard from '@shared/ui/common/ComponentCard';
 import PageBreadcrumb from '@shared/ui/common/PageBreadCrumb';
 import Badge from '@shared/ui/components/ui/badge/Badge';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
+import { formatPhoneDisplay } from '@shared/ui/forms/PhoneInput';
 
 // Types matching the database schema
 type EventType = 'WEDDING' | 'CORPORATE' | 'BIRTHDAY' | 'ANNIVERSARY' | 'FUNERAL' | 'GRADUATION' | 'OTHER';
@@ -236,7 +237,7 @@ const EventDetailPage: React.FC = () => {
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Event not found</h2>
           <button
             onClick={() => navigate('/events')}
-            className="text-[#597485] hover:text-[#4e6575]"
+            className="text-brand-500 hover:text-brand-600"
           >
             Return to Events List
           </button>
@@ -291,7 +292,7 @@ const EventDetailPage: React.FC = () => {
                 </button>
                 <button
                   onClick={() => navigate(`/events/${event.id}/edit`)}
-                  className="px-4 py-2 bg-[#597485] hover:bg-[#4e6575] text-white rounded-lg transition-colors"
+                  className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-lg transition-colors"
                 >
                   Edit Event
                 </button>
@@ -339,7 +340,7 @@ const EventDetailPage: React.FC = () => {
                     <div>
                       <p className="text-sm text-gray-600 dark:text-gray-400">Phone</p>
                       <p className="font-medium text-gray-900 dark:text-white">
-                        {event.customer.phone}
+                        {formatPhoneDisplay(event.customer.phone)}
                       </p>
                     </div>
                   )}
@@ -584,7 +585,7 @@ const EventDetailPage: React.FC = () => {
                 
                 <button
                   onClick={() => navigate(`/events/${event.id}/payments`)}
-                  className="w-full mt-4 px-4 py-2 bg-[#597485] hover:bg-[#4e6575] text-white rounded-lg transition-colors"
+                  className="w-full mt-4 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-lg transition-colors"
                 >
                   Manage Payments
                 </button>
@@ -610,7 +611,7 @@ const EventDetailPage: React.FC = () => {
                 <select
                   value={newStatus}
                   onChange={(e) => setNewStatus(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:border-[#597485] focus:ring-[#597485]/20 bg-white dark:bg-gray-900 text-gray-800 dark:text-white"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:border-brand-500 focus:ring-brand-500/20 bg-white dark:bg-gray-900 text-gray-800 dark:text-white"
                 >
                   <option value="">Select new status</option>
                   {statusOptions.map((option) => (
@@ -630,7 +631,7 @@ const EventDetailPage: React.FC = () => {
                   onChange={(e) => setStatusNotes(e.target.value)}
                   placeholder="Add notes about this status change..."
                   rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:border-[#597485] focus:ring-[#597485]/20 bg-white dark:bg-gray-900 text-gray-800 dark:text-white"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:border-brand-500 focus:ring-brand-500/20 bg-white dark:bg-gray-900 text-gray-800 dark:text-white"
                 />
               </div>
             </div>
@@ -646,7 +647,7 @@ const EventDetailPage: React.FC = () => {
                 <button
                   onClick={handleStatusUpdate}
                   disabled={!newStatus || statusUpdating}
-                  className="flex-1 py-3 px-4 bg-[#597485] hover:bg-[#4e6575] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
+                  className="flex-1 py-3 px-4 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
                 >
                   {statusUpdating ? 'Updating...' : 'Update Status'}
                 </button>

@@ -3,7 +3,7 @@ import ComponentCard from "@shared/ui/common/ComponentCard";
 import InputField from "@shared/ui/forms/input/InputField";
 import TextArea from "@shared/ui/forms/input/TextArea";
 import Label from "@shared/ui/forms/Label";
-import PhoneInput from "@shared/ui/forms/group-input/PhoneInput";
+import PhoneInput from "@shared/ui/forms/PhoneInput";
 import Select from "@shared/ui/forms/Select";
 
 interface CustomerInfoCardProps {
@@ -19,13 +19,6 @@ interface CustomerInfoCardProps {
   onCustomerChange: (field: string, value: any) => void;
   error?: string;
 }
-
-const countries = [
-  { code: "CA", label: "+1" },
-  { code: "US", label: "+1" },
-  { code: "GB", label: "+44" },
-  { code: "AU", label: "+61" },
-];
 
 const phoneLabelOptions = [
   { value: "Mobile", label: "Mobile" },
@@ -69,7 +62,7 @@ export default function CustomerInfoCard({
             placeholder="Enter first name"
             value={customer.firstName}
             onChange={(e) => onCustomerChange("firstName", e.target.value)}
-            className="focus:border-[#597485] focus:ring-[#597485]/20"
+            className="focus:border-brand-500 focus:ring-brand-500/20"
             required
           />
         </div>
@@ -82,7 +75,7 @@ export default function CustomerInfoCard({
             placeholder="Enter last name"
             value={customer.lastName}
             onChange={(e) => onCustomerChange("lastName", e.target.value)}
-            className="focus:border-[#597485] focus:ring-[#597485]/20"
+            className="focus:border-brand-500 focus:ring-brand-500/20"
             required
           />
         </div>
@@ -98,20 +91,16 @@ export default function CustomerInfoCard({
             placeholder="Enter email address"
             value={customer.email || ""}
             onChange={(e) => onCustomerChange("email", e.target.value)}
-            className="focus:border-[#597485] focus:ring-[#597485]/20"
+            className="focus:border-brand-500 focus:ring-brand-500/20"
           />
         </div>
 
         <div className="md:col-span-4">
-          <Label htmlFor="phone">Phone*</Label>
           <PhoneInput
-            type="tel"
-            id="phone"
+            label="Phone*"
             value={customer.phone || ""}
             onChange={(cleanedPhone) => onCustomerChange("phone", cleanedPhone)}
-            countries={countries}
-            selectPosition="none"
-            placeholder="Phone"
+            placeholder="(250) 301-5062"
           />
         </div>
 
@@ -131,15 +120,15 @@ export default function CustomerInfoCard({
         <div key={index} className="grid grid-cols-1 md:grid-cols-12 gap-4">
           <div className="md:col-span-6"></div>
           <div className="md:col-span-4">
-            <InputField
-              type="tel"
-              value={phoneObj.phone}
-              onChange={(e) => {
+            <PhoneInput
+              label=""
+              value={phoneObj.phone || ""}
+              onChange={(cleanedPhone) => {
                 const updated = [...customer.phoneNumbers];
-                updated[index] = { ...updated[index], phone: e.target.value };
+                updated[index] = { ...updated[index], phone: cleanedPhone };
                 onCustomerChange("phoneNumbers", updated);
               }}
-              placeholder="Phone"
+              placeholder="(250) 301-5062"
             />
           </div>
           <div className="md:col-span-2 flex items-center gap-2">
@@ -174,7 +163,7 @@ export default function CustomerInfoCard({
           <button
             type="button"
             onClick={handleAddPhone}
-            className="text-sm font-medium text-[#597485] hover:text-[#4e6575] dark:text-[#7a9bb0] dark:hover:text-[#597485]"
+            className="text-sm font-medium text-brand-500 hover:text-brand-600 dark:text-[#7a9bb0] dark:hover:text-brand-500"
           >
             + Phone
           </button>
@@ -187,7 +176,7 @@ export default function CustomerInfoCard({
           placeholder="Enter any notes about the customer"
           value={customer.notes || ""}
           onChange={(value) => onCustomerChange("notes", value)}
-          className="focus:border-[#597485] focus:ring-[#597485]/20"
+          className="focus:border-brand-500 focus:ring-brand-500/20"
           rows={3}
         />
       </div>

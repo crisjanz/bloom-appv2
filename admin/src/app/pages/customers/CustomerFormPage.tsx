@@ -401,7 +401,7 @@ export default function CustomerFormPage() {
     return (
       <ComponentCard className="flex items-center justify-center py-14">
         <div className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
-          <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-200 border-t-[#597485]" />
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-200 border-t-brand-500" />
           Loading customer…
         </div>
       </ComponentCard>
@@ -428,7 +428,7 @@ export default function CustomerFormPage() {
             type="button"
             onClick={handleSaveCustomer}
             disabled={saving}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#597485] px-4 py-3 text-sm font-medium text-white transition hover:bg-[#4e6575] disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-3 text-sm font-medium text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving && (
               <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />

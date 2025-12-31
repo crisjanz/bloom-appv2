@@ -117,8 +117,8 @@ export class OrderRepository extends BaseRepository<Order> {
 
     // Map delivery data to deliveryInfo
     const deliveryInfo = backendOrder.deliveryAddress ? {
-      recipientName: `${backendOrder.recipientCustomer?.firstName || ''} ${backendOrder.recipientCustomer?.lastName || ''}`.trim(),
-      recipientPhone: backendOrder.recipientCustomer?.phone,
+      recipientName: `${backendOrder.deliveryAddress.firstName || backendOrder.recipientCustomer?.firstName || ''} ${backendOrder.deliveryAddress.lastName || backendOrder.recipientCustomer?.lastName || ''}`.trim(),
+      recipientPhone: backendOrder.deliveryAddress.phone || backendOrder.recipientCustomer?.phone,
       recipientEmail: backendOrder.recipientCustomer?.email,
       deliveryAddress: {
         id: backendOrder.deliveryAddress.id,

@@ -368,7 +368,7 @@ const SquareManualEntry = forwardRef<ManualCardFormHandle, SquareManualEntryProp
             onChange={(event) => setCardNumber(formatCardNumber(event.target.value))}
             placeholder="1234 5678 9012 3456"
             maxLength={19}
-            className="w-full rounded-xl border border-stroke px-4 py-3 text-sm text-gray-700 shadow-none outline-none transition focus:border-[#597485] focus:ring-2 focus:ring-[#597485]/20 dark:border-strokedark dark:bg-boxdark dark:text-gray-100"
+            className="w-full rounded-xl border border-stroke px-4 py-3 text-sm text-gray-700 shadow-none outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-strokedark dark:bg-boxdark dark:text-gray-100"
           />
         </div>
 
@@ -383,7 +383,7 @@ const SquareManualEntry = forwardRef<ManualCardFormHandle, SquareManualEntryProp
               onChange={(event) => setExpiry(formatExpiry(event.target.value))}
               placeholder="MM/YY"
               maxLength={5}
-              className="w-full rounded-xl border border-stroke px-4 py-3 text-sm text-gray-700 shadow-none outline-none transition focus:border-[#597485] focus:ring-2 focus:ring-[#597485]/20 dark:border-strokedark dark:bg-boxdark dark:text-gray-100"
+              className="w-full rounded-xl border border-stroke px-4 py-3 text-sm text-gray-700 shadow-none outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-strokedark dark:bg-boxdark dark:text-gray-100"
             />
           </div>
           <div>
@@ -396,7 +396,7 @@ const SquareManualEntry = forwardRef<ManualCardFormHandle, SquareManualEntryProp
               onChange={(event) => setCvv(event.target.value.replace(/\D/g, '').slice(0, 4))}
               placeholder="123"
               maxLength={4}
-              className="w-full rounded-xl border border-stroke px-4 py-3 text-sm text-gray-700 shadow-none outline-none transition focus:border-[#597485] focus:ring-2 focus:ring-[#597485]/20 dark:border-strokedark dark:bg-boxdark dark:text-gray-100"
+              className="w-full rounded-xl border border-stroke px-4 py-3 text-sm text-gray-700 shadow-none outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-strokedark dark:bg-boxdark dark:text-gray-100"
             />
           </div>
         </div>
@@ -410,7 +410,7 @@ const SquareManualEntry = forwardRef<ManualCardFormHandle, SquareManualEntryProp
             value={postalCode}
             onChange={(event) => setPostalCode(event.target.value.toUpperCase())}
             placeholder="K1A 0A6"
-            className="w-full rounded-xl border border-stroke px-4 py-3 text-sm text-gray-700 shadow-none outline-none transition focus:border-[#597485] focus:ring-2 focus:ring-[#597485]/20 dark:border-strokedark dark:bg-boxdark dark:text-gray-100"
+            className="w-full rounded-xl border border-stroke px-4 py-3 text-sm text-gray-700 shadow-none outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-strokedark dark:bg-boxdark dark:text-gray-100"
           />
         </div>
 

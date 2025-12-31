@@ -60,6 +60,41 @@ router.put('/:id/update', async (req, res) => {
         orderUpdateData.deliveryAddressId = updateData.deliveryAddressId;
       }
 
+      // Handle inline deliveryAddress updates
+      if (updateData.deliveryAddress && typeof updateData.deliveryAddress === 'object') {
+        const addressData = updateData.deliveryAddress;
+        console.log('📍 Updating deliveryAddress:', addressData);
+        console.log('📍 Current order deliveryAddressId:', currentOrder.deliveryAddressId);
+
+        if (currentOrder.deliveryAddressId) {
+          try {
+            // Update existing address
+            const updatedAddress = await tx.address.update({
+              where: { id: currentOrder.deliveryAddressId },
+              data: {
+                firstName: addressData.firstName || '',
+                lastName: addressData.lastName || '',
+                company: addressData.company || null,
+                phone: addressData.phone || '',
+                address1: addressData.address1 || '',
+                address2: addressData.address2 || null,
+                city: addressData.city || '',
+                province: addressData.province || '',
+                postalCode: addressData.postalCode || '',
+                country: addressData.country || 'CA',
+                addressType: addressData.addressType || 'RESIDENCE'
+              }
+            });
+            console.log('✅ Address updated successfully:', updatedAddress);
+          } catch (error) {
+            console.error('❌ Error updating address:', error);
+            throw error;
+          }
+        } else {
+          console.log('⚠️ No deliveryAddressId found on order');
+        }
+      }
+
       // Handle delivery details updates (both flat and nested under 'delivery' section)
       const deliveryData = updateData.delivery || updateData;
 

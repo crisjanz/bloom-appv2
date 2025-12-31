@@ -12,7 +12,7 @@ import {
   TableRow,
 } from "@shared/ui/components/ui/table";
 import { ParsedAddress } from "@shared/utils/googlePlaces";
-import PhoneInput from "@shared/ui/forms/group-input/PhoneInput";
+import PhoneInput from "@shared/ui/forms/PhoneInput";
 
 interface Address {
   id: string;
@@ -243,7 +243,7 @@ export default function AdditionalAddressesCard({
                   placeholder="Enter custom label (e.g., Grandma's House)"
                   value={newAddress.label}
                   onChange={(e) => handleAddressChange("label", e.target.value)}
-                  className="focus:border-[#597485] focus:ring-[#597485]/20"
+                  className="focus:border-brand-500 focus:ring-brand-500/20"
                 />
               </div>
             )}
@@ -260,7 +260,7 @@ export default function AdditionalAddressesCard({
               onChange={(value) => handleAddressChange("address1", value)}
               onAddressSelect={handleAddressSelect}
               placeholder="Enter street address"
-              className="focus:border-[#597485] focus:ring-[#597485]/20"
+              className="focus:border-brand-500 focus:ring-brand-500/20"
             />
           </div>
           
@@ -272,7 +272,7 @@ export default function AdditionalAddressesCard({
               placeholder="Apartment, suite, unit, etc."
               value={newAddress.address2}
               onChange={(e) => handleAddressChange("address2", e.target.value)}
-              className="focus:border-[#597485] focus:ring-[#597485]/20"
+              className="focus:border-brand-500 focus:ring-brand-500/20"
             />
           </div>
           
@@ -284,7 +284,7 @@ export default function AdditionalAddressesCard({
               placeholder="Enter city"
               value={newAddress.city}
               onChange={(e) => handleAddressChange("city", e.target.value)}
-              className="focus:border-[#597485] focus:ring-[#597485]/20"
+              className="focus:border-brand-500 focus:ring-brand-500/20"
             />
           </div>
           
@@ -296,7 +296,7 @@ export default function AdditionalAddressesCard({
               placeholder="Enter province or state"
               value={newAddress.province}
               onChange={(e) => handleAddressChange("province", e.target.value)}
-              className="focus:border-[#597485] focus:ring-[#597485]/20"
+              className="focus:border-brand-500 focus:ring-brand-500/20"
             />
           </div>
           
@@ -308,7 +308,7 @@ export default function AdditionalAddressesCard({
               placeholder="Enter postal or zip code"
               value={newAddress.postalCode}
               onChange={(e) => handleAddressChange("postalCode", e.target.value)}
-              className="focus:border-[#597485] focus:ring-[#597485]/20"
+              className="focus:border-brand-500 focus:ring-brand-500/20"
             />
           </div>
 
@@ -322,24 +322,13 @@ export default function AdditionalAddressesCard({
               onChange={(value) => handleAddressChange("country", value)}
             />
           </div>
-          
+
 <div>
-  <Label htmlFor="newPhone">Phone</Label>
   <PhoneInput
-    type="tel"
-    id="newPhone"
+    label="Phone"
     value={newAddress.phone || ""}
     onChange={(cleanedPhone) => handleAddressChange("phone", cleanedPhone)}
-    countries={[
-      { code: "CA", label: "+1" },
-      { code: "US", label: "+1" },
-      { code: "GB", label: "+44" },
-      { code: "AU", label: "+61" },
-      { code: "DE", label: "+49" },
-      { code: "FR", label: "+33" },
-    ]}
-    selectPosition="start"
-    placeholder="+1 (555) 000-0000"
+    placeholder="(250) 301-5062"
   />
 </div>
 
@@ -352,7 +341,7 @@ export default function AdditionalAddressesCard({
               placeholder="Enter company name"
               value={newAddress.company}
               onChange={(e) => handleAddressChange("company", e.target.value)}
-              className="focus:border-[#597485] focus:ring-[#597485]/20"
+              className="focus:border-brand-500 focus:ring-brand-500/20"
             />
           </div>
         </div>
@@ -360,7 +349,7 @@ export default function AdditionalAddressesCard({
         <div className="flex gap-3">
           <button
             onClick={handleSubmit}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#597485] px-4 py-2 text-sm font-medium text-white hover:bg-[#4e6575]"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600"
           >
             {editingId ? "Update Address" : "+ Add Address"}
           </button>
@@ -453,7 +442,7 @@ export default function AdditionalAddressesCard({
                           className={`text-sm font-medium hover:underline ${
                             editingId === addr.id 
                               ? "text-gray-400 cursor-not-allowed" 
-                              : "text-[#597485] hover:text-[#4e6575]"
+                              : "text-brand-500 hover:text-brand-600"
                           }`}
                         >
                           {editingId === addr.id ? "Editing" : "Edit"}

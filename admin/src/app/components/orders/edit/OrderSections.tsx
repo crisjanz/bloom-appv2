@@ -3,6 +3,7 @@ import { PencilIcon, CalendarIcon, UserIcon, TruckIcon, CreditCardIcon, PhotoIco
 import { Order } from '../types';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
 import { useTaxRates } from '@shared/hooks/useTaxRates';
+import { formatPhoneDisplay } from '@shared/ui/forms/PhoneInput';
 
 interface OrderSectionsProps {
   order: Order;
@@ -59,7 +60,7 @@ const OrderSections: React.FC<OrderSectionsProps> = ({ order, onEdit }) => {
           </div>
           <div>
             <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Phone:</span>
-            <div className="text-gray-900 dark:text-white">{order.customer.phone}</div>
+            <div className="text-gray-900 dark:text-white">{formatPhoneDisplay(order.customer.phone)}</div>
           </div>
         </div>
       </div>
@@ -100,7 +101,7 @@ const OrderSections: React.FC<OrderSectionsProps> = ({ order, onEdit }) => {
             <div>
               <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Phone:</span>
               <div className="text-gray-900 dark:text-white">
-                {order.deliveryAddress?.phone || order.recipientCustomer?.phone}
+                {formatPhoneDisplay(order.deliveryAddress?.phone || order.recipientCustomer?.phone)}
               </div>
             </div>
             <div className="md:col-span-2">

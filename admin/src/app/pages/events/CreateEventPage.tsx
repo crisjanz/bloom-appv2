@@ -311,7 +311,7 @@ const CreateEventPage: React.FC = () => {
                 {isSearching && customerSearch.length >= 3 && (
                   <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3 text-center">
                     <div className="flex items-center justify-center space-x-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#597485]"></div>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand-500"></div>
                       <span className="text-gray-500 text-sm">Searching customers...</span>
                     </div>
                   </div>
@@ -476,7 +476,7 @@ const CreateEventPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={addItem}
-                  className="inline-flex items-center px-3 py-2 bg-[#597485] hover:bg-[#4e6575] text-white text-sm rounded-lg transition-colors"
+                  className="inline-flex items-center px-3 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm rounded-lg transition-colors"
                 >
                   <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -494,7 +494,7 @@ const CreateEventPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={addItem}
-                    className="mt-2 text-[#597485] hover:text-[#4e6575] text-sm"
+                    className="mt-2 text-brand-500 hover:text-brand-600 text-sm"
                   >
                     Add your first item
                   </button>
@@ -524,7 +524,7 @@ const CreateEventPage: React.FC = () => {
                             placeholder="e.g., Bridal Bouquet, Centerpiece"
                             value={item.category}
                             onChange={(e) => updateItem(item.id, 'category', e.target.value)}
-                            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:border-[#597485] focus:ring-[#597485]/20 bg-white dark:bg-gray-900 text-gray-800 dark:text-white"
+                            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:border-brand-500 focus:ring-brand-500/20 bg-white dark:bg-gray-900 text-gray-800 dark:text-white"
                           />
                         </div>
                         
@@ -536,7 +536,7 @@ const CreateEventPage: React.FC = () => {
                               min="1"
                               value={item.quantity}
                               onChange={(e) => updateItem(item.id, 'quantity', parseInt(e.target.value) || 1)}
-                              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:border-[#597485] focus:ring-[#597485]/20 bg-white dark:bg-gray-900 text-gray-800 dark:text-white"
+                              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:border-brand-500 focus:ring-brand-500/20 bg-white dark:bg-gray-900 text-gray-800 dark:text-white"
                             />
                           </div>
                           
@@ -548,7 +548,7 @@ const CreateEventPage: React.FC = () => {
                               min="0"
                               value={item.unitPrice}
                               onChange={(e) => updateItem(item.id, 'unitPrice', parseFloat(e.target.value) || 0)}
-                              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:border-[#597485] focus:ring-[#597485]/20 bg-white dark:bg-gray-900 text-gray-800 dark:text-white"
+                              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:border-brand-500 focus:ring-brand-500/20 bg-white dark:bg-gray-900 text-gray-800 dark:text-white"
                             />
                           </div>
                         </div>
@@ -561,7 +561,7 @@ const CreateEventPage: React.FC = () => {
                           value={item.description}
                           onChange={(e) => updateItem(item.id, 'description', e.target.value)}
                           rows={2}
-                          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:border-[#597485] focus:ring-[#597485]/20 bg-white dark:bg-gray-900 text-gray-800 dark:text-white"
+                          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:border-brand-500 focus:ring-brand-500/20 bg-white dark:bg-gray-900 text-gray-800 dark:text-white"
                         />
                       </div>
                       
@@ -658,7 +658,7 @@ const CreateEventPage: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="px-6 py-3 bg-[#597485] hover:bg-[#4e6575] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+              className="px-6 py-3 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
             >
               {loading ? 'Creating...' : 'Create Event'}
             </button>

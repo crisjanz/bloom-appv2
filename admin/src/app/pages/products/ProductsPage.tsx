@@ -7,6 +7,7 @@ import ProductTable from "@app/components/products/ProductTable";
 import InputField from "@shared/ui/forms/input/InputField";
 import SelectField from "@shared/ui/forms/Select";
 import { useCategories } from "@shared/hooks/useCategories";
+import PageBreadcrumb from "@shared/ui/common/PageBreadCrumb";
 
 export default function ProductsPage() {
   const { products, searchTerm, updateSearchTerm, activeTab, updateActiveTab } = useProductsEnhanced();
@@ -34,38 +35,50 @@ export default function ProductsPage() {
   }, [category, products]);
 
   return (
-    <>
-      <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-        <h2 className="text-title-md font-bold text-black dark:text-white">Products</h2>
+    <div className="p-6">
+      <PageBreadcrumb />
 
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <InputField
-            name="search"
-            placeholder="Search products..."
-            value={searchTerm}
-            onChange={(e) => updateSearchTerm(e.target.value)}
-          />
-
-
-          <SelectField
-  name="category"
-  value={category}
-  onChange={(value) => setCategory(value)} // ✅ value is passed directly, not e.target.value
-  options={categoryOptions}
-/>
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Products</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Manage your product catalog
+          </p>
         </div>
-
         <Link
           to="/products/new"
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#597485] px-4 py-3 text-sm font-medium text-white hover:bg-[#4e6575]"
+          className="inline-flex items-center px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-lg transition-colors"
         >
           + Add Product
         </Link>
       </div>
+
+      {/* Card with Filters + Table */}
       <ComponentCard>
-    
+        {/* Filters */}
+        <div className="space-y-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <InputField
+              name="search"
+              label="Search"
+              placeholder="Search products..."
+              value={searchTerm}
+              onChange={(e) => updateSearchTerm(e.target.value)}
+            />
+            <SelectField
+              name="category"
+              label="Category"
+              value={category}
+              onChange={(value) => setCategory(value)}
+              options={categoryOptions}
+            />
+          </div>
+        </div>
+
+        {/* Table */}
         <ProductTable products={filteredProducts} />
       </ComponentCard>
-    </>
+    </div>
   );
 }

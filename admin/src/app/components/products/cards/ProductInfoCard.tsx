@@ -376,7 +376,7 @@ const ProductInfoCard: FC<Props> = ({
                           e.stopPropagation();
                           handleMoveImageLeft(index);
                         }}
-                        className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-[#597485] p-2 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-[#4a6270] z-10"
+                        className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-brand-500 p-2 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-[#4a6270] z-10"
                         title="Move left"
                       >
                         <svg
@@ -403,7 +403,7 @@ const ProductInfoCard: FC<Props> = ({
                           e.stopPropagation();
                           handleMoveImageRight(index);
                         }}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-[#597485] p-2 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-[#4a6270] z-10"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-brand-500 p-2 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-[#4a6270] z-10"
                         title="Move right"
                       >
                         <svg

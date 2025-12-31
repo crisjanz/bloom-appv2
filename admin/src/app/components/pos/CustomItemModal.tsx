@@ -119,7 +119,7 @@ export default function CustomItemModal({ open, onClose, onConfirm }: Props) {
               placeholder="Enter product name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className={`focus:border-[#597485] focus:ring-[#597485]/20 ${
+              className={`focus:border-brand-500 focus:ring-brand-500/20 ${
                 errors.name ? 'border-red-500' : ''
               }`}
               autoFocus
@@ -142,7 +142,7 @@ export default function CustomItemModal({ open, onClose, onConfirm }: Props) {
                 placeholder="0.00"
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
-                className={`pl-8 focus:border-[#597485] focus:ring-[#597485]/20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                className={`pl-8 focus:border-brand-500 focus:ring-brand-500/20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
                   errors.price ? 'border-red-500' : ''
                 }`}
                 min="0"
@@ -175,7 +175,7 @@ export default function CustomItemModal({ open, onClose, onConfirm }: Props) {
             </button>
             <button
               type="submit"
-              className="flex-1 py-3 px-4 bg-[#597485] hover:bg-[#4e6575] text-white rounded-lg font-medium transition-colors"
+              className="flex-1 py-3 px-4 bg-brand-500 hover:bg-brand-600 text-white rounded-lg font-medium transition-colors"
             >
               Add to Cart
             </button>

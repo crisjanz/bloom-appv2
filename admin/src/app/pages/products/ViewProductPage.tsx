@@ -123,13 +123,13 @@ export default function ViewProductPage() {
               <div className="flex gap-3">
                 <button
                   onClick={() => navigate(`/products/edit/${product.id}`)} // Adjust route as needed
-                  className="flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-white rounded-lg bg-[#597485] hover:bg-[#4e6575] w-full"
+                  className="flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-white rounded-lg bg-brand-500 hover:bg-brand-600 w-full"
                 >
                   Edit Product
                 </button>
                 <button
                   onClick={() => navigate("/products/new")}
-                  className="flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-white rounded-lg bg-[#597485] hover:bg-[#4e6575] w-full"
+                  className="flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-white rounded-lg bg-brand-500 hover:bg-brand-600 w-full"
                 >
                   Create New Product
                 </button>

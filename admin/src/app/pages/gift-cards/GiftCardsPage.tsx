@@ -1,16 +1,20 @@
 import { useEffect, useState } from "react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableRow,
-} from "@shared/ui/components/ui/table";
-import InputField from "@shared/ui/forms/input/InputField";
-import Button from "@shared/ui/components/ui/button/Button";
-import Badge from "@shared/ui/components/ui/badge/Badge";
 import { fetchGiftCards } from "@shared/legacy-services/giftCardService";
 import { useBusinessTimezone } from "@shared/hooks/useBusinessTimezone";
+import StandardTable, { ColumnDef } from "@shared/ui/components/ui/table/StandardTable";
+import ComponentCard from "@shared/ui/common/ComponentCard";
+import PageBreadcrumb from "@shared/ui/common/PageBreadCrumb";
+import InputField from "@shared/ui/forms/input/InputField";
+import Select from "@shared/ui/forms/Select";
+import { getGiftCardStatusColor } from "@shared/utils/statusColors";
+
+// Inline SVG icons
+const EyeIcon = ({ className = '' }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+  </svg>
+);
 
 type GiftCard = {
   id: string;
@@ -83,26 +87,6 @@ export default function GiftCardsPage() {
     return formatBusinessDate(new Date(dateString));
   };
 
-  const getStatusBadgeColor = (status: string) => {
-    switch (status) {
-      case 'ACTIVE':
-        return 'success';
-      case 'INACTIVE':
-        return 'warning';
-      case 'USED':
-        return 'success';
-      case 'EXPIRED':
-      case 'CANCELLED':
-        return 'error';
-      default:
-        return 'warning';
-    }
-  };
-
-  const getTypeBadgeColor = (type: string) => {
-    return type === 'DIGITAL' ? 'info' : 'dark';
-  };
-
   const handleViewDetails = (card: GiftCard) => {
     alert(`Gift Card Details:\n\nCard: ${card.cardNumber}\nStatus: ${card.status}\nBalance: ${formatCurrency(card.currentBalance)}\nType: ${card.type}\n\n(Full details modal coming soon)`);
   };
@@ -124,255 +108,190 @@ export default function GiftCardsPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="p-4">
-        <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-          <div className="p-6">
-            <p className="text-center text-gray-500">Loading gift cards...</p>
+  // Define table columns
+  const columns: ColumnDef<GiftCard>[] = [
+    {
+      key: 'status',
+      header: 'Status',
+      className: 'w-[120px]',
+      render: (card) => {
+        const statusColor = getGiftCardStatusColor(card.status);
+        return (
+          <div className="flex items-center gap-2">
+            <span className={`text-2xl leading-none ${statusColor}`}>•</span>
+            <span className={`text-sm font-medium ${statusColor}`}>{card.status}</span>
+          </div>
+        );
+      },
+    },
+    {
+      key: 'cardNumber',
+      header: 'Card Number',
+      className: 'w-[150px]',
+      render: (card) => (
+        <div>
+          <div className="font-mono text-sm font-medium text-gray-800 dark:text-white/90 whitespace-nowrap">
+            {card.cardNumber}
+          </div>
+          <div className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+            {formatDate(card.createdAt)}
           </div>
         </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-4">
-        <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-          <div className="p-6">
-            <p className="text-center text-red-500">{error}</p>
-            <div className="text-center mt-4">
-              <Button onClick={loadGiftCards} className="bg-[#597485] hover:bg-[#4e6575]">
-                Retry
-              </Button>
+      ),
+    },
+    {
+      key: 'type',
+      header: 'Type',
+      className: 'w-[100px]',
+      render: (card) => (
+        <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+          {card.type}
+        </span>
+      ),
+    },
+    {
+      key: 'value',
+      header: 'Value',
+      className: 'w-[100px]',
+      render: (card) => (
+        <div>
+          <div className="text-sm font-medium text-gray-800 dark:text-white/90 whitespace-nowrap">
+            {formatCurrency(card.initialValue)}
+          </div>
+          <div className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+            {formatCurrency(card.currentBalance)} left
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'recipient',
+      header: 'Recipient',
+      className: 'w-[180px] max-w-[180px]',
+      render: (card) => {
+        const recipientName = card.recipientName || '—';
+        const recipientEmail = card.recipientEmail || '';
+        return (
+          <div className="max-w-[180px] truncate">
+            <div className="text-sm text-gray-800 dark:text-white/90 truncate" title={recipientName}>
+              {recipientName}
             </div>
+            {recipientEmail && (
+              <div className="text-xs text-gray-500 dark:text-gray-400 truncate" title={recipientEmail}>
+                {recipientEmail}
+              </div>
+            )}
           </div>
+        );
+      },
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      className: 'w-[80px]',
+      render: (card) => (
+        <div className="flex items-center gap-3">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleViewDetails(card);
+            }}
+            className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+            title="View details"
+          >
+            <EyeIcon className="w-5 h-5" />
+          </button>
         </div>
-      </div>
-    );
-  }
+      ),
+    },
+  ];
+
+  const statusOptions = [
+    { value: "ALL", label: "All Statuses" },
+    { value: "ACTIVE", label: "Active" },
+    { value: "INACTIVE", label: "Inactive" },
+    { value: "USED", label: "Used" },
+    { value: "EXPIRED", label: "Expired" },
+    { value: "CANCELLED", label: "Cancelled" },
+  ];
+
+  const typeOptions = [
+    { value: "ALL", label: "All Types" },
+    { value: "PHYSICAL", label: "Physical" },
+    { value: "DIGITAL", label: "Digital" },
+  ];
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-4 pb-3 pt-4 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6">
-      {/* Header */}
-      <div className="flex flex-col gap-2 mb-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="p-6">
+      <PageBreadcrumb />
+
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
-            Gift Cards
-          </h3>
-          <p className="text-theme-xs text-gray-500 dark:text-gray-400 mt-1">
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Gift Cards</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             Manage gift cards, view transactions, and track balances
           </p>
         </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={loadGiftCards}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-theme-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200"
-          >
-            🔄 Refresh
-          </button>
-          <button className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-theme-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200">
-            + Create Batch
-          </button>
-        </div>
+        <button
+          onClick={loadGiftCards}
+          className="inline-flex items-center px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-lg transition-colors"
+        >
+          + Create Batch
+        </button>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="text-center">
-          <p className="text-2xl font-bold text-gray-800 dark:text-white/90">{giftCards.length}</p>
-          <p className="text-theme-xs text-gray-500 dark:text-gray-400">Total Cards</p>
-        </div>
-        <div className="text-center">
-          <p className="text-2xl font-bold text-gray-800 dark:text-white/90">
-            {giftCards.filter(card => card.status === 'ACTIVE').length}
-          </p>
-          <p className="text-theme-xs text-gray-500 dark:text-gray-400">Active</p>
-        </div>
-        <div className="text-center">
-          <p className="text-2xl font-bold text-gray-800 dark:text-white/90">
-            {formatCurrency(giftCards.reduce((sum, card) => sum + card.initialValue, 0))}
-          </p>
-          <p className="text-theme-xs text-gray-500 dark:text-gray-400">Total Value</p>
-        </div>
-        <div className="text-center">
-          <p className="text-2xl font-bold text-gray-800 dark:text-white/90">
-            {formatCurrency(giftCards.reduce((sum, card) => sum + card.currentBalance, 0))}
-          </p>
-          <p className="text-theme-xs text-gray-500 dark:text-gray-400">Outstanding</p>
-        </div>
-      </div>
+      {/* Card with Filters + Table */}
+      <ComponentCard>
+        {/* Filters */}
+        <div className="space-y-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <InputField
+              label="Search"
+              placeholder="Search by card number, recipient name, or email..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
 
-      {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="md:col-span-2">
-          <input
-            type="text"
-            placeholder="Search by card number, recipient name, or email..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-theme-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-          />
-        </div>
-        <div>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-theme-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-          >
-            <option value="ALL">All Statuses</option>
-            <option value="ACTIVE">Active</option>
-            <option value="INACTIVE">Inactive</option>
-            <option value="USED">Used</option>
-            <option value="EXPIRED">Expired</option>
-            <option value="CANCELLED">Cancelled</option>
-          </select>
-        </div>
-        <div>
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-theme-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-          >
-            <option value="ALL">All Types</option>
-            <option value="PHYSICAL">Physical</option>
-            <option value="DIGITAL">Digital</option>
-          </select>
-        </div>
-      </div>
+            <Select
+              label="Status"
+              options={statusOptions}
+              value={statusFilter}
+              onChange={(value) => setStatusFilter(value)}
+            />
 
-      {/* Table */}
-      <div className="max-w-full overflow-x-auto">
-        {filteredCards.length === 0 ? (
-          <div className="p-8 text-center">
-            <p className="text-gray-500 dark:text-gray-400 text-theme-sm">
-              {giftCards.length === 0 ? "No gift cards found" : "No cards match your search criteria"}
-            </p>
+            <Select
+              label="Type"
+              options={typeOptions}
+              value={typeFilter}
+              onChange={(value) => setTypeFilter(value)}
+            />
           </div>
-        ) : (
-          <Table>
-            <TableHeader className="border-gray-100 dark:border-gray-800 border-y">
-              <TableRow>
-                <TableCell
-                  isHeader
-                  className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                >
-                  Card Details
-                </TableCell>
-                <TableCell
-                  isHeader
-                  className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                >
-                  Type & Status
-                </TableCell>
-                <TableCell
-                  isHeader
-                  className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                >
-                  Value & Balance
-                </TableCell>
-                <TableCell
-                  isHeader
-                  className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                >
-                  Recipient
-                </TableCell>
-                <TableCell
-                  isHeader
-                  className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                >
-                  Actions
-                </TableCell>
-              </TableRow>
-            </TableHeader>
 
-            <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
-              {filteredCards.map((card) => (
-                <TableRow key={card.id}>
-                  <TableCell className="py-4">
-                    <div>
-                      <p className="font-mono font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                        {card.cardNumber}
-                      </p>
-                      <span className="text-gray-500 text-theme-xs dark:text-gray-400">
-                        Created {formatDate(card.createdAt)}
-                      </span>
-                      {card.message && (
-                        <p className="text-theme-xs text-gray-500 italic mt-1 dark:text-gray-400">
-                          "{card.message}"
-                        </p>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="py-4">
-                    <div className="flex flex-col gap-1">
-                      <Badge size="sm" color={getTypeBadgeColor(card.type)}>
-                        {card.type}
-                      </Badge>
-                      <Badge size="sm" color={getStatusBadgeColor(card.status)}>
-                        {card.status}
-                      </Badge>
-                    </div>
-                  </TableCell>
-                  <TableCell className="py-4">
-                    <div>
-                      <p className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                        {formatCurrency(card.initialValue)}
-                      </p>
-                      <span className="text-gray-500 text-theme-xs dark:text-gray-400">
-                        Balance: {formatCurrency(card.currentBalance)}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="py-4 text-gray-500 text-theme-sm dark:text-gray-400">
-                    <div>
-                      {card.recipientName && (
-                        <p className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                          {card.recipientName}
-                        </p>
-                      )}
-                      {card.recipientEmail && (
-                        <span className="text-gray-500 text-theme-xs dark:text-gray-400">
-                          {card.recipientEmail}
-                        </span>
-                      )}
-                      {!card.recipientName && !card.recipientEmail && (
-                        <span className="text-gray-400 text-theme-xs">No recipient</span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="py-4">
-                    <div className="flex flex-col gap-1">
-                      <button 
-                        onClick={() => handleViewDetails(card)}
-                        className="text-start text-blue-600 hover:text-blue-800 text-theme-xs"
-                      >
-                        View Details
-                      </button>
-                      <button 
-                        onClick={() => handleTransactionHistory(card)}
-                        className="text-start text-green-600 hover:text-green-800 text-theme-xs"
-                      >
-                        Transaction History
-                      </button>
-                      {card.status === 'ACTIVE' && (
-                        <button 
-                          onClick={() => handleDeactivateCard(card)}
-                          className="text-start text-red-600 hover:text-red-800 text-theme-xs"
-                        >
-                          Deactivate
-                        </button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </div>
+          <div>
+            <button
+              onClick={() => {
+                setSearchTerm('');
+                setStatusFilter('ALL');
+                setTypeFilter('ALL');
+              }}
+              className="text-sm text-brand-500 hover:text-brand-600 font-medium"
+            >
+              Clear all filters
+            </button>
+          </div>
+        </div>
+
+        {/* Table */}
+        <StandardTable
+          columns={columns}
+          data={filteredCards}
+          loading={loading && giftCards.length === 0}
+          emptyState={{
+            message: "No gift cards found",
+          }}
+        />
+      </ComponentCard>
     </div>
   );
 }

@@ -243,7 +243,7 @@ const EventPaymentsPage: React.FC = () => {
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Event not found</h2>
           <button
             onClick={() => navigate('/events')}
-            className="text-[#597485] hover:text-[#4e6575]"
+            className="text-brand-500 hover:text-brand-600"
           >
             Return to Events List
           </button>
@@ -330,7 +330,7 @@ const EventPaymentsPage: React.FC = () => {
               </div>
               <button
                 onClick={() => setShowAddPayment(true)}
-                className="inline-flex items-center px-4 py-2 bg-[#597485] hover:bg-[#4e6575] text-white text-sm font-medium rounded-lg transition-colors"
+                className="inline-flex items-center px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-lg transition-colors"
               >
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -348,7 +348,7 @@ const EventPaymentsPage: React.FC = () => {
                 <p className="text-sm">Add the first payment to get started</p>
                 <button
                   onClick={() => setShowAddPayment(true)}
-                  className="mt-3 inline-flex items-center px-3 py-2 bg-[#597485] hover:bg-[#4e6575] text-white text-sm rounded-lg transition-colors"
+                  className="mt-3 inline-flex items-center px-3 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm rounded-lg transition-colors"
                 >
                   Add Payment
                 </button>
@@ -479,7 +479,7 @@ const EventPaymentsPage: React.FC = () => {
                 <select
                   value={paymentForm.status}
                   onChange={(e) => handleInputChange('status', e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:border-[#597485] focus:ring-[#597485]/20 bg-white dark:bg-gray-900 text-gray-800 dark:text-white"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:border-brand-500 focus:ring-brand-500/20 bg-white dark:bg-gray-900 text-gray-800 dark:text-white"
                 >
                   <option value="RECEIVED">Received</option>
                   <option value="PENDING">Pending</option>
@@ -494,7 +494,7 @@ const EventPaymentsPage: React.FC = () => {
                     type="date"
                     value={paymentForm.receivedDate}
                     onChange={(e) => handleInputChange('receivedDate', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:border-[#597485] focus:ring-[#597485]/20 bg-white dark:bg-gray-900 text-gray-800 dark:text-white"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:border-brand-500 focus:ring-brand-500/20 bg-white dark:bg-gray-900 text-gray-800 dark:text-white"
                   />
                   {errors.receivedDate && <p className="text-red-500 text-sm mt-1">{errors.receivedDate}</p>}
                 </div>
@@ -520,7 +520,7 @@ const EventPaymentsPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="flex-1 py-3 px-4 bg-[#597485] hover:bg-[#4e6575] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
+                  className="flex-1 py-3 px-4 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
                 >
                   {submitting ? 'Adding...' : 'Add Payment'}
                 </button>

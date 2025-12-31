@@ -82,7 +82,7 @@ export default function DeliveryCard({
                 type="button"
                 onClick={() => setShowSuggestions(true)}
                 className="inline-flex items-center justify-center rounded-md py-2 px-4 text-center font-medium text-white hover:bg-opacity-90 lg:px-6 xl:px-8"
-                style={{ backgroundColor: '#597485' }}
+                style={{ backgroundColor: 'brand-500' }}
               >
                 <svg
                   className="mr-2 h-4 w-4"

@@ -83,8 +83,8 @@ const TakeOrderUnifiedPaymentModal: FC<Props> = ({
       onClick={onClick}
       className={`flex h-12 sm:h-14 min-w-[100px] sm:min-w-[120px] items-center justify-center rounded-lg border-2 px-3 sm:px-4 text-xs sm:text-sm font-semibold transition-colors ${
         active
-          ? 'border-[#597485] bg-[#597485] text-white shadow-lg'
-          : 'border-gray-200 bg-gray-100 text-gray-600 hover:border-[#597485] hover:text-[#597485]'
+          ? 'border-brand-500 bg-brand-500 text-white shadow-lg'
+          : 'border-gray-200 bg-gray-100 text-gray-600 hover:border-brand-500 hover:text-brand-500'
       }`}
       aria-pressed={active}
     >

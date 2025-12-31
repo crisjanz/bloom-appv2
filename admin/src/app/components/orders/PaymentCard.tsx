@@ -180,7 +180,7 @@ export default function PaymentCard({
                     type="number"
                     value={discount.toString()}
                     onChange={(e) => setDiscount(Number(e.target.value) || 0)}
-                    className="w-16 bg-transparent border-0 border-b border-gray-300 dark:border-gray-600 text-center text-sm focus:outline-none focus:border-[#597485] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="w-16 bg-transparent border-0 border-b border-gray-300 dark:border-gray-600 text-center text-sm focus:outline-none focus:border-brand-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     placeholder="0"
                     min="0"
                   />
@@ -196,7 +196,7 @@ export default function PaymentCard({
                       />
                       <span className={`flex h-4 w-4 items-center justify-center rounded-full border ${
                         discountType === "$" 
-                          ? "border-[#597485] bg-[#597485]" 
+                          ? "border-brand-500 bg-brand-500" 
                           : "border-stroke dark:border-strokedark"
                       }`}>
                         {discountType === "$" && (
@@ -216,7 +216,7 @@ export default function PaymentCard({
                       />
                       <span className={`flex h-4 w-4 items-center justify-center rounded-full border ${
                         discountType === "%" 
-                          ? "border-[#597485] bg-[#597485]" 
+                          ? "border-brand-500 bg-brand-500" 
                           : "border-stroke dark:border-strokedark"
                       }`}>
                         {discountType === "%" && (
@@ -319,7 +319,7 @@ export default function PaymentCard({
             <button
               type="button"
               onClick={() => setShowGiftCardModal(true)}
-              className="mt-2 text-sm text-[#597485] hover:text-[#597485]/80 font-medium"
+              className="mt-2 text-sm text-brand-500 hover:text-brand-500/80 font-medium"
             >
               + Add Gift Card
             </button>
@@ -365,13 +365,13 @@ export default function PaymentCard({
                 checked={subscribe}
                 onChange={(checked) => setSubscribe(checked)}
                 label="Subscribe to newsletter for special offers"
-                className="checked:bg-[#597485] checked:border-[#597485]"
+                className="checked:bg-brand-500 checked:border-brand-500"
               />
               <Checkbox
                 checked={sendEmailReceipt}
                 onChange={(checked) => setSendEmailReceipt(checked)}
                 label="Send email receipt to customer"
-                className="checked:bg-[#597485] checked:border-[#597485]"
+                className="checked:bg-brand-500 checked:border-brand-500"
               />
             </div>
           </div>
@@ -379,7 +379,7 @@ export default function PaymentCard({
             type="button"
             onClick={onTriggerPayment}
             className="w-full inline-flex items-center justify-center rounded-md py-4 px-6 text-center text-lg font-medium text-white hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-50 transition-all"
-            style={{ backgroundColor: '#597485' }}
+            style={{ backgroundColor: 'brand-500' }}
           >
             <svg className="mr-3 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />

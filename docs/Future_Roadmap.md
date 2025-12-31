@@ -1,6 +1,6 @@
 # Future Roadmap
 
-**Last audited:** 2025-10-28  
+**Last audited:** 2025-12-30  
 **Maintainer:** Cristian Janz  
 **Status Legend:** ✅ delivered · 🛠️ in progress · 🔜 planned · 💡 idea
 
@@ -11,6 +11,10 @@
 - ✅ **Customer & recipient overhaul** — sender/recipient both use `Customer` records with shared addresses; duplicate walk-in customers eliminated (`admin/src/domains/customers/services/CustomerService.ts`, `back/prisma/schema.prisma:328-380`).
 - ✅ **FTD wire ingestion** — polling, auto-sync, and monitoring pipeline running continuously (`back/src/services/ftdMonitor.ts`, `back/src/routes/ftd`).
 - ✅ **Discount engine refresh** — new `/api/discounts` module with validation + auto-apply endpoints feeding POS calculations (`back/src/routes/discounts.ts`, `admin/src/domains/payments/hooks/usePaymentCalculations.ts`).
+- ✅ **Print system (backend + Electron agent)** — Windows desktop application with WebSocket integration for auto-printing order tickets, delivery slips, and receipts to thermal and standard printers. Signature capture for driver proof-of-delivery. Order creation auto-triggers ticket printing (`bloom-print-agent/`, `back/src/services/printService.ts`, `back/src/routes/print-jobs`).
+- ✅ **QR delivery routes** — Route and stop management with admin drag-and-drop route builder, public driver interface with HMAC token-based access, signature capture for proof of delivery. QR codes print on order tickets linking to driver route view (`back/src/routes/routes/*`, `admin/src/app/pages/delivery/RouteBuilderPage.tsx`, `www/src/pages/DriverRoute.jsx`).
+- ✅ **Customer deduplication & merge** — Duplicate detection by name/email/phone similarity with manual merge review UI. ProviderCustomer model preserves multiple Stripe IDs per customer. JSON import tool with auto-duplicate detection (`back/src/routes/customerDuplicates.ts`, `admin/src/app/components/settings/misc/ImportJsonCard.tsx`).
+- ✅ **Wire product library** — Automated Petals.ca image fetching with Cloudflare R2 upload. Manual "Save to Library" workflow. Wire product images auto-associated with FTD orders (`back/src/routes/wire-products.ts`, `admin/src/app/pages/FulfillmentPage.tsx`).
 
 ## 🛠️ Near-Term Focus (0‑3 months)
 1. 🛠️ **Split payments end-to-end** — UI is live; needs backend settlement + PT line allocation (`admin/src/app/components/pos/payment/SplitPaymentView.tsx`, `back/src/routes/payment-transactions.ts`).
@@ -19,6 +23,8 @@
 4. 🔜 **Draft auto-cleanup** — remove saved drafts once orders are paid to avoid clutter (`back/src/routes/orders/create.ts` & PT settlement flow).
 5. 🔜 **Customer portal basics** — surface order history + profile management via existing `/api/customers/me/*` endpoints.
 6. 🔜 **Notification domain wiring** — replace placeholder repositories so `/api/notifications/*` uses Twilio/SendGrid adapters end-to-end.
+7. 🔜 **Print agent UI refinements** — admin interface for print job history, manual reprint queue, printer status monitoring, and print template customization (`bloom-print-agent/`, admin print settings page).
+8. 🔜 **Route optimization algorithms** — advanced routing with shortest path, time windows, traffic data integration, and driver preferences. Google Maps route optimization API integration for auto-sequencing (`back/src/routes/routes/*`, route optimization service).
 
 ## ⏳ Mid-Term Objectives (3‑6 months)
 - 🔜 **Delivery operations board** — driver assignment, bundle routing, and live status updates building on `orders/delivery` endpoints.

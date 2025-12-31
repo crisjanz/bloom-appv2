@@ -951,7 +951,7 @@ export default function RecipientCard({
             <span
               className={`block rounded-full px-3 py-1 text-sm transition-colors ${
                 orderType === value
-                  ? "bg-[#597485] text-white shadow-sm"
+                  ? "bg-brand-500 text-white shadow-sm"
                   : "text-gray-600 hover:text-black dark:text-gray-300 dark:hover:text-white"
               }`}
             >
@@ -968,7 +968,7 @@ export default function RecipientCard({
       <button
         type="button"
         onClick={() => setIsSearchModalOpen(true)}
-        className="inline-flex w-full items-center justify-center rounded-lg border border-[#597485] px-3 py-2 text-sm font-medium text-[#597485] transition hover:bg-[#597485] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#597485]/40 disabled:cursor-not-allowed disabled:border-gray-300 disabled:text-gray-400 sm:w-auto"
+        className="inline-flex w-full items-center justify-center rounded-lg border border-brand-500 px-3 py-2 text-sm font-medium text-brand-500 transition hover:bg-brand-500 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 disabled:cursor-not-allowed disabled:border-gray-300 disabled:text-gray-400 sm:w-auto"
       >
         Search Customers / Places
       </button>
@@ -1013,7 +1013,7 @@ export default function RecipientCard({
             <button
               type="button"
               onClick={handleUseCustomerName}
-              className="text-xs font-medium text-[#597485] hover:underline dark:text-[#7a9bb0]"
+              className="text-xs font-medium text-brand-500 hover:underline dark:text-[#7a9bb0]"
               title="Use customer's own information as recipient"
             >
               Use Customer's Name
@@ -1029,7 +1029,7 @@ export default function RecipientCard({
             placeholder="First name"
             value={recipientFirstName}
             onChange={(e) => setRecipientFirstName(e.target.value)}
-            className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-[#597485]"
+            className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-brand-500"
           />
           <InputField
             type="text"
@@ -1037,7 +1037,7 @@ export default function RecipientCard({
             placeholder="Last name"
             value={recipientLastName}
             onChange={(e) => setRecipientLastName(e.target.value)}
-            className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-[#597485]"
+            className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-brand-500"
           />
           <InputField
             type="text"
@@ -1045,7 +1045,7 @@ export default function RecipientCard({
             placeholder="Company"
             value={recipientCompany}
             onChange={(e) => setRecipientCompany(e.target.value)}
-            className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-[#597485]"
+            className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-brand-500"
           />
           {orderType === "DELIVERY" ? (
             <InputField
@@ -1054,7 +1054,7 @@ export default function RecipientCard({
               placeholder="Address label"
               value={recipientAddressLabel || ""}
               onChange={(e) => setRecipientAddressLabel?.(e.target.value)}
-              className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-[#597485]"
+              className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-brand-500"
             />
           ) : (
             <div></div>
@@ -1101,7 +1101,7 @@ export default function RecipientCard({
                 <button
                   type="button"
                   onClick={handleAddPhoneField}
-                  className="text-sm font-medium text-[#597485] hover:text-[#4e6575] dark:text-[#7a9bb0] dark:hover:text-[#597485]"
+                  className="text-sm font-medium text-brand-500 hover:text-brand-600 dark:text-[#7a9bb0] dark:hover:text-brand-500"
                 >
                   + Phone
                 </button>
@@ -1232,7 +1232,7 @@ export default function RecipientCard({
                   }
                 }}
                 placeholder="Address line 1"
-                className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-[#597485]"
+                className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-brand-500"
               />
               <InputField
                 type="text"
@@ -1245,7 +1245,7 @@ export default function RecipientCard({
                     address2: e.target.value,
                   })
                 }
-                className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-[#597485]"
+                className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-brand-500"
               />
               <InputField
                 type="text"
@@ -1258,7 +1258,7 @@ export default function RecipientCard({
                     city: e.target.value,
                   })
                 }
-                className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-[#597485]"
+                className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-brand-500"
               />
               <Select
                 options={[
@@ -1300,7 +1300,7 @@ export default function RecipientCard({
                     country: e.target.value,
                   })
                 }
-                className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-[#597485]"
+                className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-brand-500"
               />
               <InputField
                 type="text"
@@ -1313,7 +1313,7 @@ export default function RecipientCard({
                     postalCode: e.target.value,
                   })
                 }
-                className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-[#597485]"
+                className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-brand-500"
               />
               <div className="flex gap-2">
                 <div className="flex-1">
@@ -1349,7 +1349,7 @@ export default function RecipientCard({
                 <button
                   type="button"
                   onClick={handleAddPhoneField}
-                  className="text-sm font-medium text-[#597485] hover:text-[#4e6575] dark:text-[#7a9bb0] dark:hover:text-[#597485]"
+                  className="text-sm font-medium text-brand-500 hover:text-brand-600 dark:text-[#7a9bb0] dark:hover:text-brand-500"
                 >
                   + Phone
                 </button>
@@ -1459,7 +1459,7 @@ export default function RecipientCard({
                     onManualEditChange?.(true);
                     onDeliveryFeeCalculated?.(newFee);
                   }}
-                  className="mt-1 h-10 w-24 rounded-lg border border-gray-300 bg-transparent px-3 text-sm focus:border-[#597485] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none dark:border-gray-600 dark:bg-transparent"
+                  className="mt-1 h-10 w-24 rounded-lg border border-gray-300 bg-transparent px-3 text-sm focus:border-brand-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none dark:border-gray-600 dark:bg-transparent"
                   min="0"
                   step={0.01}
                 />
@@ -1479,7 +1479,7 @@ export default function RecipientCard({
                       );
                     }
                   }}
-                  className="text-sm font-medium text-[#597485] hover:underline"
+                  className="text-sm font-medium text-brand-500 hover:underline"
                 >
                   Recalculate
                 </button>
@@ -1494,7 +1494,7 @@ export default function RecipientCard({
                     type="button"
                     onClick={handleSaveRecipient}
                     disabled={isSaving}
-                    className="text-sm font-medium text-[#597485] hover:underline disabled:opacity-50"
+                    className="text-sm font-medium text-brand-500 hover:underline disabled:opacity-50"
                   >
                     {isSaving ? "Saving..." : "Save Recipient"}
                   </button>

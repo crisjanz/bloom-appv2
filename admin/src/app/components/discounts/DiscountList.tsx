@@ -1,6 +1,15 @@
 import { useState, useEffect } from 'react';
 import InputField from '@shared/ui/forms/input/InputField';
 import Select from '@shared/ui/forms/Select';
+import StandardTable, { ColumnDef } from '@shared/ui/components/ui/table/StandardTable';
+import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
+
+// Inline SVG icons
+const PencilIcon = ({ className = '' }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+  </svg>
+);
 
 type Discount = {
   id: string;
@@ -26,6 +35,7 @@ export default function DiscountList({ onEditDiscount }: Props) {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('ALL');
+  const { formatDate } = useBusinessTimezone();
 
   useEffect(() => {
     fetchDiscounts();
@@ -108,14 +118,6 @@ export default function DiscountList({ onEditDiscount }: Props) {
     return matchesSearch && matchesFilter;
   });
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-32">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#597485]"></div>
-      </div>
-    );
-  }
-
   const filterOptions = [
     { value: 'ALL', label: 'All Types' },
     { value: 'FIXED_AMOUNT', label: '$ Fixed' },
@@ -125,104 +127,153 @@ export default function DiscountList({ onEditDiscount }: Props) {
     { value: 'BUY_X_GET_Y_FREE', label: 'Buy X Get Y' }
   ];
 
+  // Define table columns
+  const columns: ColumnDef<Discount>[] = [
+    {
+      key: 'status',
+      header: 'Status',
+      className: 'w-[120px]',
+      render: (discount) => {
+        const statusColor = discount.enabled ? 'text-green-500' : 'text-gray-500';
+        const statusText = discount.enabled ? 'Active' : 'Inactive';
+        return (
+          <div className="flex items-center gap-2">
+            <span className={`text-2xl leading-none ${statusColor}`}>•</span>
+            <span className={`text-sm font-medium ${statusColor}`}>{statusText}</span>
+          </div>
+        );
+      },
+    },
+    {
+      key: 'name',
+      header: 'Discount Name',
+      className: 'w-[200px] max-w-[200px]',
+      render: (discount) => (
+        <div className="max-w-[200px] truncate">
+          <div className="text-sm font-medium text-gray-800 dark:text-white/90 truncate" title={discount.name}>
+            {discount.name}
+          </div>
+          {discount.code && (
+            <div className="text-xs text-gray-500 dark:text-gray-400 font-mono truncate" title={discount.code}>
+              {discount.code}
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'type',
+      header: 'Type',
+      className: 'w-[120px]',
+      render: (discount) => (
+        <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+          {getDiscountTypeDisplay(discount.discountType)}
+        </span>
+      ),
+    },
+    {
+      key: 'value',
+      header: 'Value',
+      className: 'w-[100px]',
+      render: (discount) => (
+        <span className="text-sm font-medium text-gray-800 dark:text-white/90 whitespace-nowrap">
+          {getDiscountValue(discount)}
+        </span>
+      ),
+    },
+    {
+      key: 'trigger',
+      header: 'Trigger',
+      className: 'w-[140px]',
+      render: (discount) => (
+        <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+          {getTriggerTypeDisplay(discount.triggerType)}
+        </span>
+      ),
+    },
+    {
+      key: 'usage',
+      header: 'Usage',
+      className: 'w-[100px]',
+      render: (discount) => (
+        <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+          {discount.usageLimit ? `${discount.usageCount}/${discount.usageLimit}` : discount.usageCount}
+        </span>
+      ),
+    },
+    {
+      key: 'created',
+      header: 'Created',
+      className: 'w-[120px]',
+      render: (discount) => (
+        <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+          {formatDate(discount.createdAt)}
+        </span>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      className: 'w-[80px]',
+      render: (discount) => (
+        <div className="flex items-center gap-3">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onEditDiscount?.(discount);
+            }}
+            className="text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors"
+            title="Edit discount"
+          >
+            <PencilIcon className="w-5 h-5" />
+          </button>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div>
-      
-      {/* Search and Filter */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-6">
-        <div className="flex-1">
+      {/* Filters */}
+      <div className="space-y-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <InputField
-            type="text"
-            placeholder="Search discounts..."
+            label="Search"
+            placeholder="Search by name or code..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full"
           />
-        </div>
-        <div className="sm:w-48">
+
           <Select
+            label="Type"
             options={filterOptions}
             value={filterType}
             onChange={setFilterType}
-            placeholder="Filter by type"
           />
+        </div>
+
+        <div>
+          <button
+            onClick={() => {
+              setSearchTerm('');
+              setFilterType('ALL');
+            }}
+            className="text-sm text-brand-500 hover:text-brand-600 font-medium"
+          >
+            Clear all filters
+          </button>
         </div>
       </div>
 
-      {/* Discounts List */}
-      <div className="space-y-4">
-        {filteredDiscounts.length === 0 ? (
-          <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-              </svg>
-            </div>
-            <p className="text-lg font-medium mb-2">No discounts found</p>
-            <p>Create your first discount using the buttons on the left</p>
-          </div>
-        ) : (
-          filteredDiscounts.map((discount) => (
-            <div
-              key={discount.id}
-              className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-[#597485] transition-colors"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="font-semibold text-black dark:text-white">
-                      {discount.name}
-                    </h3>
-                    {discount.code && (
-                      <span className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 rounded font-mono">
-                        {discount.code}
-                      </span>
-                    )}
-                    <span className={`px-2 py-1 text-xs rounded ${
-                      discount.enabled 
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                        : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                    }`}>
-                      {discount.enabled ? 'Active' : 'Inactive'}
-                    </span>
-                  </div>
-                  
-                  <div className="flex items-center gap-6 text-sm text-gray-600 dark:text-gray-400">
-                    <span>{getDiscountTypeDisplay(discount.discountType)}</span>
-                    <span>{getTriggerTypeDisplay(discount.triggerType)}</span>
-                    <span className="font-semibold text-[#597485]">
-                      {getDiscountValue(discount)}
-                    </span>
-                    {discount.usageLimit && (
-                      <span>{discount.usageCount}/{discount.usageLimit} uses</span>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => toggleDiscountStatus(discount.id, discount.enabled)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      discount.enabled
-                        ? 'bg-gray-100 hover:bg-gray-200 text-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-300'
-                        : 'bg-[#597485] hover:bg-[#4e6575] text-white'
-                    }`}
-                  >
-                    {discount.enabled ? 'Disable' : 'Enable'}
-                  </button>
-                  
-                  <button 
-                    onClick={() => onEditDiscount?.(discount)}
-                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-300 rounded-lg text-sm font-medium transition-colors"
-                  >
-                    Edit
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
+      {/* Table */}
+      <StandardTable
+        columns={columns}
+        data={filteredDiscounts}
+        loading={loading && discounts.length === 0}
+        emptyState={{
+          message: "No discounts found",
+        }}
+      />
     </div>
   );
 }

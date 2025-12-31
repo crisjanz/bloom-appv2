@@ -32,12 +32,12 @@ const GiftCardHandoffModal: React.FC<Props> = ({
   const handlePrint = () => {
     // Create printable content with better formatting for digital cards
     const printContent = cards.map(card => `
-      <div style="border: 2px solid #597485; padding: 30px; margin: 20px 0; text-align: center; background: #f9f9f9; border-radius: 10px; page-break-after: always;">
-        <h1 style="color: #597485; margin-bottom: 20px;">🌸 Bloom Flower Shop Gift Card</h1>
+      <div style="border: 2px solid brand-500; padding: 30px; margin: 20px 0; text-align: center; background: #f9f9f9; border-radius: 10px; page-break-after: always;">
+        <h1 style="color: brand-500; margin-bottom: 20px;">🌸 Bloom Flower Shop Gift Card</h1>
         
         <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
           <h2 style="font-family: monospace; font-size: 24px; color: #333; margin: 10px 0;">${card.cardNumber}</h2>
-          <h3 style="color: #597485; font-size: 32px; margin: 20px 0;">$${card.amount.toFixed(2)}</h3>
+          <h3 style="color: brand-500; font-size: 32px; margin: 20px 0;">$${card.amount.toFixed(2)}</h3>
         </div>
         
         ${card.recipientName ? `<p style="font-size: 18px; margin: 10px 0;"><strong>For:</strong> ${card.recipientName}</p>` : ''}
@@ -120,7 +120,7 @@ const GiftCardHandoffModal: React.FC<Props> = ({
                 <div>
                   <div className="mb-2">
                     <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Card Number:</span>
-                    <div className="text-lg font-mono font-bold text-[#597485] bg-white dark:bg-gray-700 p-2 rounded border">
+                    <div className="text-lg font-mono font-bold text-brand-500 bg-white dark:bg-gray-700 p-2 rounded border">
                       {card.cardNumber}
                     </div>
                   </div>
@@ -196,7 +196,7 @@ const GiftCardHandoffModal: React.FC<Props> = ({
           
           <Button
             onClick={onClose}
-            className="bg-[#597485] hover:bg-[#4e6575] text-white"
+            className="bg-brand-500 hover:bg-brand-600 text-white"
           >
             Complete Transaction
           </Button>

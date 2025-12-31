@@ -78,7 +78,7 @@ const SettingsCard: FC<Props> = ({
       <div className="mb-6">
         <button
           onClick={onSave}
-          className="flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-white rounded-lg bg-[#597485] hover:bg-[#4e6575] w-full"
+          className="flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-white rounded-lg bg-brand-500 hover:bg-brand-600 w-full"
         >
           Save Product
         </button>

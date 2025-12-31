@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import PhoneInput from '@shared/ui/forms/PhoneInput';
 
 interface SmsComposerProps {
   onSend: (message: string, phoneNumber: string) => Promise<boolean>;
@@ -68,15 +69,11 @@ export default function SmsComposer({ onSend, defaultPhone }: SmsComposerProps) 
       <div className="space-y-4">
         {/* Phone Number */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Phone Number
-          </label>
-          <input
-            type="tel"
-            value={phoneNumber}
-            onChange={(e) => setPhoneNumber(e.target.value)}
-            placeholder="604-555-1234"
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#597485]"
+          <PhoneInput
+            label="Phone Number"
+            value={phoneNumber || ''}
+            onChange={(value) => setPhoneNumber(value)}
+            placeholder="(604) 555-1234"
           />
         </div>
 
@@ -108,7 +105,7 @@ export default function SmsComposer({ onSend, defaultPhone }: SmsComposerProps) 
             onChange={(e) => setMessage(e.target.value)}
             rows={4}
             placeholder="Type your message here..."
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#597485]"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500"
           />
           <div className="flex justify-between items-center mt-1">
             <p className={`text-sm ${isOverLimit ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'}`}>
