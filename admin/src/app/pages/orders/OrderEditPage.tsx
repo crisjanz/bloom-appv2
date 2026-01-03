@@ -68,7 +68,7 @@ const mapDomainOrderToFrontend = (domainOrder: DomainOrder): Order => {
 };
 // MIGRATION: Use domain hook for order management
 import { useOrderManagement } from '@domains/orders/hooks/useOrderManagement';
-import { Order as DomainOrder, OrderType as DomainOrderType } from '@domains/orders/entities/Order';
+import { Order as DomainOrder, OrderType as DomainOrderType, OrderStatus } from '@domains/orders/entities/Order';
 
 // Import all modal components
 import CustomerEditModal from '@app/components/orders/edit/modals/CustomerEditModal';
