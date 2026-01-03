@@ -6,27 +6,27 @@ ALTER TYPE "OrderStatus" ADD VALUE IF NOT EXISTS 'PARTIALLY_REFUNDED';
 ALTER TYPE "OrderSource" ADD VALUE IF NOT EXISTS 'EXTERNAL';
 
 -- Update existing WIREIN values to EXTERNAL (if any exist)
-UPDATE "Order" SET "source" = 'EXTERNAL' WHERE "source" = 'WIREIN';
+UPDATE "Order" SET "orderSource" = 'EXTERNAL' WHERE "orderSource" = 'WIREIN';
 
 -- Now we can safely remove WIREIN since no data uses it
--- This requires creating a new enum without WIREIN and migrating
 DO $$
 BEGIN
-    -- Only proceed if WIREIN exists in the enum
     IF EXISTS (
         SELECT 1 FROM pg_enum e
         JOIN pg_type t ON e.enumtypid = t.oid
         WHERE t.typname = 'OrderSource' AND e.enumlabel = 'WIREIN'
     ) THEN
-        -- Create new enum without WIREIN
+        -- Drop default temporarily
+        ALTER TABLE "Order" ALTER COLUMN "orderSource" DROP DEFAULT;
+
+        -- Create new enum and migrate
         CREATE TYPE "OrderSource_new" AS ENUM ('PHONE', 'WALKIN', 'EXTERNAL', 'WEBSITE', 'POS');
-
-        -- Alter column to use new enum
-        ALTER TABLE "Order" ALTER COLUMN "source" TYPE "OrderSource_new" USING ("source"::text::"OrderSource_new");
-
-        -- Drop old enum and rename new one
+        ALTER TABLE "Order" ALTER COLUMN "orderSource" TYPE "OrderSource_new" USING ("orderSource"::text::"OrderSource_new");
         DROP TYPE "OrderSource";
         ALTER TYPE "OrderSource_new" RENAME TO "OrderSource";
+
+        -- Restore default
+        ALTER TABLE "Order" ALTER COLUMN "orderSource" SET DEFAULT 'PHONE'::"OrderSource";
     END IF;
 END $$;
 
@@ -38,25 +38,23 @@ ALTER TYPE "OrderExternalSource" ADD VALUE IF NOT EXISTS 'OTHER';
 -- AlterEnum: Add EXTERNAL to PaymentMethodType first
 ALTER TYPE "PaymentMethodType" ADD VALUE IF NOT EXISTS 'EXTERNAL';
 
--- Update existing FTD values to EXTERNAL in payment_transactions (if any exist)
-UPDATE "payment_transactions" SET "method" = 'EXTERNAL' WHERE "method" = 'FTD';
+-- Update existing FTD values to EXTERNAL in payment_methods (if any exist)
+UPDATE "payment_methods" SET "type" = 'EXTERNAL' WHERE "type" = 'FTD';
 
 -- Now we can safely remove FTD since no data uses it
 DO $$
 BEGIN
-    -- Only proceed if FTD exists in the enum
     IF EXISTS (
         SELECT 1 FROM pg_enum e
         JOIN pg_type t ON e.enumtypid = t.oid
         WHERE t.typname = 'PaymentMethodType' AND e.enumlabel = 'FTD'
     ) THEN
-        -- Create new enum without FTD
         CREATE TYPE "PaymentMethodType_new" AS ENUM ('CASH', 'CARD', 'GIFT_CARD', 'STORE_CREDIT', 'CHECK', 'COD', 'HOUSE_ACCOUNT', 'OFFLINE', 'EXTERNAL');
 
-        -- Alter column to use new enum
-        ALTER TABLE "payment_transactions" ALTER COLUMN "method" TYPE "PaymentMethodType_new" USING ("method"::text::"PaymentMethodType_new");
+        -- Update both tables that use this enum
+        ALTER TABLE "payment_methods" ALTER COLUMN "type" TYPE "PaymentMethodType_new" USING ("type"::text::"PaymentMethodType_new");
+        ALTER TABLE "refund_methods" ALTER COLUMN "paymentMethodType" TYPE "PaymentMethodType_new" USING ("paymentMethodType"::text::"PaymentMethodType_new");
 
-        -- Drop old enum and rename new one
         DROP TYPE "PaymentMethodType";
         ALTER TYPE "PaymentMethodType_new" RENAME TO "PaymentMethodType";
     END IF;
