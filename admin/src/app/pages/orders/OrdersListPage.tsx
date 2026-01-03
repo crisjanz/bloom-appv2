@@ -215,8 +215,8 @@ const OrdersListPage: React.FC = () => {
       header: 'Status',
       className: 'w-[160px]',
       render: (order) => {
-        const displayText = getStatusDisplayText(order.status, order.orderType as any);
-        const statusColor = getOrderStatusColor(order.status);
+        const displayText = getStatusDisplayText(order.status as any, order.orderType as any);
+        const statusColor = getOrderStatusColor(order.status as any);
         return (
           <div className="flex items-center gap-2">
             <span className={`text-2xl leading-none ${statusColor}`}>•</span>

@@ -488,7 +488,7 @@ const RefundModal = ({ isOpen, transactionNumber, onClose, onRefundComplete }: R
                 <button
                   type="button"
                   className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white"
-                  onClick={() => setStep(step === "type" ? "details" : "confirm")}
+                  onClick={() => setStep("confirm")}
                 >
                   Next
                 </button>

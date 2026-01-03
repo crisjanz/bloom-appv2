@@ -151,7 +151,7 @@ const OrderEditPage: React.FC = () => {
         // No payment transaction - ask to cancel without refund
         // (Common for old imported wire orders)
         if (confirm('This order has no payment transaction record. Cancel order without processing a refund?')) {
-          await updateOrderStatus('CANCELLED');
+          await updateOrderStatus(OrderStatus.CANCELLED);
         }
         return;
       }
@@ -163,7 +163,7 @@ const OrderEditPage: React.FC = () => {
       console.error('Error fetching transactions:', error);
       // If we can't fetch transactions, offer to cancel without refund
       if (confirm('Unable to load payment information. This may be an old imported order. Cancel order without processing a refund?')) {
-        await updateOrderStatus('CANCELLED');
+        await updateOrderStatus(OrderStatus.CANCELLED);
       }
     }
   };
@@ -249,7 +249,7 @@ const OrderEditPage: React.FC = () => {
     setEditingProducts([]);
     setEditingPayment(null);
     setEditingImages([]);
-    setUpdateCustomerDatabase(false);
+    // setUpdateCustomerDatabase(false); // TODO: Add state variable if needed
   };
 
   // Modified saveSection to accept direct data and handle payment adjustments

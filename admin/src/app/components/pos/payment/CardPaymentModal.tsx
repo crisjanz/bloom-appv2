@@ -68,8 +68,9 @@ export default function CardPaymentModal({
 
   const checkReaderConnection = async () => {
     try {
-      const connected = await stripeService.isTerminalConnected();
-      setReaderConnected(connected);
+      // TODO: Implement terminal connection check
+      // const connected = await stripeService.isTerminalConnected();
+      setReaderConnected(false);
     } catch (err) {
       setReaderConnected(false);
     }
@@ -93,7 +94,10 @@ export default function CardPaymentModal({
       );
 
       if (result.success && result.paymentMethods) {
-        setSavedCards(result.paymentMethods);
+        setSavedCards(result.paymentMethods.map(pm => ({
+          ...pm,
+          brand: pm.type || 'card'
+        })));
       }
     } catch (err) {
       console.error('Failed to load saved cards:', err);
@@ -113,19 +117,9 @@ export default function CardPaymentModal({
     setError(null);
 
     try {
-      const result = await stripeService.collectPayment(Math.round(total * 100), orderIds);
-
-      if (result.success) {
-        onComplete({
-          method: `${cardType}_stripe_terminal`,
-          transactionId: result.chargeId,
-          paymentIntentId: result.paymentIntentId,
-          cardLast4: result.cardLast4,
-        });
-      } else {
-        setError(result.error || 'Payment failed');
-        setIsProcessing(false);
-      }
+      // TODO: Implement terminal payment collection
+      setError('Terminal payments not yet implemented. Please use Manual Entry.');
+      setIsProcessing(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Payment failed');
       setIsProcessing(false);
@@ -143,34 +137,9 @@ export default function CardPaymentModal({
     setError(null);
 
     try {
-      // Parse expiry (MM/YY)
-      const [expMonth, expYear] = expiry.split('/').map(s => s.trim());
-
-      const result = await stripeService.chargeCard({
-        amount: Math.round(total * 100),
-        cardNumber: cardNumber.replace(/\s/g, ''),
-        expMonth,
-        expYear: `20${expYear}`,
-        cvv,
-        postalCode,
-        customerEmail,
-        customerPhone,
-        customerName,
-        saveCard,
-        orderIds,
-      });
-
-      if (result.success) {
-        onComplete({
-          method: `${cardType}_stripe_manual`,
-          transactionId: result.chargeId,
-          paymentIntentId: result.paymentIntentId,
-          cardLast4: cardNumber.slice(-4),
-        });
-      } else {
-        setError(result.error || 'Payment failed');
-        setIsProcessing(false);
-      }
+      // TODO: Implement manual card charging
+      setError('Manual card entry not yet implemented.');
+      setIsProcessing(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Payment failed');
       setIsProcessing(false);
@@ -183,25 +152,9 @@ export default function CardPaymentModal({
     setError(null);
 
     try {
-      const result = await stripeService.chargeSavedCard({
-        amount: Math.round(total * 100),
-        paymentMethodId: card.id,
-        customerEmail,
-        customerPhone,
-        orderIds,
-      });
-
-      if (result.success) {
-        onComplete({
-          method: `${cardType}_stripe_saved`,
-          transactionId: result.chargeId,
-          paymentIntentId: result.paymentIntentId,
-          cardLast4: card.last4,
-        });
-      } else {
-        setError(result.error || 'Payment failed');
-        setIsProcessing(false);
-      }
+      // TODO: Implement saved card charging
+      setError('Saved card charging not yet implemented.');
+      setIsProcessing(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Payment failed');
       setIsProcessing(false);
