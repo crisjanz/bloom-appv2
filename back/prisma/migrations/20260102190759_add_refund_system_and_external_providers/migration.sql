@@ -1,17 +1,23 @@
 -- AlterEnum: Add REFUNDED and PARTIALLY_REFUNDED to OrderStatus
-ALTER TYPE "OrderStatus" ADD VALUE 'REFUNDED';
-ALTER TYPE "OrderStatus" ADD VALUE 'PARTIALLY_REFUNDED';
+ALTER TYPE "OrderStatus" ADD VALUE IF NOT EXISTS 'REFUNDED';
+ALTER TYPE "OrderStatus" ADD VALUE IF NOT EXISTS 'PARTIALLY_REFUNDED';
 
--- AlterEnum: Rename WIREIN to EXTERNAL in OrderSource
-ALTER TYPE "OrderSource" RENAME VALUE 'WIREIN' TO 'EXTERNAL';
+-- AlterEnum: Add EXTERNAL to OrderSource first
+ALTER TYPE "OrderSource" ADD VALUE IF NOT EXISTS 'EXTERNAL';
+
+-- Update existing WIREIN values to EXTERNAL (if any exist)
+UPDATE "Order" SET "source" = 'EXTERNAL' WHERE "source" = 'WIREIN';
 
 -- AlterEnum: Expand OrderExternalSource
-ALTER TYPE "OrderExternalSource" ADD VALUE 'DOORDASH';
-ALTER TYPE "OrderExternalSource" ADD VALUE 'FUNERAL_SERVICE';
-ALTER TYPE "OrderExternalSource" ADD VALUE 'OTHER';
+ALTER TYPE "OrderExternalSource" ADD VALUE IF NOT EXISTS 'DOORDASH';
+ALTER TYPE "OrderExternalSource" ADD VALUE IF NOT EXISTS 'FUNERAL_SERVICE';
+ALTER TYPE "OrderExternalSource" ADD VALUE IF NOT EXISTS 'OTHER';
 
--- AlterEnum: Rename FTD to EXTERNAL in PaymentMethodType
-ALTER TYPE "PaymentMethodType" RENAME VALUE 'FTD' TO 'EXTERNAL';
+-- AlterEnum: Add EXTERNAL to PaymentMethodType first
+ALTER TYPE "PaymentMethodType" ADD VALUE IF NOT EXISTS 'EXTERNAL';
+
+-- Update existing FTD values to EXTERNAL in payment_transactions (if any exist)
+UPDATE "payment_transactions" SET "method" = 'EXTERNAL' WHERE "method" = 'FTD';
 
 -- CreateTable: ExternalProvider
 CREATE TABLE "external_providers" (
