@@ -52,10 +52,13 @@
     "square-connect": "^6.20201216.0",
     "stripe": "^18.2.1",
     "twilio": "^5.7.1",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "ws": "^8.18.0",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/qrcode": "^1.5.5",
+    "@types/ws": "^8.5.13",
     "nodemon": "^3.1.10",
     "prisma-seeder": "^1.0.2",
     "ts-node": "^10.9.2",
