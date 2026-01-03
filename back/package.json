@@ -10,11 +10,13 @@
     "start": "node dist/index.js",
     "dev:back": "nodemon",
     "postinstall": "prisma generate",
-    "deploy": "prisma migrate deploy && prisma generate",
-    "refresh-ftd-token": "ts-node scripts/refresh-ftd-token.ts"
+    "deploy": "prisma migrate deploy && prisma generate"
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
   },
   "keywords": [],
   "author": "",
@@ -22,6 +24,7 @@
   "type": "commonjs",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.713.0",
+    "@google/generative-ai": "^0.24.1",
     "@prisma/client": "^6.8.2",
     "@sendgrid/mail": "^8.1.5",
     "@types/bcryptjs": "^2.4.6",
@@ -45,7 +48,6 @@
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "prisma": "^6.8.2",
-    "puppeteer": "^24.25.0",
     "qrcode": "^1.5.4",
     "square-connect": "^6.20201216.0",
     "stripe": "^18.2.1",
@@ -53,10 +55,10 @@
     "typescript": "^5.8.3"
   },
   "devDependencies": {
+    "@types/qrcode": "^1.5.5",
     "nodemon": "^3.1.10",
     "prisma-seeder": "^1.0.2",
     "ts-node": "^10.9.2",
-    "typescript": "^5.8.3",
-    "@types/qrcode": "^1.5.5"
+    "typescript": "^5.8.3"
   }
 }

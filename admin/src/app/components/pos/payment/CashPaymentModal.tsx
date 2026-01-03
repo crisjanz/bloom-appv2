@@ -1,5 +1,6 @@
 // components/pos/payment/CashPaymentModal.tsx
 import { useState, useEffect } from 'react';
+import { Modal } from '@shared/ui/components/ui/modal';
 
 type Props = {
   open: boolean;
@@ -43,35 +44,21 @@ export default function CashPaymentModal({ open, total, onComplete, onCancel }: 
     }
   };
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4">
-      <div className="bg-white dark:bg-boxdark rounded-2xl shadow-2xl w-full max-w-md">
-        
+    <Modal
+      isOpen={open}
+      onClose={onCancel}
+      className="max-w-md"
+    >
+      <div className="p-6">
         {/* Header */}
-        <div className="border-b border-stroke dark:border-strokedark p-6">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              
-              <div>
-                <h2 className="text-xl font-bold text-black dark:text-white">Cash Payment</h2>
-                <p className="text-gray-600 dark:text-gray-400">Amount due: ${total.toFixed(2)}</p>
-              </div>
-            </div>
-            <button
-              onClick={onCancel}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
+        <div className="mb-6">
+          <h2 className="text-xl font-bold text-black dark:text-white">Cash Payment</h2>
+          <p className="text-gray-600 dark:text-gray-400">Amount due: ${total.toFixed(2)}</p>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
+        <div className="space-y-6">
           
           {/* Cash Received Input */}
           <div>
@@ -130,25 +117,23 @@ export default function CashPaymentModal({ open, total, onComplete, onCancel }: 
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="border-t border-stroke dark:border-strokedark p-6">
-          <div className="flex gap-3">
-            <button
-              onClick={onCancel}
-              className="flex-1 py-3 px-4 border border-stroke dark:border-strokedark text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl font-medium transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleComplete}
-              disabled={!isValid}
-              className="flex-1 py-3 px-4 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
-            >
-              Complete Payment
-            </button>
-          </div>
+        {/* Action Buttons */}
+        <div className="flex gap-3 pt-4">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-3 px-4 border border-stroke dark:border-strokedark text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl font-medium transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleComplete}
+            disabled={!isValid}
+            className="flex-1 py-3 px-4 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
+          >
+            Complete Payment
+          </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

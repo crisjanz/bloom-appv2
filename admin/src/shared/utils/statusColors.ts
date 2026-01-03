@@ -47,6 +47,10 @@ export const getOrderStatusColor = (status: string): string => {
       return STATUS_COLORS.red;
     case 'REJECTED':
       return STATUS_COLORS.orange;
+    case 'REFUNDED':
+      return STATUS_COLORS.purple;
+    case 'PARTIALLY_REFUNDED':
+      return STATUS_COLORS.orange;
     default:
       return STATUS_COLORS.gray;
   }
@@ -118,4 +122,3 @@ export const getGiftCardStatusColor = (status: string): string => {
       return STATUS_COLORS.gray;
   }
 };
-

@@ -52,44 +52,26 @@ export const useSplitPayment = (total: number) => {
   }, [total, splitPaidAmount]);
 
   const ensureSplitCoverage = useCallback((rows: SplitPaymentRow[]) => {
-    const plannedTotal = rows.reduce((sum, row) => sum + row.amount, 0);
-    if (plannedTotal < total - MIN_BALANCE) {
-      const missing = Number((total - plannedTotal).toFixed(2));
-      const autoRow: SplitPaymentRow = {
-        id: nextSplitRowId(),
-        tender: 'cash',
-        amount: missing,
-        status: 'pending',
-      };
-      return [...rows, autoRow];
-    }
+    // Don't automatically add rows - user controls when to add
     return rows;
-  }, [nextSplitRowId, total]);
+  }, []);
 
   const updateSplitRows = useCallback((updater: (rows: SplitPaymentRow[]) => SplitPaymentRow[]) => {
     setSplitRows((prev) => ensureSplitCoverage(updater(prev)));
   }, [ensureSplitCoverage]);
 
   const initializeSplitPayment = useCallback(() => {
-    const half = Number((total / 2).toFixed(2));
-    const remainder = Number((total - half).toFixed(2));
     setSplitPayments({});
     const initialRows: SplitPaymentRow[] = [
       {
         id: nextSplitRowId(),
-        tender: 'card_square',
-        amount: half > 0 ? half : total,
-        status: 'pending',
-      },
-      {
-        id: nextSplitRowId(),
         tender: 'cash',
-        amount: remainder > 0 ? remainder : half,
+        amount: 0,
         status: 'pending',
       },
     ];
-    setSplitRows(ensureSplitCoverage(initialRows));
-  }, [ensureSplitCoverage, nextSplitRowId, total]);
+    setSplitRows(initialRows);
+  }, [nextSplitRowId]);
 
   const handleSplitTenderChange = useCallback((rowId: string, tender: SplitPaymentTender) => {
     updateSplitRows((rows) =>
@@ -118,12 +100,23 @@ export const useSplitPayment = (total: number) => {
       const nextRow: SplitPaymentRow = {
         id: nextSplitRowId(),
         tender: 'cash',
-        amount: remainingAmount > MIN_BALANCE ? remainingAmount : Number((total / 2).toFixed(2)),
+        amount: remainingAmount,
         status: 'pending',
       };
       return [...rows, nextRow];
     });
   }, [nextSplitRowId, total, updateSplitRows]);
+
+  const handleSplitDeleteRow = useCallback((rowId: string) => {
+    updateSplitRows((rows) => {
+      // Don't allow deleting if only 1 row or if row is completed
+      const row = rows.find(r => r.id === rowId);
+      if (rows.length <= 1 || row?.status === 'completed') {
+        return rows;
+      }
+      return rows.filter((row) => row.id !== rowId);
+    });
+  }, [updateSplitRows]);
 
   const markRowProcessing = useCallback((rowId: string) => {
     updateSplitRows((rows) =>
@@ -181,6 +174,7 @@ export const useSplitPayment = (total: number) => {
     handleSplitTenderChange,
     handleSplitAmountChange,
     handleSplitAddRow,
+    handleSplitDeleteRow,
     markRowProcessing,
     completeRowPayment,
     cancelRowPayment,

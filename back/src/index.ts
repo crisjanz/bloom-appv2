@@ -24,6 +24,7 @@ import giftCardsRouter from './routes/gift-cards';
 import ordersRouter from './routes/orders/index';
 import communicationsRouter from './routes/communications';
 import paymentTransactionsRouter from './routes/payment-transactions';
+import refundsRouter from './routes/refunds';
 import faqsRouter from './routes/settings/faqs';
 import homepageRouter from './routes/settings/homepage';
 import { getPOSTabs, savePOSTabs } from './routes/settings/pos-tabs';
@@ -49,8 +50,6 @@ import stripeRouter from './routes/stripe';
 import squareRouter from './routes/square';
 import eventsRouter from './routes/events';
 import reportsRouter from './routes/reports';
-import ftdOrdersRouter from './routes/ftd/orders';
-import ftdSettingsRouter from './routes/ftd/settings';
 import imagesRouter from './routes/images';
 import addOnGroupsRouter from './routes/addon-groups';
 import dashboardRouter from './routes/dashboard';
@@ -59,8 +58,6 @@ import wireProductsRouter from './routes/wire-products';
 import routesRouter from './routes/routes';
 import driverRouteViewRouter from './routes/driver/route-view';
 import driverQRRouter from './routes/driver/qr-code';
-import { startFtdMonitor } from './services/ftdMonitor';
-import { startTokenRefreshSchedule } from './services/ftdAuthService';
 import { printService } from './services/printService';
 
 dotenv.config();
@@ -214,6 +211,7 @@ app.use('/api/gift-cards', giftCardsRouter);
 app.use('/api/orders', ordersRouter);
 app.use('/api/orders', communicationsRouter); // Communication endpoints for orders
 app.use('/api/payment-transactions', paymentTransactionsRouter);
+app.use('/api', refundsRouter);
 app.use('/api/settings/payments', paymentSettingsRouter);
 app.get('/api/settings/pos-tabs', getPOSTabs);
 app.post('/api/settings/pos-tabs', savePOSTabs);
@@ -228,8 +226,6 @@ app.use('/api/stripe', stripeRouter);
 app.use('/api/square', squareRouter);
 app.use('/api/events', eventsRouter);
 app.use('/api/reports', reportsRouter);
-app.use('/api/ftd/orders', ftdOrdersRouter);
-app.use('/api/ftd/settings', ftdSettingsRouter);
 app.use('/api/images', imagesRouter);
 app.use('/api/print-jobs', printJobsRouter);
 app.use('/api/routes', routesRouter);
@@ -297,13 +293,6 @@ async function startServer() {
   server.listen(PORT, '0.0.0.0', () => {
     console.log(`Custom backend running on http://localhost:${PORT}`);
     console.log('🖨️ Print agent WebSocket available at /print-agent');
-
-    // Start FTD integration services
-    console.log("🌸 Initializing FTD Wire Order Integration...");
-    startFtdMonitor().catch(err => {
-      console.error("Failed to start FTD monitor:", err.message);
-    });
-    startTokenRefreshSchedule();
   });
 }
 

@@ -1,5 +1,6 @@
 // Create components/pos/payment/DiscountModal.tsx
 import { FC, useState } from "react";
+import { Modal } from '@shared/ui/components/ui/modal';
 
 type Props = {
   open: boolean;
@@ -26,11 +27,13 @@ const DiscountModal: FC<Props> = ({ open, onApply, onCancel }) => {
     setReason('');
   };
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100] p-4">
-      <div className="bg-white dark:bg-boxdark rounded-2xl shadow-2xl w-full max-w-md p-6">
+    <Modal
+      isOpen={open}
+      onClose={onCancel}
+      className="max-w-md"
+    >
+      <div className="p-6">
         <h2 className="text-xl font-bold text-black dark:text-white mb-4">Add Discount</h2>
         
         <div className="space-y-4">
@@ -116,7 +119,7 @@ const DiscountModal: FC<Props> = ({ open, onApply, onCancel }) => {
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 };
 

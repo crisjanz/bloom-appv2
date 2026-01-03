@@ -39,18 +39,23 @@ enum OrderStatus {
   COMPLETED
   REJECTED
   CANCELLED
+  REFUNDED
+  PARTIALLY_REFUNDED
 }
 
 enum OrderSource {
   PHONE
   WALKIN
-  WIREIN
+  EXTERNAL
   WEBSITE
   POS
 }
 
 enum OrderExternalSource {
   FTD
+  DOORDASH
+  FUNERAL_SERVICE
+  OTHER
 }
 
 enum PrintJobType {
@@ -427,9 +432,7 @@ model Order {
 
   // Payment transaction links
   orderPayments OrderPayment[]
-
-  // FTD wire order link (reverse relation)
-  ftdOrder FtdOrder? @relation("FtdLinkedOrder")
+  orderRefunds  OrderRefund[]
 
   // Communication history
   communications OrderCommunication[]
@@ -1017,7 +1020,7 @@ enum PaymentMethodType {
   COD
   HOUSE_ACCOUNT
   OFFLINE
-  FTD // FTD wire-in orders (pre-paid via FTD network)
+  EXTERNAL // External provider payment (source in providerMetadata)
 }
 
 enum PaymentProvider {
@@ -1078,6 +1081,9 @@ model PaymentMethod {
   amount          Int // Stored in cents
   offlineMethodId String?
 
+  paymentSource   String?           @default("MANUAL") // TERMINAL, SAVED_CARD, MANUAL_ENTRY, ONLINE
+  isCardPresent   Boolean           @default(false)
+
   // Provider-specific data
   providerTransactionId String? // Stripe payment_intent_id, Square payment_id, etc.
   providerMetadata      Json? // Provider-specific response data
@@ -1116,8 +1122,14 @@ model Refund {
   amount        Int // Stored in cents
   reason        String?
 
+  refundType             String @default("FULL") // FULL, PARTIAL
+  itemBreakdown          Json?
+  taxRefunded            Int    @default(0)
+  deliveryFeeRefunded    Int    @default(0)
+
   // Refund breakdown by payment method
   refundMethods RefundMethod[]
+  orderRefunds  OrderRefund[]
 
   employeeId  String?
   processedAt DateTime @default(now())
@@ -1142,6 +1154,30 @@ model RefundMethod {
   refund Refund @relation(fields: [refundId], references: [id])
 
   @@map("refund_methods")
+}
+
+model OrderRefund {
+  id       String @id @default(uuid())
+  refundId String
+  orderId  String
+  amount   Int // Stored in cents
+
+  refund Refund @relation(fields: [refundId], references: [id])
+  order  Order  @relation(fields: [orderId], references: [id])
+
+  @@map("order_refunds")
+}
+
+model ExternalProvider {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  code      String   @unique
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("external_providers")
 }
 
 // Tax Rate Configuration
@@ -1373,104 +1409,6 @@ model EventPayment {
 // REMOVED: Cart system reverted to local state management for better performance
 // Draft orders now use the existing Order model with status = DRAFT
 
-model FtdSettings {
-  id String @id @default(cuid())
-
-  // === API CONFIGURATION ===
-  apiKey           String // FTD API key
-  shopId           String // Your FTD shop ID (71-0215AA)
-  authToken        String? // Current ep-authorization token
-  tokenRefreshedAt DateTime?
-
-  // === POLLING CONFIGURATION ===
-  pollingEnabled  Boolean   @default(true)
-  pollingInterval Int       @default(240) // seconds (4 minutes)
-  lastSyncTime    DateTime? // Last successful sync time for delta polling
-
-  // === NOTIFICATION SETTINGS ===
-  notifyOnNewOrder  Boolean @default(true)
-  notifyPhoneNumber String? // Override default Twilio number
-  notifyEmail       String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("ftd_settings")
-}
-
-enum FtdOrderStatus {
-  NEEDS_ACTION
-  ACCEPTED
-  IN_DESIGN
-  READY
-  OUT_FOR_DELIVERY
-  DELIVERED
-  REJECTED
-  CANCELLED
-}
-
-model FtdOrder {
-  id String @id @default(uuid())
-
-  // === FTD IDENTIFIERS ===
-  externalId     String         @unique // "F7841Y-5036-6100081565683178"
-  ftdOrderNumber Int? // 1124
-  status         FtdOrderStatus @default(NEEDS_ACTION)
-
-  // === RECIPIENT INFO (from detail endpoint, source of truth) ===
-  recipientFirstName String?
-  recipientLastName  String?
-  recipientPhone     String?
-  recipientEmail     String?
-
-  // === DELIVERY ADDRESS ===
-  address1    String?
-  address2    String?
-  city        String?
-  province    String?
-  postalCode  String?
-  country     String       @default("CA")
-  addressType AddressType?
-
-  // === DELIVERY DETAILS ===
-  deliveryDate         DateTime?
-  deliveryTime         String?
-  deliveryInstructions String?
-
-  // === ORDER CONTENT ===
-  cardMessage        String?
-  occasion           String?
-  productDescription String?
-  productCode        String?
-
-  // === PRICING ===
-  totalAmount Int? // Stored in cents
-
-  // === FTD REPORTING ===
-  sendingFloristCode String?
-
-  // === BLOOM INTEGRATION ===
-  linkedOrderId String? @unique
-  linkedOrder   Order?  @relation("FtdLinkedOrder", fields: [linkedOrderId], references: [id])
-  needsApproval Boolean @default(false) // True when auto-created, false after manual review
-
-  // === TRACKING ===
-  detailedFetchedAt DateTime? // When was detail payload last fetched
-  lastCheckedAt     DateTime  @default(now()) // When was status last checked (every 4 min)
-
-  // === RAW DATA (everything else stored here) ===
-  ftdRawData Json? // Full FTD detail payload
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([status])
-  @@index([deliveryDate])
-  @@index([sendingFloristCode])
-  @@index([externalId])
-  @@map("ftd_orders")
-}
-
 model PrintJob {
   id     String         @id @default(cuid())
   type   PrintJobType
@@ -1510,6 +1448,27 @@ model HomepageSettings {
   id                 String   @id @default(cuid())
   announcementBanner Json // {message, bgColor, textColor, fontSize, fontWeight, isActive, link}
   updatedAt          DateTime @updatedAt
+}
+
+// Shop Profile - Central configuration for shop-specific settings
+// Future: Consolidate StoreSettings, DeliverySettings, etc. here for multi-tenant support
+model ShopProfile {
+  id String @id @default(cuid())
+
+  // API Keys
+  googleGeminiApiKey String? // For OCR/vision features
+  googleMapsApiKey   String? // For address validation and geocoding
+
+  // Future migrations: Consolidate scattered settings here
+  // - StoreSettings (name, address, timezone)
+  // - DeliverySettings (location, zones)
+  // - Tax rates, business hours, etc.
+  settings Json? @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("shop_profile")
 }
 
 // Wire Product Library for FTD/Teleflora/Wire-in product images and descriptions

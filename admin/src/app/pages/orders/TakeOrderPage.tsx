@@ -33,7 +33,7 @@ export default function TakeOrderPage({
   >([]);
   const [formError, setFormError] = useState<string | null>(null);
   const [orderSource, setOrderSource] = useState<
-    "phone" | "walkin" | "wirein" | "wireout" | "website" | "pos"
+    "phone" | "walkin" | "external" | "website" | "pos"
   >("phone");
 
   // 🔹 Discount state
@@ -112,6 +112,7 @@ export default function TakeOrderPage({
 
   // ✅ Get total delivery fee from all orders
   const totalDeliveryFee = orderState.getTotalDeliveryFee();
+  const deliveryFeeInDollars = totalDeliveryFee / 100;
 
   // ✅ Helper function to calculate items total properly
   const calculateItemsTotal = () => {
@@ -131,7 +132,7 @@ export default function TakeOrderPage({
   const itemsTotal = calculateItemsTotal();
   const manualDiscountAmount =
     manualDiscountType === "%"
-      ? ((itemsTotal + totalDeliveryFee) * manualDiscount) / 100
+      ? ((itemsTotal + deliveryFeeInDollars) * manualDiscount) / 100
       : manualDiscount;
 
   const totalDiscount =
@@ -139,11 +140,12 @@ export default function TakeOrderPage({
     couponDiscount +
     giftCardDiscount +
     automaticDiscount;
+  const totalDiscountCents = Math.round(totalDiscount * 100);
 
   const { itemTotal, subtotal, gst, pst, grandTotal } = usePaymentCalculations(
     orderState.orders,
     totalDeliveryFee,
-    totalDiscount,
+    totalDiscountCents,
     "$", // Always $ since we calculate the amount above
   );
 

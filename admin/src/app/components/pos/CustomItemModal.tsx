@@ -1,6 +1,6 @@
 // components/pos/CustomItemModal.tsx - Fixed to use correct hook API
 import { useState, useEffect } from 'react';
-import ComponentCard from '@shared/ui/common/ComponentCard';
+import { Modal } from '@shared/ui/components/ui/modal';
 import InputField from '@shared/ui/forms/input/InputField';
 import Select from '@shared/ui/forms/Select';
 import Label from '@shared/ui/forms/Label';
@@ -79,8 +79,6 @@ export default function CustomItemModal({ open, onClose, onConfirm }: Props) {
     onClose();
   };
 
-  if (!open) return null;
-
   // Category options for select
   const categoryOptions = [
     { value: '', label: 'Select category (optional)' },
@@ -89,27 +87,17 @@ export default function CustomItemModal({ open, onClose, onConfirm }: Props) {
   ];
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100] p-4">
-      <div className="bg-white dark:bg-boxdark rounded-lg shadow-default w-full max-w-md">
-        
+    <Modal
+      isOpen={open}
+      onClose={handleCancel}
+      className="max-w-md"
+    >
+      <div className="p-6">
         {/* Header */}
-        <div className="border-b border-stroke dark:border-strokedark px-6 py-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold text-black dark:text-white">Add Custom Item</h2>
-            <button
-              onClick={handleCancel}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-              title="Close"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
+        <h2 className="text-xl font-semibold text-black dark:text-white mb-6">Add Custom Item</h2>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           {/* Product Name */}
           <div>
             <Label htmlFor="customItemName">Product Name *</Label>
@@ -182,6 +170,6 @@ export default function CustomItemModal({ open, onClose, onConfirm }: Props) {
           </div>
         </form>
       </div>
-    </div>
+    </Modal>
   );
 }

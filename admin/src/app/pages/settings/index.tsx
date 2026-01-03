@@ -19,6 +19,7 @@ const settings = [
   { title: "Delivery / Pickup", desc: "Times, charges, website logic", href: "/settings/delivery", icon: <TruckIcon className="w-6 h-6 text-primary" /> },
   { title: "Notifications", desc: "SMS, email, templates", href: "/settings/notifications", icon: <GridIcon className="w-6 h-6 text-primary" /> },
   { title: "Orders", desc: "Toggles, add-ons, logic", href: "/settings/orders", icon: <BoxCubeIcon className="w-6 h-6 text-primary" /> },
+  { title: "External Providers", desc: "Manage external order sources", href: "/settings/external-providers", icon: <LinkIcon className="w-6 h-6 text-primary" /> },
   { title: "Coupons & Discounts", desc: "Coupons, gift cards, sales", href: "/settings/discounts", icon: <PageIcon className="w-6 h-6 text-primary" /> },
   { title: "POS Settings", desc: "POS grid settings and TBD", href: "/settings/pos", icon: <GridIcon className="w-6 h-6 text-primary" /> },
   { title: "Print Settings", desc: "Tickets, layouts, printers", href: "/settings/print", icon: <GridIcon className="w-6 h-6 text-primary" /> },

@@ -308,7 +308,7 @@ const SquareManualEntry = forwardRef<ManualCardFormHandle, SquareManualEntryProp
           onError(null);
 
           try {
-            const response = await fetch('http://localhost:4000/api/square/payment', {
+            const response = await fetch('/api/square/payment', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',

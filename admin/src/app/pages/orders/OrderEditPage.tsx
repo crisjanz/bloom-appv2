@@ -78,6 +78,7 @@ import ProductsEditModal from '@app/components/orders/edit/modals/ProductsEditMo
 import PaymentEditModal from '@app/components/orders/edit/modals/PaymentEditModal';
 import ImagesEditModal from '@app/components/orders/edit/modals/ImagesEditModal';
 import PaymentAdjustmentModal from '@app/components/orders/edit/modals/PaymentAdjustmentModal';
+import RefundModal from '@app/components/refunds/RefundModal';
 
 interface PaymentAdjustmentResult {
   method: 'auto' | 'manual';
@@ -114,6 +115,10 @@ const OrderEditPage: React.FC = () => {
     originalCardLast4: string;
   } | null>(null);
 
+  // Refund modal states
+  const [refundModalOpen, setRefundModalOpen] = useState(false);
+  const [refundTransactionNumber, setRefundTransactionNumber] = useState<string | null>(null);
+
   // MIGRATION: Order auto-loads via useOrderManagement hook when id changes
 
   // MIGRATION: Handle status change using domain hook
@@ -125,6 +130,56 @@ const OrderEditPage: React.FC = () => {
     } catch (error) {
       console.error('Error updating status:', error);
       alert('Failed to update status');
+    }
+  };
+
+  // Handle Cancel/Refund button click
+  const handleCancelRefund = async () => {
+    if (!order) return;
+
+    try {
+      // Fetch transactions for this order
+      const response = await fetch(`/api/payment-transactions/order/${order.id}`);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const transactions = await response.json();
+
+      if (!transactions || transactions.length === 0) {
+        // No payment transaction - ask to cancel without refund
+        // (Common for old imported wire orders)
+        if (confirm('This order has no payment transaction record. Cancel order without processing a refund?')) {
+          await updateOrderStatus('CANCELLED');
+        }
+        return;
+      }
+
+      // Open refund modal with first transaction
+      setRefundTransactionNumber(transactions[0].transactionNumber);
+      setRefundModalOpen(true);
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+      // If we can't fetch transactions, offer to cancel without refund
+      if (confirm('Unable to load payment information. This may be an old imported order. Cancel order without processing a refund?')) {
+        await updateOrderStatus('CANCELLED');
+      }
+    }
+  };
+
+  // Handle refund completion - cancel order with skipRefund flag
+  const handleRefundComplete = async () => {
+    if (!order) return;
+
+    try {
+      // Update status to CANCELLED with skipRefund flag
+      await updateOrderDirect({ status: 'CANCELLED', skipRefund: true });
+      setRefundModalOpen(false);
+      setRefundTransactionNumber(null);
+    } catch (error) {
+      console.error('Error cancelling order:', error);
+      alert('Failed to cancel order');
     }
   };
 
@@ -379,9 +434,10 @@ const OrderEditPage: React.FC = () => {
     <div className="p-6">
       <PageBreadcrumb />
       
-      <OrderHeader 
-        order={order} 
+      <OrderHeader
+        order={order}
         onStatusChange={handleStatusChange}
+        onCancelRefund={handleCancelRefund}
       />
 
       <ComponentCard title="Order Details">
@@ -509,6 +565,17 @@ const OrderEditPage: React.FC = () => {
           onCancel={handlePaymentAdjustmentCancel}
         />
       )}
+
+      {/* Refund Modal */}
+      <RefundModal
+        isOpen={refundModalOpen}
+        transactionNumber={refundTransactionNumber}
+        onClose={() => {
+          setRefundModalOpen(false);
+          setRefundTransactionNumber(null);
+        }}
+        onRefundComplete={handleRefundComplete}
+      />
     </div>
   );
 };

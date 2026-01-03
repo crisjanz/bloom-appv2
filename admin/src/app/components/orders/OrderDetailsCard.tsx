@@ -11,8 +11,7 @@ type Employee = {
 type OrderSourceType =
   | "phone"
   | "walkin"
-  | "wirein"
-  | "wireout"
+  | "external"
   | "website"
   | "pos";
 
@@ -77,6 +76,12 @@ const OrderDetailsCard: FC<Props> = ({
     alert("Draft saved successfully!");
   };
 
+  const normalizeOrderSource = (source?: string): OrderSourceType | undefined => {
+    if (!source) return undefined;
+    if (source === "wirein" || source === "wireout") return "external";
+    return source as OrderSourceType;
+  };
+
   const handleLoadDraft = (draftId: string) => {
     const draft = savedDrafts.find((d) => d.id === draftId);
     if (!draft) return;
@@ -86,7 +91,10 @@ const OrderDetailsCard: FC<Props> = ({
     }
 
     if (draft.orderSource && setOrderSource) {
-      setOrderSource(draft.orderSource);
+      const normalizedSource = normalizeOrderSource(draft.orderSource);
+      if (normalizedSource) {
+        setOrderSource(normalizedSource);
+      }
     }
 
     if (onSaveDraft && draft.data) {
@@ -134,8 +142,7 @@ const OrderDetailsCard: FC<Props> = ({
             options={[
               { value: "phone", label: "Phone Order" },
               { value: "walkin", label: "Walk-in Order" },
-              { value: "wirein", label: "Wire-In Order" },
-              { value: "wireout", label: "Wire-Out Order" },
+              { value: "external", label: "External Order" },
             ]}
             value={
               orderSource === "website" || orderSource === "pos"

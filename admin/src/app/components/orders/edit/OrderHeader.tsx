@@ -8,18 +8,22 @@ import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
 interface OrderHeaderProps {
   order: Order;
   onStatusChange: (status: string) => void;
+  onCancelRefund?: () => void;
 }
 
-const OrderHeader: React.FC<OrderHeaderProps> = ({ order, onStatusChange }) => {
+const OrderHeader: React.FC<OrderHeaderProps> = ({ order, onStatusChange, onCancelRefund }) => {
   const statusOptions = getStatusOptions(order.type);
   const { formatDate, loading: timezoneLoading } = useBusinessTimezone();
+
+  // Show Cancel/Refund button for orders that can be cancelled (not already cancelled/completed/refunded)
+  const canCancelRefund = onCancelRefund && !['CANCELLED', 'COMPLETED', 'REFUNDED', 'PARTIALLY_REFUNDED'].includes(order.status);
   
   // Format order source for display
   const formatOrderSource = (source: string) => {
     const sourceMap: Record<string, string> = {
       'PHONE': 'Phone Order',
       'WALKIN': 'Walk-in Order',
-      'WIREIN': 'Wire-In Order',
+      'EXTERNAL': 'External Order',
       'WEBSITE': 'Website Order',
       'POS': 'POS Order'
     };
@@ -47,6 +51,14 @@ const OrderHeader: React.FC<OrderHeaderProps> = ({ order, onStatusChange }) => {
         
         {/* Status display and controls */}
         <div className="flex items-center gap-3">
+          {canCancelRefund && (
+            <button
+              onClick={onCancelRefund}
+              className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+            >
+              Cancel/Refund
+            </button>
+          )}
           <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
             Status:
           </span>

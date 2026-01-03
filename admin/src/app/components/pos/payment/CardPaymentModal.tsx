@@ -1,10 +1,10 @@
-// components/pos/payment/CardPaymentModal.tsx
+// components/pos/payment/CardPaymentModal.tsx - Simplified Stripe-only flow
 import { useState, useEffect } from 'react';
-import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { Modal } from '@shared/ui/components/ui/modal';
 import stripeService from '@shared/legacy-services/stripeService';
-
-type PaymentProvider = 'stripe' | 'square';
-type PaymentMode = 'terminal' | 'manual';
+import { CreditCardIcon } from '@shared/assets/icons';
+import InputField from '@shared/ui/forms/input/InputField';
+import Select from '@shared/ui/forms/Select';
 
 type Props = {
   open: boolean;
@@ -14,281 +14,23 @@ type Props = {
   customerEmail?: string;
   customerPhone?: string;
   customerName?: string;
-  initialProvider?: PaymentProvider;
-  initialMode?: PaymentMode;
-  onComplete: (paymentData: { 
-    method: string; 
-    provider: PaymentProvider;
+  onComplete: (paymentData: {
+    method: string;
     transactionId?: string;
     paymentIntentId?: string;
+    cardLast4?: string;
   }) => void;
   onCancel: () => void;
 };
 
-// Square Manual Entry Form Component
-function SquareManualEntryForm({ total, orderIds, customerEmail, customerPhone, customerName, onComplete, onCancel }: {
-  total: number;
-  orderIds?: string[];
-  customerEmail?: string;
-  customerPhone?: string;
-  customerName?: string;
-  onComplete: (data: any) => void;
-  onCancel: () => void;
-}) {
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [cardNumber, setCardNumber] = useState('');
-  const [expiry, setExpiry] = useState('');
-  const [cvv, setCvv] = useState('');
-  const [postalCode, setPostalCode] = useState('');
+type ViewMode = 'main' | 'manual';
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    
-    if (!cardNumber || !expiry || !cvv) {
-      setError('Please fill in all card details');
-      return;
-    }
-
-    setIsProcessing(true);
-    setError(null);
-
-    try {
-      // Step 1: Create a card nonce (mock for now - in production would use Square Web Payments SDK)
-      const mockNonce = `cnon:card-nonce-ok-${Date.now()}`;
-      
-      // Step 2: Process payment through our Square API
-      const response = await fetch('http://localhost:4000/api/square/payment', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          amount: total,
-          currency: 'CAD',
-          sourceId: mockNonce,
-          customerEmail,
-          customerPhone,
-          customerName,
-          description: `Bloom Order${orderIds && orderIds.length > 1 ? 's' : ''} ${orderIds?.join(', ') || ''}`,
-          orderIds,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Payment failed');
-      }
-
-      const result = await response.json();
-      
-      // Step 3: Complete the payment
-      onComplete({
-        method: 'credit_square_manual',
-        provider: 'square',
-        transactionId: result.paymentId,
-        cardLast4: cardNumber.slice(-4),
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Payment failed');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const formatCardNumber = (value: string) => {
-    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
-    const matches = v.match(/\d{4,16}/g);
-    const match = matches && matches[0] || '';
-    const parts = [];
-    for (let i = 0, len = match.length; i < len; i += 4) {
-      parts.push(match.substring(i, i + 4));
-    }
-    if (parts.length) {
-      return parts.join(' ');
-    } else {
-      return v;
-    }
-  };
-
-  const formatExpiry = (value: string) => {
-    const v = value.replace(/\D/g, '');
-    if (v.length >= 2) {
-      return v.substring(0, 2) + '/' + v.substring(2, 4);
-    }
-    return v;
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Card Number */}
-      <div>
-        <label className="block text-sm font-medium text-black dark:text-white mb-2">
-          Card Number
-        </label>
-        <input
-          type="text"
-          value={cardNumber}
-          onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
-          placeholder="1234 5678 9012 3456"
-          maxLength={19}
-          className="w-full px-4 py-3 border border-stroke dark:border-strokedark rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 bg-white dark:bg-boxdark text-black dark:text-white"
-        />
-      </div>
-
-      {/* Expiry and CVV */}
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-black dark:text-white mb-2">
-            Expiry
-          </label>
-          <input
-            type="text"
-            value={expiry}
-            onChange={(e) => setExpiry(formatExpiry(e.target.value))}
-            placeholder="MM/YY"
-            maxLength={5}
-            className="w-full px-4 py-3 border border-stroke dark:border-strokedark rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 bg-white dark:bg-boxdark text-black dark:text-white"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-black dark:text-white mb-2">
-            CVV
-          </label>
-          <input
-            type="text"
-            value={cvv}
-            onChange={(e) => setCvv(e.target.value.replace(/\D/g, '').substring(0, 4))}
-            placeholder="123"
-            maxLength={4}
-            className="w-full px-4 py-3 border border-stroke dark:border-strokedark rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 bg-white dark:bg-boxdark text-black dark:text-white"
-          />
-        </div>
-      </div>
-
-      {/* Postal Code */}
-      <div>
-        <label className="block text-sm font-medium text-black dark:text-white mb-2">
-          Postal Code
-        </label>
-        <input
-          type="text"
-          value={postalCode}
-          onChange={(e) => setPostalCode(e.target.value.toUpperCase())}
-          placeholder="K1A 0A6"
-          className="w-full px-4 py-3 border border-stroke dark:border-strokedark rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 bg-white dark:bg-boxdark text-black dark:text-white"
-        />
-      </div>
-      
-      {error && (
-        <div className="text-red-500 text-sm p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
-          {error}
-        </div>
-      )}
-      
-      <div className="flex gap-3">
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={isProcessing}
-          className="flex-1 py-3 px-4 border border-stroke dark:border-strokedark text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl font-medium transition-colors disabled:opacity-50"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={isProcessing || !cardNumber || !expiry || !cvv}
-          className="flex-1 py-3 px-4 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
-        >
-          {isProcessing ? 'Processing...' : `Pay $${total.toFixed(2)}`}
-        </button>
-      </div>
-    </form>
-  );
-}
-
-// Stripe Payment Form Component
-function StripePaymentForm({ onComplete, onCancel }: {
-  onComplete: (data: any) => void;
-  onCancel: () => void;
-}) {
-  const stripe = useStripe();
-  const elements = useElements();
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    
-    if (!stripe || !elements) {
-      return;
-    }
-
-    setIsProcessing(true);
-    setError(null);
-
-    try {
-      // Confirm payment using the existing payment intent
-      const { error, paymentIntent } = await stripe.confirmPayment({
-        elements,
-        confirmParams: {
-          return_url: `${window.location.origin}/orders`,
-        },
-        redirect: 'if_required',
-      });
-
-      if (error) {
-        setError(error.message || 'Payment failed');
-      } else if (paymentIntent && paymentIntent.status === 'succeeded') {
-        onComplete({
-          method: 'credit_stripe',
-          provider: 'stripe',
-          transactionId: paymentIntent.id,
-          paymentIntentId: paymentIntent.id,
-        });
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Payment failed');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="p-4 border border-stroke dark:border-strokedark rounded-xl">
-        <PaymentElement
-          options={{
-            layout: 'tabs',
-          }}
-        />
-      </div>
-      
-      {error && (
-        <div className="text-red-500 text-sm p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
-          {error}
-        </div>
-      )}
-      
-      <div className="flex gap-3">
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={isProcessing}
-          className="flex-1 py-3 px-4 border border-stroke dark:border-strokedark text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl font-medium transition-colors disabled:opacity-50"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={!stripe || isProcessing}
-          className="flex-1 py-3 px-4 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
-        >
-          {isProcessing ? 'Processing...' : 'Complete Payment'}
-        </button>
-      </div>
-    </form>
-  );
+interface SavedCard {
+  id: string;
+  brand: string;
+  last4: string;
+  expMonth: number;
+  expYear: number;
 }
 
 export default function CardPaymentModal({
@@ -299,468 +41,439 @@ export default function CardPaymentModal({
   customerEmail,
   customerPhone,
   customerName,
-  initialProvider,
-  initialMode,
   onComplete,
-  onCancel,
+  onCancel
 }: Props) {
+  const [viewMode, setViewMode] = useState<ViewMode>('main');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [paymentMode, setPaymentMode] = useState<PaymentMode>(initialMode ?? 'terminal');
-  const [provider, setProvider] = useState<PaymentProvider>(initialProvider ?? 'square');
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [savedCards, setSavedCards] = useState<Array<{
-    id: string;
-    type: string;
-    last4: string;
-    expMonth: number;
-    expYear: number;
-  }>>([]);
-  const [selectedSavedCard, setSelectedSavedCard] = useState<string | null>(null);
-  const [showSavedCards, setShowSavedCards] = useState(false);
-  const [savedCardCustomer, setSavedCardCustomer] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [readerConnected, setReaderConnected] = useState(false);
 
+  // Manual entry state
+  const [cardNumber, setCardNumber] = useState('');
+  const [expiry, setExpiry] = useState('');
+  const [cvv, setCvv] = useState('');
+  const [postalCode, setPostalCode] = useState('');
+  const [saveCard, setSaveCard] = useState(false);
+  const [savedCards, setSavedCards] = useState<SavedCard[]>([]);
+  const [loadingSavedCards, setLoadingSavedCards] = useState(false);
+  const [selectedSavedCard, setSelectedSavedCard] = useState<string>('');
+
+  // Check reader connection on mount
   useEffect(() => {
     if (open) {
-      setIsProcessing(false);
-      setPaymentMode(initialMode ?? 'terminal');
-      setProvider(initialProvider ?? 'square');
-      setClientSecret(null);
-      setSavedCards([]);
-      setSelectedSavedCard(null);
-      setShowSavedCards(false);
-      setSavedCardCustomer(null);
-      
-      // Load saved cards if we have customer contact info
-      if (customerPhone || customerEmail) {
-        loadSavedCards();
-      }
+      checkReaderConnection();
     }
-  }, [open, customerPhone, customerEmail, initialMode, initialProvider]);
+  }, [open]);
 
-  useEffect(() => {
-    // Initialize Stripe payment intent when switching to manual mode with Stripe
-    if (paymentMode === 'manual' && provider === 'stripe' && open) {
-      initializeStripePayment();
-    }
-    
-    // Reload saved cards when provider changes
-    if (paymentMode === 'manual' && open && (customerPhone || customerEmail)) {
-      setSavedCards([]);
-      setSelectedSavedCard(null);
-      setShowSavedCards(false);
-      setSavedCardCustomer(null);
-      loadSavedCards();
-    }
-  }, [paymentMode, provider, open]);
-
-  const loadSavedCards = async () => {
+  const checkReaderConnection = async () => {
     try {
-      if (provider === 'stripe') {
-        const result = await stripeService.getCustomerPaymentMethods(customerPhone, customerEmail);
-        if (result.success && result.paymentMethods.length > 0) {
-          setSavedCards(result.paymentMethods);
-          setSavedCardCustomer(result.customer);
-          setShowSavedCards(true);
-          console.log(`✅ Loaded ${result.paymentMethods.length} Stripe saved cards for customer`);
-        }
-      } else if (provider === 'square') {
-        const result = await stripeService.getSquareCustomerPaymentMethods(customerPhone, customerEmail);
-        if (result.success && result.paymentMethods.length > 0) {
-          setSavedCards(result.paymentMethods);
-          setSavedCardCustomer(result.customer);
-          setShowSavedCards(true);
-          console.log(`✅ Loaded ${result.paymentMethods.length} Square saved cards for customer`);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to load saved cards:', error);
+      const connected = await stripeService.isTerminalConnected();
+      setReaderConnected(connected);
+    } catch (err) {
+      setReaderConnected(false);
     }
   };
 
-  const initializeStripePayment = async () => {
+  // Load saved cards when entering manual mode
+  useEffect(() => {
+    if (viewMode === 'manual' && (customerEmail || customerPhone)) {
+      loadSavedCards();
+    }
+  }, [viewMode, customerEmail, customerPhone]);
+
+  const loadSavedCards = async () => {
+    if (!customerEmail && !customerPhone) return;
+
+    setLoadingSavedCards(true);
     try {
-      // Create payment intent to get clientSecret
-      const { clientSecret } = await stripeService.createPaymentIntent({
-        amount: total,
-        currency: 'cad',
+      const result = await stripeService.getCustomerPaymentMethods(
+        customerPhone || '',
+        customerEmail || ''
+      );
+
+      if (result.success && result.paymentMethods) {
+        setSavedCards(result.paymentMethods);
+      }
+    } catch (err) {
+      console.error('Failed to load saved cards:', err);
+    } finally {
+      setLoadingSavedCards(false);
+    }
+  };
+
+  // Main action: Charge via terminal
+  const handleChargeTerminal = async () => {
+    if (!readerConnected) {
+      setError('No card reader connected. Please use Manual Entry.');
+      return;
+    }
+
+    setIsProcessing(true);
+    setError(null);
+
+    try {
+      const result = await stripeService.collectPayment(Math.round(total * 100), orderIds);
+
+      if (result.success) {
+        onComplete({
+          method: `${cardType}_stripe_terminal`,
+          transactionId: result.chargeId,
+          paymentIntentId: result.paymentIntentId,
+          cardLast4: result.cardLast4,
+        });
+      } else {
+        setError(result.error || 'Payment failed');
+        setIsProcessing(false);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Payment failed');
+      setIsProcessing(false);
+    }
+  };
+
+  // Manual entry: Charge with card details
+  const handleManualCharge = async () => {
+    if (!cardNumber || !expiry || !cvv) {
+      setError('Please fill in all card details');
+      return;
+    }
+
+    setIsProcessing(true);
+    setError(null);
+
+    try {
+      // Parse expiry (MM/YY)
+      const [expMonth, expYear] = expiry.split('/').map(s => s.trim());
+
+      const result = await stripeService.chargeCard({
+        amount: Math.round(total * 100),
+        cardNumber: cardNumber.replace(/\s/g, ''),
+        expMonth,
+        expYear: `20${expYear}`,
+        cvv,
+        postalCode,
         customerEmail,
         customerPhone,
         customerName,
+        saveCard,
         orderIds,
-        description: `Bloom Order${orderIds && orderIds.length > 1 ? 's' : ''} ${orderIds?.join(', ') || ''}`,
       });
 
-      setClientSecret(clientSecret);
-    } catch (error) {
-      console.error('Failed to initialize Stripe payment:', error);
-    }
-  };
-
-  const handleTerminalPayment = async () => {
-    setIsProcessing(true);
-    
-    try {
-      if (provider === 'square') {
-        // Square terminal integration
-        await new Promise(resolve => setTimeout(resolve, 3000));
+      if (result.success) {
         onComplete({
-          method: `${cardType}_square`,
-          provider: 'square',
-          transactionId: `sq_${Date.now()}`
+          method: `${cardType}_stripe_manual`,
+          transactionId: result.chargeId,
+          paymentIntentId: result.paymentIntentId,
+          cardLast4: cardNumber.slice(-4),
         });
       } else {
-        // Stripe terminal integration
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        onComplete({
-          method: `${cardType}_stripe_terminal`,
-          provider: 'stripe',
-          transactionId: `spt_${Date.now()}`
-        });
+        setError(result.error || 'Payment failed');
+        setIsProcessing(false);
       }
-    } catch (error) {
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Payment failed');
       setIsProcessing(false);
-      console.error('Terminal payment failed:', error);
     }
   };
 
-  const handleStripePaymentComplete = (paymentData: any) => {
-    onComplete(paymentData);
-  };
-
-  const handleSavedCardPayment = async () => {
-    if (!selectedSavedCard || !savedCardCustomer) return;
-    
+  // Charge with saved card
+  const handleSavedCardCharge = async (card: SavedCard) => {
     setIsProcessing(true);
+    setError(null);
+
     try {
-      if (provider === 'stripe') {
-        // Stripe saved card payment
-        let paymentClientSecret = clientSecret;
-        if (!paymentClientSecret) {
-          const result = await stripeService.createPaymentIntent({
-            amount: total,
-            currency: 'cad',
-            customerEmail,
-            customerPhone,
-            customerName,
-            orderIds,
-            description: `Bloom Order${orderIds && orderIds.length > 1 ? 's' : ''} ${orderIds?.join(', ') || ''}`,
-          });
-          paymentClientSecret = result.clientSecret;
-        }
+      const result = await stripeService.chargeSavedCard({
+        amount: Math.round(total * 100),
+        paymentMethodId: card.id,
+        customerEmail,
+        customerPhone,
+        orderIds,
+      });
 
-        const stripe = await stripeService.getStripe();
-        if (!stripe) {
-          throw new Error('Stripe not initialized');
-        }
-
-        const { error, paymentIntent } = await stripe.confirmPayment({
-          clientSecret: paymentClientSecret,
-          confirmParams: {
-            payment_method: selectedSavedCard,
-            return_url: `${window.location.origin}/orders`,
-          },
-          redirect: 'if_required',
+      if (result.success) {
+        onComplete({
+          method: `${cardType}_stripe_saved`,
+          transactionId: result.chargeId,
+          paymentIntentId: result.paymentIntentId,
+          cardLast4: card.last4,
         });
-
-        if (error) {
-          console.error('❌ Stripe saved card payment error:', error);
-          throw new Error(error.message || 'Payment failed');
-        }
-
-        if (paymentIntent && paymentIntent.status === 'succeeded') {
-          console.log('✅ Stripe saved card payment succeeded:', paymentIntent.id);
-          onComplete({
-            method: 'credit_stripe_saved',
-            provider: 'stripe',
-            transactionId: paymentIntent.id,
-            paymentIntentId: paymentIntent.id,
-          });
-        } else {
-          throw new Error('Payment not completed');
-        }
-      } else if (provider === 'square') {
-        // Square saved card payment
-        const result = await stripeService.processSquareSavedCardPayment({
-          amount: total,
-          customerId: savedCardCustomer.id,
-          customerCardId: selectedSavedCard,
-          description: `Bloom Order${orderIds && orderIds.length > 1 ? 's' : ''} ${orderIds?.join(', ') || ''}`,
-          orderIds,
-        });
-
-        if (result.success) {
-          console.log('✅ Square saved card payment succeeded:', result.paymentId);
-          onComplete({
-            method: 'credit_square_saved',
-            provider: 'square',
-            transactionId: result.paymentId,
-          });
-        } else {
-          throw new Error('Square payment failed');
-        }
+      } else {
+        setError(result.error || 'Payment failed');
+        setIsProcessing(false);
       }
-    } catch (error) {
-      console.error('❌ Saved card payment failed:', error);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Payment failed');
       setIsProcessing(false);
-      // Could add error state here to show user
     }
   };
 
-  if (!open) return null;
+  // Format helpers
+  const formatCardNumber = (value: string) => {
+    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
+    const matches = v.match(/\d{4,16}/g);
+    const match = (matches && matches[0]) || '';
+    const parts = [];
+    for (let i = 0; i < match.length; i += 4) {
+      parts.push(match.substring(i, i + 4));
+    }
+    return parts.length ? parts.join(' ') : value;
+  };
 
-  const cardIcon = cardType === 'credit' ? '💳' : '💳';
-  const cardLabel = cardType === 'credit' ? 'Credit Card' : 'Debit Card';
-  const providerLabel = provider === 'stripe' ? 'Stripe' : 'Square';
-  const modeLabel = paymentMode === 'terminal' ? 'Card Reader' : 'Manual Entry';
-  const savedCardsLabel = savedCards.length > 0 ? ` • ${savedCards.length} saved` : '';
+  const formatExpiry = (value: string) => {
+    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
+    if (v.length >= 2) {
+      return `${v.substring(0, 2)}/${v.substring(2, 4)}`;
+    }
+    return v;
+  };
+
+  const formatCurrency = (dollars: number) => {
+    return `$${dollars.toFixed(2)}`;
+  };
+
+  const handleClose = () => {
+    if (!isProcessing) {
+      setViewMode('main');
+      setError(null);
+      setCardNumber('');
+      setExpiry('');
+      setCvv('');
+      setPostalCode('');
+      setSaveCard(false);
+      onCancel();
+    }
+  };
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4">
-      <div className="bg-white dark:bg-boxdark rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-        
+    <Modal
+      isOpen={open}
+      onClose={handleClose}
+      className="max-w-md"
+    >
+      <div className="p-8">
         {/* Header */}
-        <div className="border-b border-stroke dark:border-strokedark p-6">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <div className="text-3xl">{cardIcon}</div>
-              <div>
-                <h2 className="text-xl font-bold text-black dark:text-white">{cardLabel}</h2>
-                <p className="text-gray-600 dark:text-gray-400">Amount: ${total.toFixed(2)}</p>
-                <p className="text-sm text-brand-500 font-medium">{providerLabel} • {modeLabel}{savedCardsLabel}</p>
+        <div className="mb-8">
+          <div className="flex items-center gap-4 mb-2">
+            <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
+              <CreditCardIcon className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+            </div>
+            <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">
+              {viewMode === 'main' ? 'Charge Credit Card' : 'Manual Card Entry'}
+            </h2>
+          </div>
+          {viewMode === 'manual' && (
+            <p className="text-sm text-gray-500 dark:text-gray-400 ml-16">
+              Amount: {formatCurrency(total)}
+            </p>
+          )}
+        </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
+          </div>
+        )}
+
+        {/* Main View */}
+        {viewMode === 'main' && (
+          <div className="space-y-8">
+            {/* Total Amount */}
+            <div className="text-center">
+              <div className="text-5xl font-bold text-gray-900 dark:text-white">
+                {formatCurrency(total)}
               </div>
             </div>
+
+            {/* Charge Button */}
             <button
-              onClick={onCancel}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              onClick={handleChargeTerminal}
+              disabled={isProcessing || !readerConnected}
+              className={`w-full h-20 rounded-2xl font-semibold text-xl transition-all ${
+                isProcessing
+                  ? 'bg-gray-300 dark:bg-gray-600 cursor-wait'
+                  : readerConnected
+                  ? 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white'
+                  : 'bg-gray-200 dark:bg-gray-700 cursor-not-allowed text-gray-400 dark:text-gray-500'
+              }`}
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              {isProcessing ? (
+                <div className="flex items-center justify-center gap-3">
+                  <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span>Processing...</span>
+                </div>
+              ) : (
+                'Charge Card'
+              )}
             </button>
-          </div>
-        </div>
 
-        {/* Provider & Mode Selection */}
-        <div className="border-b border-stroke dark:border-strokedark p-3">
-          <div className="space-y-3">
-            {/* Payment Mode Toggle */}
-            <div>
-              <label className="block text-xs font-medium text-black dark:text-white mb-2">Payment Method</label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => setPaymentMode('terminal')}
-                  className={`py-1.5 px-2 text-sm rounded-lg font-medium transition-colors ${
-                    paymentMode === 'terminal'
-                      ? 'bg-brand-500 text-white'
-                      : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-                  }`}
-                >
-                  🏪 Reader
-                </button>
-                <button
-                  onClick={() => setPaymentMode('manual')}
-                  className={`py-1.5 px-2 text-sm rounded-lg font-medium transition-colors ${
-                    paymentMode === 'manual'
-                      ? 'bg-brand-500 text-white'
-                      : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-                  }`}
-                >
-                  📞 Manual
-                </button>
+            {/* Bottom Row: Reader Status + Manual Entry */}
+            <div className="flex items-center justify-between">
+              {/* Reader Status */}
+              <div className="flex items-center gap-2 text-sm">
+                {readerConnected ? (
+                  <>
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span className="text-gray-600 dark:text-gray-400">Reader Connected</span>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                    <span className="text-gray-600 dark:text-gray-400">Reader Not Connected</span>
+                  </>
+                )}
               </div>
-            </div>
 
-            {/* Provider Selection */}
-            <div>
-              <label className="block text-xs font-medium text-black dark:text-white mb-2">Provider</label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => setProvider('square')}
-                  className={`py-1.5 px-2 text-sm rounded-lg font-medium transition-colors ${
-                    provider === 'square'
-                      ? 'bg-brand-500 text-white'
-                      : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-                  }`}
-                >
-                  Square
-                </button>
-                <button
-                  onClick={() => setProvider('stripe')}
-                  className={`py-1.5 px-2 text-sm rounded-lg font-medium transition-colors ${
-                    provider === 'stripe'
-                      ? 'bg-brand-500 text-white'
-                      : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-                  }`}
-                >
-                  Stripe
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Saved Cards Section - Show for both providers in manual entry */}
-        {paymentMode === 'manual' && showSavedCards && savedCards.length > 0 && (
-          <div className="border-b border-stroke dark:border-strokedark p-4">
-            <h3 className="text-sm font-medium text-black dark:text-white mb-3">Saved Payment Methods</h3>
-            <div className="space-y-2">
-              {savedCards.map((card) => (
-                <button
-                  key={card.id}
-                  onClick={() => setSelectedSavedCard(selectedSavedCard === card.id ? null : card.id)}
-                  className={`w-full p-3 border rounded-xl text-left transition-colors ${
-                    selectedSavedCard === card.id
-                      ? 'border-brand-500 bg-brand-500/5'
-                      : 'border-stroke dark:border-strokedark hover:border-brand-500/50'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="text-lg">
-                        {card.type === 'visa' ? '💳' : card.type === 'mastercard' ? '💳' : '💳'}
-                      </div>
-                      <div>
-                        <div className="font-medium text-black dark:text-white">
-                          •••• •••• •••• {card.last4}
-                        </div>
-                        <div className="text-sm text-gray-600 dark:text-gray-400">
-                          {card.type.toUpperCase()} expires {card.expMonth.toString().padStart(2, '0')}/{card.expYear.toString().slice(-2)}
-                        </div>
-                      </div>
-                    </div>
-                    {selectedSavedCard === card.id && (
-                      <div className="text-brand-500">✓</div>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-            
-            {selectedSavedCard && (
+              {/* Manual Entry Button */}
               <button
-                onClick={handleSavedCardPayment}
+                onClick={() => setViewMode('manual')}
                 disabled={isProcessing}
-                className="w-full mt-3 py-3 px-4 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
+                className="px-6 py-2 text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
-                {isProcessing ? 'Processing...' : `Pay $${total.toFixed(2)} with saved card`}
-              </button>
-            )}
-            
-            <div className="mt-3 text-center">
-              <button
-                onClick={() => setShowSavedCards(false)}
-                className="text-sm text-brand-500 hover:text-brand-600"
-              >
-                Use a different card
+                Manual Entry
               </button>
             </div>
           </div>
         )}
 
-        {/* Content */}
-        <div className="p-4">
-          {paymentMode === 'terminal' ? (
-            /* Terminal Processing */
-            <div className="text-center space-y-4">
-              <div className="text-4xl animate-pulse">
-                {provider === 'stripe' ? '🟢' : '🔸'}
+        {/* Manual Entry View */}
+        {viewMode === 'manual' && (
+          <div className="space-y-4">
+            {/* Saved Cards */}
+            {savedCards.length > 0 && (
+              <div>
+                <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
+                  Saved Cards
+                </h3>
+                <div className="space-y-2">
+                  {savedCards.map((card) => (
+                    <button
+                      key={card.id}
+                      onClick={() => handleSavedCardCharge(card)}
+                      disabled={isProcessing}
+                      className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      <div className="flex items-center gap-3">
+                        <CreditCardIcon className="w-5 h-5 text-gray-500" />
+                        <div className="text-left">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">
+                            {card.brand} •••• {card.last4}
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            Expires {card.expMonth}/{card.expYear}
+                          </div>
+                        </div>
+                      </div>
+                      <span className="text-sm text-brand-500 font-medium">Use</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white mb-3">
+                    Or Enter New Card
+                  </p>
+                </div>
               </div>
-              
-              {isProcessing ? (
-                <div>
-                  <div className="text-lg font-semibold text-black dark:text-white mb-2">
-                    Processing Payment...
-                  </div>
-                  <div className="text-gray-600 dark:text-gray-400">
-                    Please follow prompts on {provider} card reader
-                  </div>
-                  <div className="mt-4">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500 mx-auto"></div>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <div className="text-lg font-semibold text-black dark:text-white mb-2">
-                    {provider === 'stripe' ? 'Stripe' : 'Square'} Card Reader
-                  </div>
-                  <div className="text-gray-600 dark:text-gray-400 mb-6">
-                    Insert, tap, or swipe card when ready
-                  </div>
-                  
-                  <button
-                    onClick={handleTerminalPayment}
-                    className="w-full py-4 bg-brand-500 hover:bg-brand-600 text-white rounded-xl font-medium transition-colors mb-4"
-                  >
-                    Start {provider === 'stripe' ? 'Stripe' : 'Square'} Processing
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
-            /* Manual Entry Form - Only show if not using saved cards */
-            <div>
-              {provider === 'stripe' && !showSavedCards ? (
-                /* Stripe Elements Form */
-                <div>
-                  <h3 className="font-semibold text-black dark:text-white mb-4">Enter Card Details (Stripe)</h3>
-                  {clientSecret ? (
-                    <Elements stripe={stripeService.getStripe()} options={{ clientSecret }}>
-                      <StripePaymentForm
-                        onComplete={handleStripePaymentComplete}
-                        onCancel={onCancel}
-                      />
-                    </Elements>
-                  ) : (
-                    <div className="text-center py-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500 mx-auto mb-4"></div>
-                      <p className="text-gray-600 dark:text-gray-400">Initializing Stripe...</p>
-                    </div>
-                  )}
-                </div>
-              ) : showSavedCards && savedCards.length > 0 ? (
-                /* Show message when saved cards are displayed for any provider */
-                <div className="text-center py-8">
-                  <div className="text-gray-600 dark:text-gray-400">
-                    Select a saved payment method above or click "Use a different card"
-                  </div>
-                </div>
-              ) : (
-                /* Square Manual Entry Form */
-                <div>
-                  <h3 className="font-semibold text-black dark:text-white mb-4">Enter Card Details (Square)</h3>
-                  <div className="mb-3 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                    <p className="text-xs text-green-600 dark:text-green-400">✅ Square Sandbox (test mode)</p>
-                  </div>
-                  <SquareManualEntryForm
-                    total={total}
-                    orderIds={orderIds}
-                    customerEmail={customerEmail}
-                    customerPhone={customerPhone}
-                    customerName={customerName}
-                    onComplete={handleStripePaymentComplete}
-                    onCancel={onCancel}
-                  />
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+            )}
 
-        {/* Footer - Only show for terminal mode (manual entry forms have their own buttons) */}
-        {paymentMode === 'terminal' && (
-          <div className="border-t border-stroke dark:border-strokedark p-6">
-            <div className="flex gap-3">
-              <button
-                onClick={onCancel}
+            {loadingSavedCards && (
+              <div className="text-center py-4">
+                <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-brand-500"></div>
+                <p className="text-sm text-gray-500 mt-2">Loading saved cards...</p>
+              </div>
+            )}
+
+            {/* Card Form */}
+            <div className="space-y-3">
+              <InputField
+                label="Card Number"
+                type="text"
+                value={cardNumber}
+                onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
+                placeholder="1234 5678 9012 3456"
+                maxLength={19}
                 disabled={isProcessing}
-                className="flex-1 py-3 px-4 border border-stroke dark:border-strokedark text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl font-medium transition-colors disabled:opacity-50"
+              />
+
+              <div className="grid grid-cols-2 gap-3">
+                <InputField
+                  label="Expiry (MM/YY)"
+                  type="text"
+                  value={expiry}
+                  onChange={(e) => setExpiry(formatExpiry(e.target.value))}
+                  placeholder="12/25"
+                  maxLength={5}
+                  disabled={isProcessing}
+                />
+                <InputField
+                  label="CVV"
+                  type="text"
+                  value={cvv}
+                  onChange={(e) => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  placeholder="123"
+                  maxLength={4}
+                  disabled={isProcessing}
+                />
+              </div>
+
+              <InputField
+                label="ZIP Code"
+                type="text"
+                value={postalCode}
+                onChange={(e) => setPostalCode(e.target.value.toUpperCase().slice(0, 7))}
+                placeholder="V2N 2N2"
+                disabled={isProcessing}
+              />
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="saveCard"
+                  checked={saveCard}
+                  onChange={(e) => setSaveCard(e.target.checked)}
+                  disabled={isProcessing}
+                  className="w-4 h-4 text-brand-500 border-gray-300 rounded focus:ring-brand-500"
+                />
+                <label htmlFor="saveCard" className="text-sm text-gray-700 dark:text-gray-300">
+                  Save card for future payments
+                </label>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 pt-4">
+              <button
+                onClick={() => setViewMode('main')}
+                disabled={isProcessing}
+                className="flex-1 px-4 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
               >
-                Cancel
+                Back
+              </button>
+              <button
+                onClick={handleManualCharge}
+                disabled={isProcessing || !cardNumber || !expiry || !cvv}
+                className="flex-1 px-4 py-3 bg-brand-500 text-white rounded-lg hover:bg-brand-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+              >
+                {isProcessing ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Processing...</span>
+                  </div>
+                ) : (
+                  'Charge Card'
+                )}
               </button>
             </div>
           </div>
         )}
       </div>
-    </div>
+    </Modal>
   );
 }

@@ -101,6 +101,8 @@ const getBadgeColor = (status: OrderStatus): 'default' | 'info' | 'warning' | 's
       return 'error';
     case 'REFUNDED':
       return 'default';
+    case 'PARTIALLY_REFUNDED':
+      return 'warning';
     default:
       return 'default';
   }
@@ -125,7 +127,8 @@ const allPossibleStatuses: OrderStatus[] = [
   'CANCELLED',
   'REJECTED',
   'FAILED_DELIVERY',
-  'REFUNDED'
+  'REFUNDED',
+  'PARTIALLY_REFUNDED'
 ];
 
 // Generate status config using helper functions

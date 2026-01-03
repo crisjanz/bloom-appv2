@@ -30,6 +30,26 @@ interface DeliverySettings {
   advanceOrderHours: number;
 }
 
+const normalizeMoneyFromApi = (value?: number | null): number | undefined => {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return undefined;
+  }
+
+  if (value >= 100) {
+    return value / 100;
+  }
+
+  return value;
+};
+
+const toCents = (value?: number): number | undefined => {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return undefined;
+  }
+
+  return Math.round(value * 100);
+};
+
 const DeliveryChargesCard = () => {
   const [settings, setSettings] = useState<DeliverySettings>({
     storeAddress: "",
@@ -74,8 +94,18 @@ const DeliveryChargesCard = () => {
       const response = await fetch('/api/settings/delivery-charges');
       if (response.ok) {
         const data = await response.json();
-        setSettings(data.settings || {});
-        setZones(data.zones || []);
+        const rawSettings = data.settings || {};
+        setSettings((prev) => ({
+          ...prev,
+          ...rawSettings,
+          freeDeliveryMinimum: normalizeMoneyFromApi(rawSettings.freeDeliveryMinimum)
+        }));
+        setZones(
+          (data.zones || []).map((zone: DeliveryZone) => ({
+            ...zone,
+            fee: normalizeMoneyFromApi(zone.fee) ?? 0
+          }))
+        );
       }
     } catch (error) {
       console.error('Failed to load delivery charges:', error);
@@ -87,14 +117,25 @@ const DeliveryChargesCard = () => {
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      const payloadSettings = {
+        ...settings,
+        freeDeliveryMinimum: toCents(settings.freeDeliveryMinimum)
+      };
+      const payloadZones = zones
+        .filter(zone => zone.name && zone.fee >= 0)
+        .map(zone => ({
+          ...zone,
+          fee: toCents(zone.fee) ?? 0
+        }));
+
       const response = await fetch('/api/settings/delivery-charges', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          settings,
-          zones: zones.filter(zone => zone.name && zone.fee >= 0), // Only save valid zones
+          settings: payloadSettings,
+          zones: payloadZones // Only save valid zones
         }),
       });
 

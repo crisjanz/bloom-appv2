@@ -16,7 +16,7 @@ export interface CreateTransactionData {
 }
 
 export interface PaymentMethodData {
-  type: 'CASH' | 'CARD' | 'GIFT_CARD' | 'STORE_CREDIT' | 'CHECK' | 'COD' | 'HOUSE_ACCOUNT' | 'OFFLINE' | 'FTD';
+  type: 'CASH' | 'CARD' | 'GIFT_CARD' | 'STORE_CREDIT' | 'CHECK' | 'COD' | 'HOUSE_ACCOUNT' | 'OFFLINE' | 'EXTERNAL';
   provider: 'STRIPE' | 'SQUARE' | 'INTERNAL';
   amount: number;
   providerTransactionId?: string;
@@ -184,23 +184,81 @@ class TransactionService {
       );
       console.log(`✅ ${paymentMethods.length} payment methods created for ${transactionNumber}`);
 
+      const normalizedOrderIds = Array.from(
+        new Set(
+          (data.orderIds || []).filter(
+            (orderId): orderId is string => typeof orderId === 'string' && orderId.trim().length > 0
+          )
+        )
+      );
+
+      if (normalizedOrderIds.length === 0) {
+        throw new Error(`No order IDs provided for transaction ${transactionNumber}`);
+      }
+
       // Create order payment links
+      const orders = await tx.order.findMany({
+        where: { id: { in: normalizedOrderIds } },
+        select: {
+          id: true,
+          paymentAmount: true,
+          deliveryFee: true,
+          totalTax: true,
+          discount: true,
+          orderItems: {
+            select: {
+              rowTotal: true
+            }
+          }
+        }
+      });
+
+      const orderAmountMap = new Map<string, number>();
+      const ordersNeedingPaymentUpdate: Array<{ id: string; amount: number }> = [];
+
+      orders.forEach((order) => {
+        const itemsTotal = order.orderItems.reduce((sum, item) => sum + item.rowTotal, 0);
+        let amount = order.paymentAmount || 0;
+
+        if (amount <= 0) {
+          amount = itemsTotal + (order.deliveryFee || 0) + (order.totalTax || 0) - (order.discount || 0);
+          if (amount < 0) {
+            amount = 0;
+          }
+          if (amount > 0) {
+            ordersNeedingPaymentUpdate.push({ id: order.id, amount });
+          }
+        }
+
+        orderAmountMap.set(order.id, amount);
+      });
+
+      const missingOrderIds = normalizedOrderIds.filter((orderId) => !orderAmountMap.has(orderId));
+      if (missingOrderIds.length > 0) {
+        throw new Error(`Orders not found for transaction ${transactionNumber}: ${missingOrderIds.join(', ')}`);
+      }
+
+      if (ordersNeedingPaymentUpdate.length > 0) {
+        await Promise.all(
+          ordersNeedingPaymentUpdate.map((order) =>
+            tx.order.update({
+              where: { id: order.id },
+              data: { paymentAmount: order.amount }
+            })
+          )
+        );
+      }
+
       const orderPayments = await Promise.all(
-        data.orderIds.map(async (orderId) => {
-          // Get order total to calculate payment amount
-          const order = await tx.order.findUnique({
-            where: { id: orderId },
-            select: { paymentAmount: true }
-          });
-          
-          return tx.orderPayment.create({
+        normalizedOrderIds.map((orderId) =>
+          tx.orderPayment.create({
             data: {
               transactionId: paymentTransaction.id,
-              orderId: orderId,
-              amount: order?.paymentAmount || 0
+              orderId,
+              amount: orderAmountMap.get(orderId) || 0
             }
-          });
-        })
+          })
+        )
       );
 
       // Update transaction status to completed if all payments succeeded
@@ -224,7 +282,7 @@ class TransactionService {
 
       // Update all associated orders to PAID status when transaction completes
       await Promise.all(
-        data.orderIds.map(orderId =>
+        normalizedOrderIds.map(orderId =>
           tx.order.update({
             where: { id: orderId },
             data: { status: 'PAID' }
@@ -262,7 +320,8 @@ class TransactionService {
         refunds: {
           include: {
             refundMethods: true,
-            employee: true
+            employee: true,
+            orderRefunds: true
           }
         }
       }
@@ -706,7 +765,7 @@ class TransactionService {
       COD: 'Collect on Delivery',
       HOUSE_ACCOUNT: 'House Account',
       OFFLINE: 'Offline',
-      FTD: 'FTD Wire-In',
+      EXTERNAL: 'External Provider',
       UNKNOWN: 'Unknown'
     };
 
@@ -761,6 +820,41 @@ class TransactionService {
         orderPayments: {
           include: {
             order: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+  }
+
+  /**
+   * Get all transactions for a specific order
+   */
+  async getOrderTransactions(orderId: string) {
+    return await prisma.paymentTransaction.findMany({
+      where: {
+        orderPayments: {
+          some: {
+            orderId
+          }
+        }
+      },
+      include: {
+        customer: true,
+        paymentMethods: {
+          include: {
+            offlineMethod: true
+          }
+        },
+        orderPayments: {
+          include: {
+            order: true
+          }
+        },
+        refunds: {
+          include: {
+            refundMethods: true,
+            orderRefunds: true
           }
         }
       },

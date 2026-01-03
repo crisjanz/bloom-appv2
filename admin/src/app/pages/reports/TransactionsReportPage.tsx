@@ -11,6 +11,7 @@ import type { PaymentTransactionReport } from '@domains/payments/types/transacti
 import usePaymentSettingsConfig from '@domains/payments/hooks/usePaymentSettingsConfig';
 import StandardTable, { ColumnDef } from '@shared/ui/components/ui/table/StandardTable';
 import { getPaymentStatusColor } from '@shared/utils/statusColors';
+import RefundModal from '@app/components/refunds/RefundModal';
 
 type DatePreset = 'TODAY' | 'WEEK' | 'MONTH' | 'CUSTOM';
 
@@ -69,8 +70,13 @@ const resolvePaymentMethodLabel = (method: PaymentTransactionReport['paymentMeth
       return 'Cheque';
     case 'GIFT_CARD':
       return 'Gift Card';
-    case 'FTD':
-      return 'FTD Wire-In';
+    case 'EXTERNAL': {
+      const source = method.providerMetadata?.source;
+      if (typeof source === 'string' && source.trim().length > 0) {
+        return `${source} External`;
+      }
+      return 'External Provider';
+    }
     default:
       return toTitleCase(type || 'UNKNOWN');
   }
@@ -88,6 +94,8 @@ const TransactionsReportPage: React.FC = () => {
   const [customStartDate, setCustomStartDate] = useState<string>(defaultRange.start);
   const [customEndDate, setCustomEndDate] = useState<string>(defaultRange.end);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [refundModalOpen, setRefundModalOpen] = useState(false);
+  const [refundTransactionNumber, setRefundTransactionNumber] = useState<string | null>(null);
 
   const {
     filters,
@@ -141,8 +149,7 @@ const TransactionsReportPage: React.FC = () => {
       options.push({ value: 'COD', label: 'Collect on Delivery' });
     }
 
-    // Always show FTD option (for wire-in orders)
-    options.push({ value: 'FTD', label: 'FTD Wire-In' });
+    options.push({ value: 'EXTERNAL', label: 'External Provider' });
 
     const offlineOptions = (paymentOfflineMethods ?? [])
       .filter((method) => method.isActive)
@@ -255,6 +262,11 @@ const TransactionsReportPage: React.FC = () => {
       const message = err instanceof Error ? err.message : 'Failed to export transactions';
       setExportError(message);
     }
+  };
+
+  const openRefundModal = (transactionNumber: string) => {
+    setRefundTransactionNumber(transactionNumber);
+    setRefundModalOpen(true);
   };
 
   // Define table columns
@@ -381,6 +393,20 @@ const TransactionsReportPage: React.FC = () => {
           <span className="text-sm text-gray-500 dark:text-gray-400">—</span>
         );
       },
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      className: 'w-[120px]',
+      render: (transaction) => (
+        <button
+          type="button"
+          onClick={() => openRefundModal(transaction.transactionNumber)}
+          className="rounded-full border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700 hover:border-brand-500 hover:text-brand-500"
+        >
+          Refund
+        </button>
+      ),
     },
   ];
 
@@ -567,6 +593,16 @@ const TransactionsReportPage: React.FC = () => {
           }
         />
       </ComponentCard>
+
+      <RefundModal
+        isOpen={refundModalOpen}
+        transactionNumber={refundTransactionNumber}
+        onClose={() => {
+          setRefundModalOpen(false);
+          setRefundTransactionNumber(null);
+        }}
+        onRefundComplete={() => refresh()}
+      />
     </div>
   );
 };

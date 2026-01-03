@@ -57,7 +57,8 @@ class StripeService {
 
   constructor() {
     this.stripePromise = loadStripe(STRIPE_PUBLISHABLE_KEY);
-    this.baseUrl = 'http://localhost:4000/api/stripe';
+    const apiBase = (import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || '').replace(/\/$/, '');
+    this.baseUrl = apiBase ? `${apiBase}/api/stripe` : '/api/stripe';
   }
 
   /**
@@ -259,7 +260,7 @@ class StripeService {
     error?: string;
   }> {
     try {
-      const response = await fetch('http://localhost:4000/api/square/customer/payment-methods', {
+      const response = await fetch('/api/square/customer/payment-methods', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -298,7 +299,7 @@ class StripeService {
     orderIds?: string[];
   }): Promise<any> {
     try {
-      const response = await fetch('http://localhost:4000/api/square/payment/saved-card', {
+      const response = await fetch('/api/square/payment/saved-card', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

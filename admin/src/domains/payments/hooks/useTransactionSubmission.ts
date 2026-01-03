@@ -76,16 +76,22 @@ export const useTransactionSubmission = () => {
         customerId = await getOrCreateGuestCustomer();
       }
 
+      const cartOrderIds = cartItems
+        .map((item) => item.draftOrderId || item.orderId)
+        .filter((orderId): orderId is string => typeof orderId === 'string' && orderId.trim().length > 0);
+
       // Extract draft order IDs from cart items
-      const draftOrderIds = cartItems
-        .filter((item) => item.draftOrderId)
-        .map((item) => item.draftOrderId);
+      const draftOrderIds = Array.from(new Set(cartOrderIds));
+
+      const explicitOrderIds = (orderIds || []).filter(
+        (orderId): orderId is string => typeof orderId === 'string' && orderId.trim().length > 0
+      );
 
       // Get non-draft cart items that need to be converted to orders
       const nonDraftItems = cartItems.filter((item) => !item.draftOrderId);
 
       // Collect all order IDs (draft + newly created)
-      let allOrderIds = [...draftOrderIds];
+      let allOrderIds = Array.from(new Set([...explicitOrderIds, ...draftOrderIds]));
 
       // Create orders for non-draft cart items if any
       if (nonDraftItems.length > 0) {
@@ -131,7 +137,7 @@ export const useTransactionSubmission = () => {
 
         // Add newly created order IDs
         const newOrderIds = orderResult.orders.map((order: any) => order.id);
-        allOrderIds = [...allOrderIds, ...newOrderIds];
+        allOrderIds = Array.from(new Set([...allOrderIds, ...newOrderIds]));
         console.log('✅ Created POS orders:', newOrderIds);
       }
 

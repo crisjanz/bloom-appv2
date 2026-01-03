@@ -6,12 +6,35 @@ import { useGiftCard } from "@shared/hooks/useGiftCard";
 type Props = {
   onGiftCardChange?: (amount: number, redemptionData?: any) => void; // ✅ Add redemption data
   grandTotal: number;
+  appliedGiftCards?: AppliedGiftCard[];
+  onAppliedGiftCardsChange?: (cards: AppliedGiftCard[]) => void;
 };
 
-const GiftCardInput: React.FC<Props> = ({ onGiftCardChange, grandTotal }) => {
+export type AppliedGiftCard = {
+  cardNumber: string;
+  amountUsed: number;
+  availableBalance: number;
+  remainingBalance: number;
+};
+
+const GiftCardInput: React.FC<Props> = ({
+  onGiftCardChange,
+  grandTotal,
+  appliedGiftCards,
+  onAppliedGiftCardsChange
+}) => {
   const [giftCardNumber, setGiftCardNumber] = useState<string>('');
   const [giftCardAmount, setGiftCardAmount] = useState<number>(0);
-  const [appliedGiftCards, setAppliedGiftCards] = useState<any[]>([]); // ✅ Support multiple cards
+  const [internalAppliedGiftCards, setInternalAppliedGiftCards] = useState<AppliedGiftCard[]>([]);
+
+  const activeAppliedGiftCards = appliedGiftCards ?? internalAppliedGiftCards;
+  const updateAppliedGiftCards = (cards: AppliedGiftCard[]) => {
+    if (onAppliedGiftCardsChange) {
+      onAppliedGiftCardsChange(cards);
+    } else {
+      setInternalAppliedGiftCards(cards);
+    }
+  };
 
   const {
     checkBalance,
@@ -36,7 +59,7 @@ const GiftCardInput: React.FC<Props> = ({ onGiftCardChange, grandTotal }) => {
     }
 
     // Calculate total already applied
-    const totalApplied = appliedGiftCards.reduce((sum, card) => sum + card.amountUsed, 0);
+    const totalApplied = activeAppliedGiftCards.reduce((sum, card) => sum + card.amountUsed, 0);
     const remainingTotal = grandTotal - totalApplied;
     
     if (giftCardAmount > remainingTotal) {
@@ -52,8 +75,8 @@ const GiftCardInput: React.FC<Props> = ({ onGiftCardChange, grandTotal }) => {
       remainingBalance: giftCardBalance - giftCardAmount
     };
 
-    const updatedCards = [...appliedGiftCards, newCard];
-    setAppliedGiftCards(updatedCards);
+    const updatedCards = [...activeAppliedGiftCards, newCard];
+    updateAppliedGiftCards(updatedCards);
     
     // Calculate total discount
     const totalDiscount = updatedCards.reduce((sum, card) => sum + card.amountUsed, 0);
@@ -71,8 +94,8 @@ const GiftCardInput: React.FC<Props> = ({ onGiftCardChange, grandTotal }) => {
   };
 
   const handleRemoveGiftCard = (index: number) => {
-    const updatedCards = appliedGiftCards.filter((_, i) => i !== index);
-    setAppliedGiftCards(updatedCards);
+    const updatedCards = activeAppliedGiftCards.filter((_, i) => i !== index);
+    updateAppliedGiftCards(updatedCards);
     
     const totalDiscount = updatedCards.reduce((sum, card) => sum + card.amountUsed, 0);
     
@@ -88,15 +111,15 @@ const GiftCardInput: React.FC<Props> = ({ onGiftCardChange, grandTotal }) => {
 
   useEffect(() => {
     if (isGiftCardValid && giftCardBalance > 0) {
-      const totalApplied = appliedGiftCards.reduce((sum, card) => sum + card.amountUsed, 0);
+      const totalApplied = activeAppliedGiftCards.reduce((sum, card) => sum + card.amountUsed, 0);
       const remainingTotal = grandTotal - totalApplied;
       const maxAmount = Math.min(giftCardBalance, remainingTotal);
       setGiftCardAmount(Math.max(0, maxAmount));
     }
-  }, [isGiftCardValid, giftCardBalance, grandTotal, appliedGiftCards]);
+  }, [isGiftCardValid, giftCardBalance, grandTotal, activeAppliedGiftCards]);
 
   // Calculate totals
-  const totalApplied = appliedGiftCards.reduce((sum, card) => sum + card.amountUsed, 0);
+  const totalApplied = activeAppliedGiftCards.reduce((sum, card) => sum + card.amountUsed, 0);
   const remainingTotal = Math.max(0, grandTotal - totalApplied);
 
   return (
@@ -104,7 +127,7 @@ const GiftCardInput: React.FC<Props> = ({ onGiftCardChange, grandTotal }) => {
       <Label htmlFor="giftCardNumber">Gift Card</Label>
       <div className="space-y-3">
         {/* Show remaining amount if cards are applied */}
-        {appliedGiftCards.length > 0 && remainingTotal > 0 && (
+        {activeAppliedGiftCards.length > 0 && remainingTotal > 0 && (
           <div className="text-sm text-gray-600 dark:text-gray-400">
             Remaining to pay: ${remainingTotal.toFixed(2)}
           </div>
@@ -192,7 +215,7 @@ const GiftCardInput: React.FC<Props> = ({ onGiftCardChange, grandTotal }) => {
         )}
 
         {/* Applied Gift Cards Display */}
-        {appliedGiftCards.map((card, index) => (
+        {activeAppliedGiftCards.map((card, index) => (
           <div key={index} className="flex justify-between items-center py-2 bg-blue-50 dark:bg-blue-900/20 px-3 rounded-md border border-blue-200 dark:border-blue-800">
             <div className="flex items-center gap-2">
               <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
@@ -225,7 +248,7 @@ const GiftCardInput: React.FC<Props> = ({ onGiftCardChange, grandTotal }) => {
         ))}
 
         {/* Summary when fully paid */}
-        {remainingTotal === 0 && appliedGiftCards.length > 0 && (
+        {remainingTotal === 0 && activeAppliedGiftCards.length > 0 && (
           <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-md border border-green-200 dark:border-green-800">
             <div className="flex items-center gap-2 text-green-800 dark:text-green-200">
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">

@@ -3,7 +3,8 @@
 // MIGRATION: Integrated with notification domain for unified notification system
 
 import { FC, useState, useEffect } from "react";
-import { MailIcon, ChatIcon, CloseIcon } from "@shared/assets/icons";
+import { Modal } from '@shared/ui/components/ui/modal';
+import { MailIcon, ChatIcon } from "@shared/assets/icons";
 import InputField from "@shared/ui/forms/input/InputField";
 import Button from "@shared/ui/components/ui/button/Button";
 // MIGRATION: Use notification domain - temporarily disabled for build compatibility
@@ -66,8 +67,6 @@ const NotificationModal: FC<NotificationModalProps> = ({
     setCustomerName(initialName);
     setSelectedChannels(new Set(defaultChannels));
   }, [initialEmail, initialPhone, initialName, defaultChannels, isOpen]);
-
-  if (!isOpen) return null;
 
   const toggleChannel = (channel: string) => {
     const newChannels = new Set(selectedChannels);
@@ -162,25 +161,19 @@ const NotificationModal: FC<NotificationModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100000]">
-      <div className="bg-white dark:bg-boxdark rounded-lg shadow-lg w-full max-w-md mx-4">
-        
+    <Modal
+      isOpen={isOpen}
+      onClose={handleClose}
+      className="max-w-md"
+    >
+      <div className="p-6">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-stroke dark:border-strokedark">
-          <h2 className="text-xl font-semibold text-black dark:text-white">
-            {title}
-          </h2>
-          <button
-            onClick={handleClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            disabled={isLoading}
-          >
-            <CloseIcon className="w-6 h-6" />
-          </button>
-        </div>
+        <h2 className="text-xl font-semibold text-black dark:text-white mb-6">
+          {title}
+        </h2>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
+        <div className="space-y-6">
           
           {/* Transaction Info */}
           <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
@@ -296,7 +289,7 @@ const NotificationModal: FC<NotificationModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 p-6 border-t border-stroke dark:border-strokedark">
+        <div className="flex items-center justify-end gap-3 pt-4">
           <Button
             variant="outline"
             onClick={handleClose}
@@ -313,7 +306,7 @@ const NotificationModal: FC<NotificationModalProps> = ({
           </Button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 };
 

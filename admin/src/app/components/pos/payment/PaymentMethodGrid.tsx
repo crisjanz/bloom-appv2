@@ -67,7 +67,7 @@ const PaymentMethodGrid: FC<Props> = ({
       {/* Payment Methods */}
       <div>
         <h3 className="text-lg font-semibold text-black dark:text-white mb-4">Payment Method</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4">
           {posPaymentMethods.map((method) => {
               const isSelected = selectedMethod === method.id;
 
@@ -75,7 +75,7 @@ const PaymentMethodGrid: FC<Props> = ({
                 <button
                   key={method.id}
                   onClick={() => onSelect(method)}
-                  className={`relative w-full h-24 flex flex-col justify-center items-center rounded-xl border-2 shadow-md transition-all hover:shadow-xl
+                  className={`relative w-full h-20 flex items-center gap-6 px-6 rounded-2xl border-2 shadow-sm transition-all hover:shadow-md
                     ${
                       isSelected
                         ? "bg-brand-500 border-brand-500 text-white"
@@ -83,12 +83,16 @@ const PaymentMethodGrid: FC<Props> = ({
                     }
                   `}
                 >
-                  <div className="mb-1">{method.icon}</div>
-                  <span className="text-sm font-medium text-center px-2">{method.label}</span>
+                  <div className={`w-14 h-14 flex items-center justify-center rounded-xl ${
+                    isSelected ? 'bg-white/20' : 'bg-gray-100 dark:bg-gray-800'
+                  }`}>
+                    {method.icon}
+                  </div>
+                  <span className="text-xl font-medium">{method.label}</span>
 
                   {isSelected && (
-                    <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-white border-2 border-white flex items-center justify-center">
-                      <div className="w-2 h-2 rounded-full bg-brand-500" />
+                    <div className="absolute top-4 right-4 w-5 h-5 rounded-full bg-white border-2 border-white flex items-center justify-center">
+                      <div className="w-2.5 h-2.5 rounded-full bg-brand-500" />
                     </div>
                   )}
                 </button>

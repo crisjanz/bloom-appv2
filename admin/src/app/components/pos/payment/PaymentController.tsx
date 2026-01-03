@@ -7,14 +7,13 @@ import SplitPaymentView, {
   SplitPaymentTender,
 } from './SplitPaymentView';
 import NotificationModal from './NotificationModal';
+import RefundModal from '../../refunds/RefundModal';
 import OrderCompletionSummary from './OrderCompletionSummary';
 import GiftCardActivationModal from '../../orders/payment/GiftCardActivationModal';
 import GiftCardHandoffModal from '../../orders/payment/GiftCardHandoffModal';
-import GiftCardInput from '../../orders/payment/GiftCardInput';
-import CouponInput from '../../orders/payment/CouponInput';
+import AdjustmentsModal from '../../orders/payment/AdjustmentsModal';
 import { orderContainsGiftCards } from '@shared/utils/giftCardHelpers';
 import { useCouponValidation } from '@shared/hooks/useCouponValidation';
-import InputField from '@shared/ui/forms/input/InputField';
 import { formatCurrency } from '@shared/utils/currencyHelpers';
 import { mapPaymentMethodType, getPaymentProvider, transformCartToOrders, generatePaymentSummary } from '@shared/utils/paymentHelpers';
 import { getOrCreateGuestCustomer, getCustomerDisplayName } from '@shared/utils/customerHelpers';
@@ -71,7 +70,6 @@ type CompletionData = {
 
 type PaymentTileId =
   | 'cash'
-  | 'card_square'
   | 'card_stripe'
   | 'house_account'
   | 'cod'
@@ -106,55 +104,49 @@ type PaymentTile = {
   icon: ReactNode;
 };
 
-const iconWrapperClass = 'h-7 w-7 text-brand-500';
+const iconWrapperClass = 'h-7 w-7 text-gray-700 dark:text-gray-400';
 
 const PAYMENT_TILES: PaymentTile[] = [
   {
     id: 'cash',
     label: 'Cash',
-    description: 'Count tender & auto-calc change',
+    description: '',
     icon: <DollarLineIcon className={iconWrapperClass} />,
   },
   {
-    id: 'card_square',
-    label: 'Square Card',
-    description: 'Tap, dip, or swipe on the Square reader',
-    icon: <CreditCardIcon className={iconWrapperClass} />,
-  },
-  {
     id: 'card_stripe',
-    label: 'Stripe Card',
-    description: 'Charge via Stripe terminal or manual entry',
+    label: 'Credit Card',
+    description: '',
     icon: <CreditCardIcon className={iconWrapperClass} />,
   },
   {
     id: 'house_account',
     label: 'House Account',
-    description: 'Post this sale to the customer’s account',
+    description: '',
     icon: <HomeIcon className={iconWrapperClass} />,
   },
   {
     id: 'cod',
-    label: 'COD',
-    description: 'Collect payment when the order is delivered',
+    label: 'COD/Pay Later',
+    description: '',
     icon: <TruckIcon className={iconWrapperClass} />,
   },
   {
     id: 'check',
     label: 'Check',
-    description: 'Record check details for reconciliation',
+    description: '',
     icon: <DocsIcon className={iconWrapperClass} />,
   },
   {
     id: 'split',
-    label: 'Split',
-    description: 'Layer multiple tenders across rows',
+    label: 'Split Payment',
+    description: '',
     icon: <BoltIcon className={iconWrapperClass} />,
   },
   {
     id: 'discounts',
     label: 'Discounts',
-    description: 'Apply manual discounts, gift cards, or coupons',
+    description: '',
     icon: <DollarSignIcon className={iconWrapperClass} />,
   },
 ];
@@ -170,12 +162,12 @@ const MANUAL_METHOD_CONFIG: Record<
 > = {
   house_account: {
     label: 'House Account',
-    referenceLabel: 'Account Reference',
-    instructions: 'Attach this charge to the customer’s account record.',
+    referenceLabel: 'Person Ordered',
+    instructions: 'Enter the name of the person who ordered on this account.',
     requireReference: true,
   },
   cod: {
-    label: 'Cash on Delivery',
+    label: 'COD/Pay Later',
     referenceLabel: 'Delivery Notes',
     instructions: 'Leave guidance for the driver when collecting payment on delivery.',
     requireReference: false,
@@ -208,6 +200,8 @@ const PaymentController: FC<Props> = ({
   onCouponChange,
 }) => {
   const [view, setView] = useState<'selection' | 'split'>('selection');
+  const [refundModalOpen, setRefundModalOpen] = useState(false);
+  const [refundTransactionNumber, setRefundTransactionNumber] = useState<string | null>(null);
 
   // Use extracted hooks
   const paymentState = usePaymentState();
@@ -229,6 +223,10 @@ const PaymentController: FC<Props> = ({
   // Computed values
   const customerDisplayName = getCustomerDisplayName(customer, customerName);
   const hasGiftCards = useMemo(() => orderContainsGiftCards(cartItems), [cartItems]);
+  const giftCardTotal = useMemo(
+    () => paymentDiscounts.giftCardRedemptions.reduce((sum, card) => sum + card.amount, 0),
+    [paymentDiscounts.giftCardRedemptions]
+  );
 
   // Reset all state
   const resetState = () => {
@@ -239,6 +237,8 @@ const PaymentController: FC<Props> = ({
     splitPayment.resetSplitPayment();
     transactionSubmission.resetTransaction();
     clearValidation();
+    setRefundModalOpen(false);
+    setRefundTransactionNumber(null);
   };
 
   useEffect(() => {
@@ -254,6 +254,12 @@ const PaymentController: FC<Props> = ({
     if (success) {
       paymentModals.setShowAdjustments(false);
     }
+  };
+
+  const handleCouponCodeChange = (value: string) => {
+    paymentDiscounts.setCouponCode(value);
+    paymentDiscounts.setCouponError('');
+    paymentDiscounts.setCouponSuccess('');
   };
 
   const handleCouponValidation = async (code: string) => {
@@ -461,7 +467,6 @@ const PaymentController: FC<Props> = ({
 
   const handleCardComplete = (data: {
     method: string;
-    provider: 'stripe' | 'square';
     transactionId?: string;
     paymentIntentId?: string;
     cardLast4?: string;
@@ -473,14 +478,14 @@ const PaymentController: FC<Props> = ({
         method: 'credit',
         amount: paymentModals.modalContext.amount,
         metadata: {
-          provider: data.provider,
+          provider: 'stripe',
           transactionId: data.transactionId,
           paymentIntentId: data.paymentIntentId,
           cardLast4: data.cardLast4,
           cardBrand: data.cardBrand,
         },
       },
-      `${data.provider === 'stripe' ? 'Stripe' : 'Square'} ${data.transactionId ? `• ${data.transactionId}` : ''}`,
+      `Stripe ${data.transactionId ? `• ${data.transactionId}` : ''}`,
     );
   };
 
@@ -532,6 +537,10 @@ const PaymentController: FC<Props> = ({
 
   const handleSplitAddRow = () => {
     splitPayment.handleSplitAddRow();
+  };
+
+  const handleSplitDeleteRow = (rowId: string) => {
+    splitPayment.handleSplitDeleteRow(rowId);
   };
 
   const handleSplitPayRow = (rowId: string) => {
@@ -609,7 +618,13 @@ const PaymentController: FC<Props> = ({
                 console.log('🖨️ Print receipt for', paymentState.completionData?.transactionNumber)
               }
               onProcessRefund={() =>
-                console.log('↩️ Process refund for', paymentState.completionData?.transactionNumber)
+                {
+                  const transactionNumber = paymentState.completionData?.transactionNumber;
+                  if (transactionNumber) {
+                    setRefundTransactionNumber(transactionNumber);
+                    setRefundModalOpen(true);
+                  }
+                }
               }
               onNewOrder={handleNewOrder}
             />
@@ -639,6 +654,19 @@ const PaymentController: FC<Props> = ({
           isDigital={transactionSubmission.activatedGiftCards.some((card) => card.type === 'DIGITAL')}
         />
 
+        <RefundModal
+          isOpen={refundModalOpen}
+          transactionNumber={refundTransactionNumber}
+          onClose={() => {
+            setRefundModalOpen(false);
+            setRefundTransactionNumber(null);
+          }}
+          onRefundComplete={() => {
+            setRefundModalOpen(false);
+            setRefundTransactionNumber(null);
+          }}
+        />
+
         {paymentState.notificationStatus && (
           <div
             className={`fixed top-4 right-4 z-[100001] rounded-lg px-6 py-4 text-white shadow-lg ${
@@ -666,6 +694,7 @@ const PaymentController: FC<Props> = ({
               onChangeAmount={handleSplitAmountChange}
               onPayRow={handleSplitPayRow}
               onAddRow={handleSplitAddRow}
+              onDeleteRow={handleSplitDeleteRow}
             />
           ) : (
             <>
@@ -774,33 +803,20 @@ const PaymentController: FC<Props> = ({
                   </div>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="flex flex-wrap gap-4">
                   {PAYMENT_TILES.map((tile) => (
                     <button
                       key={tile.id}
                       onClick={() => handleTileClick(tile.id)}
                       disabled={paymentState.isProcessing}
-                      className="group relative flex h-full flex-col rounded-2xl bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-boxdark"
+                      className="group relative flex h-26 w-65 items-center gap-4 rounded-2xl bg-white px-6 text-left shadow-sm transition hover:shadow-md focus:outline-none focus:ring-2 focus:ring-brand-500/20 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-boxdark"
                     >
-                      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-500/10 text-brand-500">
+                      <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800">
                         {tile.icon}
                       </div>
-                      <div className="text-lg font-semibold text-black dark:text-white">
+                      <div className="text-xl font-medium text-black dark:text-white">
                         {tile.label}
                       </div>
-                      <p className="mt-2 text-sm text-gray-500 dark:text-gray-300">
-                        {tile.description}
-                      </p>
-                      {tile.id === 'discounts' && (
-                        <span className="absolute right-5 top-5 rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600 transition dark:bg-gray-800 dark:text-gray-300">
-                          Adjustments
-                        </span>
-                      )}
-                      {tile.id === 'split' && (
-                        <span className="absolute right-5 top-5 rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600 transition dark:bg-gray-800 dark:text-gray-300">
-                          Multi Tender
-                        </span>
-                      )}
                     </button>
                   ))}
                 </div>
@@ -823,14 +839,13 @@ const PaymentController: FC<Props> = ({
         />
 
         <CardPaymentModal
-          open={paymentModals.activeModal === 'card_square' || paymentModals.activeModal === 'card_stripe'}
+          open={paymentModals.activeModal === 'card_stripe'}
           total={paymentModals.modalContext?.amount ?? total}
           cardType="credit"
           orderIds={orderIds}
           customerEmail={customer?.email ?? undefined}
           customerPhone={customer?.phone ?? undefined}
           customerName={customerDisplayName}
-          initialProvider={paymentModals.activeModal === 'card_stripe' ? 'stripe' : 'square'}
           onComplete={handleCardComplete}
           onCancel={handleModalCancel}
         />
@@ -892,135 +907,31 @@ const PaymentController: FC<Props> = ({
         )}
       </div>
 
-      {paymentModals.showAdjustments && (
-        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-3xl overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-boxdark">
-            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-800">
-              <div>
-                <h3 className="text-lg font-semibold text-black dark:text-white">Discounts & Credits</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Apply manual discounts, redeem gift cards, or validate coupons before charging.
-                </p>
-              </div>
-              <button
-                onClick={() => paymentModals.setShowAdjustments(false)}
-                className="text-gray-400 transition hover:text-gray-600 dark:hover:text-gray-200"
-              >
-                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="max-h-[75vh] overflow-y-auto px-6 py-6 space-y-8">
-              <section className="space-y-4">
-                <div>
-                  <h4 className="text-base font-semibold text-black dark:text-white">Manual Discount</h4>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Apply a one-off discount for this sale. Percentage discounts are calculated from the current total.
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => paymentDiscounts.setManualDiscountType('percent')}
-                    className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
-                      paymentDiscounts.manualDiscountType === 'percent'
-                        ? 'bg-brand-500 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    Percentage
-                  </button>
-                  <button
-                    onClick={() => paymentDiscounts.setManualDiscountType('amount')}
-                    className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
-                      paymentDiscounts.manualDiscountType === 'amount'
-                        ? 'bg-brand-500 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    Dollar Amount
-                  </button>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-[200px,1fr]">
-                  <InputField
-                    label={paymentDiscounts.manualDiscountType === 'percent' ? 'Percent (%)' : 'Amount ($)'}
-                    type="number"
-                    min="0"
-                    step={paymentDiscounts.manualDiscountType === 'percent' ? 1 : 0.01}
-                    value={paymentDiscounts.manualDiscountValue}
-                    onChange={(event) => paymentDiscounts.setManualDiscountValue(event.target.value)}
-                  />
-                  <InputField
-                    label="Reason (Optional)"
-                    value={paymentDiscounts.manualDiscountReason}
-                    onChange={(event) => paymentDiscounts.setManualDiscountReason(event.target.value)}
-                  />
-                </div>
-                {paymentDiscounts.manualDiscountError && (
-                  <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
-                    {paymentDiscounts.manualDiscountError}
-                  </div>
-                )}
-                <div className="flex justify-end">
-                  <button
-                    onClick={handleApplyManualDiscount}
-                    className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-600"
-                  >
-                    Apply Discount
-                  </button>
-                </div>
-              </section>
-
-              <section className="space-y-4">
-                <div>
-                  <h4 className="text-base font-semibold text-black dark:text-white">Gift Card Redemption</h4>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Validate and apply store gift cards. Redemption occurs after payment is finalized.
-                  </p>
-                </div>
-                <GiftCardInput onGiftCardChange={(amount, redemptions) => paymentDiscounts.handleGiftCardChange(amount, redemptions)} grandTotal={total} />
-              </section>
-
-              <section className="space-y-4">
-                <div>
-                  <h4 className="text-base font-semibold text-black dark:text-white">Coupon Code</h4>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Check eligibility and apply coupon codes sourced from POS settings.
-                  </p>
-                </div>
-                <CouponInput
-                  couponCode={paymentDiscounts.couponCode}
-                  setCouponCode={(val) => {
-                    paymentDiscounts.setCouponCode(val);
-                    paymentDiscounts.setCouponError('');
-                    paymentDiscounts.setCouponSuccess('');
-                  }}
-                  onCouponValidation={handleCouponValidation}
-                  isValidating={isValidating}
-                  couponError={paymentDiscounts.couponError}
-                  couponSuccess={paymentDiscounts.couponSuccess}
-                  isValid={isCouponValid}
-                />
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    onClick={handleApplyCoupon}
-                    className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-600"
-                  >
-                    Apply Coupon
-                  </button>
-                  <button
-                    onClick={() => paymentDiscounts.removeCoupon()}
-                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-600 transition hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-                  >
-                    Remove Coupon
-                  </button>
-                </div>
-              </section>
-            </div>
-          </div>
-        </div>
-      )}
+      <AdjustmentsModal
+        open={paymentModals.showAdjustments}
+        onClose={() => paymentModals.setShowAdjustments(false)}
+        discountType={paymentDiscounts.manualDiscountType}
+        discountValue={paymentDiscounts.manualDiscountValue || ""}
+        onDiscountTypeChange={paymentDiscounts.setManualDiscountType}
+        onDiscountValueChange={paymentDiscounts.setManualDiscountValue}
+        discountReason={paymentDiscounts.manualDiscountReason}
+        onDiscountReasonChange={paymentDiscounts.setManualDiscountReason}
+        discountError={paymentDiscounts.manualDiscountError}
+        onApplyDiscount={handleApplyManualDiscount}
+        couponCode={paymentDiscounts.couponCode}
+        setCouponCode={handleCouponCodeChange}
+        onCouponValidation={handleCouponValidation}
+        onApplyCoupon={handleApplyCoupon}
+        onRemoveCoupon={() => paymentDiscounts.removeCoupon()}
+        isValidating={isValidating}
+        couponError={paymentDiscounts.couponError}
+        couponSuccess={paymentDiscounts.couponSuccess}
+        isCouponValid={isCouponValid}
+        grandTotal={total + giftCardTotal}
+        onGiftCardChange={(amount, redemptions) =>
+          paymentDiscounts.handleGiftCardChange(amount, redemptions)
+        }
+      />
     </>
   );
 };

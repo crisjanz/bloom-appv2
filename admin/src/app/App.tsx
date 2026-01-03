@@ -49,6 +49,7 @@ import PrintPage from "./pages/settings/print";
 import EventsPage from "./pages/settings/events";
 import WebsitePage from "./pages/settings/website";
 import MiscPage from "./pages/settings/misc";
+import ExternalProvidersPage from "./pages/settings/external-providers";
 import POSPage from "./pages/pos/POSPage"; 
 import FullscreenPOS from "./pages/pos/FullscreenPOS";
 import GiftCardsPage from "./pages/gift-cards/GiftCardsPage";
@@ -60,9 +61,10 @@ import EventPaymentsPage from "./pages/events/EventPaymentsPage";
 import SalesReportPage from "./pages/reports/SalesReportPage";
 import TaxExportPage from "./pages/reports/TaxExportPage";
 import TransactionsReportPage from "./pages/reports/TransactionsReportPage";
-import FtdOrdersPage from "./pages/ftd/FtdOrdersPage";
-import FtdLivePage from "./pages/ftd/FtdLivePage";
 import WireProductsPage from "./pages/wire-products/WireProductsPage";
+import MobileHomePage from "./pages/mobile/MobileHomePage";
+import MobileScanPage from "./pages/mobile/MobileScanPage";
+import MobileRedirect from "./components/MobileRedirect";
 
 export default function App() {
   return (
@@ -75,6 +77,10 @@ export default function App() {
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
 
+          {/* Mobile routes - OUTSIDE AppLayout for mobile-optimized experience */}
+          <Route path="/mobile" element={<MobileHomePage />} />
+          <Route path="/mobile/scan" element={<MobileScanPage />} />
+
           {/* POS route - OUTSIDE AppLayout for fullscreen */}
           <Route path="/pos" element={<POSPage />} />
 	  <Route path="/pos/fullscreen" element={<FullscreenPOS />} />
@@ -83,7 +89,7 @@ export default function App() {
           <Route path="/fulfillment/:id" element={<FulfillmentPage />} />
 
           {/* Main dashboard layout */}
-          <Route path="/" element={<ProtectedRoute requiredRoles={[EmployeeType.ADMIN]}><AppLayout /></ProtectedRoute>}>
+          <Route path="/" element={<ProtectedRoute requiredRoles={[EmployeeType.ADMIN]}><MobileRedirect><AppLayout /></MobileRedirect></ProtectedRoute>}>
             <Route index element={<Home />} />
             <Route path="profile" element={<UserProfiles />} />
             <Route path="calendar" element={<Calendar />} />
@@ -134,10 +140,6 @@ export default function App() {
             <Route path="events/:id" element={<EventDetailPage />} />
             <Route path="events/:id/payments" element={<EventPaymentsPage />} />
 
-          {/* FTD Wire Orders routes */}
-            <Route path="ftd-orders" element={<FtdOrdersPage />} />
-            <Route path="ftd-live" element={<FtdLivePage />} />
-
             {/* Wire Product Library */}
             <Route path="wire-products" element={<WireProductsPage />} />
 
@@ -159,6 +161,7 @@ export default function App() {
             <Route path="settings/events" element={<EventsPage />} />
             <Route path="settings/website" element={<WebsitePage />} />
             <Route path="settings/misc" element={<MiscPage />} />
+            <Route path="settings/external-providers" element={<ExternalProvidersPage />} />
           </Route>
 
           {/* Fallback route */}

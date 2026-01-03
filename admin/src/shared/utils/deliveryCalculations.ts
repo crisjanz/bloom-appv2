@@ -76,9 +76,9 @@ export async function calculateDeliveryFee(
       return 0;
     }
 
-    const fee = applicableZone.fee;
-    onFeeCalculated?.(fee);
-    return fee;
+    const feeInCents = Math.round(applicableZone.fee);
+    onFeeCalculated?.(feeInCents);
+    return feeInCents;
 
   } catch (error) {
     console.error('Error calculating delivery fee:', error);

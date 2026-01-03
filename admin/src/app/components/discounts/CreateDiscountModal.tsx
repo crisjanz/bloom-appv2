@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import InputField from '@shared/ui/forms/input/InputField';
 import Select from '@shared/ui/forms/Select';
+import DatePicker from '@shared/ui/forms/date-picker';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
 import { Modal } from '@shared/ui/components/ui/modal';
 
@@ -947,17 +948,35 @@ export default function CreateDiscountModal({ open, onClose, onSuccess, editingD
                   Valid Date Range (Optional)
                 </h5>
                 <div className="grid grid-cols-2 gap-6">
-                  <InputField
+                  <DatePicker
+                    id="discount-start-date"
                     label="Start Date"
-                    type="datetime-local"
-                    value={formData.startDate}
-                    onChange={(e) => setFormData(prev => ({ ...prev, startDate: e.target.value }))}
+                    defaultDate={formData.startDate ? formData.startDate.split('T')[0] : undefined}
+                    onChange={(selectedDates) => {
+                      if (selectedDates.length > 0) {
+                        const date = selectedDates[0];
+                        const dateStr = date.toISOString().split('T')[0];
+                        setFormData(prev => ({ ...prev, startDate: `${dateStr}T00:00` }));
+                      } else {
+                        setFormData(prev => ({ ...prev, startDate: '' }));
+                      }
+                    }}
+                    placeholder="Select start date"
                   />
-                  <InputField
+                  <DatePicker
+                    id="discount-end-date"
                     label="End Date"
-                    type="datetime-local"
-                    value={formData.endDate}
-                    onChange={(e) => setFormData(prev => ({ ...prev, endDate: e.target.value }))}
+                    defaultDate={formData.endDate ? formData.endDate.split('T')[0] : undefined}
+                    onChange={(selectedDates) => {
+                      if (selectedDates.length > 0) {
+                        const date = selectedDates[0];
+                        const dateStr = date.toISOString().split('T')[0];
+                        setFormData(prev => ({ ...prev, endDate: `${dateStr}T23:59` }));
+                      } else {
+                        setFormData(prev => ({ ...prev, endDate: '' }));
+                      }
+                    }}
+                    placeholder="Select end date"
                   />
                 </div>
               </div>

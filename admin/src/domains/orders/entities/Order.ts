@@ -19,7 +19,7 @@ export interface Order extends DomainEntity {
   orderType: OrderType
   channel: Channel // POS, WEBSITE, PHONE, EMAIL
   status: OrderStatus
-  orderSource: OrderSource // How the order was initiated (PHONE, WALKIN, WIREIN, WEBSITE, POS)
+  orderSource: OrderSource // How the order was initiated (PHONE, WALKIN, EXTERNAL, WEBSITE, POS)
 
   // Order contents
   items: OrderItem[]
@@ -111,14 +111,15 @@ export enum OrderStatus {
   CANCELLED = 'CANCELLED',               // Cancelled by customer/staff
   REJECTED = 'REJECTED',                 // Rejected (quality/availability)
   FAILED_DELIVERY = 'FAILED_DELIVERY',   // Delivery attempt failed
-  REFUNDED = 'REFUNDED'                  // Order refunded
+  REFUNDED = 'REFUNDED',                 // Order refunded
+  PARTIALLY_REFUNDED = 'PARTIALLY_REFUNDED' // Order partially refunded
 }
 
 // Order source channels
 export enum OrderSource {
   PHONE = 'PHONE',       // Phone order
   WALKIN = 'WALKIN',     // Walk-in customer
-  WIREIN = 'WIREIN',     // Wire-in order from another florist
+  EXTERNAL = 'EXTERNAL', // External provider order (FTD, DoorDash, etc.)
   WEBSITE = 'WEBSITE',   // Online website order
   POS = 'POS'           // Point of sale (in-store)
 }
@@ -482,10 +483,11 @@ export const VALID_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.PICKED_UP]: [OrderStatus.COMPLETED],
   [OrderStatus.DELIVERED]: [OrderStatus.COMPLETED],
   [OrderStatus.FAILED_DELIVERY]: [OrderStatus.OUT_FOR_DELIVERY, OrderStatus.CANCELLED],
-  [OrderStatus.COMPLETED]: [OrderStatus.REFUNDED],
+  [OrderStatus.COMPLETED]: [OrderStatus.REFUNDED, OrderStatus.PARTIALLY_REFUNDED],
   [OrderStatus.CANCELLED]: [],
   [OrderStatus.REJECTED]: [OrderStatus.IN_DESIGN, OrderStatus.CANCELLED],
-  [OrderStatus.REFUNDED]: []
+  [OrderStatus.REFUNDED]: [],
+  [OrderStatus.PARTIALLY_REFUNDED]: [OrderStatus.REFUNDED]
 }
 
 // Type guards and utility functions
@@ -506,7 +508,8 @@ export const isActiveOrder = (order: Order): boolean => {
     OrderStatus.COMPLETED,
     OrderStatus.CANCELLED,
     OrderStatus.REJECTED,
-    OrderStatus.REFUNDED
+    OrderStatus.REFUNDED,
+    OrderStatus.PARTIALLY_REFUNDED
   ].includes(order.status)
 }
 
@@ -536,7 +539,8 @@ export const getOrderDisplayStatus = (order: Order): string => {
     [OrderStatus.CANCELLED]: 'Cancelled',
     [OrderStatus.REJECTED]: 'Rejected',
     [OrderStatus.FAILED_DELIVERY]: 'Failed Delivery',
-    [OrderStatus.REFUNDED]: 'Refunded'
+    [OrderStatus.REFUNDED]: 'Refunded',
+    [OrderStatus.PARTIALLY_REFUNDED]: 'Partially Refunded'
   }
   
   return statusDisplayNames[order.status] || order.status

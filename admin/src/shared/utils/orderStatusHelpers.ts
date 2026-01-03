@@ -9,7 +9,9 @@ export type BackendOrderStatus =
   | 'OUT_FOR_DELIVERY'
   | 'COMPLETED'
   | 'CANCELLED'
-  | 'REJECTED';
+  | 'REJECTED'
+  | 'REFUNDED'
+  | 'PARTIALLY_REFUNDED';
 
 // Frontend statuses (domain level - more detailed)
 export type FrontendOrderStatus =
@@ -29,7 +31,8 @@ export type FrontendOrderStatus =
   | 'CANCELLED'
   | 'REJECTED'
   | 'FAILED_DELIVERY'
-  | 'REFUNDED';
+  | 'REFUNDED'
+  | 'PARTIALLY_REFUNDED';
 
 // Union type that accepts both backend and frontend statuses
 export type OrderStatus = BackendOrderStatus | FrontendOrderStatus;
@@ -62,6 +65,8 @@ export const getStatusDisplayText = (status: OrderStatus, orderType?: OrderType)
       return 'Failed Del.';
     case 'REFUNDED':
       return 'Refunded';
+    case 'PARTIALLY_REFUNDED':
+      return 'Partially Refunded';
   }
 
   // Handle backend statuses with order type context
@@ -139,6 +144,8 @@ export const getStatusColor = (status: OrderStatus): string => {
       return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
     case 'REFUNDED':
       return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100';
+    case 'PARTIALLY_REFUNDED':
+      return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
     default:
       return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100';
   }
@@ -174,7 +181,10 @@ export const getNextStatuses = (currentStatus: OrderStatus, orderType?: OrderTyp
     // Final states - no transitions
     case 'COMPLETED':
     case 'CANCELLED':
+    case 'REFUNDED':
       return [];
+    case 'PARTIALLY_REFUNDED':
+      return ['REFUNDED'];
     
     default:
       return [];
@@ -205,7 +215,9 @@ export const getAllStatuses = (): OrderStatus[] => {
     'OUT_FOR_DELIVERY',
     'COMPLETED',
     'REJECTED',
-    'CANCELLED'
+    'CANCELLED',
+    'REFUNDED',
+    'PARTIALLY_REFUNDED'
   ];
 };
 
@@ -213,7 +225,7 @@ export const getAllStatuses = (): OrderStatus[] => {
  * Check if status is a final state
  */
 export const isFinalStatus = (status: OrderStatus): boolean => {
-  return ['COMPLETED', 'CANCELLED'].includes(status);
+  return ['COMPLETED', 'CANCELLED', 'REFUNDED'].includes(status);
 };
 
 /**

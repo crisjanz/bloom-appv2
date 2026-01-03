@@ -51,7 +51,6 @@ const StatusSelect: React.FC<StatusSelectProps> = ({
       'IN_PRODUCTION': 'IN_DESIGN',
       'QUALITY_CHECK': 'IN_DESIGN',
       'FAILED_DELIVERY': 'REJECTED',
-      'REFUNDED': 'CANCELLED',
     };
 
     return statusMap[status] || status;
@@ -133,6 +132,8 @@ const StatusSelect: React.FC<StatusSelectProps> = ({
       // REFUNDED - Gray (light variant)
       case 'REFUNDED':
         return 'bg-gray-100 text-gray-700 dark:bg-white/5 dark:text-white/80';
+      case 'PARTIALLY_REFUNDED':
+        return 'bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-400';
 
       default:
         return 'bg-gray-100 text-gray-700 dark:bg-white/5 dark:text-white/80';

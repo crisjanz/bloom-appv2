@@ -409,7 +409,11 @@ export class ProductRepository extends BaseRepository<Product> {
   // ===== HELPER METHODS =====
 
   private getBaseUrl(): string {
-    return 'http://localhost:4000/api'
+    const apiBase = (import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || '').replace(/\/$/, '')
+    if (!apiBase) {
+      return '/api'
+    }
+    return apiBase.endsWith('/api') ? apiBase : `${apiBase}/api`
   }
 
   /**

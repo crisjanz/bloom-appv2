@@ -23,7 +23,15 @@ router.post('/', async (req, res) => {
     } = req.body;
 
     // Validation
-    if (!customerId || !channel || !totalAmount || !paymentMethods || !orderIds) {
+    if (
+      !customerId ||
+      !channel ||
+      !totalAmount ||
+      !paymentMethods ||
+      !orderIds ||
+      !Array.isArray(orderIds) ||
+      orderIds.length === 0
+    ) {
       return res.status(400).json({
         error: 'Missing required fields: customerId, channel, totalAmount, paymentMethods, orderIds'
       });
@@ -169,13 +177,30 @@ router.post('/:transactionId/refunds', async (req, res) => {
 router.get('/customer/:customerId', async (req, res) => {
   try {
     const { customerId } = req.params;
-    
+
     const transactions = await transactionService.getCustomerTransactions(customerId);
-    
+
     res.json(transactions);
   } catch (error) {
     console.error('Error fetching customer transactions:', error);
     res.status(500).json({ error: 'Failed to fetch customer transactions' });
+  }
+});
+
+/**
+ * GET /api/payment-transactions/order/:orderId
+ * Get all transactions for an order
+ */
+router.get('/order/:orderId', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    const transactions = await transactionService.getOrderTransactions(orderId);
+
+    res.json(transactions);
+  } catch (error) {
+    console.error('Error fetching order transactions:', error);
+    res.status(500).json({ error: 'Failed to fetch order transactions' });
   }
 });
 

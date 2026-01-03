@@ -1,4 +1,5 @@
 import { FC, useState, useEffect } from 'react';
+import { Modal } from '@shared/ui/components/ui/modal';
 
 type Props = {
   open: boolean;
@@ -26,8 +27,6 @@ const EmailReceiptModal: FC<Props> = ({
     }
   }, [open, customerEmail]);
 
-  if (!open) return null;
-
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
@@ -38,7 +37,7 @@ const EmailReceiptModal: FC<Props> = ({
       setIsValid(false);
       return;
     }
-    
+
     if (!validateEmail(email)) {
       setIsValid(false);
       return;
@@ -56,8 +55,12 @@ const EmailReceiptModal: FC<Props> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100000] p-4">
-      <div className="bg-white dark:bg-boxdark rounded-lg shadow-lg w-full max-w-md p-6 space-y-6">
+    <Modal
+      isOpen={open}
+      onClose={onCancel}
+      className="max-w-md"
+    >
+      <div className="p-6 space-y-6">
         
         {/* Header */}
         <div className="text-center">
@@ -144,9 +147,8 @@ const EmailReceiptModal: FC<Props> = ({
             </div>
           </div>
         </div>
-
       </div>
-    </div>
+    </Modal>
   );
 };
 

@@ -20,6 +20,7 @@ const PAYMENT_TYPE_LABELS: Record<string, string> = {
   STORE_CREDIT: 'Store Credit',
   CHECK: 'Check',
   COD: 'Collect on Delivery',
+  EXTERNAL: 'External',
   UNPAID: 'No Payments',
   UNKNOWN: 'Unknown'
 };

@@ -11,6 +11,35 @@
 
 ---
 
+## 💰 Cost Optimization - CRITICAL
+**Context accumulation is EXPENSIVE. Minimize token usage aggressively.**
+
+### NEVER Do These (High Token Cost):
+- ❌ **NEVER run servers** (`npm run dev`, `npm start`, etc.) - Ask user to run them
+- ❌ **NEVER use background tasks** unless absolutely critical - They accumulate output tokens
+- ❌ **NEVER read large files** (>500 lines) unless explicitly needed for the task
+- ❌ **NEVER search episodic memory** unless user asks or you're truly stuck
+- ❌ **NEVER read multiple files speculatively** - Only read what you need RIGHT NOW
+- ❌ **NEVER re-read files** you've already seen in this conversation
+- ❌ **NEVER use Task/Agent tools** for simple searches - Use Grep/Glob directly
+
+### ALWAYS Do These (Low Token Cost):
+- ✅ **ASK user to run commands** instead of using Bash tool when possible
+- ✅ **Use Grep/Glob** for searches instead of reading entire files
+- ✅ **Read only specific line ranges** when files are large (use offset/limit)
+- ✅ **Keep responses SHORT** - Code + 1 sentence explanation maximum
+- ✅ **Suggest user compact conversation** when context grows (every 50+ messages)
+
+### Cost Awareness:
+- Each message re-sends ENTIRE conversation context (~$0.15-0.30 per interaction at current context size)
+- Large file reads add to EVERY future request in this conversation
+- Background tasks accumulate output that gets sent with EVERY request
+- Episodic memory searches load entire past conversations
+
+**User prefers: Fast, cheap, direct answers over thorough exploration.**
+
+---
+
 ## 🔧 Behavior Rules
 - Be concise and technical. Avoid filler text or long explanations.
 - When asked to **edit**, directly modify code or Markdown.

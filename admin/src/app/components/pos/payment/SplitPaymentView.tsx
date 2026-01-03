@@ -4,7 +4,6 @@ import Select from '@shared/ui/forms/Select';
 
 export type SplitPaymentTender =
   | 'cash'
-  | 'card_square'
   | 'card_stripe'
   | 'house_account'
   | 'cod'
@@ -27,14 +26,14 @@ type Props = {
   onChangeAmount: (rowId: string, amount: number) => void;
   onPayRow: (rowId: string) => void;
   onAddRow: () => void;
+  onDeleteRow: (rowId: string) => void;
 };
 
 const tenderOptions = [
   { value: 'cash', label: 'Cash' },
-  { value: 'card_square', label: 'Square Card' },
-  { value: 'card_stripe', label: 'Stripe Card' },
+  { value: 'card_stripe', label: 'Credit Card' },
   { value: 'house_account', label: 'House Account' },
-  { value: 'cod', label: 'COD' },
+  { value: 'cod', label: 'COD/Pay Later' },
   { value: 'check', label: 'Check' },
 ];
 
@@ -59,6 +58,7 @@ const SplitPaymentView: FC<Props> = ({
   onChangeAmount,
   onPayRow,
   onAddRow,
+  onDeleteRow,
 }) => {
   const completedCount = rows.filter((row) => row.status === 'completed').length;
   const totalRows = rows.length;
@@ -141,7 +141,7 @@ const SplitPaymentView: FC<Props> = ({
                       type="number"
                       min="0"
                       step="0.01"
-                      value={Number.isFinite(row.amount) ? row.amount.toFixed(2) : ''}
+                      value={row.amount || ''}
                       onChange={(event) => onChangeAmount(row.id, parseFloat(event.target.value) || 0)}
                       disabled={row.status !== 'pending'}
                       className="w-32 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 disabled:cursor-not-allowed disabled:bg-gray-100 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
@@ -153,6 +153,16 @@ const SplitPaymentView: FC<Props> = ({
                     >
                       {renderStatus(row.status)}
                     </span>
+                    {rows.length > 1 && row.status === 'pending' && (
+                      <button
+                        type="button"
+                        onClick={() => onDeleteRow(row.id)}
+                        className="rounded-lg px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition"
+                        title="Delete row"
+                      >
+                        Delete
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => onPayRow(row.id)}

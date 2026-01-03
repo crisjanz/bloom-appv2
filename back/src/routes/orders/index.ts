@@ -6,6 +6,8 @@ import uploadRoutes from './upload';
 import singleRoutes from './single';
 import statusRoutes from './status';
 import deliveryRoutes from './delivery';
+import scanRoutes from './scan';
+import createFromScanRoutes from './create-from-scan';
 
 const router = express.Router();
 
@@ -16,8 +18,10 @@ console.log('Setting up order routes...');
 // because /:id in singleRoutes would match /delivery
 router.use('/', listRoutes);
 router.use('/', createRoutes);
+router.use('/', createFromScanRoutes);  // Create order from scanned data
 router.use('/', updateRoutes);
 router.use('/', uploadRoutes);
+router.use('/scan', scanRoutes);  // OCR scanning endpoint
 router.use('/', deliveryRoutes);  // Must be before singleRoutes!
 router.use('/', statusRoutes);
 router.use('/', singleRoutes);    // /:id route - must be last

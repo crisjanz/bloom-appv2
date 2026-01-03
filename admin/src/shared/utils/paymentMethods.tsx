@@ -226,9 +226,8 @@ export const getEnabledPaymentMethods = (): PaymentMethodConfig[] => {
 // Legacy mapping for backward compatibility
 export const legacyPaymentMethodMap: Record<string, string> = {
   "Cash": "cash",
-  "Debit": "debit", 
+  "Debit": "debit",
   "Credit - Stripe": "credit",
-  "Credit - Square": "credit",
   "Check": "check",
   "PayPal": "paypal",
   "House Account": "house_account",
@@ -243,7 +242,6 @@ export const getLegacyPaymentMethods = () => {
     { value: "Cash", label: "Cash" },
     { value: "Debit", label: "Debit" },
     { value: "Credit - Stripe", label: "Credit - Stripe" },
-    { value: "Credit - Square", label: "Credit - Square" },
     { value: "Check", label: "Check" },
     { value: "PayPal", label: "PayPal" },
     { value: "House Account", label: "House Account" },

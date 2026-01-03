@@ -37,7 +37,7 @@ type Props = {
   pst: number;
   grandTotal: number;
   employee: string;
-  orderSource: "phone" | "walkin" | "wirein" | "wireout" | "website" | "pos";
+  orderSource: "phone" | "walkin" | "external" | "website" | "pos";
   cleanPhoneNumber: (value: string) => string;
   onOrderComplete: (transferData?: any) => void;
   totalDeliveryFee: number;

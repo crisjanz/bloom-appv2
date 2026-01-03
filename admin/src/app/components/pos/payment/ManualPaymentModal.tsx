@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Modal } from '@shared/ui/components/ui/modal';
 import InputField from '@shared/ui/forms/input/InputField';
 import Button from '@shared/ui/components/ui/button/Button';
 
@@ -34,8 +35,6 @@ const ManualPaymentModal: React.FC<ManualPaymentModalProps> = ({
     setError(null);
   }, [open, defaultAmount]);
 
-  if (!open) return null;
-
   const handleSubmit = () => {
     const parsedAmount = defaultAmount;
     if (Number.isNaN(parsedAmount) || parsedAmount <= 0) {
@@ -56,19 +55,13 @@ const ManualPaymentModal: React.FC<ManualPaymentModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100] p-4">
-      <div className="bg-white dark:bg-boxdark rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-black dark:text-white">{methodLabel} Payment</h2>
-          <button
-            onClick={onCancel}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+    <Modal
+      isOpen={open}
+      onClose={onCancel}
+      className="max-w-md"
+    >
+      <div className="p-6 space-y-6">
+        <h2 className="text-xl font-semibold text-black dark:text-white">{methodLabel} Payment</h2>
 
         <div className="space-y-4">
           <InputField
@@ -118,7 +111,7 @@ const ManualPaymentModal: React.FC<ManualPaymentModalProps> = ({
           </Button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 };
 

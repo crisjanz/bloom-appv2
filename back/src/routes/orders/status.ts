@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { triggerStatusNotifications } from '../../utils/notificationTriggers';
-import transactionService from '../../services/transactionService';
+import refundService from '../../services/refundService';
 import stripeService from '../../services/stripeService';
 import squareService from '../../services/squareService';
 
@@ -21,7 +21,11 @@ async function processOrderRefunds(orderId: string, employeeId?: string) {
       transaction: {
         include: {
           paymentMethods: true,
-          refunds: true
+          refunds: {
+            include: {
+              orderRefunds: true
+            }
+          }
         }
       }
     }
@@ -36,21 +40,45 @@ async function processOrderRefunds(orderId: string, employeeId?: string) {
   for (const orderPayment of orderPayments) {
     const transaction = orderPayment.transaction;
 
-    // Check if already refunded
-    const totalRefunded = transaction.refunds.reduce((sum, r) => sum + r.amount, 0);
-    if (totalRefunded >= transaction.totalAmount) {
-      console.log(`⏭️ Transaction ${transaction.transactionNumber} already fully refunded`);
+    const orderRefunded = transaction.refunds
+      .flatMap((refund) => refund.orderRefunds)
+      .filter((orderRefund) => orderRefund.orderId === orderId)
+      .reduce((sum, orderRefund) => sum + orderRefund.amount, 0);
+
+    const refundAmount = orderPayment.amount - orderRefunded;
+    if (refundAmount <= 0) {
+      console.log(`⏭️ Order ${orderId} already fully refunded for transaction ${transaction.transactionNumber}`);
       continue;
     }
 
-    const refundAmount = transaction.totalAmount - totalRefunded;
-    console.log(`💰 Refunding ${transaction.transactionNumber}: $${(refundAmount / 100).toFixed(2)}`);
+    console.log(`💰 Refunding ${transaction.transactionNumber} for order ${orderId}: $${(refundAmount / 100).toFixed(2)}`);
 
     // Build refund methods matching original payment methods
     const refundMethods = [];
+    const methodAllocations = [];
+    const allocationBase = transaction.totalAmount || 0;
+    let allocatedTotal = 0;
 
     for (const paymentMethod of transaction.paymentMethods) {
-      const methodRefundAmount = paymentMethod.amount;
+      const ratio = allocationBase > 0 ? refundAmount / allocationBase : 0;
+      const methodRefundAmount = Math.round(paymentMethod.amount * ratio);
+      methodAllocations.push({
+        paymentMethod,
+        amount: methodRefundAmount
+      });
+      allocatedTotal += methodRefundAmount;
+    }
+
+    if (methodAllocations.length > 0 && allocatedTotal !== refundAmount) {
+      const adjustment = refundAmount - allocatedTotal;
+      methodAllocations[methodAllocations.length - 1].amount += adjustment;
+    }
+
+    const positiveAllocations = methodAllocations.filter((allocation) => allocation.amount > 0);
+
+    for (const allocation of positiveAllocations) {
+      const paymentMethod = allocation.paymentMethod;
+      const methodRefundAmount = allocation.amount;
 
       // For CARD payments via Stripe or Square, process actual refund
       if (paymentMethod.type === 'CARD' && paymentMethod.providerTransactionId) {
@@ -81,7 +109,8 @@ async function processOrderRefunds(orderId: string, employeeId?: string) {
             paymentMethodType: paymentMethod.type,
             provider: paymentMethod.provider,
             amount: methodRefundAmount,
-            providerRefundId
+            providerRefundId,
+            status: 'completed'
           });
         } catch (error) {
           console.error(`❌ Failed to process ${paymentMethod.provider} refund:`, error);
@@ -99,7 +128,8 @@ async function processOrderRefunds(orderId: string, employeeId?: string) {
         refundMethods.push({
           paymentMethodType: paymentMethod.type,
           provider: paymentMethod.provider,
-          amount: methodRefundAmount
+          amount: methodRefundAmount,
+          status: 'manual'
         });
       }
     }
@@ -107,10 +137,13 @@ async function processOrderRefunds(orderId: string, employeeId?: string) {
     // Create refund record in database
     if (refundMethods.length > 0) {
       try {
-        await transactionService.processRefund(transaction.id, {
-          amount: refundAmount,
+        await refundService.processRefund({
+          transactionId: transaction.id,
+          refundType: refundAmount >= orderPayment.amount ? 'FULL' : 'PARTIAL',
+          totalAmount: refundAmount,
           reason: 'Order cancelled',
           employeeId,
+          orderRefunds: [{ orderId, amount: refundAmount }],
           refundMethods: refundMethods as any
         });
         console.log(`✅ Refund record created for ${transaction.transactionNumber}`);
@@ -130,7 +163,9 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
   'OUT_FOR_DELIVERY': ['COMPLETED', 'CANCELLED'],
   'REJECTED': ['IN_DESIGN', 'CANCELLED'],
   'COMPLETED': [], // Final state
-  'CANCELLED': []  // Final state
+  'CANCELLED': [], // Final state
+  'REFUNDED': [],
+  'PARTIALLY_REFUNDED': ['REFUNDED']
 };
 
 /**
@@ -139,7 +174,7 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
 router.patch('/:orderId/status', async (req, res) => {
   try {
     const { orderId } = req.params;
-    const { status: newStatus, notes, employeeId } = req.body;
+    const { status: newStatus, notes, employeeId, skipRefund } = req.body;
 
     if (!newStatus) {
       return res.status(400).json({
@@ -212,8 +247,8 @@ router.patch('/:orderId/status', async (req, res) => {
 
     console.log(`📋 Order #${order.orderNumber} status updated: ${order.status} → ${newStatus}`);
 
-    // Process refunds if order was cancelled
-    if (newStatus === 'CANCELLED') {
+    // Process refunds if order was cancelled (unless skipRefund=true, which means refund was handled separately)
+    if (newStatus === 'CANCELLED' && !skipRefund) {
       try {
         await processOrderRefunds(orderId, employeeId);
       } catch (error) {

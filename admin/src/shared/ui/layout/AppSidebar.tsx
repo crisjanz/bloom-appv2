@@ -70,12 +70,9 @@ const navItems: NavItem[] = [
     path: "/events",
   },
   {
-    name: "FTD Orders",
+    name: "External Orders",
     icon: <TruckIcon />,
-    path: "/ftd-orders",
-    subItems: [
-      { name: "FTD Live", path: "/ftd-live", pro: false, icon: <LinkIcon /> },
-    ],
+    path: "/external-orders",
   },
   {
     name: "Calendar",
@@ -89,6 +86,7 @@ const navItems: NavItem[] = [
     subItems: [
       { name: "Website", path: "/settings/website", pro: false, icon: <GridIcon /> },
       { name: "Gift Cards", path: "/gift-cards", pro: false, icon: <GridIcon /> },
+      { name: "External Providers", path: "/settings/external-providers", pro: false, icon: <LinkIcon /> },
       { name: "Discounts", path: "/discounts", pro: false, icon: <BoxCubeIcon /> },
     ],
   },

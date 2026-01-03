@@ -16,17 +16,17 @@ type Props = {
 
 export default function ProductButton({ product, onClick }: Props) {
   const getProductPrice = () => {
-    // For products with variants, use the default variant price (stored in cents)
+    // For products with variants, calculate final price
     if (product.variants && product.variants.length > 0) {
       // Find the default variant or use the first one
       const defaultVariant = product.variants.find(v => v.isDefault) || product.variants[0];
-      const basePrice = product.price; // This is the base price in cents
-      const variantPrice = basePrice + (defaultVariant.priceDifference || 0);
-      return (variantPrice / 100).toFixed(2);
+      const basePrice = product.price; // Base price in dollars
+      const variantPrice = basePrice + ((defaultVariant.priceDifference || 0) / 100); // priceDifference in cents
+      return variantPrice.toFixed(2);
     }
-    
-    // For regular products, price is stored in cents
-    return (product.price / 100).toFixed(2);
+
+    // For regular products, price is already in dollars
+    return product.price.toFixed(2);
   };
 
   const getProductImage = () => {

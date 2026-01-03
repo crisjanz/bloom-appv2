@@ -7,6 +7,7 @@ import CustomItemModal from '@app/components/pos/CustomItemModal';
 import ProductVariantModal from '@app/components/pos/ProductVariantModal';
 import PaymentController from '@app/components/pos/payment/PaymentController';
 import TakeOrderOverlay from '@app/components/pos/TakeOrderOverlay';
+import ScanOrderModal from '@app/components/orders/ScanOrderModal';
 import { useTaxRates } from '@shared/hooks/useTaxRates';
 
 export default function POSPage() {
@@ -29,6 +30,9 @@ export default function POSPage() {
 
   // Draft state
   const [showDraftModal, setShowDraftModal] = useState(false);
+
+  // Scan order state
+  const [showScanModal, setShowScanModal] = useState(false);
 
   // Check for automatic discounts when cart changes
   const checkAutomaticDiscounts = async (currentCartItems) => {
@@ -108,10 +112,10 @@ export default function POSPage() {
           if (product.variants && product.variants.length > 0) {
             const defaultVariant = product.variants.find(v => v.isDefault) || product.variants[0];
             if (defaultVariant && defaultVariant.price !== undefined) {
-              return defaultVariant.price / 100;
+              return defaultVariant.price; // Variant price already in dollars
             }
           }
-          return product.price || 0;
+          return product.price || 0; // Product price already in dollars
         };
         
         const newItem = {
@@ -314,6 +318,31 @@ export default function POSPage() {
   const handleDeliveryOrderCancel = () => {
     console.log('❌ Delivery order cancelled');
     setShowDeliveryOrder(false);
+  };
+
+  const handleScanOrder = () => {
+    setShowScanModal(true);
+  };
+
+  const handleScannedOrder = (orderData) => {
+    console.log('📸 Scanned order data:', orderData);
+
+    // Create a custom cart item from the scanned FTD order
+    const cartItem = {
+      id: `ftd-${orderData.orderNumber}`, // Unique ID for this scanned order
+      name: orderData.product.description,
+      price: Math.round(orderData.product.price * 100), // Convert to cents
+      quantity: 1,
+      isCustom: true,
+      image: null,
+      categoryId: null,
+    };
+
+    setCartItems(prev => [...prev, cartItem]);
+    console.log('✅ Added scanned FTD order to cart');
+
+    // Optionally: Store the full order data for later use (delivery info, customer, etc.)
+    // You could add this to a separate state if you want to pre-populate delivery order form
   };
 
   const handleUpdateQuantity = (productId, newQuantity) => {
@@ -556,10 +585,11 @@ export default function POSPage() {
               selectedCustomer={selectedCustomer}
             />
           ) : (
-            <POSGrid 
+            <POSGrid
               onAddProduct={handleAddProduct}
               onShowCustomModal={() => setShowCustomItemModal(true)}
               onDeliveryOrder={handleDeliveryOrder}
+              onScanOrder={handleScanOrder}
             />
           )}
         </div>
@@ -609,6 +639,13 @@ export default function POSPage() {
           onLoadDraft={handleLoadDraft}
         />
       )}
+
+      {/* Scan Order Modal */}
+      <ScanOrderModal
+        isOpen={showScanModal}
+        onClose={() => setShowScanModal(false)}
+        onOrderParsed={handleScannedOrder}
+      />
     </POSLayout>
   );
 }
