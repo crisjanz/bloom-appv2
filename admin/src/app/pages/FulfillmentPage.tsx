@@ -454,7 +454,7 @@ const FulfillmentPage: React.FC = () => {
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 {order.recipientCustomer
                   ? `${order.recipientCustomer.firstName} ${order.recipientCustomer.lastName}`
-                  : `${order.customer.firstName} ${order.customer.lastName}`}
+                  : order.recipientName || `${order.customer?.firstName || ''} ${order.customer?.lastName || ''}`.trim() || 'Customer'}
               </p>
             </div>
             {order.deliveryDate && (

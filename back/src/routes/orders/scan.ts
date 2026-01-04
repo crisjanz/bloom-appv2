@@ -74,7 +74,7 @@ async function validateAddress(address: any) {
 
 /**
  * POST /api/orders/scan
- * Upload an FTD order image/PDF and extract structured data
+ * Upload an order image/PDF and extract structured data
  */
 router.post('/', upload.single('image'), async (req: Request, res: Response) => {
   try {
@@ -84,13 +84,23 @@ router.post('/', upload.single('image'), async (req: Request, res: Response) => 
 
     console.log('📸 Scanning order image:', req.file.originalname);
 
+    const provider =
+      typeof req.body?.provider === 'string'
+        ? req.body.provider
+        : typeof req.body?.externalSource === 'string'
+          ? req.body.externalSource
+          : undefined;
+
     // Parse the image using Gemini
-    const orderData = await parseOrderImage(req.file.buffer);
+    const orderData = await parseOrderImage(req.file.buffer, { provider });
 
     console.log('✅ Order parsed successfully:', orderData.orderNumber);
 
-    // Validate address
-    const addressValidation = await validateAddress(orderData.address);
+    // Validate address when present (delivery orders only)
+    const shouldValidateAddress = !!orderData.address?.address1;
+    const addressValidation = shouldValidateAddress
+      ? await validateAddress(orderData.address)
+      : { valid: null };
 
     return res.json({
       success: true,

@@ -129,9 +129,9 @@ app.use(cors({
       return callback(null, true);
     }
 
-    // In development, allow local network IPs (192.168.x.x, 10.x.x.x, etc.)
+    // In development, allow local network IPs (192.168.x.x, 10.x.x.x, 100.x.x.x for Tailscale, etc.)
     if (process.env.NODE_ENV !== 'production') {
-      const localNetworkRegex = /^https?:\/\/(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+)(:\d+)?$/;
+      const localNetworkRegex = /^https?:\/\/(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|100\.\d+\.\d+\.\d+|172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+)(:\d+)?$/;
       if (localNetworkRegex.test(origin)) {
         return callback(null, true);
       }
@@ -159,7 +159,7 @@ app.options('*', cors({
 
     // In development, allow local network IPs
     if (process.env.NODE_ENV !== 'production') {
-      const localNetworkRegex = /^https?:\/\/(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+)(:\d+)?$/;
+      const localNetworkRegex = /^https?:\/\/(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|100\.\d+\.\d+\.\d+|172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+)(:\d+)?$/;
       if (localNetworkRegex.test(origin)) {
         return callback(null, true);
       }

@@ -7,9 +7,23 @@ const prisma = new PrismaClient();
 // Get all orders with filtering and search
 router.get('/list', async (req, res) => {
   try {
-    const { status, search, deliveryDateFrom, deliveryDateTo, orderDateFrom, orderDateTo, limit = 50, offset = 0 } = req.query;
+    const {
+      status,
+      search,
+      deliveryDateFrom,
+      deliveryDateTo,
+      orderDateFrom,
+      orderDateTo,
+      limit = 50,
+      offset = 0,
+      page,
+      source,
+      externalSource,
+      dateFrom,
+      dateTo
+    } = req.query;
 
-    console.log('Orders list request:', { status, search, deliveryDateFrom, deliveryDateTo, orderDateFrom, orderDateTo, limit, offset });
+    console.log('Orders list request:', { status, search, source, externalSource, deliveryDateFrom, deliveryDateTo, orderDateFrom, orderDateTo, limit, offset });
 
     // Build where clause for filtering
     const where: any = {};
@@ -19,16 +33,29 @@ router.get('/list', async (req, res) => {
       where.status = status as OrderStatus;
     }
 
-    // Delivery date filter
-    if (deliveryDateFrom || deliveryDateTo) {
+    // Order source filter (PHONE, WALKIN, EXTERNAL, WEBSITE, POS)
+    if (source) {
+      where.orderSource = source;
+    }
+
+    // External source filter (FTD, DOORDASH, etc.)
+    if (externalSource) {
+      where.externalSource = externalSource;
+    }
+
+    // Delivery date filter (support both old and new param names)
+    const actualDateFrom = dateFrom || deliveryDateFrom;
+    const actualDateTo = dateTo || deliveryDateTo;
+
+    if (actualDateFrom || actualDateTo) {
       where.deliveryDate = {};
-      if (deliveryDateFrom) {
-        const fromDate = new Date(deliveryDateFrom as string);
+      if (actualDateFrom) {
+        const fromDate = new Date(actualDateFrom as string);
         fromDate.setHours(0, 0, 0, 0);
         where.deliveryDate.gte = fromDate;
       }
-      if (deliveryDateTo) {
-        const toDate = new Date(deliveryDateTo as string);
+      if (actualDateTo) {
+        const toDate = new Date(actualDateTo as string);
         toDate.setHours(23, 59, 59, 999);
         where.deliveryDate.lte = toDate;
       }
@@ -149,7 +176,7 @@ router.get('/list', async (req, res) => {
         createdAt: 'desc' // Most recent first
       },
       take: Number(limit),
-      skip: Number(offset)
+      skip: page ? (Number(page) - 1) * Number(limit) : Number(offset)
     });
 
     // Get total count for pagination
@@ -159,6 +186,8 @@ router.get('/list', async (req, res) => {
 
     res.json({
       success: true,
+      data: orders,
+      total: totalCount,
       orders,
       pagination: {
         total: totalCount,

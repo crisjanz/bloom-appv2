@@ -65,6 +65,7 @@ import WireProductsPage from "./pages/wire-products/WireProductsPage";
 import MobileHomePage from "./pages/mobile/MobileHomePage";
 import MobileScanPage from "./pages/mobile/MobileScanPage";
 import MobileRedirect from "./components/MobileRedirect";
+import ExternalOrdersPage from "./pages/orders/ExternalOrdersPage";
 
 export default function App() {
   return (
@@ -117,7 +118,10 @@ export default function App() {
             <Route path="orders" element={<OrdersListPage />} />
             <Route path="orders/:id/edit" element={<OrderEditPage />} />
             <Route path="orders/:id" element={<OrderEditPage />} />
-            
+
+            {/* External Orders route */}
+            <Route path="external-orders" element={<ExternalOrdersPage />} />
+
             {/* Delivery Management route */}
             <Route path="delivery" element={<DeliveryManagementPage />} />
             <Route path="delivery/routes" element={<RouteBuilderPage />} />

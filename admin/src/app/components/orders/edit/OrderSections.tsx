@@ -95,6 +95,8 @@ const OrderSections: React.FC<OrderSectionsProps> = ({ order, onEdit }) => {
                   <>
                     {order.recipientCustomer.firstName} {order.recipientCustomer.lastName}
                   </>
+                ) : order.recipientName ? (
+                  <>{order.recipientName}</>
                 ) : null}
               </div>
             </div>

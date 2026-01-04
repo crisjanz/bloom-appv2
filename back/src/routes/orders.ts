@@ -11,7 +11,17 @@ const upload = multer({ storage: multer.memoryStorage() });
 // Get all orders with filtering and search
 router.get('/list', async (req, res) => {
   try {
-    const { status, search, limit = 50, offset = 0 } = req.query;
+    const {
+      status,
+      search,
+      limit = 50,
+      offset = 0,
+      page,
+      source,
+      externalSource,
+      dateFrom,
+      dateTo
+    } = req.query;
 
     // Build where clause for filtering
     const where: any = {};
@@ -19,6 +29,27 @@ router.get('/list', async (req, res) => {
     // Status filter
     if (status && status !== 'ALL') {
       where.status = status as OrderStatus;
+    }
+
+    // Order source filter (PHONE, WALKIN, EXTERNAL, WEBSITE, POS)
+    if (source) {
+      where.orderSource = source;
+    }
+
+    // External source filter (FTD, DOORDASH, etc.)
+    if (externalSource) {
+      where.externalSource = externalSource;
+    }
+
+    // Date range filter (for delivery date)
+    if (dateFrom || dateTo) {
+      where.deliveryDate = {};
+      if (dateFrom) {
+        where.deliveryDate.gte = new Date(dateFrom as string);
+      }
+      if (dateTo) {
+        where.deliveryDate.lte = new Date(dateTo as string);
+      }
     }
 
     // Search filter
@@ -72,6 +103,9 @@ router.get('/list', async (req, res) => {
       ];
     }
 
+    // Calculate offset from page if provided
+    const calculatedOffset = page ? (Number(page) - 1) * Number(limit) : Number(offset);
+
     // Fetch orders with related data
     const orders = await prisma.order.findMany({
       where,
@@ -121,7 +155,7 @@ router.get('/list', async (req, res) => {
         createdAt: 'desc' // Most recent first
       },
       take: Number(limit),
-      skip: Number(offset)
+      skip: calculatedOffset
     });
 
     // Get total count for pagination
@@ -129,12 +163,13 @@ router.get('/list', async (req, res) => {
 
     res.json({
       success: true,
-      orders,
+      data: orders, // Changed from 'orders' to 'data' for consistency
+      total: totalCount,
       pagination: {
         total: totalCount,
         limit: Number(limit),
-        offset: Number(offset),
-        hasMore: Number(offset) + Number(limit) < totalCount
+        offset: calculatedOffset,
+        hasMore: calculatedOffset + Number(limit) < totalCount
       }
     });
 

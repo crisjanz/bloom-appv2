@@ -392,6 +392,7 @@ model Order {
   recipientCustomer   Customer? @relation("RecipientOrders", fields: [recipientCustomerId], references: [id])
   recipientCustomerId String?
   recipientId         String? // Legacy snapshot of recipient customer id (kept for backwards compatibility)
+  recipientName       String? // Display name for orders without full customer (e.g., DoorDash "David J.")
 
   // Delivery address from recipient's addresses
   deliveryAddress   Address? @relation("DeliveryAddress", fields: [deliveryAddressId], references: [id])

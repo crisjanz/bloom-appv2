@@ -37,6 +37,7 @@ export interface Order {
     email: string;
     phone: string;
   };
+  recipientName?: string | null;
   deliveryAddress?: {
     id: string;
     firstName: string;

@@ -71,7 +71,7 @@ const navItems: NavItem[] = [
   },
   {
     name: "External Orders",
-    icon: <TruckIcon />,
+    icon: <LinkIcon />,
     path: "/external-orders",
   },
   {
