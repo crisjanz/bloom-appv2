@@ -20,6 +20,7 @@ interface Order {
     firstName: string;
     lastName: string;
   };
+  recipientName?: string | null;
   deliveryAddress?: {
     address1: string;
     city: string;

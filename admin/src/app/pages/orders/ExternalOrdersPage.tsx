@@ -8,7 +8,6 @@ import { PencilIcon } from '@shared/assets/icons';
 import Select from '@shared/ui/forms/Select';
 import DatePicker from '@shared/ui/forms/date-picker';
 import ScanExternalOrderModal from '@app/components/orders/ScanExternalOrderModal';
-import type { Order } from '@domains/orders/entities/Order';
 
 type ExternalOrderFilters = {
   provider: string;
@@ -25,6 +24,25 @@ type ExternalProvider = {
   sortOrder: number;
 };
 
+type ExternalOrder = {
+  id: string;
+  orderNumber: number;
+  status: string;
+  externalSource?: string | null;
+  externalReference?: string | null;
+  recipientCustomer?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email?: string | null;
+    phone?: string | null;
+  } | null;
+  recipientName?: string | null;
+  deliveryDate?: string | null;
+  images?: string[];
+  paymentAmount?: number | null;
+};
+
 const statusOptions = [
   { value: 'ALL', label: 'All Statuses' },
   { value: 'DRAFT', label: 'Draft' },
@@ -36,7 +54,7 @@ const statusOptions = [
 ];
 
 export default function ExternalOrdersPage() {
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<ExternalOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [providers, setProviders] = useState<ExternalProvider[]>([]);
   const [showScanModal, setShowScanModal] = useState(false);
@@ -116,12 +134,12 @@ export default function ExternalOrdersPage() {
     {
       key: 'orderNumber',
       header: 'Order #',
-      render: (order: Order) => `#${order.orderNumber || 0}`,
+      render: (order: ExternalOrder) => `#${order.orderNumber || 0}`,
     },
     {
       key: 'externalSource',
       header: 'Provider',
-      render: (order: Order) => (
+      render: (order: ExternalOrder) => (
         <span className="inline-flex items-center gap-2">
           {order.externalSource === 'FTD' && (
             <span className="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded">FTD</span>
@@ -141,12 +159,12 @@ export default function ExternalOrdersPage() {
     {
       key: 'externalReference',
       header: 'External Ref',
-      render: (order: Order) => order.externalReference || '—',
+      render: (order: ExternalOrder) => order.externalReference || '—',
     },
     {
       key: 'customer',
       header: 'Recipient',
-      render: (order: Order) => {
+      render: (order: ExternalOrder) => {
         if (order.recipientCustomer) {
           return `${order.recipientCustomer.firstName} ${order.recipientCustomer.lastName}`;
         }
@@ -156,7 +174,7 @@ export default function ExternalOrdersPage() {
     {
       key: 'deliveryDate',
       header: 'Delivery',
-      render: (order: Order) => {
+      render: (order: ExternalOrder) => {
         if (!order.deliveryDate) return '—';
         const date = new Date(order.deliveryDate);
         return date.toLocaleDateString('en-CA');
@@ -165,7 +183,7 @@ export default function ExternalOrdersPage() {
     {
       key: 'status',
       header: 'Status',
-      render: (order: Order) => {
+      render: (order: ExternalOrder) => {
         const statusColor = getOrderStatusColor(order.status);
         return (
           <span className="inline-flex items-center gap-2">
@@ -178,7 +196,7 @@ export default function ExternalOrdersPage() {
     {
       key: 'images',
       header: 'OCR',
-      render: (order: Order) => {
+      render: (order: ExternalOrder) => {
         if (order.images?.length > 0) {
           return <span className="text-green-600 text-xs">✓ Scanned</span>;
         }
@@ -188,12 +206,12 @@ export default function ExternalOrdersPage() {
     {
       key: 'paymentAmount',
       header: 'Total',
-      render: (order: Order) => `$${((order.paymentAmount || 0) / 100).toFixed(2)}`,
+      render: (order: ExternalOrder) => `$${((order.paymentAmount || 0) / 100).toFixed(2)}`,
     },
     {
       key: 'actions',
       header: '',
-      render: (order: Order) => (
+      render: (order: ExternalOrder) => (
         <div className="flex items-center gap-2 justify-end">
           <Link
             to={`/orders/${order.id}`}
