@@ -7,6 +7,7 @@ import Label from '@shared/ui/forms/Label';
 import Select from '@shared/ui/forms/Select';
 import TextArea from '@shared/ui/forms/input/TextArea';
 import DatePicker from '@shared/ui/forms/date-picker';
+import { centsToDollars, formatCurrency, parseUserCurrency } from '@shared/utils/currency';
 // MIGRATION: Use domain hooks for better customer and event management
 import { useCustomerSearch } from '@domains/customers/hooks/useCustomerService.ts';
 import { useEventsNew } from '@shared/hooks/useEventsNew';
@@ -193,7 +194,7 @@ const CreateEventPage: React.FC = () => {
         contactPhone: formData.contactPhone,
         estimatedGuests: formData.estimatedGuests ? parseInt(formData.estimatedGuests) : undefined,
         serviceType: formData.serviceType as any, // ServiceType enum
-        quotedAmount: formData.quotedAmount ? parseFloat(formData.quotedAmount) : undefined,
+        quotedAmount: formData.quotedAmount ? parseUserCurrency(formData.quotedAmount) : undefined,
         employeeId: formData.employeeId,
         designNotes: formData.designNotes,
         setupNotes: formData.setupNotes,
@@ -414,7 +415,7 @@ const CreateEventPage: React.FC = () => {
                     type="number"
                     step={0.01}
                     placeholder="0.00"
-                    value={formData.quotedAmount}
+                    value={formData.quotedAmount || ''}
                     onChange={(e) => handleInputChange('quotedAmount', e.target.value)}
                   />
                 </div>
@@ -522,7 +523,7 @@ const CreateEventPage: React.FC = () => {
                           <input
                             type="text"
                             placeholder="e.g., Bridal Bouquet, Centerpiece"
-                            value={item.category}
+                            value={item.category || ''}
                             onChange={(e) => updateItem(item.id, 'category', e.target.value)}
                             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:border-brand-500 focus:ring-brand-500/20 bg-white dark:bg-gray-900 text-gray-800 dark:text-white"
                           />
@@ -534,7 +535,7 @@ const CreateEventPage: React.FC = () => {
                             <input
                               type="number"
                               min="1"
-                              value={item.quantity}
+                              value={item.quantity || ''}
                               onChange={(e) => updateItem(item.id, 'quantity', parseInt(e.target.value) || 1)}
                               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:border-brand-500 focus:ring-brand-500/20 bg-white dark:bg-gray-900 text-gray-800 dark:text-white"
                             />
@@ -546,8 +547,14 @@ const CreateEventPage: React.FC = () => {
                               type="number"
                               step={0.01}
                               min="0"
-                              value={item.unitPrice}
-                              onChange={(e) => updateItem(item.id, 'unitPrice', parseFloat(e.target.value) || 0)}
+                              value={
+                                Number.isFinite(item.unitPrice)
+                                  ? centsToDollars(item.unitPrice).toFixed(2)
+                                  : ''
+                              }
+                              onChange={(e) =>
+                                updateItem(item.id, 'unitPrice', parseUserCurrency(e.target.value))
+                              }
                               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:border-brand-500 focus:ring-brand-500/20 bg-white dark:bg-gray-900 text-gray-800 dark:text-white"
                             />
                           </div>
@@ -567,7 +574,7 @@ const CreateEventPage: React.FC = () => {
                       
                       <div className="mt-4 text-right">
                         <span className="text-lg font-semibold text-gray-900 dark:text-white">
-                          Total: ${item.totalPrice.toFixed(2)}
+                          Total: {formatCurrency(item.totalPrice)}
                         </span>
                       </div>
                     </div>
@@ -576,7 +583,7 @@ const CreateEventPage: React.FC = () => {
                   {items.length > 0 && (
                     <div className="border-t border-gray-200 dark:border-gray-700 pt-4 text-right">
                       <span className="text-xl font-bold text-gray-900 dark:text-white">
-                        Quote Total: ${totalQuotedAmount.toFixed(2)}
+                        Quote Total: {formatCurrency(totalQuotedAmount)}
                       </span>
                     </div>
                   )}

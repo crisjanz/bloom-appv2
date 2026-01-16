@@ -9,6 +9,7 @@ import TextArea from '@shared/ui/forms/input/TextArea';
 // Removed DeliveryDatePicker import - using simple HTML date input instead
 import Badge from '@shared/ui/components/ui/badge/Badge';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
+import { formatCurrency, parseUserCurrency } from '@shared/utils/currency';
 // MIGRATION: Use events domain hook for better payment management
 import { useEventsNew } from '@shared/hooks/useEventsNew';
 
@@ -124,7 +125,8 @@ const EventPaymentsPage: React.FC = () => {
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
-    if (!paymentForm.amount || parseFloat(paymentForm.amount) <= 0) {
+    const amountCents = parseUserCurrency(paymentForm.amount || '');
+    if (!paymentForm.amount || amountCents <= 0) {
       newErrors.amount = 'Amount is required and must be greater than 0';
     }
     if (!paymentForm.paymentType) {
@@ -150,7 +152,7 @@ const EventPaymentsPage: React.FC = () => {
       // MIGRATION: Use domain service for payment creation
       const paymentData = {
         eventId: id,
-        amount: parseFloat(paymentForm.amount),
+        amount: parseUserCurrency(paymentForm.amount),
         paymentType: paymentForm.paymentType as any, // EventPaymentType enum
         status: paymentForm.status as any, // EventPaymentStatus enum
         description: paymentForm.description,
@@ -295,19 +297,19 @@ const EventPaymentsPage: React.FC = () => {
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Total Amount</p>
                     <p className="text-xl font-bold text-gray-900 dark:text-white">
-                      ${finalAmount.toFixed(2)}
+                      {formatCurrency(finalAmount)}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Total Paid</p>
                     <p className="text-xl font-bold text-green-600 dark:text-green-400">
-                      ${paymentSummary.received.toFixed(2)}
+                      {formatCurrency(paymentSummary.received)}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Remaining</p>
                     <p className={`text-xl font-bold ${paymentSummary.remaining > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-                      ${paymentSummary.remaining.toFixed(2)}
+                      {formatCurrency(paymentSummary.remaining)}
                     </p>
                   </div>
                 </div>
@@ -363,7 +365,7 @@ const EventPaymentsPage: React.FC = () => {
                         <div>
                           <div className="flex items-center space-x-2">
                             <h4 className="font-medium text-gray-900 dark:text-white">
-                              ${payment.amount.toFixed(2)}
+                              {formatCurrency(payment.amount)}
                             </h4>
                             {getPaymentStatusBadge(payment.status)}
                           </div>
@@ -438,7 +440,7 @@ const EventPaymentsPage: React.FC = () => {
                     step={0.01}
                     min="0"
                     placeholder="0.00"
-                    value={paymentForm.amount}
+                    value={paymentForm.amount || ''}
                     onChange={(e) => handleInputChange('amount', e.target.value)}
                     error={errors.amount}
                   />

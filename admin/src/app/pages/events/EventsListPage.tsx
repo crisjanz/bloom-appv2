@@ -6,6 +6,7 @@ import PageBreadcrumb from '@shared/ui/common/PageBreadCrumb';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
 import StandardTable, { ColumnDef } from '@shared/ui/components/ui/table/StandardTable';
 import { getEventStatusColor } from '@shared/utils/statusColors';
+import { formatCurrency } from '@shared/utils/currency';
 // MIGRATION: Use events domain hook for better event management
 import { useEventsNew } from '@shared/hooks/useEventsNew';
 
@@ -210,10 +211,12 @@ const EventsListPage: React.FC = () => {
       className: 'w-[120px] text-right',
       render: (event) => (
         <div className="text-sm text-gray-900 dark:text-white whitespace-nowrap">
-          {event.finalAmount !== null ? (
-            <span className="font-medium">${event.finalAmount?.toFixed(2) || '0.00'}</span>
-          ) : event.quotedAmount !== null ? (
-            <span className="text-gray-600 dark:text-gray-400">${event.quotedAmount?.toFixed(2) || '0.00'}</span>
+          {event.finalAmount != null ? (
+            <span className="font-medium">{formatCurrency(event.finalAmount)}</span>
+          ) : event.quotedAmount != null ? (
+            <span className="text-gray-600 dark:text-gray-400">
+              {formatCurrency(event.quotedAmount)}
+            </span>
           ) : (
             <span className="text-gray-400 dark:text-gray-500">—</span>
           )}

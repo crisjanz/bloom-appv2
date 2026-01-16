@@ -5,6 +5,7 @@ import PageBreadcrumb from '@shared/ui/common/PageBreadCrumb';
 import Badge from '@shared/ui/components/ui/badge/Badge';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
 import { formatPhoneDisplay } from '@shared/ui/forms/PhoneInput';
+import { formatCurrency } from '@shared/utils/currency';
 
 // Types matching the database schema
 type EventType = 'WEDDING' | 'CORPORATE' | 'BIRTHDAY' | 'ANNIVERSARY' | 'FUNERAL' | 'GRADUATION' | 'OTHER';
@@ -398,10 +399,10 @@ const EventDetailPage: React.FC = () => {
                           
                           <div className="text-right ml-4">
                             <p className="text-sm text-gray-600 dark:text-gray-400">
-                              {item.quantity} × ${item.unitPrice.toFixed(2)}
+                              {item.quantity} × {formatCurrency(item.unitPrice)}
                             </p>
                             <p className="font-semibold text-gray-900 dark:text-white">
-                              ${item.totalPrice.toFixed(2)}
+                              {formatCurrency(item.totalPrice)}
                             </p>
                           </div>
                         </div>
@@ -410,7 +411,7 @@ const EventDetailPage: React.FC = () => {
                     
                     <div className="border-t border-gray-200 dark:border-gray-700 pt-4 text-right">
                       <p className="text-xl font-bold text-gray-900 dark:text-white">
-                        Total: ${event.items.reduce((sum, item) => sum + item.totalPrice, 0).toFixed(2)}
+                        Total: {formatCurrency(event.items.reduce((sum, item) => sum + item.totalPrice, 0))}
                       </p>
                     </div>
                   </div>
@@ -556,15 +557,15 @@ const EventDetailPage: React.FC = () => {
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-400">Quoted Amount</span>
                   <span className="font-medium text-gray-900 dark:text-white">
-                    ${event.quotedAmount?.toFixed(2) || '0.00'}
+                    {formatCurrency(event.quotedAmount || 0)}
                   </span>
                 </div>
                 
-                {event.finalAmount && event.finalAmount !== event.quotedAmount && (
+                {event.finalAmount != null && event.finalAmount !== event.quotedAmount && (
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">Final Amount</span>
                     <span className="font-medium text-gray-900 dark:text-white">
-                      ${event.finalAmount.toFixed(2)}
+                      {formatCurrency(event.finalAmount)}
                     </span>
                   </div>
                 )}
@@ -572,14 +573,14 @@ const EventDetailPage: React.FC = () => {
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-400">Total Paid</span>
                   <span className="font-medium text-green-600 dark:text-green-400">
-                    ${totalPaid.toFixed(2)}
+                    {formatCurrency(totalPaid)}
                   </span>
                 </div>
                 
                 <div className="flex justify-between border-t border-gray-200 dark:border-gray-700 pt-4">
                   <span className="font-medium text-gray-900 dark:text-white">Remaining Balance</span>
                   <span className={`font-bold ${remainingBalance > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-                    ${remainingBalance.toFixed(2)}
+                    {formatCurrency(remainingBalance)}
                   </span>
                 </div>
                 
