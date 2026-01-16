@@ -1,6 +1,7 @@
 // components/pos/payment/SplitPaymentView.tsx
 import { FC } from 'react';
 import Select from '@shared/ui/forms/Select';
+import { centsToDollars, formatCurrency, parseUserCurrency } from '@shared/utils/currency';
 
 export type SplitPaymentTender =
   | 'cash'
@@ -90,7 +91,7 @@ const SplitPaymentView: FC<Props> = ({
             <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
               Order Total
             </span>
-            <div className="mt-1 text-2xl font-bold text-black dark:text-white">${total.toFixed(2)}</div>
+            <div className="mt-1 text-2xl font-bold text-black dark:text-white">{formatCurrency(total)}</div>
           </div>
           <div className="rounded-2xl bg-transparent p-4">
             <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
@@ -98,10 +99,10 @@ const SplitPaymentView: FC<Props> = ({
             </span>
             <div
               className={`mt-1 text-2xl font-bold ${
-                remaining > 0.01 ? 'text-brand-500' : 'text-green-600 dark:text-green-400'
+                remaining > 0 ? 'text-brand-500' : 'text-green-600 dark:text-green-400'
               }`}
             >
-              ${remaining.toFixed(2)}
+              {formatCurrency(remaining)}
             </div>
           </div>
         </div>
@@ -141,8 +142,8 @@ const SplitPaymentView: FC<Props> = ({
                       type="number"
                       min="0"
                       step="0.01"
-                      value={row.amount || ''}
-                      onChange={(event) => onChangeAmount(row.id, parseFloat(event.target.value) || 0)}
+                      value={row.amount ? centsToDollars(row.amount).toFixed(2) : ''}
+                      onChange={(event) => onChangeAmount(row.id, parseUserCurrency(event.target.value))}
                       disabled={row.status !== 'pending'}
                       className="w-32 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 disabled:cursor-not-allowed disabled:bg-gray-100 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                     />
@@ -186,12 +187,12 @@ const SplitPaymentView: FC<Props> = ({
           <button
             type="button"
             onClick={onAddRow}
-            disabled={remaining <= 0.01}
+            disabled={remaining <= 0}
             className="rounded-lg border border-dashed border-gray-400 px-4 py-2 text-sm font-semibold text-gray-600 transition hover:border-brand-500 hover:text-brand-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
             + Add Split Row
           </button>
-          {remaining <= 0.01 && (
+          {remaining <= 0 && (
             <div className="rounded-lg bg-green-50 px-3 py-2 text-sm font-semibold text-green-600 dark:bg-green-900/20 dark:text-green-400">
               All payments captured. Finalizing when remaining rows complete.
             </div>

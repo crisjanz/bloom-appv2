@@ -14,7 +14,7 @@ import GiftCardHandoffModal from '../../orders/payment/GiftCardHandoffModal';
 import AdjustmentsModal from '../../orders/payment/AdjustmentsModal';
 import { orderContainsGiftCards } from '@shared/utils/giftCardHelpers';
 import { useCouponValidation } from '@shared/hooks/useCouponValidation';
-import { formatCurrency } from '@shared/utils/currencyHelpers';
+import { formatCurrency } from '@shared/utils/currency';
 import { mapPaymentMethodType, getPaymentProvider, transformCartToOrders, generatePaymentSummary } from '@shared/utils/paymentHelpers';
 import { getOrCreateGuestCustomer, getCustomerDisplayName } from '@shared/utils/customerHelpers';
 import { usePaymentState } from '@domains/payments/hooks/usePaymentState';
@@ -180,7 +180,7 @@ const MANUAL_METHOD_CONFIG: Record<
   },
 };
 
-const MIN_BALANCE = 0.01;
+const MIN_BALANCE = 1;
 
 const PaymentController: FC<Props> = ({
   open,
@@ -338,7 +338,7 @@ const PaymentController: FC<Props> = ({
       return;
     }
 
-    paymentModals.openModal(tileId, Number(total.toFixed(2)));
+    paymentModals.openModal(tileId, total);
   };
 
   const handleModalCancel = () => {
@@ -438,7 +438,7 @@ const PaymentController: FC<Props> = ({
     if (!paymentModals.modalContext) return;
 
     if (paymentModals.modalContext.mode === 'split' && paymentModals.modalContext.rowId) {
-      const amount = Number(paymentModals.modalContext.amount.toFixed(2));
+      const amount = Math.round(paymentModals.modalContext.amount);
       const payment: PaymentPayload = { ...payload, amount };
       const details = rowNote ?? generatePaymentSummary(payment);
       splitPayment.completeRowPayment(paymentModals.modalContext.rowId, payment, details);
@@ -446,7 +446,7 @@ const PaymentController: FC<Props> = ({
       return;
     }
 
-    const amount = Number(paymentModals.modalContext.amount.toFixed(2));
+    const amount = Math.round(paymentModals.modalContext.amount);
     const singlePayment: PaymentPayload = { ...payload, amount };
     attemptFinalize([singlePayment]);
   };
@@ -570,7 +570,7 @@ const PaymentController: FC<Props> = ({
     if (payments.length !== completedRows.length) return;
 
     const paid = payments.reduce((sum, payment) => sum + payment.amount, 0);
-    const remaining = Math.max(0, Number((total - paid).toFixed(2)));
+    const remaining = Math.max(0, total - paid);
 
     if (remaining <= MIN_BALANCE && outstandingRows.length === 0) {
       attemptFinalize(payments);

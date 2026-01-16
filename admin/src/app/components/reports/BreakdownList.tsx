@@ -1,17 +1,11 @@
 import type { BreakdownTotals } from '@domains/reports/types';
 import { formatPaymentMethodKeyLabel } from './paymentUtils';
+import { formatCurrency } from '@shared/utils/currency';
 
 interface BreakdownListProps {
   title: string;
   data: BreakdownTotals | undefined;
 }
-
-const formatCurrency = (amount: number) =>
-  new Intl.NumberFormat('en-CA', {
-    style: 'currency',
-    currency: 'CAD',
-    minimumFractionDigits: 2
-  }).format(amount / 100);
 
 const BreakdownList: React.FC<BreakdownListProps> = ({ title, data }) => {
   const entries = data

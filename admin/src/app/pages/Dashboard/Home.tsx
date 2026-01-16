@@ -2,14 +2,11 @@ import PageMeta from "@shared/ui/common/PageMeta";
 import { useDashboardMetrics, useRevenueTrend } from "@shared/hooks/useDashboard";
 import MetricCard from "@app/components/dashboard/MetricCard";
 import RevenueTrendChart from "@app/components/dashboard/RevenueTrendChart";
+import { formatCurrency } from "@shared/utils/currency";
 
 export default function DashboardHome() {
   const { metrics, loading, error } = useDashboardMetrics();
   const { data: revenueTrend, loading: trendLoading } = useRevenueTrend(7);
-
-  const formatCurrency = (cents: number) => {
-    return `$${(cents / 100).toFixed(2)}`;
-  };
 
   if (loading) {
     return (

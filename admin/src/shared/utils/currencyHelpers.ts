@@ -1,97 +1,72 @@
 /**
- * Currency Formatting Utilities
+ * Currency Formatting Utilities (Deprecated)
  *
- * Centralized currency formatting functions to replace duplicates across:
- * - PaymentController.tsx
- * - POSUnifiedPaymentModal.tsx (deleted)
- * - OrdersListPage.tsx
- * - TransactionsReportPage.tsx
- * - And 13+ other files
+ * Use @shared/utils/currency instead.
+ * Rule: all values are in cents (integers).
  */
 
+import {
+  formatCurrency as formatCurrencyCents,
+  parseUserCurrency,
+  centsToDollars,
+  dollarsToCents,
+} from './currency';
+
 /**
- * Format a number as currency (CAD)
- * @param value - The numeric value to format
- * @returns Formatted string like "$123.45"
+ * Format cents (integer) as currency.
  */
-export const formatCurrency = (value: number): string => {
-  return `$${value.toFixed(2)}`;
+export const formatCurrency = (cents: number): string => {
+  return formatCurrencyCents(cents);
 };
 
 /**
- * Parse a currency string to a number
- * @param value - Currency string like "$123.45" or "123.45"
- * @returns Parsed number or 0 if invalid
+ * Parse a currency string to cents.
  */
 export const parseCurrency = (value: string): number => {
-  const cleaned = value.replace(/[^0-9.-]/g, '');
-  const parsed = parseFloat(cleaned);
-  return isNaN(parsed) ? 0 : parsed;
+  return parseUserCurrency(value);
 };
 
 /**
- * Format cents (integer) as currency
- * @param cents - Value in cents (e.g., 12345 = $123.45)
- * @returns Formatted string like "$123.45"
+ * Alias for formatCurrency (cents).
  */
 export const formatCents = (cents: number): string => {
-  return formatCurrency(cents / 100);
+  return formatCurrencyCents(cents);
 };
 
 /**
- * Convert dollars to cents
- * @param dollars - Value in dollars
- * @returns Value in cents (integer)
+ * Convert dollars to cents.
  */
-export const dollarsToCents = (dollars: number): number => {
-  return Math.round(dollars * 100);
-};
+export { dollarsToCents };
 
 /**
- * Convert cents to dollars
- * @param cents - Value in cents
- * @returns Value in dollars
+ * Convert cents to dollars.
  */
-export const centsToDollars = (cents: number): number => {
-  return cents / 100;
-};
+export { centsToDollars };
 
 /**
- * Format currency with optional currency code
- * @param value - The numeric value
- * @param currencyCode - Currency code (default: 'CAD')
- * @returns Formatted string like "$123.45 CAD"
+ * Format currency with optional currency code.
  */
-export const formatCurrencyWithCode = (value: number, currencyCode: string = 'CAD'): string => {
-  return `${formatCurrency(value)} ${currencyCode}`;
+export const formatCurrencyWithCode = (cents: number, currencyCode: string = 'CAD'): string => {
+  return `${formatCurrencyCents(cents)} ${currencyCode}`;
 };
 
 /**
- * Safely add two currency values (avoids floating point errors)
- * @param a - First value
- * @param b - Second value
- * @returns Sum rounded to 2 decimals
+ * Safely add two currency values in cents.
  */
 export const addCurrency = (a: number, b: number): number => {
-  return Number((a + b).toFixed(2));
+  return Math.round((a || 0) + (b || 0));
 };
 
 /**
- * Safely subtract two currency values (avoids floating point errors)
- * @param a - Value to subtract from
- * @param b - Value to subtract
- * @returns Difference rounded to 2 decimals
+ * Safely subtract two currency values in cents.
  */
 export const subtractCurrency = (a: number, b: number): number => {
-  return Number((a - b).toFixed(2));
+  return Math.round((a || 0) - (b || 0));
 };
 
 /**
- * Safely multiply currency value (avoids floating point errors)
- * @param value - Base value
- * @param multiplier - Multiplier
- * @returns Product rounded to 2 decimals
+ * Safely multiply currency value in cents.
  */
 export const multiplyCurrency = (value: number, multiplier: number): number => {
-  return Number((value * multiplier).toFixed(2));
+  return Math.round((value || 0) * (multiplier || 0));
 };

@@ -239,6 +239,71 @@ import { Modal } from '@shared/ui/components/ui/modal';
 - Users can paste any format
 - Handles North American country code (leading 1) automatically
 
+### Currency Handling Pattern
+
+**CRITICAL - ALWAYS follow this unified pattern**
+
+**Single Source of Truth:**
+- **ALL monetary values are in CENTS** (integers) throughout the application
+- **Database**: cents (Int)
+- **Backend API**: cents (Int)
+- **Frontend State**: cents (numbers)
+- **Display ONLY**: dollars via `formatCurrency()`
+
+**Utility Functions:**
+```tsx
+import { formatCurrency, dollarsToCents, parseUserCurrency } from '@shared/utils/currency';
+
+// Display cents as dollars
+<div>Total: {formatCurrency(totalCents)}</div>  // "$25.00"
+
+// Convert user input to cents
+const cents = parseUserCurrency(userInput);  // "25.00" → 2500
+
+// Convert dollars to cents
+const cents = dollarsToCents(25.00);  // 2500
+```
+
+**Common Patterns:**
+
+```tsx
+// ✅ CORRECT - Everything in cents
+const { itemTotal, gst, pst, grandTotal } = usePaymentCalculations(
+  orders,
+  deliveryFeeCents,
+  discountCents,
+  "$"
+);
+// Returns: ALL values in cents
+
+// Display
+<span>{formatCurrency(itemTotal)}</span>
+<span>{formatCurrency(gst)}</span>
+<span>{formatCurrency(grandTotal)}</span>
+
+// ❌ WRONG - Manual conversions
+<span>${(itemTotal / 100).toFixed(2)}</span>  // Never do this!
+```
+
+**Input Fields:**
+```tsx
+// Product price input (user enters dollars, we store as cents)
+<InputField
+  label="Price"
+  value={(priceCents / 100).toFixed(2)}  // Display as dollars
+  onChange={(e) => {
+    const cents = dollarsToCents(e.target.value);
+    updatePrice(cents);  // Store as cents
+  }}
+/>
+```
+
+**Why This Matters:**
+- Prevents $1400.00 vs $14.00 bugs completely
+- Single conversion point = impossible to miss
+- No floating-point errors (integers only)
+- Matches industry standard (Stripe, Shopify, Square)
+
 ### Brand Colors
 
 - **Primary button**: `bg-brand-500 hover:bg-brand-600`

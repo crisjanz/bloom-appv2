@@ -4,6 +4,7 @@
  */
 
 import { useState, useCallback } from 'react'
+import { centsToDollars, coerceCents } from '@shared/utils/currency';
 
 export const useOrderPayments = () => {
   const [processing, setProcessing] = useState(false);
@@ -173,7 +174,13 @@ export const useOrderPayments = () => {
       // Convert deliveryFee from cents to dollars for backend API
       const ordersInDollars = ordersWithRecipientIds.map((order: any) => ({
         ...order,
-        deliveryFee: order.deliveryFee / 100 // Convert cents to dollars for backend
+        deliveryFee: centsToDollars(order.deliveryFee),
+        customProducts: Array.isArray(order.customProducts)
+          ? order.customProducts.map((product: any) => ({
+              ...product,
+              price: centsToDollars(coerceCents(product.price || '0')).toFixed(2),
+            }))
+          : order.customProducts,
       }));
 
       // Create DRAFT orders for POS transfer
@@ -408,7 +415,13 @@ export const useOrderPayments = () => {
       // Convert deliveryFee from cents to dollars for backend API
       const ordersInDollars = ordersWithRecipientIds.map((order: any) => ({
         ...order,
-        deliveryFee: order.deliveryFee / 100 // Convert cents to dollars for backend
+        deliveryFee: centsToDollars(order.deliveryFee),
+        customProducts: Array.isArray(order.customProducts)
+          ? order.customProducts.map((product: any) => ({
+              ...product,
+              price: centsToDollars(coerceCents(product.price || '0')).toFixed(2),
+            }))
+          : order.customProducts,
       }));
 
       // Create orders via API

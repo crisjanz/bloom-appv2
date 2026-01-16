@@ -4,6 +4,7 @@
  */
 
 import { DomainEntity, Money } from '@shared/types/common'
+import { centsToDollars } from '@shared/utils/currency'
 
 // ===== CORE PRODUCT ENTITY =====
 
@@ -274,7 +275,7 @@ export const ProductHelper = {
    * Calculate variant price
    */
   calculateVariantPrice(product: Product, variant: ProductVariant): number {
-    return product.price + (variant.priceDifference / 100)
+    return product.price + centsToDollars(variant.priceDifference)
   },
   
   /**

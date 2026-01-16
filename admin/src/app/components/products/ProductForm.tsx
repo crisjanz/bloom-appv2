@@ -9,6 +9,7 @@ import ComponentCard from '@shared/ui/common/ComponentCard';
 import MultiSelect from '@shared/ui/forms/MultiSelect';
 import { useApiClient } from '@shared/hooks/useApiClient';
 import { Modal } from '@shared/ui/components/ui/modal';
+import { centsToDollars, dollarsToCents } from '@shared/utils/currency';
 
 const generateUUID = () => {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -168,7 +169,7 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
         // Reconstruct tiers from pricing option values
         loadedTiers = pricingOption.values.map((value: any) => {
           // Calculate tier price = base + adjustment
-          const tierPrice = basePrice + ((value.priceAdjustment || 0) / 100);
+          const tierPrice = basePrice + centsToDollars(value.priceAdjustment || 0);
 
           // Get inventory from first variant with this tier
           let tierInventory = 0;
@@ -228,7 +229,7 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
             name: option.name,
             values: option.values.map((value: any) => ({
               label: value.label,
-              priceAdjustment: (value.priceAdjustment || 0) / 100, // Convert cents to dollars
+              priceAdjustment: centsToDollars(value.priceAdjustment || 0),
             })),
             impactsVariants: Boolean(option.impactsVariants),
           }));
@@ -398,7 +399,7 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
         }, 0);
 
         // Convert dollars to cents for priceDifference
-        const priceDifference = Math.round(totalPriceAdjustment * 100);
+        const priceDifference = dollarsToCents(totalPriceAdjustment);
 
         // Find the pricing tier from this combination
         const pricingPart = combo.find((part) => part.groupId === pricingGroup?.id);

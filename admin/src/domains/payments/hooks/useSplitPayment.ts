@@ -27,7 +27,7 @@ export type PaymentPayload = {
   metadata?: Record<string, any>;
 };
 
-const MIN_BALANCE = 0.01;
+const MIN_BALANCE = 1;
 
 export const useSplitPayment = (total: number) => {
   const [splitRows, setSplitRows] = useState<SplitPaymentRow[]>([]);
@@ -48,7 +48,7 @@ export const useSplitPayment = (total: number) => {
   }, [splitRows, splitPayments]);
 
   const splitRemaining = useMemo(() => {
-    return Math.max(0, Number((total - splitPaidAmount).toFixed(2)));
+    return Math.max(0, total - splitPaidAmount);
   }, [total, splitPaidAmount]);
 
   const ensureSplitCoverage = useCallback((rows: SplitPaymentRow[]) => {
@@ -87,7 +87,7 @@ export const useSplitPayment = (total: number) => {
     updateSplitRows((rows) =>
       rows.map((row) =>
         row.id === rowId && row.status === 'pending'
-          ? { ...row, amount: Number(Math.max(0, amount).toFixed(2)) }
+          ? { ...row, amount: Math.max(0, Math.round(amount)) }
           : row,
       ),
     );
@@ -96,7 +96,7 @@ export const useSplitPayment = (total: number) => {
   const handleSplitAddRow = useCallback(() => {
     updateSplitRows((rows) => {
       const plannedTotal = rows.reduce((sum, row) => sum + row.amount, 0);
-      const remainingAmount = Math.max(0, Number((total - plannedTotal).toFixed(2)));
+      const remainingAmount = Math.max(0, total - plannedTotal);
       const nextRow: SplitPaymentRow = {
         id: nextSplitRowId(),
         tender: 'cash',

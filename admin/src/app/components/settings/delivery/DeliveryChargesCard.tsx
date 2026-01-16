@@ -6,6 +6,7 @@ import Select from "@shared/ui/forms/Select";
 import Button from "@shared/ui/components/ui/button/Button";
 import AddressAutocomplete from "@shared/ui/forms/AddressAutocomplete";
 import { TruckIcon, PlusIcon, TrashBinIcon, PencilIcon, SettingsIcon } from "@shared/assets/icons";
+import { centsToDollars, dollarsToCents } from "@shared/utils/currency";
 
 interface DeliveryZone {
   id?: string;
@@ -36,7 +37,7 @@ const normalizeMoneyFromApi = (value?: number | null): number | undefined => {
   }
 
   if (value >= 100) {
-    return value / 100;
+    return centsToDollars(value);
   }
 
   return value;
@@ -47,7 +48,7 @@ const toCents = (value?: number): number | undefined => {
     return undefined;
   }
 
-  return Math.round(value * 100);
+  return dollarsToCents(value);
 };
 
 const DeliveryChargesCard = () => {

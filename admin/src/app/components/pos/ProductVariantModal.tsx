@@ -1,6 +1,6 @@
 import React from 'react';
-import { ProductHelper } from '../../../domains/products/entities/Product';
 import { Modal } from '@shared/ui/components/ui/modal';
+import { centsToDollars, dollarsToCents, formatCurrency, coerceCents } from '@shared/utils/currency';
 
 type Variant = {
   id: string;
@@ -30,7 +30,7 @@ type Props = {
 export default function ProductVariantModal({ open, product, onClose, onSelectVariant }: Props) {
   if (!open || !product) return null;
 
-  const basePrice = product.price || 0;
+  const basePriceCents = coerceCents(product.price || 0);
   
   // Get all variants including default
   const allVariants = product.variants || [];
@@ -45,21 +45,27 @@ export default function ProductVariantModal({ open, product, onClose, onSelectVa
     displayVariants.push({
       ...defaultVariant,
       displayName: defaultVariant.name,
-      displayPrice: basePrice,
-      isDefault: true
+      displayPrice: centsToDollars(basePriceCents),
+      displayPriceCents: basePriceCents,
+      priceDifferenceCents: 0,
+      isDefault: true,
     });
   }
   
   // Add non-default variants with calculated prices
   nonDefaultVariants.forEach(variant => {
-    // calculatedPrice is already in dollars from backend, priceDifference is in cents
-    const calculatedPrice = variant.calculatedPrice || (basePrice + (variant.priceDifference || 0) / 100);
+    const priceDifferenceCents = Math.round(variant.priceDifference || 0);
+    const calculatedPriceCents = typeof variant.calculatedPrice === 'number'
+      ? dollarsToCents(variant.calculatedPrice)
+      : basePriceCents + priceDifferenceCents;
+
     displayVariants.push({
       ...variant,
       displayName: variant.name,
-      displayPrice: calculatedPrice,
-      priceDifferenceInDollars: (variant.priceDifference || 0) / 100,
-      isDefault: false
+      displayPrice: centsToDollars(calculatedPriceCents),
+      displayPriceCents: calculatedPriceCents,
+      priceDifferenceCents,
+      isDefault: false,
     } as any);
   });
 
@@ -146,15 +152,16 @@ export default function ProductVariantModal({ open, product, onClose, onSelectVa
                         </span>
                       )}
                     </div>
-                    {!variant.isDefault && (variant.priceDifferenceInDollars ?? 0) !== 0 && (
+                    {!variant.isDefault && (variant.priceDifferenceCents ?? 0) !== 0 && (
                       <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                        {(variant.priceDifferenceInDollars ?? 0) > 0 ? '+' : ''}${(variant.priceDifferenceInDollars ?? 0).toFixed(2)} vs base
+                        {(variant.priceDifferenceCents ?? 0) > 0 ? '+' : '-'}
+                        {formatCurrency(Math.abs(variant.priceDifferenceCents ?? 0))} vs base
                       </p>
                     )}
                   </div>
                   <div className="text-right">
                     <div className="text-lg font-bold text-brand-500">
-                      ${variant.displayPrice.toFixed(2)}
+                      {formatCurrency(variant.displayPriceCents ?? dollarsToCents(variant.displayPrice))}
                     </div>
                   </div>
                 </div>

@@ -6,6 +6,7 @@
  * - POSUnifiedPaymentModal.tsx (deleted)
  * - PaymentSection.tsx
  */
+import { formatCurrency } from '@shared/utils/currency';
 
 /**
  * Map frontend payment method to backend API type
@@ -72,8 +73,6 @@ export const transformCartToOrders = (cartItems: any[] = [], customerName?: stri
  * @returns Summary string or undefined
  */
 export const generatePaymentSummary = (payment: { method: string; amount: number; metadata?: Record<string, any> }): string | undefined => {
-  const formatCurrency = (value: number) => `$${value.toFixed(2)}`;
-
   if (payment.method === 'cash' && payment.metadata?.cashReceived) {
     const change =
       typeof payment.metadata.changeDue === 'number' && payment.metadata.changeDue > 0
@@ -111,18 +110,18 @@ export const generatePaymentSummary = (payment: { method: string; amount: number
 export const normalizePayments = (
   payments: Array<{ method: string; amount: number; metadata?: any }>,
   expectedTotal: number,
-  minBalance: number = 0.01
+  minBalance: number = 1
 ): Array<{ method: string; amount: number; metadata?: any }> => {
   if (!payments.length) return payments;
 
   const totalSubmitted = payments.reduce((sum, payment) => sum + payment.amount, 0);
-  const difference = Number((expectedTotal - totalSubmitted).toFixed(2));
+  const difference = expectedTotal - totalSubmitted;
 
   // If difference is within min balance threshold, adjust the last payment
   if (Math.abs(difference) <= minBalance) {
     const clone = payments.map((payment, index) =>
       index === payments.length - 1
-        ? { ...payment, amount: Number((payment.amount + difference).toFixed(2)) }
+        ? { ...payment, amount: payment.amount + difference }
         : payment,
     );
     return clone;
@@ -141,7 +140,7 @@ export const normalizePayments = (
 export const paymentsCoverTotal = (
   payments: Array<{ amount: number }>,
   total: number,
-  tolerance: number = 0.01
+  tolerance: number = 1
 ): boolean => {
   const paymentSum = payments.reduce((sum, payment) => sum + payment.amount, 0);
   return Math.abs(paymentSum - total) <= tolerance;
@@ -155,5 +154,5 @@ export const paymentsCoverTotal = (
  */
 export const calculateChange = (cashReceived: number, amountDue: number): number => {
   const change = cashReceived - amountDue;
-  return change > 0 ? Number(change.toFixed(2)) : 0;
+  return change > 0 ? change : 0;
 };

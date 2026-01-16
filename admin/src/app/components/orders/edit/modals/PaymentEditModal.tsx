@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { SaveIcon } from '@shared/assets/icons';
 import InputField from '@shared/ui/forms/input/InputField';
 import FormFooter from '@shared/ui/components/ui/form/FormFooter';
+import { centsToDollars, parseUserCurrency } from '@shared/utils/currency';
 
 interface PaymentEditModalProps {
   payment: {
@@ -23,16 +24,16 @@ const PaymentEditModal: React.FC<PaymentEditModalProps> = ({
   onCancel,
   saving
 }) => {
-  const [deliveryFeeStr, setDeliveryFeeStr] = useState((payment.deliveryFee / 100).toString());
-  const [discountStr, setDiscountStr] = useState((payment.discount / 100).toString());
-  const [gstStr, setGstStr] = useState(payment.gst.toString());
-  const [pstStr, setPstStr] = useState(payment.pst.toString());
+  const [deliveryFeeStr, setDeliveryFeeStr] = useState(centsToDollars(payment.deliveryFee).toFixed(2));
+  const [discountStr, setDiscountStr] = useState(centsToDollars(payment.discount).toFixed(2));
+  const [gstStr, setGstStr] = useState(centsToDollars(payment.gst).toFixed(2));
+  const [pstStr, setPstStr] = useState(centsToDollars(payment.pst).toFixed(2));
 
   useEffect(() => {
-    setDeliveryFeeStr((payment.deliveryFee / 100).toString());
-    setDiscountStr((payment.discount / 100).toString());
-    setGstStr(payment.gst.toString());
-    setPstStr(payment.pst.toString());
+    setDeliveryFeeStr(centsToDollars(payment.deliveryFee).toFixed(2));
+    setDiscountStr(centsToDollars(payment.discount).toFixed(2));
+    setGstStr(centsToDollars(payment.gst).toFixed(2));
+    setPstStr(centsToDollars(payment.pst).toFixed(2));
   }, [payment.deliveryFee, payment.discount, payment.gst, payment.pst]);
 
   return (
@@ -43,18 +44,18 @@ const PaymentEditModal: React.FC<PaymentEditModalProps> = ({
           type="number"
           step="0.01"
           min="0"
-          value={deliveryFeeStr}
+          value={deliveryFeeStr || ''}
           onChange={(e) => setDeliveryFeeStr(e.target.value)}
-          onBlur={() => onChange({ ...payment, deliveryFee: Math.round((parseFloat(deliveryFeeStr || '0')) * 100) })}
+          onBlur={() => onChange({ ...payment, deliveryFee: parseUserCurrency(deliveryFeeStr) })}
         />
         <InputField
           label="Discount ($)"
           type="number"
           step="0.01"
           min="0"
-          value={discountStr}
+          value={discountStr || ''}
           onChange={(e) => setDiscountStr(e.target.value)}
-          onBlur={() => onChange({ ...payment, discount: Math.round((parseFloat(discountStr || '0')) * 100) })}
+          onBlur={() => onChange({ ...payment, discount: parseUserCurrency(discountStr) })}
         />
       </div>
 
@@ -64,18 +65,18 @@ const PaymentEditModal: React.FC<PaymentEditModalProps> = ({
           type="number"
           step="0.01"
           min="0"
-          value={gstStr}
+          value={gstStr || ''}
           onChange={(e) => setGstStr(e.target.value)}
-          onBlur={() => onChange({ ...payment, gst: parseFloat(gstStr || '0') })}
+          onBlur={() => onChange({ ...payment, gst: parseUserCurrency(gstStr) })}
         />
         <InputField
           label="PST ($)"
           type="number"
           step="0.01"
           min="0"
-          value={pstStr}
+          value={pstStr || ''}
           onChange={(e) => setPstStr(e.target.value)}
-          onBlur={() => onChange({ ...payment, pst: parseFloat(pstStr || '0') })}
+          onBlur={() => onChange({ ...payment, pst: parseUserCurrency(pstStr) })}
         />
       </div>
 

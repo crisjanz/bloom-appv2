@@ -14,6 +14,13 @@ export interface Order extends DomainEntity {
   // Order relationships
   customerId: string
   employeeId?: string // Staff member who created the order
+  recipientCustomer?: {
+    id: string
+    firstName: string
+    lastName: string
+    email?: string
+    phone?: string
+  }
   
   // Order classification
   orderType: OrderType
@@ -36,7 +43,8 @@ export interface Order extends DomainEntity {
   fulfillmentType: FulfillmentType
   deliveryInfo?: DeliveryInfo
   pickupInfo?: PickupInfo
-  
+  recipientName?: string // Fallback display name when no recipient customer/address
+
   // Payment tracking
   paymentTransactionId?: string // Links to PT-XXXX system
   paymentStatus: PaymentStatus
@@ -383,6 +391,7 @@ export interface UpdateOrderData {
   status?: OrderStatus
   paymentStatus?: PaymentStatus
   orderSource?: OrderSource
+  recipientName?: string | null
   items?: OrderItem[]
   deliveryInfo?: Partial<DeliveryInfo>
   pickupInfo?: Partial<PickupInfo>

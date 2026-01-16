@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { SaveIcon, CreditCardIcon } from '@shared/assets/icons';
+import InputField from '@shared/ui/forms/input/InputField';
 import Label from '@shared/ui/forms/Label';
 import Select from '@shared/ui/forms/Select';
 import { Modal } from '@shared/ui/components/ui/modal';
+import { centsToDollars, formatCurrency, parseUserCurrency } from '@shared/utils/currency';
 
 interface PaymentAdjustmentModalProps {
   oldTotal: number;
@@ -54,17 +56,9 @@ const PaymentAdjustmentModal: React.FC<PaymentAdjustmentModalProps> = ({
   const isRefund = difference < 0;
   const amount = Math.abs(difference);
 
-  const formatCurrency = (cents: number) => {
-    return new Intl.NumberFormat('en-CA', {
-      style: 'currency',
-      currency: 'CAD'
-    }).format(cents / 100);
-  };
-
   const calculateChange = () => {
-    const received = parseFloat(cashReceived) || 0;
-    const amountDue = amount / 100; // Convert cents to dollars
-    return received - amountDue;
+    const receivedCents = parseUserCurrency(cashReceived);
+    return receivedCents - amount;
   };
 
   const handleAutoCharge = async () => {
@@ -104,11 +98,10 @@ const PaymentAdjustmentModal: React.FC<PaymentAdjustmentModalProps> = ({
   };
 
   const handleCashPayment = () => {
-    const received = parseFloat(cashReceived) || 0;
-    const amountDue = amount / 100;
-    const change = received - amountDue;
+    const receivedCents = parseUserCurrency(cashReceived);
+    const changeCents = receivedCents - amount;
     
-    if (received < amountDue) {
+    if (receivedCents < amount) {
       alert('Cash received is less than the amount due.');
       return;
     }
@@ -118,9 +111,9 @@ const PaymentAdjustmentModal: React.FC<PaymentAdjustmentModalProps> = ({
       paymentType: 'cash',
       amount: amount,
       success: true,
-      notes: `Cash payment: Received ${formatCurrency(received * 100)}, Change due: ${formatCurrency(change * 100)}`,
-      cashReceived: received,
-      changeDue: change
+      notes: `Cash payment: Received ${formatCurrency(receivedCents)}, Change due: ${formatCurrency(changeCents)}`,
+      cashReceived: receivedCents,
+      changeDue: changeCents
     };
     
     if (notes.trim()) {
@@ -197,7 +190,7 @@ const PaymentAdjustmentModal: React.FC<PaymentAdjustmentModalProps> = ({
     
     // Pre-fill cash received for exact amount
     if (method === 'cash' && !isRefund) {
-      setCashReceived((amount / 100).toFixed(2));
+      setCashReceived(centsToDollars(amount).toFixed(2));
     }
   };
 
@@ -346,15 +339,14 @@ const PaymentAdjustmentModal: React.FC<PaymentAdjustmentModalProps> = ({
                     </div>
                     
                     <div>
-                      <Label>Cash Received</Label>
-                      <input
+                      <InputField
+                        label="Cash Received"
                         type="number"
                         step="0.01"
                         min="0"
-                        value={cashReceived}
+                        value={cashReceived || ''}
                         onChange={(e) => setCashReceived(e.target.value)}
                         placeholder="0.00"
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                       />
                     </div>
                     
@@ -364,7 +356,7 @@ const PaymentAdjustmentModal: React.FC<PaymentAdjustmentModalProps> = ({
                           Change Due:
                         </span>
                         <span className={`font-bold ${calculateChange() >= 0 ? 'text-green-900 dark:text-green-100' : 'text-red-600'}`}>
-                          {formatCurrency(Math.max(0, calculateChange()) * 100)}
+                          {formatCurrency(Math.max(0, calculateChange()))}
                         </span>
                       </div>
                     )}
@@ -417,7 +409,7 @@ const PaymentAdjustmentModal: React.FC<PaymentAdjustmentModalProps> = ({
                 </button>
                 <button
                   onClick={selectedMethod === 'cash' ? handleCashPayment : handleOtherPayment}
-                  disabled={processing || (selectedMethod === 'cash' && (!cashReceived || parseFloat(cashReceived) < amount / 100))}
+                  disabled={processing || (selectedMethod === 'cash' && (!cashReceived || parseUserCurrency(cashReceived) < amount))}
                   className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {processing ? (

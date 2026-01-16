@@ -12,6 +12,7 @@ import {
   useSelectedCustomer,
 } from "@domains/customers/hooks/useCustomerService.ts";
 import { useOrderState } from "@shared/hooks/useOrderState";
+import { coerceCents } from "@shared/utils/currency";
 
 type Props = {
   isOverlay?: boolean;
@@ -26,6 +27,17 @@ export default function TakeOrderPage({
   onCancel,
   initialCustomer,
 }: Props) {
+  const migrateOrdersToCents = (orders: any[]) => {
+    return orders.map((order) => ({
+      ...order,
+      customProducts: Array.isArray(order.customProducts)
+        ? order.customProducts.map((product: any) => ({
+            ...product,
+            price: product.price ? coerceCents(product.price).toString() : "",
+          }))
+        : order.customProducts,
+    }));
+  };
   // 🔹 Employee State
   const [employee, setEmployee] = useState("");
   const [employeeList, setEmployeeList] = useState<
@@ -112,7 +124,6 @@ export default function TakeOrderPage({
 
   // ✅ Get total delivery fee from all orders
   const totalDeliveryFee = orderState.getTotalDeliveryFee();
-  const deliveryFeeInDollars = totalDeliveryFee / 100;
 
   // ✅ Helper function to calculate items total properly
   const calculateItemsTotal = () => {
@@ -120,7 +131,7 @@ export default function TakeOrderPage({
       return (
         sum +
         order.customProducts.reduce((pSum, p) => {
-          const price = parseFloat(p.price) || 0;
+          const price = coerceCents(p.price || "0");
           const qty = parseInt(p.qty) || 0;
           return pSum + price * qty;
         }, 0)
@@ -130,17 +141,16 @@ export default function TakeOrderPage({
 
   // ✅ Calculate manual discount amount with proper parsing
   const itemsTotal = calculateItemsTotal();
-  const manualDiscountAmount =
+  const manualDiscountAmountCents =
     manualDiscountType === "%"
-      ? ((itemsTotal + deliveryFeeInDollars) * manualDiscount) / 100
+      ? Math.round(((itemsTotal + totalDeliveryFee) * manualDiscount) / 100)
       : manualDiscount;
 
-  const totalDiscount =
-    manualDiscountAmount +
+  const totalDiscountCents =
+    manualDiscountAmountCents +
     couponDiscount +
     giftCardDiscount +
     automaticDiscount;
-  const totalDiscountCents = Math.round(totalDiscount * 100);
 
   const { itemTotal, subtotal, gst, pst, grandTotal } = usePaymentCalculations(
     orderState.orders,
@@ -184,7 +194,7 @@ export default function TakeOrderPage({
         totals: {
           itemTotal,
           deliveryFee: totalDeliveryFee,
-          discount: totalDiscount,
+          discount: totalDiscountCents,
           gst,
           pst,
           grandTotal,
@@ -246,7 +256,7 @@ export default function TakeOrderPage({
               customerState.setCustomer(draftData.customer);
             }
             if (draftData.orders) {
-              orderState.setOrders(draftData.orders);
+              orderState.setOrders(migrateOrdersToCents(draftData.orders));
             }
             if (draftData.orderSource && !isOverlay) {
               setOrderSource(draftData.orderSource);

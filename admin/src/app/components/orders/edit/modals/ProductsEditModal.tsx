@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { SaveIcon, PlusIcon, TrashIcon } from '@shared/assets/icons';
+import InputField from '@shared/ui/forms/input/InputField';
 import Label from '@shared/ui/forms/Label';
+import { centsToDollars, formatCurrency, parseUserCurrency } from '@shared/utils/currency';
 
 interface OrderItem {
   id: string;
@@ -27,13 +29,6 @@ const ProductsEditModal: React.FC<ProductsEditModalProps> = ({
   saving
 }) => {
   const [editingProducts, setEditingProducts] = useState<OrderItem[]>([...products]);
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-CA', {
-      style: 'currency',
-      currency: 'CAD'
-    }).format(amount / 100);
-  };
 
 const updateProduct = (index: number, field: keyof OrderItem, value: any) => {
   const updated = [...editingProducts];
@@ -100,16 +95,13 @@ const handleSave = () => {
             </div>
 
             <div className="space-y-3">
-              <div>
-                <Label>Product Name</Label>
-                <input
-                  type="text"
-                  value={product.customName}
-                  onChange={(e) => updateProduct(index, 'customName', e.target.value)}
-                  placeholder="Enter product name"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                />
-              </div>
+              <InputField
+                label="Product Name"
+                type="text"
+                value={product.customName || ''}
+                onChange={(e) => updateProduct(index, 'customName', e.target.value)}
+                placeholder="Enter product name"
+              />
               <div>
                 <Label>Product Description</Label>
                 <textarea
@@ -123,24 +115,30 @@ const handleSave = () => {
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <Label>Price ($)</Label>
-                  <input
+                  <InputField
+                    label="Price ($)"
                     type="number"
                     step="0.01"
                     min="0"
-                    value={(product.unitPrice / 100).toFixed(2)}
-                    onChange={(e) => updateProduct(index, 'unitPrice', Math.round(parseFloat(e.target.value || '0') * 100))}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    value={
+                      Number.isFinite(product.unitPrice)
+                        ? centsToDollars(product.unitPrice).toFixed(2)
+                        : ''
+                    }
+                    onChange={(e) =>
+                      updateProduct(index, 'unitPrice', parseUserCurrency(e.target.value))
+                    }
                   />
                 </div>
                 <div>
-                  <Label>Quantity</Label>
-                  <input
+                  <InputField
+                    label="Quantity"
                     type="number"
                     min="1"
-                    value={product.quantity}
-                    onChange={(e) => updateProduct(index, 'quantity', parseInt(e.target.value || '1'))}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    value={Number.isFinite(product.quantity) ? product.quantity : ''}
+                    onChange={(e) =>
+                      updateProduct(index, 'quantity', parseInt(e.target.value || '1', 10))
+                    }
                   />
                 </div>
                 <div>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Modal } from '@shared/ui/components/ui/modal';
 import InputField from '@shared/ui/forms/input/InputField';
 import Button from '@shared/ui/components/ui/button/Button';
+import { centsToDollars } from '@shared/utils/currency';
 
 interface ManualPaymentModalProps {
   open: boolean;
@@ -24,13 +25,13 @@ const ManualPaymentModal: React.FC<ManualPaymentModalProps> = ({
   onSubmit,
   onCancel,
 }) => {
-  const [amount, setAmount] = useState<string>(defaultAmount.toFixed(2));
+  const [amount, setAmount] = useState<string>(centsToDollars(defaultAmount).toFixed(2));
   const [reference, setReference] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
-    setAmount(defaultAmount.toFixed(2));
+    setAmount(centsToDollars(defaultAmount).toFixed(2));
     setReference('');
     setError(null);
   }, [open, defaultAmount]);

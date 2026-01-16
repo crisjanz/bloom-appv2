@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import Button from '@shared/ui/components/ui/button/Button';
 import Select from '@shared/ui/forms/Select';
 import InputField from '@shared/ui/forms/input/InputField';
+import { formatCurrency } from '@shared/utils/currency';
 
 export interface UnifiedPaymentItem {
   id: string;
@@ -42,8 +43,6 @@ export interface UnifiedPaymentModalProps {
   onSecondaryAction?: () => void;
   onClose: () => void;
 }
-
-const formatCurrency = (value: number) => `$${value.toFixed(2)}`;
 
 const UnifiedPaymentModal = ({
   open,

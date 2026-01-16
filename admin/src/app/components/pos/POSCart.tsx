@@ -5,6 +5,7 @@ import { useCustomerSearch } from '@domains/customers/hooks/useCustomerService.t
 import { useTaxRates } from '@shared/hooks/useTaxRates';
 import InputField from '@shared/ui/forms/input/InputField';
 import { formatPhoneDisplay } from '@shared/ui/forms/PhoneInput';
+import { centsToDollars, formatCurrency, parseUserCurrency } from '@shared/utils/currency';
 
 type CartItem = {
   id: string;
@@ -61,7 +62,7 @@ export default function POSCart({
   const [tempPrice, setTempPrice] = useState('');
 
   // Get centralized tax rates
-  const { calculateItemTax } = useTaxRates();
+  const { individualTaxRates } = useTaxRates();
 
     // MIGRATION: Updated to use new customer search interface
   const { 
@@ -75,24 +76,32 @@ const subtotal = items.reduce((sum, item) => {
   const itemPrice = item.customPrice ?? item.price ?? 0;
   return sum + itemPrice * item.quantity;
 }, 0);
-const totalDiscountAmount = (appliedDiscounts?.reduce((sum, discount) => sum + discount.amount, 0) || 0) + 
-                           (giftCardDiscount || 0) + 
-                           (couponDiscount?.amount || 0) +
-                           (autoDiscounts?.reduce((sum, discount) => sum + (discount.discountAmount || 0), 0) || 0);
+const totalDiscountAmount =
+  (appliedDiscounts?.reduce((sum, discount) => sum + discount.amount, 0) || 0) +
+  (giftCardDiscount || 0) +
+  (couponDiscount?.amount || 0) +
+  (autoDiscounts?.reduce((sum, discount) => sum + (discount.discountAmount || 0), 0) || 0);
 
 // Apply discounts proportionally to items
 const discountedSubtotal = Math.max(0, subtotal - totalDiscountAmount);
 const discountRatio = subtotal > 0 ? discountedSubtotal / subtotal : 0;
 
-// Calculate tax using individual items with their taxability
-const itemsWithAdjustedPrices = items.map(item => ({
-  ...item,
-  price: (item.customPrice ?? item.price) * discountRatio,
-  isTaxable: item.isTaxable ?? true // Default to taxable if not specified
-}));
+const combinedTaxRate = individualTaxRates.reduce((sum, tax) => sum + tax.rate, 0);
+const taxableSubtotal = items.reduce((sum, item) => {
+  const itemPrice = item.customPrice ?? item.price ?? 0;
+  const isTaxable = item.isTaxable ?? true;
+  if (!isTaxable) return sum;
+  return sum + itemPrice * item.quantity;
+}, 0);
 
-const taxCalculation = calculateItemTax(itemsWithAdjustedPrices);
-const total = discountedSubtotal + taxCalculation.totalAmount;
+const discountedTaxableSubtotal = Math.round(taxableSubtotal * discountRatio);
+const taxBreakdown = individualTaxRates.map((tax) => ({
+  name: tax.name,
+  rate: tax.rate,
+  amount: Math.round(discountedTaxableSubtotal * (tax.rate / 100)),
+}));
+const taxTotal = taxBreakdown.reduce((sum, tax) => sum + tax.amount, 0);
+const total = discountedSubtotal + taxTotal;
 
 const handleCustomerSelect = (selectedCustomer: any) => {
   // Transform the customer data to match what POSCart expects
@@ -123,13 +132,13 @@ const handleCustomerSelect = (selectedCustomer: any) => {
 
   const handlePriceClick = (itemId: string, currentPrice: number) => {
     setEditingPrice(itemId);
-    setTempPrice(currentPrice.toFixed(2));
+    setTempPrice(centsToDollars(currentPrice).toFixed(2));
   };
 
   const handlePriceSubmit = (itemId: string) => {
-    const newPrice = parseFloat(tempPrice);
-    if (!isNaN(newPrice) && newPrice >= 0 && onUpdatePrice) {
-      onUpdatePrice(itemId, newPrice);
+    const newPriceCents = parseUserCurrency(tempPrice);
+    if (tempPrice.trim() !== '' && newPriceCents >= 0 && onUpdatePrice) {
+      onUpdatePrice(itemId, newPriceCents);
     }
     setEditingPrice(null);
     setTempPrice('');
@@ -331,7 +340,7 @@ const handleCustomerSelect = (selectedCustomer: any) => {
                             onClick={() => handlePriceClick(item.id, itemPrice)}
                             className="text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-brand-500 hover:bg-gray-50 dark:hover:bg-gray-800 px-2 py-1 rounded-lg transition-all"
                           >
-                            {itemPrice.toFixed(2)}
+                            {centsToDollars(itemPrice).toFixed(2)}
                           </button>
                         )}
                       </div>
@@ -361,7 +370,7 @@ const handleCustomerSelect = (selectedCustomer: any) => {
 
                       {/* Subtotal */}
                       <span className="font-bold text-black dark:text-white">
-                        ${(itemPrice * item.quantity).toFixed(2)}
+                        {formatCurrency(itemPrice * item.quantity)}
                       </span>
                     </div>
                   </div>
@@ -379,7 +388,7 @@ const handleCustomerSelect = (selectedCustomer: any) => {
 <div className="space-y-3">
   <div className="flex justify-between text-sm">
     <span className="text-gray-600 dark:text-gray-400">Subtotal:</span>
-    <span className="font-medium text-black dark:text-white">${subtotal.toFixed(2)}</span>
+    <span className="font-medium text-black dark:text-white">{formatCurrency(subtotal)}</span>
   </div>
   
     {/* Applied Manual Discounts with remove buttons */}
@@ -387,7 +396,7 @@ const handleCustomerSelect = (selectedCustomer: any) => {
     <div key={index} className="flex justify-between items-center text-sm">
       <span className="text-green-600 dark:text-green-400 flex-1">{discount.description}:</span>
       <div className="flex items-center gap-2">
-        <span className="font-medium text-green-600 dark:text-green-400">-${discount.amount.toFixed(2)}</span>
+        <span className="font-medium text-green-600 dark:text-green-400">-{formatCurrency(discount.amount)}</span>
         {onRemoveDiscount && (
           <button
             onClick={() => onRemoveDiscount(index)}
@@ -408,7 +417,7 @@ const handleCustomerSelect = (selectedCustomer: any) => {
     <div className="flex justify-between items-center text-sm">
       <span className="text-green-600 dark:text-green-400 flex-1">Gift Card:</span>
       <div className="flex items-center gap-2">
-        <span className="font-medium text-green-600 dark:text-green-400">-${giftCardDiscount.toFixed(2)}</span>
+        <span className="font-medium text-green-600 dark:text-green-400">-{formatCurrency(giftCardDiscount)}</span>
         {onRemoveGiftCard && (
           <button
             onClick={onRemoveGiftCard}
@@ -431,7 +440,7 @@ const handleCustomerSelect = (selectedCustomer: any) => {
       Coupon{couponDiscount.name ? ` (${couponDiscount.name})` : ''}:
     </span>
     <div className="flex items-center gap-2">
-      <span className="font-medium text-green-600 dark:text-green-400">-${couponDiscount.amount.toFixed(2)}</span>
+      <span className="font-medium text-green-600 dark:text-green-400">-{formatCurrency(couponDiscount.amount)}</span>
       {onRemoveCoupon && (
         <button
           onClick={onRemoveCoupon}
@@ -455,27 +464,27 @@ const handleCustomerSelect = (selectedCustomer: any) => {
           Auto: {discount.name}
         </span>
         <span className="font-medium text-blue-600 dark:text-blue-400">
-          -${(discount.discountAmount || 0).toFixed(2)}
+          -{formatCurrency(discount.discountAmount || 0)}
         </span>
       </div>
     )
   ))}
 
   {/* Individual Tax Breakdown */}
-  {taxCalculation.breakdown.map((tax, idx) => (
+  {taxBreakdown.map((tax, idx) => (
     <div key={idx} className="flex justify-between text-sm">
       <span className="text-gray-600 dark:text-gray-400">
         {tax.name} ({tax.rate.toFixed(1)}%):
       </span>
       <span className="font-medium text-black dark:text-white">
-        ${tax.amount.toFixed(2)}
+        {formatCurrency(tax.amount)}
       </span>
     </div>
   ))}
   
   <div className="flex justify-between">
     <span className="text-lg font-bold text-black dark:text-white">Total:</span>
-    <span className="text-xl font-bold text-brand-500">${total.toFixed(2)}</span>
+    <span className="text-xl font-bold text-brand-500">{formatCurrency(total)}</span>
   </div>
 </div>
     </div>
@@ -491,7 +500,7 @@ const handleCustomerSelect = (selectedCustomer: any) => {
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
-                Take Payment - ${total.toFixed(2)}
+                Take Payment - {formatCurrency(total)}
               </button>
 
               {/* Draft Links - Small text-based buttons below payment */}

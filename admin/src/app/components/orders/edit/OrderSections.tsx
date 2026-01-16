@@ -4,6 +4,7 @@ import { Order } from '../types';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
 import { useTaxRates } from '@shared/hooks/useTaxRates';
 import { formatPhoneDisplay } from '@shared/ui/forms/PhoneInput';
+import { formatCurrency } from '@shared/utils/currency';
 
 interface OrderSectionsProps {
   order: Order;
@@ -13,14 +14,6 @@ interface OrderSectionsProps {
 const OrderSections: React.FC<OrderSectionsProps> = ({ order, onEdit }) => {
   const { formatDate: formatBusinessDate, loading: timezoneLoading } = useBusinessTimezone();
   const { taxRates } = useTaxRates();
-  
-  // All currency is stored in cents - single formatter
-  const formatCurrency = (amountInCents: number) => {
-    return new Intl.NumberFormat('en-CA', {
-      style: 'currency',
-      currency: 'CAD'
-    }).format(amountInCents / 100);
-  };
 
   const formatDate = (dateString: string) => {
     if (timezoneLoading) return dateString;

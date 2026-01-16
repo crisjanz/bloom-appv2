@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Badge from "@shared/ui/components/ui/badge/Badge";
 import StandardTable, { ColumnDef } from "@shared/ui/components/ui/table/StandardTable";
 import EmptyState from "@shared/ui/components/ui/empty-state/EmptyState";
+import { formatCurrency } from "@shared/utils/currency";
 
 // Inline SVG icons
 const EyeIcon = ({ className = '' }: { className?: string }) => (
@@ -97,7 +98,7 @@ const ProductTable: FC<Props> = ({ products }) => {
       render: (product) => (
         <span className="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
           {product.variants?.[0]?.price != null
-            ? `$${(product.variants[0].price / 100).toFixed(2)}`
+            ? formatCurrency(product.variants[0].price)
             : "N/A"}
         </span>
       ),

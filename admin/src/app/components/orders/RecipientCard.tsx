@@ -6,6 +6,7 @@ import Select from "@shared/ui/forms/Select";
 import PhoneInput from "@shared/ui/forms/group-input/PhoneInput";
 import AddressAutocomplete from "@shared/ui/forms/AddressAutocomplete";
 import { calculateDeliveryFee } from "@shared/utils/deliveryCalculations";
+import { centsToDollars, parseUserCurrency } from "@shared/utils/currency";
 import RecipientUpdateModal from "./RecipientUpdateModal";
 import RecipientSearchModal from "./RecipientSearchModal";
 import RecipientPhoneMatchModal from "./RecipientPhoneMatchModal";
@@ -1453,9 +1454,13 @@ export default function RecipientCard({
                   type="number"
                   id={`deliveryFee-${activeTab}`}
                   placeholder="$0.00"
-                  value={(currentDeliveryFee / 100).toFixed(2)}
+                  value={
+                    typeof currentDeliveryFee === "number"
+                      ? centsToDollars(currentDeliveryFee).toFixed(2)
+                      : ""
+                  }
                   onChange={(e) => {
-                    const newFee = Math.round((parseFloat(e.target.value) || 0) * 100);
+                    const newFee = parseUserCurrency(e.target.value);
                     onManualEditChange?.(true);
                     onDeliveryFeeCalculated?.(newFee);
                   }}

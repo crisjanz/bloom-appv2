@@ -5,6 +5,7 @@ import stripeService from '@shared/legacy-services/stripeService';
 import { CreditCardIcon } from '@shared/assets/icons';
 import InputField from '@shared/ui/forms/input/InputField';
 import Select from '@shared/ui/forms/Select';
+import { formatCurrency } from '@shared/utils/currency';
 
 type Props = {
   open: boolean;
@@ -14,6 +15,7 @@ type Props = {
   customerEmail?: string;
   customerPhone?: string;
   customerName?: string;
+  defaultMode?: 'main' | 'manual';
   onComplete: (paymentData: {
     method: string;
     transactionId?: string;
@@ -41,10 +43,11 @@ export default function CardPaymentModal({
   customerEmail,
   customerPhone,
   customerName,
+  defaultMode = 'main',
   onComplete,
   onCancel
 }: Props) {
-  const [viewMode, setViewMode] = useState<ViewMode>('main');
+  const [viewMode, setViewMode] = useState<ViewMode>(defaultMode);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [readerConnected, setReaderConnected] = useState(false);
@@ -181,13 +184,9 @@ export default function CardPaymentModal({
     return v;
   };
 
-  const formatCurrency = (dollars: number) => {
-    return `$${dollars.toFixed(2)}`;
-  };
-
   const handleClose = () => {
     if (!isProcessing) {
-      setViewMode('main');
+      setViewMode(defaultMode);
       setError(null);
       setCardNumber('');
       setExpiry('');

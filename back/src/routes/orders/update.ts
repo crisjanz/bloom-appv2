@@ -59,6 +59,9 @@ router.put('/:id/update', async (req, res) => {
       if (updateData.deliveryAddressId !== undefined) {
         orderUpdateData.deliveryAddressId = updateData.deliveryAddressId;
       }
+      if (updateData.recipientName !== undefined) {
+        orderUpdateData.recipientName = updateData.recipientName || null;
+      }
 
       // Handle inline deliveryAddress updates
       if (updateData.deliveryAddress && typeof updateData.deliveryAddress === 'object') {

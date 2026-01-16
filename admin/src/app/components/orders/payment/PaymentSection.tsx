@@ -3,12 +3,13 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PaymentCard from '../PaymentCard';
 import TakeOrderUnifiedPaymentModal from './TakeOrderUnifiedPaymentModal';
+import TakeOrderPaymentTiles from './TakeOrderPaymentTiles';
 import type { PaymentEntry } from '@domains/payments/hooks/usePaymentComposer';
 import GiftCardActivationModal from './GiftCardActivationModal';
 import GiftCardHandoffModal from './GiftCardHandoffModal';
 import { orderContainsGiftCards } from '@shared/utils/giftCardHelpers';
-import { useTaxRates } from '@shared/hooks/useTaxRates';
 import { useOrderPayments } from '@domains/orders/hooks/useOrderPayments';
+import { coerceCents } from '@shared/utils/currency';
 
 // Simple success toast component that won't kick you out of fullscreen
 const SuccessToast = ({ show, message, onClose }: { show: boolean; message: string; onClose: () => void }) => {
@@ -79,9 +80,6 @@ const PaymentSection: React.FC<Props> = ({
   const [couponCode, setCouponCode] = useState("");
   const navigate = useNavigate();
   
-  // Get centralized tax rates
-  const { calculateTax } = useTaxRates();
-  
   // MIGRATION: Use domain hook for payment operations
   const { 
     processing, 
@@ -124,7 +122,7 @@ const PaymentSection: React.FC<Props> = ({
               id: product.productId || product.id || `temp-${Date.now()}`,
               categoryId: product.category || '',
               quantity: parseInt(product.qty) || 1,
-              price: parseFloat(product.price) * 100 // Convert to cents
+              price: coerceCents(product.price || "0")
             });
           }
         }
@@ -212,8 +210,8 @@ const PaymentSection: React.FC<Props> = ({
           return `Order ${i + 1}: Pickup person name is required.`;
         }
       }
-      const validProducts = order.customProducts.filter((p: any) => 
-        p.description && p.price && parseFloat(p.price) > 0
+      const validProducts = order.customProducts.filter(
+        (p: any) => p.description && p.price && coerceCents(p.price) > 0
       );
       if (validProducts.length === 0) {
         return `Order ${i + 1}: At least one product with valid price is required.`;
@@ -282,6 +280,16 @@ const PaymentSection: React.FC<Props> = ({
       return;
     }
 
+    const manualDiscountAmountCents =
+      manualDiscountType === "%"
+        ? Math.round(((itemTotal + totalDeliveryFee) * manualDiscount) / 100)
+        : manualDiscount;
+    const totalDiscountCents =
+      manualDiscountAmountCents +
+      couponDiscount +
+      giftCardDiscount +
+      automaticDiscountAmount;
+
     // Check if this is a "Send to POS" payment
     const posTransferPayment = payments.find(p => p.method === 'send_to_pos');
     
@@ -299,7 +307,7 @@ const PaymentSection: React.FC<Props> = ({
         const totals = {
           itemTotal,
           deliveryFee: totalDeliveryFee,
-          discount: manualDiscount + couponDiscount + giftCardDiscount,
+          discount: totalDiscountCents,
           gst,
           pst,
           grandTotal
@@ -337,7 +345,7 @@ const PaymentSection: React.FC<Props> = ({
       const totals = {
         itemTotal,
         deliveryFee: totalDeliveryFee,
-        discount: manualDiscount + couponDiscount + giftCardDiscount,
+        discount: totalDiscountCents,
         gst,
         pst,
         grandTotal
@@ -411,7 +419,7 @@ const PaymentSection: React.FC<Props> = ({
                 employeeId: employeeId,
                 channel: 'PHONE',
                 totalAmount: paymentMethodsTotal,
-                taxAmount: calculateTax(itemTotal + totalDeliveryFee - manualDiscount - couponDiscount - giftCardDiscount).totalAmount,
+                taxAmount: gst + pst,
                 tipAmount: 0,
                 notes: `Phone order from ${customerState.customerName || 'customer'}`,
                 paymentMethods: paymentMethods,
@@ -567,58 +575,33 @@ const PaymentSection: React.FC<Props> = ({
 
   return (
     <>
-      <PaymentCard
-        deliveryCharge={totalDeliveryFee}
-        setDeliveryCharge={() => {}}
-        couponCode={couponCode}
-        setCouponCode={setCouponCode}
-        discount={manualDiscount}
-        setDiscount={setManualDiscount}
-        discountType={manualDiscountType}
-        setDiscountType={setManualDiscountType}
+      <TakeOrderPaymentTiles
+        total={grandTotal}
         itemTotal={itemTotal}
         gst={gst}
         pst={pst}
         grandTotal={grandTotal}
-        subscribe={subscribe}
-        setSubscribe={setSubscribe}
-        sendEmailReceipt={sendEmailReceipt}
-        setSendEmailReceipt={setSendEmailReceipt}
-        sendSMSReceipt={sendSMSReceipt}
-        setSendSMSReceipt={setSendSMSReceipt}
-        onTriggerPayment={handleTriggerPayment}
-        onCouponDiscountChange={setCouponDiscount}
+        totalDeliveryFee={totalDeliveryFee}
+        customer={customerState.customer}
+        onComplete={(paymentData) => {
+          // Trigger payment with the payment data from modal
+          handleTriggerPayment();
+        }}
+        onDiscountsChange={(discounts) => {
+          if (discounts.manualDiscount !== undefined) {
+            setManualDiscount(discounts.manualDiscount);
+          }
+          if (discounts.manualDiscountType !== undefined) {
+            setManualDiscountType(discounts.manualDiscountType);
+          }
+        }}
         onGiftCardChange={handleGiftCardChange}
-        customerId={customerState.customerId}
-        productIds={(() => {
-          // Extract product IDs from all orders
-          const productIds: string[] = [];
-          orderState.orders.forEach((order: any) => {
-            order.customProducts.forEach((product: any) => {
-              if (product.category) {
-                productIds.push(product.category); // Using category ID as product ID for now
-              }
-            });
-          });
-          return productIds;
-        })()}
-        categoryIds={(() => {
-          // Extract category IDs from all orders  
-          const categoryIds: string[] = [];
-          orderState.orders.forEach((order: any) => {
-            order.customProducts.forEach((product: any) => {
-              if (product.category && !categoryIds.includes(product.category)) {
-                categoryIds.push(product.category);
-              }
-            });
-          });
-          return categoryIds;
-        })()}
-        source="WEBSITE"
-        hasGiftCards={hasGiftCards}
-        automaticDiscounts={automaticDiscounts}
-        automaticDiscountAmount={automaticDiscountAmount}
+        couponDiscount={couponDiscount}
+        giftCardDiscount={giftCardDiscount}
+        manualDiscount={manualDiscount}
+        manualDiscountType={manualDiscountType}
       />
+
       {formError && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg dark:bg-red-900/20 dark:border-red-800">
           <div className="flex items-center">

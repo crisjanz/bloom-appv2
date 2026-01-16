@@ -7,6 +7,7 @@ import {
   Tooltip,
   ResponsiveContainer
 } from 'recharts';
+import { formatCurrency } from '@shared/utils/currency';
 
 interface RevenueTrendChartProps {
   data: Array<{ date: string; revenue: number }>;
@@ -15,7 +16,7 @@ interface RevenueTrendChartProps {
 export default function RevenueTrendChart({ data }: RevenueTrendChartProps) {
   const chartData = data.map((point) => ({
     date: new Date(point.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    revenue: point.revenue / 100
+    revenue: point.revenue
   }));
 
   return (
@@ -30,10 +31,10 @@ export default function RevenueTrendChart({ data }: RevenueTrendChartProps) {
           <YAxis
             stroke="#9CA3AF"
             style={{ fontSize: '12px' }}
-            tickFormatter={(value) => `$${value.toFixed(0)}`}
+            tickFormatter={(value) => formatCurrency(Number(value))}
           />
           <Tooltip
-            formatter={(value: number) => [`$${value.toFixed(2)}`, 'Revenue']}
+            formatter={(value: number) => [formatCurrency(value), 'Revenue']}
             contentStyle={{
               backgroundColor: '#1F2937',
               border: 'none',

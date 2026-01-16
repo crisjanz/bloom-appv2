@@ -7,16 +7,14 @@ import type {
 } from '@domains/reports/types';
 import type { OrderStatus } from '@shared/utils/orderStatusHelpers';
 import { formatPaymentMethodKeyLabel, summarizePaymentMethods } from '@app/components/reports/paymentUtils';
+import { formatCurrency } from '@shared/utils/currency';
 
 const formatCurrencyFromCents = (amount?: number, emptyValue = '$0.00') => {
   if (amount === undefined || amount === null) {
     return emptyValue;
   }
 
-  return new Intl.NumberFormat('en-CA', {
-    style: 'currency',
-    currency: 'CAD'
-  }).format(amount / 100);
+  return formatCurrency(amount);
 };
 
 const formatDateRange = (filters: SalesReportFilters) => {

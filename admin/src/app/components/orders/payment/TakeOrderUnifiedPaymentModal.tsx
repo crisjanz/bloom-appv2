@@ -9,6 +9,7 @@ import {
   PaymentMethodConfig,
 } from '@shared/utils/paymentMethods';
 import ManualCardEntry, { ManualCardFormHandle, CardSubmissionResult } from './ManualCardEntryForms';
+import { centsToDollars, formatCurrency, parseUserCurrency } from '@shared/utils/currency';
 
 type QuickActionsState = {
   printReceipt: boolean;
@@ -37,8 +38,6 @@ type Props = {
 
 const EXCLUDED_METHODS = new Set(['split', 'other_methods']);
 
-const formatCurrency = (value: number) => `$${value.toFixed(2)}`;
-
 const TakeOrderUnifiedPaymentModal: FC<Props> = ({
   open,
   total,
@@ -53,7 +52,7 @@ const TakeOrderUnifiedPaymentModal: FC<Props> = ({
 }) => {
   const { settings: paymentSettings, offlineMethods } = usePaymentSettingsConfig();
   const [selectedMethod, setSelectedMethod] = useState<string>('credit|stripe');
-  const [amountInput, setAmountInput] = useState<string>(total.toFixed(2));
+  const [amountInput, setAmountInput] = useState<string>(centsToDollars(total).toFixed(2));
   const [referenceValue, setReferenceValue] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [cardProcessing, setCardProcessing] = useState(false);
@@ -167,10 +166,10 @@ const TakeOrderUnifiedPaymentModal: FC<Props> = ({
 
   const manualPaymentsTotal = payments.reduce((sum, entry) => sum + entry.amount, 0);
   const appliedTotal = manualPaymentsTotal + giftCardDiscount;
-  const remaining = Math.max(0, Number((total - appliedTotal).toFixed(2)));
+  const remaining = Math.max(0, total - appliedTotal);
 
-  const enteredAmount = parseFloat(amountInput || '0');
-  const coversRemaining = !Number.isNaN(enteredAmount) && Math.abs(enteredAmount - remaining) < 0.01;
+  const enteredAmount = parseUserCurrency(amountInput || '0');
+  const coversRemaining = enteredAmount > 0 && Math.abs(enteredAmount - remaining) < 1;
   const isCardMethod = methodOption?.baseId === 'credit';
   const isOfflineMethod =
     baseMethodId === 'house_account' ||
@@ -181,7 +180,7 @@ const TakeOrderUnifiedPaymentModal: FC<Props> = ({
   const targetCardAmount = coversRemaining ? remaining : enteredAmount;
   const manualEntryAmount = Number.isFinite(targetCardAmount) ? Math.max(0, targetCardAmount) : 0;
   const hasValidCardAmount = manualEntryAmount > 0;
-  const hasValidCashAmount = !Number.isNaN(enteredAmount) && enteredAmount > 0;
+  const hasValidCashAmount = enteredAmount > 0;
   const hasValidOfflineAmount = hasValidCashAmount;
   const offlineMeta = methodConfig?.meta ?? {};
   const requiresReference =
@@ -200,18 +199,18 @@ const TakeOrderUnifiedPaymentModal: FC<Props> = ({
 
   const resetDraft = (nextRemainingValue?: number) => {
     const base = typeof nextRemainingValue === 'number' ? nextRemainingValue : remaining;
-    const normalized = Number.isFinite(base) ? Math.max(0, Number(base.toFixed(2))) : Math.max(0, Number(remaining.toFixed(2)));
+    const normalized = Number.isFinite(base) ? Math.max(0, Math.round(base)) : Math.max(0, remaining);
     setReferenceValue('');
-    setAmountInput(normalized.toFixed(2));
+    setAmountInput(centsToDollars(normalized).toFixed(2));
   };
 
   const validateAmount = (): number | null => {
-    const parsed = parseFloat(amountInput);
-    if (Number.isNaN(parsed) || parsed <= 0) {
+    const parsed = parseUserCurrency(amountInput);
+    if (parsed <= 0) {
       setError('Enter a valid amount to apply.');
       return null;
     }
-    if (parsed - remaining > 0.01) {
+    if (parsed > remaining) {
       setError('Amount exceeds remaining balance.');
       return null;
     }
@@ -225,29 +224,29 @@ const TakeOrderUnifiedPaymentModal: FC<Props> = ({
       return;
     }
 
-    const parsed = parseFloat(amountInput);
-    if (Number.isNaN(parsed) || parsed <= 0) {
+    const parsed = parseUserCurrency(amountInput);
+    if (parsed <= 0) {
       setError('Enter the cash amount received.');
       return;
     }
 
     const amountToApply = Math.min(parsed, remaining);
-    const changeDue = parsed > amountToApply ? Number((parsed - amountToApply).toFixed(2)) : 0;
+    const changeDue = parsed > amountToApply ? parsed - amountToApply : 0;
 
     addPayment({
       method: 'cash',
-      amount: Number(amountToApply.toFixed(2)),
+      amount: amountToApply,
       metadata: {
-        cashReceived: Number(parsed.toFixed(2)),
+        cashReceived: parsed,
         changeDue,
       },
     });
 
-    const nextRemaining = Math.max(0, Number((remaining - amountToApply).toFixed(2)));
+    const nextRemaining = Math.max(0, remaining - amountToApply);
     resetDraft(nextRemaining);
     setError(null);
 
-    if (nextRemaining <= 0.01) {
+    if (nextRemaining <= 0) {
       setAutoCompletePending(true);
     }
   }, [addPayment, amountInput, remaining, resetDraft]);
@@ -273,7 +272,7 @@ const TakeOrderUnifiedPaymentModal: FC<Props> = ({
       resetDraft(nextRemaining);
       setError(null);
 
-      if (Math.abs(nextRemaining) < 0.01) {
+      if (Math.abs(nextRemaining) < 1) {
         setAutoCompletePending(true);
       }
     },
@@ -364,16 +363,16 @@ const TakeOrderUnifiedPaymentModal: FC<Props> = ({
       metadata,
     });
 
-    const nextRemaining = Math.max(0, Number((remaining - amount).toFixed(2)));
+    const nextRemaining = Math.max(0, remaining - amount);
     resetDraft(nextRemaining);
     setError(null);
-    if (nextRemaining <= 0.01) {
+    if (nextRemaining <= 0) {
       setAutoCompletePending(true);
     }
   };
 
   const handleComplete = useCallback(() => {
-    if (remaining > 0.01) {
+    if (remaining > 0) {
       setError('Payment total does not cover the order.');
       return;
     }
@@ -387,7 +386,7 @@ const TakeOrderUnifiedPaymentModal: FC<Props> = ({
     if (!autoCompletePending) return;
     if (cardProcessing) return;
 
-    if (remaining <= 0.01 && (payments.length > 0 || giftCardDiscount > 0)) {
+    if (remaining <= 0 && (payments.length > 0 || giftCardDiscount > 0)) {
       handleComplete();
       setAutoCompletePending(false);
     }
@@ -396,7 +395,7 @@ const TakeOrderUnifiedPaymentModal: FC<Props> = ({
   useEffect(() => {
     if (!open) {
       setSelectedMethod('credit|stripe');
-      setAmountInput(total.toFixed(2));
+      setAmountInput(centsToDollars(total).toFixed(2));
       setReferenceValue('');
       setError(null);
       setCardProcessing(false);
@@ -472,7 +471,7 @@ const TakeOrderUnifiedPaymentModal: FC<Props> = ({
     }
 
     // Only show "Complete Payment" if there's nothing to add (no amount entered or amount is 0)
-    const hasAmountToAdd = parseFloat(amountInput) > 0;
+    const hasAmountToAdd = parseUserCurrency(amountInput) > 0;
 
     if (!hasAmountToAdd && remaining <= 0.01 && (payments.length > 0 || giftCardDiscount > 0)) {
       return 'Complete Payment';
@@ -503,7 +502,7 @@ const TakeOrderUnifiedPaymentModal: FC<Props> = ({
     }
 
     // Only complete if there's no amount to add
-    const hasAmountToAdd = parseFloat(amountInput) > 0;
+    const hasAmountToAdd = parseUserCurrency(amountInput) > 0;
     if (!hasAmountToAdd && remaining <= 0.01 && (payments.length > 0 || giftCardDiscount > 0)) {
       return handleComplete;
     }
@@ -538,7 +537,9 @@ const TakeOrderUnifiedPaymentModal: FC<Props> = ({
         amountInput={amountInput}
         onAmountChange={setAmountInput}
         onAutofillAmount={() =>
-          setAmountInput(Math.max(0, total - giftCardDiscount - manualPaymentsTotal).toFixed(2))
+          setAmountInput(
+            centsToDollars(Math.max(0, total - giftCardDiscount - manualPaymentsTotal)).toFixed(2)
+          )
         }
         methodContent={
           baseMethodId === 'cash' ? (
@@ -575,7 +576,9 @@ const TakeOrderUnifiedPaymentModal: FC<Props> = ({
             <GiftCardInput
               onGiftCardChange={(amount, data) => {
                 onGiftCardChange(amount, data ?? []);
-                setAmountInput(Math.max(0, total - amount - manualPaymentsTotal).toFixed(2));
+                setAmountInput(
+                  centsToDollars(Math.max(0, total - amount - manualPaymentsTotal)).toFixed(2)
+                );
               }}
               grandTotal={total}
             />
@@ -611,7 +614,7 @@ const TakeOrderUnifiedPaymentModal: FC<Props> = ({
           (isCardMethod && (!hasValidCardAmount || cardProcessing || !cardReady)) ||
           (baseMethodId === 'cash' && !hasValidCashAmount) ||
           (isOfflineMethod && (!hasValidOfflineAmount || referenceMissing)) ||
-          (parseFloat(amountInput) <= 0 && remaining <= 0.01 && payments.length === 0 && giftCardDiscount <= 0) ||
+          (parseUserCurrency(amountInput) <= 0 && remaining <= 0 && payments.length === 0 && giftCardDiscount <= 0) ||
           methodOption?.baseId === 'gift_card'
         }
         onClose={() => {

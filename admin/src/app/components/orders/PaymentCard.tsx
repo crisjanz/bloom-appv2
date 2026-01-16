@@ -6,6 +6,7 @@ import AdjustmentsModal from "./payment/AdjustmentsModal";
 import { useCouponValidation } from "@shared/hooks/useCouponValidation";
 import type { CouponSource } from "@shared/types/coupon";
 import type { AppliedGiftCard } from "./payment/GiftCardInput";
+import { centsToDollars, formatCurrency, parseUserCurrency } from "@shared/utils/currency";
 
 type Props = {
   deliveryCharge: number;
@@ -89,7 +90,7 @@ export default function PaymentCard({
   const amountAfterGiftCards = Math.max(0, grandTotal - giftCardDiscount);
   const manualDiscountAmount =
     discountType === "%"
-      ? ((itemTotal + deliveryCharge / 100) * discount) / 100
+      ? Math.round((itemTotal + deliveryCharge) * (discount / 100))
       : discount;
 
   const handleCouponValidation = async (code: string) => {
@@ -101,7 +102,7 @@ export default function PaymentCard({
       onCouponDiscountChange?.(0);
       return;
     }
-    const orderTotal = itemTotal + (deliveryCharge / 100);
+    const orderTotal = itemTotal + deliveryCharge;
     const result = await validateCoupon(code, orderTotal, {
       customerId,
       productIds,
@@ -110,7 +111,13 @@ export default function PaymentCard({
     });
     if (result?.valid) {
       setCouponError('');
-      setCouponSuccess(`Coupon applied: ${result.discountType === '%' ? `${result.coupon?.value}% off` : `$${result.discountAmount?.toFixed(2)} off`}`);
+      setCouponSuccess(
+        `Coupon applied: ${
+          result.discountType === '%'
+            ? `${result.coupon?.value}% off`
+            : `${formatCurrency(result.discountAmount || 0)} off`
+        }`
+      );
       setAppliedCoupon(result.coupon);
       onCouponDiscountChange?.(result.discountAmount || 0);
     } else {
@@ -163,7 +170,13 @@ export default function PaymentCard({
   useEffect(() => {
     if (!showAdjustmentsModal) return;
     setDiscountDraftType(discountType === "%" ? "percent" : "amount");
-    setDiscountDraftValue(discount ? String(discount) : "");
+    setDiscountDraftValue(
+      discount
+        ? discountType === "%"
+          ? String(discount)
+          : centsToDollars(discount).toFixed(2)
+        : ""
+    );
   }, [showAdjustmentsModal, discount, discountType]);
 
   useEffect(() => {
@@ -180,11 +193,11 @@ export default function PaymentCard({
           <div className="space-y-1">
             <div className="flex justify-between items-center py-1">
               <span className="text-gray-600 dark:text-gray-400">Items Total:</span>
-              <span className="font-medium text-black dark:text-white">${itemTotal.toFixed(2)}</span>
+              <span className="font-medium text-black dark:text-white">{formatCurrency(itemTotal)}</span>
             </div>
             <div className="flex justify-between items-center py-1">
               <span className="text-gray-600 dark:text-gray-400">Delivery Charge:</span>
-              <span className="font-medium text-black dark:text-white">${(deliveryCharge / 100).toFixed(2)}</span>
+              <span className="font-medium text-black dark:text-white">{formatCurrency(deliveryCharge)}</span>
             </div>
             {manualDiscountAmount > 0 && (
               <div className="flex justify-between items-center py-1">
@@ -193,7 +206,7 @@ export default function PaymentCard({
                 </span>
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-green-700 dark:text-green-400">
-                    -${manualDiscountAmount.toFixed(2)}
+                    -{formatCurrency(manualDiscountAmount)}
                   </span>
                   <button
                     type="button"
@@ -211,7 +224,7 @@ export default function PaymentCard({
                 <span className="text-green-700 dark:text-green-400">Coupon ({appliedCoupon.code})</span>
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-green-700 dark:text-green-400">
-                    -${discountAmount.toFixed(2)}
+                    -{formatCurrency(discountAmount)}
                   </span>
                   <button
                     type="button"
@@ -239,19 +252,19 @@ export default function PaymentCard({
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-blue-800 dark:text-blue-200">
-                      -${discount.discountAmount?.toFixed(2) || '0.00'}
-                    </span>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-blue-800 dark:text-blue-200">
+                      -{formatCurrency(discount.discountAmount || 0)}
+                  </span>
                 </div>
+              </div>
             ))}
             {appliedGiftCards.map((card) => (
               <div key={card.cardNumber} className="flex justify-between items-center py-1">
                 <span className="text-green-700 dark:text-green-400">Gift Card {card.cardNumber}</span>
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-green-700 dark:text-green-400">
-                    -${card.amountUsed.toFixed(2)}
+                    -{formatCurrency(card.amountUsed)}
                   </span>
                   <button
                     type="button"
@@ -267,17 +280,17 @@ export default function PaymentCard({
             <div className="border-t border-stroke pt-3 dark:border-strokedark">
               <div className="flex justify-between items-center py-1">
                 <span className="text-gray-600 dark:text-gray-400">GST (5%):</span>
-                <span className="text-black dark:text-white">${gst.toFixed(2)}</span>
+                <span className="text-black dark:text-white">{formatCurrency(gst)}</span>
               </div>
               <div className="flex justify-between items-center py-1">
                 <span className="text-gray-600 dark:text-gray-400">PST (7%):</span>
-                <span className="text-black dark:text-white">${pst.toFixed(2)}</span>
+                <span className="text-black dark:text-white">{formatCurrency(pst)}</span>
               </div>
             </div>
             <div className="border-t border-stroke pt-3 dark:border-strokedark">
               <div className="flex justify-between items-center">
                 <span className="text-lg font-semibold text-black dark:text-white">Grand Total:</span>
-                <span className="text-xl font-bold text-black dark:text-white">${grandTotal.toFixed(2)}</span>
+                <span className="text-xl font-bold text-black dark:text-white">{formatCurrency(grandTotal)}</span>
               </div>
             </div>
           </div>
@@ -285,7 +298,7 @@ export default function PaymentCard({
         <div className="space-y-6">
           <div className="rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 p-8 text-center dark:border-gray-600 dark:bg-gray-800">
             <div className="text-3xl font-bold text-black dark:text-white">
-              ${amountAfterGiftCards.toFixed(2)}
+              {formatCurrency(amountAfterGiftCards)}
             </div>
             <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
               Total Amount Due
@@ -325,7 +338,7 @@ export default function PaymentCard({
             {hasGiftCards 
               ? "Activate Gift Cards & Complete Order"
               : amountAfterGiftCards > 0 
-                ? `Process Payment - $${amountAfterGiftCards.toFixed(2)}` 
+                ? `Process Payment - ${formatCurrency(amountAfterGiftCards)}` 
                 : "Complete Order"
             }
           </button>
@@ -340,7 +353,12 @@ export default function PaymentCard({
         onDiscountValueChange={setDiscountDraftValue}
         onApplyDiscount={() => {
           const parsed = Number.parseFloat(discountDraftValue);
-          const safeValue = Number.isNaN(parsed) ? 0 : Math.max(0, parsed);
+          const safeValue =
+            discountDraftType === "percent"
+              ? Number.isNaN(parsed)
+                ? 0
+                : Math.max(0, parsed)
+              : parseUserCurrency(discountDraftValue);
           setDiscountType(discountDraftType === "percent" ? "%" : "$");
           setDiscount(safeValue);
         }}

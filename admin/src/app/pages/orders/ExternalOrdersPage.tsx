@@ -8,6 +8,7 @@ import { PencilIcon } from '@shared/assets/icons';
 import Select from '@shared/ui/forms/Select';
 import DatePicker from '@shared/ui/forms/date-picker';
 import ScanExternalOrderModal from '@app/components/orders/ScanExternalOrderModal';
+import { formatCurrency } from '@shared/utils/currency';
 
 type ExternalOrderFilters = {
   provider: string;
@@ -206,7 +207,7 @@ export default function ExternalOrdersPage() {
     {
       key: 'paymentAmount',
       header: 'Total',
-      render: (order: ExternalOrder) => `$${((order.paymentAmount || 0) / 100).toFixed(2)}`,
+      render: (order: ExternalOrder) => formatCurrency(order.paymentAmount || 0),
     },
     {
       key: 'actions',

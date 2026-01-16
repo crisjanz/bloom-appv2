@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import InputField from "@shared/ui/forms/input/InputField";
 import Label from "@shared/ui/forms/Label";
 import { useGiftCard } from "@shared/hooks/useGiftCard";
+import { centsToDollars, formatCurrency, parseUserCurrency } from "@shared/utils/currency";
 
 type Props = {
   onGiftCardChange?: (amount: number, redemptionData?: any) => void; // ✅ Add redemption data
@@ -54,7 +55,7 @@ const GiftCardInput: React.FC<Props> = ({
     if (!isGiftCardValid || !giftCardAmount || giftCardAmount <= 0) return;
     
     if (giftCardAmount > giftCardBalance) {
-      alert(`Amount cannot exceed available balance of $${giftCardBalance.toFixed(2)}`);
+      alert(`Amount cannot exceed available balance of ${formatCurrency(giftCardBalance)}`);
       return;
     }
 
@@ -63,7 +64,7 @@ const GiftCardInput: React.FC<Props> = ({
     const remainingTotal = grandTotal - totalApplied;
     
     if (giftCardAmount > remainingTotal) {
-      alert(`Amount cannot exceed remaining order total of $${remainingTotal.toFixed(2)}`);
+      alert(`Amount cannot exceed remaining order total of ${formatCurrency(remainingTotal)}`);
       return;
     }
 
@@ -129,7 +130,7 @@ const GiftCardInput: React.FC<Props> = ({
         {/* Show remaining amount if cards are applied */}
         {activeAppliedGiftCards.length > 0 && remainingTotal > 0 && (
           <div className="text-sm text-gray-600 dark:text-gray-400">
-            Remaining to pay: ${remainingTotal.toFixed(2)}
+            Remaining to pay: {formatCurrency(remainingTotal)}
           </div>
         )}
 
@@ -171,7 +172,7 @@ const GiftCardInput: React.FC<Props> = ({
               <div className="space-y-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-md border border-green-200 dark:border-green-800">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-green-800 dark:text-green-200">Available Balance:</span>
-                  <span className="font-medium text-green-800 dark:text-green-200">${giftCardBalance.toFixed(2)}</span>
+                  <span className="font-medium text-green-800 dark:text-green-200">{formatCurrency(giftCardBalance)}</span>
                 </div>
                 
                 <div className="flex gap-2">
@@ -180,10 +181,10 @@ const GiftCardInput: React.FC<Props> = ({
                     <InputField
                       id="giftCardAmount"
                       type="number"
-                      value={giftCardAmount.toString()}
-                      onChange={(e) => setGiftCardAmount(parseFloat(e.target.value) || 0)}
+                      value={giftCardAmount ? centsToDollars(giftCardAmount).toFixed(2) : ''}
+                      onChange={(e) => setGiftCardAmount(parseUserCurrency(e.target.value))}
                       min="0"
-                      max={Math.min(giftCardBalance, remainingTotal).toString()}
+                      max={centsToDollars(Math.min(giftCardBalance, remainingTotal)).toFixed(2)}
                       step={0.01}
                       className="text-right"
                     />
@@ -226,13 +227,13 @@ const GiftCardInput: React.FC<Props> = ({
                   Gift Card: {card.cardNumber}
                 </span>
                 <div className="text-xs text-blue-600 dark:text-blue-400">
-                  Will have ${card.remainingBalance.toFixed(2)} after redemption
+                  Will have {formatCurrency(card.remainingBalance)} after redemption
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <span className="font-medium text-blue-800 dark:text-blue-200">
-                -${card.amountUsed.toFixed(2)}
+                -{formatCurrency(card.amountUsed)}
               </span>
               <button
                 onClick={() => handleRemoveGiftCard(index)}

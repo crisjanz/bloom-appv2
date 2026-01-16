@@ -8,7 +8,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { formatCurrency } from '@shared/utils/currencyHelpers';
+import { formatCurrency, parseUserCurrency } from '@shared/utils/currency';
 
 export type ManualDiscountType = 'percent' | 'amount';
 
@@ -42,15 +42,21 @@ export const usePaymentDiscounts = (
 
   const applyManualDiscount = useCallback((total: number) => {
     const rawValue = parseFloat(manualDiscountValue);
-    if (!rawValue || rawValue <= 0) {
+    const amountValue = parseUserCurrency(manualDiscountValue);
+    if (manualDiscountType === 'percent') {
+      if (!rawValue || rawValue <= 0) {
+        setManualDiscountError('Enter a discount value greater than zero.');
+        return false;
+      }
+    } else if (amountValue <= 0) {
       setManualDiscountError('Enter a discount value greater than zero.');
       return false;
     }
 
     const discountAmount =
       manualDiscountType === 'percent'
-        ? Number(((total * rawValue) / 100).toFixed(2))
-        : Number(rawValue.toFixed(2));
+        ? Math.round((total * rawValue) / 100)
+        : amountValue;
 
     if (discountAmount <= 0) {
       setManualDiscountError('Discount would not change the balance.');

@@ -1,6 +1,7 @@
 // components/pos/payment/CashPaymentModal.tsx
 import { useState, useEffect } from 'react';
 import { Modal } from '@shared/ui/components/ui/modal';
+import { centsToDollars, dollarsToCents, formatCurrency, parseUserCurrency } from '@shared/utils/currency';
 
 type Props = {
   open: boolean;
@@ -15,12 +16,12 @@ export default function CashPaymentModal({ open, total, onComplete, onCancel }: 
 
   useEffect(() => {
     if (open) {
-      setCashReceived(total.toFixed(2)); // Pre-fill with exact amount
+      setCashReceived(centsToDollars(total).toFixed(2)); // Pre-fill with exact amount
       setError('');
     }
   }, [open, total]);
 
-  const cashAmount = parseFloat(cashReceived) || 0;
+  const cashAmount = parseUserCurrency(cashReceived);
   const changeDue = Math.max(0, cashAmount - total);
   const isValid = cashAmount >= total;
 
@@ -54,7 +55,7 @@ export default function CashPaymentModal({ open, total, onComplete, onCancel }: 
         {/* Header */}
         <div className="mb-6">
           <h2 className="text-xl font-bold text-black dark:text-white">Cash Payment</h2>
-          <p className="text-gray-600 dark:text-gray-400">Amount due: ${total.toFixed(2)}</p>
+          <p className="text-gray-600 dark:text-gray-400">Amount due: {formatCurrency(total)}</p>
         </div>
 
         {/* Content */}
@@ -90,7 +91,7 @@ export default function CashPaymentModal({ open, total, onComplete, onCancel }: 
             <div className="flex justify-between items-center">
               <span className="text-gray-600 dark:text-gray-400 font-medium">Change Due:</span>
               <span className={`text-2xl font-bold ${changeDue > 0 ? 'text-green-600 dark:text-green-400' : 'text-black dark:text-white'}`}>
-                ${changeDue.toFixed(2)}
+                {formatCurrency(changeDue)}
               </span>
             </div>
           </div>
@@ -100,17 +101,17 @@ export default function CashPaymentModal({ open, total, onComplete, onCancel }: 
             <p className="text-sm font-medium text-black dark:text-white mb-3">Quick Amounts:</p>
             <div className="grid grid-cols-4 gap-2">
               {[
-                Math.ceil(total),
-                Math.ceil(total / 5) * 5,
-                Math.ceil(total / 10) * 10,
-                Math.ceil(total / 20) * 20
+                Math.ceil(centsToDollars(total)),
+                Math.ceil(centsToDollars(total) / 5) * 5,
+                Math.ceil(centsToDollars(total) / 10) * 10,
+                Math.ceil(centsToDollars(total) / 20) * 20
               ].map((amount) => (
                 <button
                   key={amount}
                   onClick={() => setCashReceived(amount.toFixed(2))}
                   className="py-2 px-3 text-sm font-medium border border-stroke dark:border-strokedark rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                 >
-                  ${amount}
+                  {formatCurrency(dollarsToCents(amount))}
                 </button>
               ))}
             </div>

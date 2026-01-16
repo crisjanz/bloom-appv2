@@ -8,6 +8,13 @@ import Checkbox from "@shared/ui/forms/input/Checkbox";
 import { useTaxRates } from "@shared/hooks/useTaxRates";
 import ProductVariantModal from "../pos/ProductVariantModal";
 import { useApiClient } from "@shared/hooks/useApiClient";
+import {
+  centsToDollars,
+  coerceCents,
+  dollarsToCents,
+  formatCurrency,
+  parseUserCurrency,
+} from "@shared/utils/currency";
 
 
 
@@ -71,7 +78,7 @@ export default function ProductsCard({
   const [pendingProductIndex, setPendingProductIndex] = useState<number | null>(null);
 
   // Get centralized tax rates
-  const { calculateTax, individualTaxRates } = useTaxRates();
+  const { individualTaxRates } = useTaxRates();
 
   // API client for making requests
   const apiClient = useApiClient();
@@ -92,12 +99,18 @@ export default function ProductsCard({
   const addProductToForm = (product: any, selectedVariant?: any) => {
     const emptyIndex = customProducts.findIndex(p => !p.description);
     const productName = selectedVariant ? `${product.name} - ${selectedVariant.name}` : product.name;
-    const productPrice = selectedVariant ? selectedVariant.calculatedPrice || selectedVariant.price / 100 : product.defaultPrice;
+    const variantPrice =
+      typeof selectedVariant?.calculatedPrice === "number"
+        ? selectedVariant.calculatedPrice
+        : typeof selectedVariant?.price === "number"
+          ? centsToDollars(selectedVariant.price)
+          : product.defaultPrice || 0;
+    const productPriceCents = dollarsToCents(variantPrice);
 
     if (emptyIndex >= 0) {
       handleProductChange(emptyIndex, "description", productName);
       handleProductChange(emptyIndex, "category", product.reportingCategoryId);
-      handleProductChange(emptyIndex, "price", productPrice.toFixed(2));
+      handleProductChange(emptyIndex, "price", productPriceCents.toString());
       handleProductChange(emptyIndex, "productId", product.id); // Store actual product ID
     } else {
       handleAddCustomProduct();
@@ -105,7 +118,7 @@ export default function ProductsCard({
         const newIndex = customProducts.length;
         handleProductChange(newIndex, "description", productName);
         handleProductChange(newIndex, "category", product.reportingCategoryId);
-        handleProductChange(newIndex, "price", productPrice.toFixed(2));
+        handleProductChange(newIndex, "price", productPriceCents.toString());
         handleProductChange(newIndex, "productId", product.id); // Store actual product ID
       }, 100);
     }
@@ -126,10 +139,11 @@ export default function ProductsCard({
     isTaxable: boolean;
     reportingCategoryId?: string | null;
   }) => {
-    const priceValue = typeof product.price === "number" && Number.isFinite(product.price)
-      ? product.price
-      : 0;
-    const priceString = priceValue.toFixed(2);
+    const priceValue =
+      typeof product.price === "number" && Number.isFinite(product.price)
+        ? product.price
+        : 0;
+    const priceString = dollarsToCents(priceValue).toString();
     const category = product.reportingCategoryId ?? "";
     const taxable = Boolean(product.isTaxable);
 
@@ -323,25 +337,44 @@ export default function ProductsCard({
 
   const calculateSubtotal = () => {
     return customProducts.reduce((total, item) => {
-      return total + parseFloat(item.price || "0") * parseInt(item.qty || "0");
+      const priceCents = coerceCents(item.price || "0");
+      const qty = parseInt(item.qty || "0");
+      return total + priceCents * qty;
     }, 0);
   };
 
   const calculateTaxableTotal = () => {
     return customProducts.reduce((total, item) => {
       if (item.tax) {
-        return total + parseFloat(item.price || "0") * parseInt(item.qty || "0");
+        const priceCents = coerceCents(item.price || "0");
+        const qty = parseInt(item.qty || "0");
+        return total + priceCents * qty;
       }
       return total;
     }, 0);
   };
 
+  const calculateTaxBreakdown = (taxableAmountCents: number) => {
+    return individualTaxRates.map((tax) => ({
+      name: tax.name,
+      rate: tax.rate,
+      amountCents: Math.round(taxableAmountCents * (tax.rate / 100)),
+    }));
+  };
+
   const calculateTaxTotal = () => {
     const taxableAmount = calculateTaxableTotal();
     if (taxableAmount === 0) return 0;
-    const taxCalc = calculateTax(taxableAmount);
-    return taxCalc.totalAmount;
+    return calculateTaxBreakdown(taxableAmount).reduce(
+      (sum, tax) => sum + tax.amountCents,
+      0
+    );
   };
+
+  const combinedTaxRate = individualTaxRates.reduce(
+    (sum, tax) => sum + tax.rate,
+    0
+  );
 
   return (
     <>
@@ -414,7 +447,7 @@ export default function ProductsCard({
                 >
                   <div className="font-medium text-black dark:text-white">{product.name}</div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">
-  ${product.defaultPrice.toFixed(2)} • {product.reportingCategoryName || 'Uncategorized'}
+  {formatCurrency(dollarsToCents(product.defaultPrice || 0))} • {product.reportingCategoryName || 'Uncategorized'}
                   </div>
                 </div>
               ))}
@@ -472,7 +505,7 @@ export default function ProductsCard({
                         const checked = addOnSelections[group.id]?.includes(addOn.productId) ?? false;
                         const priceLabel =
                           typeof addOn.product.price === "number"
-                            ? `$${addOn.product.price.toFixed(2)}`
+                            ? formatCurrency(dollarsToCents(addOn.product.price))
                             : "Custom price";
 
                         return (
@@ -561,8 +594,15 @@ export default function ProductsCard({
           </thead>
           <tbody>
             {customProducts.map((item, idx) => {
-              const itemTotal = parseFloat(item.price || "0") * parseInt(item.qty || "0");
-              const taxCalculation = item.tax ? calculateTax(itemTotal) : null;
+              const priceCents = coerceCents(item.price || "0");
+              const qty = parseInt(item.qty || "0");
+              const itemTotalCents = priceCents * qty;
+              const taxAmountCents = item.tax
+                ? Math.round(itemTotalCents * (combinedTaxRate / 100))
+                : 0;
+              const priceDisplay = item.price
+                ? centsToDollars(priceCents).toFixed(2)
+                : "";
 
               return (
                 <tr key={idx} className="border-b border-stroke dark:border-strokedark">
@@ -601,10 +641,19 @@ export default function ProductsCard({
                       min="0"
                       placeholder="0.00"
                       className="w-full text-center py-1 px-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      value={item.price}
-                      onChange={(e) =>
-                        handleProductChange(idx, "price", e.target.value)
-                      }
+                      value={priceDisplay}
+                      onChange={(e) => {
+                        const nextValue = e.target.value;
+                        if (nextValue === "") {
+                          handleProductChange(idx, "price", "");
+                          return;
+                        }
+                        handleProductChange(
+                          idx,
+                          "price",
+                          parseUserCurrency(nextValue).toString()
+                        );
+                      }}
                     />
                   </td>
 
@@ -625,11 +674,11 @@ export default function ProductsCard({
                   {/* Total */}
                   <td className="w-20 py-2 px-2 text-right">
                     <div className="font-medium text-black dark:text-white text-sm">
-                      ${calculateRowTotal(item.price, item.qty)}
+                      {calculateRowTotal(item.price, item.qty)}
                     </div>
-                    {item.tax && taxCalculation && (
+                    {item.tax && taxAmountCents > 0 && (
                       <div className="text-xs text-gray-500 dark:text-gray-400">
-                        +${taxCalculation.totalAmount.toFixed(2)} tax
+                        +{formatCurrency(taxAmountCents)} tax
                       </div>
                     )}
                   </td>
@@ -685,7 +734,7 @@ export default function ProductsCard({
           <div className="flex justify-between text-sm">
             <span className="text-gray-600 dark:text-gray-400">Subtotal:</span>
             <span className="font-medium text-black dark:text-white">
-              ${calculateSubtotal().toFixed(2)}
+              {formatCurrency(calculateSubtotal())}
             </span>
           </div>
           
@@ -694,14 +743,14 @@ export default function ProductsCard({
             const taxableAmount = calculateTaxableTotal();
             if (taxableAmount === 0) return null;
             
-            const taxCalc = calculateTax(taxableAmount);
-            return taxCalc.breakdown.map((tax, idx) => (
+            const taxCalc = calculateTaxBreakdown(taxableAmount);
+            return taxCalc.map((tax, idx) => (
               <div key={idx} className="flex justify-between text-sm">
                 <span className="text-gray-600 dark:text-gray-400">
                   {tax.name} ({tax.rate.toFixed(1)}%):
                 </span>
                 <span className="font-medium text-black dark:text-white">
-                  ${tax.amount.toFixed(2)}
+                  {formatCurrency(tax.amountCents)}
                 </span>
               </div>
             ));
@@ -711,7 +760,7 @@ export default function ProductsCard({
             <div className="flex justify-between">
               <span className="font-medium text-black dark:text-white">Total:</span>
               <span className="text-lg font-semibold text-black dark:text-white">
-                ${(calculateSubtotal() + calculateTaxTotal()).toFixed(2)}
+                {formatCurrency(calculateSubtotal() + calculateTaxTotal())}
               </span>
             </div>
           </div>

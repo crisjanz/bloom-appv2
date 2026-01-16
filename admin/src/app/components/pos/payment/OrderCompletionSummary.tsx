@@ -8,6 +8,7 @@ import {
   PlusIcon 
 } from "@shared/assets/icons";
 import { useBusinessTimezone } from "@shared/hooks/useBusinessTimezone";
+import { formatCurrency } from "@shared/utils/currency";
 
 type PaymentMethod = {
   method: string;
@@ -86,7 +87,7 @@ const OrderCompletionSummary: FC<Props> = ({
       <div className="bg-white dark:bg-boxdark rounded-lg border border-stroke dark:border-strokedark p-4">
         <div className="flex justify-between items-center mb-3">
           <span className="font-medium text-black dark:text-white">Total:</span>
-          <span className="text-xl font-bold text-brand-500">${totalAmount.toFixed(2)}</span>
+          <span className="text-xl font-bold text-brand-500">{formatCurrency(totalAmount)}</span>
         </div>
 
         {/* Compact Payment Methods */}
@@ -97,7 +98,7 @@ const OrderCompletionSummary: FC<Props> = ({
                 {formatPaymentMethod(payment.method)}
               </span>
               <span className="font-semibold text-black dark:text-white">
-                ${payment.amount.toFixed(2)}
+                {formatCurrency(payment.amount)}
               </span>
             </div>
           ))}
@@ -117,7 +118,7 @@ const OrderCompletionSummary: FC<Props> = ({
                 </div>
               </div>
               <div className="text-right">
-                <div className="font-semibold text-black dark:text-white">${order.total.toFixed(2)}</div>
+                <div className="font-semibold text-black dark:text-white">{formatCurrency(order.total)}</div>
                 <div className="text-xs text-green-600 dark:text-green-400">PAID</div>
               </div>
             </div>
@@ -140,7 +141,7 @@ const OrderCompletionSummary: FC<Props> = ({
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="font-semibold text-green-800 dark:text-green-200">${card.amount.toFixed(2)}</div>
+                  <div className="font-semibold text-green-800 dark:text-green-200">{formatCurrency(card.amount)}</div>
                   <div className="text-xs text-green-600 dark:text-green-400">ACTIVE</div>
                 </div>
               </div>

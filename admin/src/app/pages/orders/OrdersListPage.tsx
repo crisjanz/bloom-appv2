@@ -14,6 +14,7 @@ import DatePicker from '@shared/ui/forms/date-picker';
 import { statusOptions as importedStatusOptions } from '@app/components/orders/types';
 import { getStatusDisplayText } from '@shared/utils/orderStatusHelpers';
 import { getOrderStatusColor } from '@shared/utils/statusColors';
+import { formatCurrency } from '@shared/utils/currency';
 
 // Inline SVG icon
 const InboxIcon = ({ className = '' }: { className?: string }) => (
@@ -156,14 +157,6 @@ const OrdersListPage: React.FC = () => {
     fetchOrders(filters);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, activeSearchTerm, dateFilter, deliveryDate, orderDate, dateRangeFrom, dateRangeTo]);
-
-  // Format currency
-  const formatCurrency = (amountInCents: number) => {
-    return new Intl.NumberFormat('en-CA', {
-      style: 'currency',
-      currency: 'CAD'
-    }).format(amountInCents / 100);
-  };
 
   const getIsoString = (input: string | Date) => {
     if (typeof input === 'string') return input;

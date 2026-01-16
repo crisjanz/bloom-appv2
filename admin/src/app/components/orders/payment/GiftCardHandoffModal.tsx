@@ -1,5 +1,6 @@
 
 import Button from "@shared/ui/components/ui/button/Button";
+import { formatCurrency } from "@shared/utils/currency";
 
 type GiftCardDetails = {
   cardNumber: string;
@@ -37,7 +38,7 @@ const GiftCardHandoffModal: React.FC<Props> = ({
         
         <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
           <h2 style="font-family: monospace; font-size: 24px; color: #333; margin: 10px 0;">${card.cardNumber}</h2>
-          <h3 style="color: brand-500; font-size: 32px; margin: 20px 0;">$${card.amount.toFixed(2)}</h3>
+          <h3 style="color: brand-500; font-size: 32px; margin: 20px 0;">${formatCurrency(card.amount)}</h3>
         </div>
         
         ${card.recipientName ? `<p style="font-size: 18px; margin: 10px 0;"><strong>For:</strong> ${card.recipientName}</p>` : ''}
@@ -127,7 +128,7 @@ const GiftCardHandoffModal: React.FC<Props> = ({
                   <div>
                     <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Amount:</span>
                     <div className="text-2xl font-bold text-green-600">
-                      ${card.amount.toFixed(2)}
+                      {formatCurrency(card.amount)}
                     </div>
                   </div>
                 </div>

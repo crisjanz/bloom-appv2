@@ -22,6 +22,7 @@ import { formatPhoneDisplay } from '@shared/ui/forms/PhoneInput';
 import { getStatusOptions, OrderType as FulfillmentOrderType } from '@shared/utils/orderStatusHelpers';
 import { useNavigate } from 'react-router';
 import useRoutes from '@shared/hooks/useRoutes';
+import { dollarsToCents, formatCurrency } from '@shared/utils/currency';
 // MIGRATION: Use domain hook for delivery management
 import { useDeliveryManagement } from '@domains/orders/hooks/useDeliveryManagement';
 import { OrderStatus as DomainOrderStatus } from '@domains/orders/entities/Order';
@@ -469,7 +470,7 @@ const DeliveryPage: React.FC = () => {
       typeof order.paymentAmount === 'number'
         ? order.paymentAmount
         : typeof order.total === 'number'
-        ? Math.round(order.total * 100)
+        ? dollarsToCents(order.total)
         : 0;
 
     return (
@@ -546,7 +547,7 @@ const DeliveryPage: React.FC = () => {
       {/* Amount */}
       <td className="px-4 py-3">
         <span className="text-sm font-medium text-gray-900 dark:text-white">
-          ${(amountCents / 100).toFixed(2)}
+          {formatCurrency(amountCents)}
         </span>
       </td>
 

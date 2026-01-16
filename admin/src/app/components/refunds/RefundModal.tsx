@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Modal } from "@shared/ui/components/ui/modal";
 import { CheckCircleIcon, DollarLineIcon, ListIcon } from "@shared/assets/icons";
+import InputField from "@shared/ui/forms/input/InputField";
 import Select from "@shared/ui/forms/Select";
+import { centsToDollars, formatCurrency, parseUserCurrency } from "@shared/utils/currency";
 
 type RefundModalProps = {
   isOpen: boolean;
@@ -11,18 +13,6 @@ type RefundModalProps = {
 };
 
 type RefundStep = "type" | "details" | "confirm";
-
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat("en-CA", {
-    style: "currency",
-    currency: "CAD"
-  }).format((value || 0) / 100);
-
-const parseCurrency = (value: string) => {
-  const parsed = Number.parseFloat(value);
-  if (Number.isNaN(parsed)) return 0;
-  return Math.round(parsed * 100);
-};
 
 const RefundModal = ({ isOpen, transactionNumber, onClose, onRefundComplete }: RefundModalProps) => {
   const [step, setStep] = useState<RefundStep>("type");
@@ -350,43 +340,53 @@ const RefundModal = ({ isOpen, transactionNumber, onClose, onRefundComplete }: R
                           <div className="flex-1 text-sm text-gray-700">
                             {item.customName || item.description || "Item"}
                           </div>
-                          <input
-                            type="number"
-                            step="0.01"
-                            className="w-28 rounded-lg border border-gray-200 px-2 py-1 text-sm"
-                            value={(itemRefunds[item.id] || 0) / 100}
-                            onChange={(event) =>
-                              setItemRefunds((prev) => ({
-                                ...prev,
-                                [item.id]: parseCurrency(event.target.value)
-                              }))
-                            }
-                          />
+                          <div className="w-28">
+                            <InputField
+                              type="number"
+                              step="0.01"
+                              value={
+                                Number.isFinite(itemRefunds[item.id])
+                                  ? centsToDollars(itemRefunds[item.id]).toFixed(2)
+                                  : ""
+                              }
+                              onChange={(event) =>
+                                setItemRefunds((prev) => ({
+                                  ...prev,
+                                  [item.id]: parseUserCurrency(event.target.value)
+                                }))
+                              }
+                              className="h-9 px-2 text-sm"
+                            />
+                          </div>
                         </div>
                       ))}
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="flex-1 text-sm text-gray-700">Delivery Fee</div>
-                      <input
-                        type="number"
-                        step="0.01"
-                        className="w-28 rounded-lg border border-gray-200 px-2 py-1 text-sm"
-                        value={deliveryFeeRefunded / 100}
-                        onChange={(event) => setDeliveryFeeRefunded(parseCurrency(event.target.value))}
-                      />
+                      <div className="w-28">
+                        <InputField
+                          type="number"
+                          step="0.01"
+                          value={centsToDollars(deliveryFeeRefunded).toFixed(2)}
+                          onChange={(event) => setDeliveryFeeRefunded(parseUserCurrency(event.target.value))}
+                          className="h-9 px-2 text-sm"
+                        />
+                      </div>
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="flex-1 text-sm text-gray-700">Tax</div>
-                      <input
-                        type="number"
-                        step="0.01"
-                        className="w-28 rounded-lg border border-gray-200 px-2 py-1 text-sm"
-                        value={taxRefunded / 100}
-                        onChange={(event) => {
-                          setTaxManualOverride(true);
-                          setTaxRefunded(parseCurrency(event.target.value));
-                        }}
-                      />
+                      <div className="w-28">
+                        <InputField
+                          type="number"
+                          step="0.01"
+                          value={centsToDollars(taxRefunded).toFixed(2)}
+                          onChange={(event) => {
+                            setTaxManualOverride(true);
+                            setTaxRefunded(parseUserCurrency(event.target.value));
+                          }}
+                          className="h-9 px-2 text-sm"
+                        />
+                      </div>
                     </div>
                   </div>
                 )}
@@ -413,11 +413,10 @@ const RefundModal = ({ isOpen, transactionNumber, onClose, onRefundComplete }: R
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Reason *</label>
-                  <input
+                  <InputField
+                    label="Reason *"
                     type="text"
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
-                    value={reason}
+                    value={reason || ""}
                     onChange={(event) => setReason(event.target.value)}
                   />
                 </div>
@@ -426,7 +425,7 @@ const RefundModal = ({ isOpen, transactionNumber, onClose, onRefundComplete }: R
                   <textarea
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                     rows={3}
-                    value={notes}
+                    value={notes || ""}
                     onChange={(event) => setNotes(event.target.value)}
                   />
                 </div>

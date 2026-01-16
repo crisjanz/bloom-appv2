@@ -8,6 +8,7 @@ import {
   TableRow,
 } from "@shared/ui/components/ui/table";
 import { Link } from "react-router-dom";
+import { formatCurrency } from "@shared/utils/currency";
 
 interface OrderHistoryCardProps {
   customerId: string;
@@ -17,11 +18,6 @@ interface OrderHistoryCardProps {
 
 export default function OrderHistoryCard({ customerId, expanded, onToggle }: OrderHistoryCardProps) {
   const { orders, loading, customerMetrics } = useCustomerOrderHistory(customerId);
-
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return `$${(amount / 100).toFixed(2)}`;
-  };
 
   // Format date
   const formatDate = (date: Date | string) => {

@@ -8,6 +8,7 @@ import ProductVariantModal from '@app/components/pos/ProductVariantModal';
 import PaymentController from '@app/components/pos/payment/PaymentController';
 import TakeOrderOverlay from '@app/components/pos/TakeOrderOverlay';
 import { useTaxRates } from '@shared/hooks/useTaxRates';
+import { coerceCents, dollarsToCents } from '@shared/utils/currency';
 
 export default function POSPage() {
   const [showCustomItemModal, setShowCustomItemModal] = useState(false);
@@ -16,7 +17,7 @@ export default function POSPage() {
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   
   // Get centralized tax rates
-  const { calculateItemTax } = useTaxRates();
+  const { individualTaxRates } = useTaxRates();
   const [cartItems, setCartItems] = useState([]);
   const [showPaymentController, setShowPaymentController] = useState(false);
   const [showDeliveryOrder, setShowDeliveryOrder] = useState(false);
@@ -30,6 +31,11 @@ export default function POSPage() {
   // Draft state
   const [showDraftModal, setShowDraftModal] = useState(false);
 
+  const normalizePriceCents = (value: number) => {
+    if (!Number.isFinite(value)) return 0;
+    return value >= 1000 ? Math.round(value) : dollarsToCents(value);
+  };
+
   // Check for automatic discounts when cart changes
   const checkAutomaticDiscounts = async (currentCartItems) => {
     try {
@@ -37,7 +43,7 @@ export default function POSPage() {
         id: item.id,
         categoryId: item.categoryId,
         quantity: item.quantity,
-        price: item.price || item.unitPrice
+        price: item.customPrice ?? item.price ?? item.unitPrice ?? 0
       }));
       
       console.log('🔍 Sending cart items to auto-discount API:', cartItemsForAPI);
@@ -104,20 +110,27 @@ export default function POSPage() {
       } else {
         console.log('✨ Adding new product to cart');
         
-        const getPrice = () => {
+        const getPriceCents = () => {
           if (product.variants && product.variants.length > 0) {
             const defaultVariant = product.variants.find(v => v.isDefault) || product.variants[0];
-            if (defaultVariant && defaultVariant.price !== undefined) {
-              return defaultVariant.price; // Variant price already in dollars
+            if (typeof defaultVariant?.calculatedPrice === 'number') {
+              return dollarsToCents(defaultVariant.calculatedPrice);
+            }
+            if (typeof defaultVariant?.priceDifference === 'number') {
+              const basePriceCents = normalizePriceCents(product.price || 0);
+              return basePriceCents + Math.round(defaultVariant.priceDifference || 0);
+            }
+            if (typeof defaultVariant?.price === 'number') {
+              return normalizePriceCents(defaultVariant.price);
             }
           }
-          return product.price || 0; // Product price already in dollars
+          return normalizePriceCents(product.price || 0);
         };
         
         const newItem = {
           ...product, 
           quantity: 1,
-          price: getPrice(),
+          price: getPriceCents(),
           isTaxable: product.isTaxable ?? true // Include taxability from product data
         };
         
@@ -168,7 +181,7 @@ export default function POSPage() {
           id: variantItemId,
           name: `${selectedProductForVariants.name} - ${variant.name}`,
           quantity: 1,
-          price: variant.price,
+          price: dollarsToCents(variant.price),
           variantId: variant.id,
           variantName: variant.name,
           isTaxable: selectedProductForVariants.isTaxable ?? true
@@ -268,14 +281,14 @@ export default function POSPage() {
         // This is from database with real order number (draft or completed)
         // Use individual order total if available, otherwise fall back to proportional calculation
         orderTotal = order.individualTotal || 
-                    (order.paymentAmount ? order.paymentAmount / 100 : orderData.totals?.grandTotal || 0);
+                    (order.paymentAmount ? order.paymentAmount : orderData.totals?.grandTotal || 0);
         orderNumber = order.orderNumber;
         orderId = order.id;
         console.log(`✅ Using database order #${orderNumber} with total $${orderTotal}`);
       } else if (order.customProducts && Array.isArray(order.customProducts)) {
         // This is the original TakeOrder structure
         const productsTotal = order.customProducts.reduce((sum, product) => {
-          const price = parseFloat(product.price) || 0;
+          const price = coerceCents(product.price || "0");
           const qty = parseInt(product.qty) || 1;
           return sum + (price * qty);
         }, 0);
@@ -395,7 +408,7 @@ export default function POSPage() {
       const newItem = {
         id: `custom-${Date.now()}`,
         name: customItem.name,
-        price: customItem.price,
+        price: dollarsToCents(customItem.price),
         category: customItem.category || 'Custom',
         isCustom: true,
         quantity: 1
@@ -422,7 +435,7 @@ export default function POSPage() {
         employeeId: 'pos-employee', // TODO: Get actual employee ID
         orderItems: cartItems.map(item => ({
           customName: item.name,
-          unitPrice: Math.round((item.customPrice || item.price) * 100), // Convert to cents
+          unitPrice: item.customPrice ?? item.price ?? 0,
           quantity: item.quantity
         })),
         cardMessage: 'POS Draft Order',
@@ -467,7 +480,7 @@ export default function POSPage() {
       const draftCartItems = order.orderItems.map((item, index) => ({
         id: `draft-${order.id}-${index}`,
         name: item.customName || `Item ${index + 1}`,
-        price: item.unitPrice / 100, // Convert from cents
+        price: item.unitPrice,
         quantity: item.quantity,
         isCustom: true,
         isTaxable: true,
@@ -506,28 +519,34 @@ export default function POSPage() {
   }, 0);
 
   // Calculate total discount amount
-  const totalDiscountAmount = appliedDiscounts.reduce((sum, discount) => sum + discount.amount, 0) + giftCardDiscount + couponDiscount.amount;
+  const totalDiscountAmount =
+    appliedDiscounts.reduce((sum, discount) => sum + discount.amount, 0) +
+    giftCardDiscount +
+    couponDiscount.amount +
+    autoDiscounts.reduce((sum, discount) => sum + (discount.discountAmount || 0), 0);
   
   // Apply discounts proportionally and calculate tax per item
   const discountedSubtotal = Math.max(0, subtotal - totalDiscountAmount);
   const discountRatio = subtotal > 0 ? discountedSubtotal / subtotal : 0;
+
+  const combinedTaxRate = individualTaxRates.reduce((sum, tax) => sum + tax.rate, 0);
+  const taxableSubtotal = cartItems.reduce((sum, item) => {
+    const itemPrice = item.customPrice ?? item.price;
+    const isTaxable = item.isTaxable ?? true;
+    if (!isTaxable) return sum;
+    return sum + itemPrice * item.quantity;
+  }, 0);
   
-  // Calculate tax using individual items with their taxability
-  const itemsWithAdjustedPrices = cartItems.map(item => ({
-    ...item,
-    price: (item.customPrice ?? item.price) * discountRatio,
-    isTaxable: item.isTaxable ?? true // Default to taxable if not specified
-  }));
-  
-  const taxCalculation = calculateItemTax(itemsWithAdjustedPrices);
-  const calculatedTotal = discountedSubtotal + taxCalculation.totalAmount;
+  const discountedTaxableSubtotal = Math.round(taxableSubtotal * discountRatio);
+  const taxTotal = Math.round(discountedTaxableSubtotal * (combinedTaxRate / 100));
+  const calculatedTotal = discountedSubtotal + taxTotal;
 
   console.log('📊 Current cart state:', cartItems);
   console.log('💰 Pricing breakdown:', {
     subtotal: subtotal.toFixed(2),
     totalDiscounts: totalDiscountAmount.toFixed(2),
     discountedSubtotal: discountedSubtotal.toFixed(2),
-    tax: taxCalculation.totalAmount.toFixed(2),
+    tax: taxTotal.toFixed(2),
     total: calculatedTotal.toFixed(2)
   });
 
@@ -539,6 +558,7 @@ export default function POSPage() {
             <PaymentController
               open={showPaymentController}
               total={calculatedTotal}
+              taxAmount={taxTotal}
               cartItems={cartItems}
               customer={selectedCustomer}
               customerName={selectedCustomer?.name}

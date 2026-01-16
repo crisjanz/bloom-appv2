@@ -23,7 +23,7 @@ export interface UsePaymentComposerResult {
   replacePayments: (entries: PaymentEntry[]) => void;
 }
 
-const DEFAULT_PRECISION = 2;
+const DEFAULT_PRECISION = 0;
 
 export const usePaymentComposer = ({
   total,
@@ -31,18 +31,30 @@ export const usePaymentComposer = ({
   currencyPrecision = DEFAULT_PRECISION,
 }: UsePaymentComposerOptions): UsePaymentComposerResult => {
   const [payments, setPayments] = useState<PaymentEntry[]>(initialPayments);
+  const roundAmount = useCallback(
+    (value: number) =>
+      currencyPrecision > 0
+        ? Number(value.toFixed(currencyPrecision))
+        : Math.round(value),
+    [currencyPrecision]
+  );
 
   const totalApplied = useMemo(() => {
     const sum = payments.reduce((acc, entry) => acc + (Number(entry.amount) || 0), 0);
-    return Number(sum.toFixed(currencyPrecision));
-  }, [payments, currencyPrecision]);
+    return roundAmount(sum);
+  }, [payments, roundAmount]);
 
   const remaining = useMemo(() => {
     const balance = total - totalApplied;
-    return Number(Math.max(0, balance).toFixed(currencyPrecision));
-  }, [total, totalApplied, currencyPrecision]);
+    return roundAmount(Math.max(0, balance));
+  }, [roundAmount, total, totalApplied]);
 
-  const hasBalance = useMemo(() => remaining > Number(`0.${'0'.repeat(currencyPrecision)}5`), [remaining, currencyPrecision]);
+  const minBalance = useMemo(
+    () =>
+      currencyPrecision > 0 ? Number(`0.${'0'.repeat(currencyPrecision)}5`) : 0,
+    [currencyPrecision]
+  );
+  const hasBalance = useMemo(() => remaining > minBalance, [remaining, minBalance]);
 
   const addPayment = useCallback((entry: PaymentEntry) => {
     setPayments((prev) => [...prev, entry]);

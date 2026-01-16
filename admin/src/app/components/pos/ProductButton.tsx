@@ -1,5 +1,6 @@
 // components/pos/ProductButton.tsx - Fixed size version
 import React from 'react';
+import { coerceCents, formatCurrency } from '@shared/utils/currency';
 
 type Props = {
   product: {
@@ -20,13 +21,13 @@ export default function ProductButton({ product, onClick }: Props) {
     if (product.variants && product.variants.length > 0) {
       // Find the default variant or use the first one
       const defaultVariant = product.variants.find(v => v.isDefault) || product.variants[0];
-      const basePrice = product.price; // Base price in dollars
-      const variantPrice = basePrice + ((defaultVariant.priceDifference || 0) / 100); // priceDifference in cents
-      return variantPrice.toFixed(2);
+      const basePriceCents = coerceCents(product.price ?? 0);
+      const priceDifferenceCents = Math.round(defaultVariant.priceDifference || 0);
+      return formatCurrency(basePriceCents + priceDifferenceCents);
     }
 
     // For regular products, price is already in dollars
-    return product.price.toFixed(2);
+    return formatCurrency(coerceCents(product.price ?? 0));
   };
 
   const getProductImage = () => {
@@ -79,7 +80,7 @@ export default function ProductButton({ product, onClick }: Props) {
           {displayName}
         </div>
         <div className="text-sm font-bold text-brand-500 text-center">
-          ${price}
+          {price}
         </div>
       </div>
     </button>

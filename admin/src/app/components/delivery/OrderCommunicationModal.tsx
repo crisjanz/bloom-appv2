@@ -3,6 +3,7 @@ import CommunicationTimeline from './CommunicationTimeline';
 import PhoneNoteForm from './PhoneNoteForm';
 import SmsComposer from './SmsComposer';
 import { Modal } from '@shared/ui/components/ui/modal';
+import { formatCurrency } from '@shared/utils/currency';
 
 interface OrderCommunicationModalProps {
   isOpen: boolean;
@@ -107,7 +108,6 @@ export default function OrderCommunicationModal({ isOpen, onClose, order }: Orde
 
   const customerPhone = order?.customer?.phone;
   const recipientPhone = order?.deliveryAddress?.phone;
-  const formatCurrency = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
   return (
     <Modal

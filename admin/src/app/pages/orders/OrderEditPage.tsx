@@ -8,6 +8,19 @@ import OrderSections from '@app/components/orders/edit/OrderSections';
 import { Order } from '@app/components/orders/types';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
 
+const splitRecipientName = (name?: string | null) => {
+  if (!name) {
+    return { firstName: '', lastName: '' };
+  }
+
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) {
+    return { firstName: parts[0], lastName: '' };
+  }
+
+  return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
+};
+
 // Convert domain Order to frontend Order format
 const mapDomainOrderToFrontend = (domainOrder: DomainOrder): Order => {
   return {
@@ -37,6 +50,14 @@ const mapDomainOrderToFrontend = (domainOrder: DomainOrder): Order => {
       email: domainOrder.customerSnapshot?.email || '',
       phone: domainOrder.customerSnapshot?.phone || '',
     },
+    recipientCustomer: domainOrder.recipientCustomer ? {
+      id: domainOrder.recipientCustomer.id,
+      firstName: domainOrder.recipientCustomer.firstName,
+      lastName: domainOrder.recipientCustomer.lastName,
+      email: domainOrder.recipientCustomer.email || '',
+      phone: domainOrder.recipientCustomer.phone || '',
+    } : undefined,
+    recipientName: domainOrder.recipientName || domainOrder.deliveryInfo?.recipientName || null,
     deliveryAddress: domainOrder.deliveryInfo ? {
       id: domainOrder.deliveryInfo.deliveryAddress?.id || domainOrder.id,
       firstName: domainOrder.deliveryInfo.recipientName?.split(' ')[0] || '',
@@ -192,13 +213,23 @@ const OrderEditPage: React.FC = () => {
         break;
       case 'recipient':
         // Use deliveryAddress from NEW system
-        setEditingRecipient(order.deliveryAddress ? {
-          ...order.deliveryAddress
-        } : {
-          firstName: '',
-          lastName: '',
+        if (order.deliveryAddress) {
+          setEditingRecipient({
+            ...order.deliveryAddress
+          });
+          break;
+        }
+
+        const fallbackName = order.recipientCustomer
+          ? `${order.recipientCustomer.firstName || ''} ${order.recipientCustomer.lastName || ''}`.trim()
+          : order.recipientName || '';
+        const { firstName, lastName } = splitRecipientName(fallbackName);
+
+        setEditingRecipient({
+          firstName,
+          lastName,
           company: '',
-          phone: '',
+          phone: order.recipientCustomer?.phone || '',
           address1: '',
           address2: '',
           city: '',
@@ -217,7 +248,7 @@ const OrderEditPage: React.FC = () => {
           cardMessage: order.cardMessage || '',
           specialInstructions: order.specialInstructions || '',
           occasion: order.occasion || '',
-          deliveryFee: order.deliveryFee / 100
+          deliveryFee: order.deliveryFee
         });
         break;
       case 'products':
@@ -225,10 +256,10 @@ const OrderEditPage: React.FC = () => {
         break;
       case 'payment':
         setEditingPayment({
-          deliveryFee: order.deliveryFee / 100,
-          discount: order.discount / 100,
-          gst: order.gst / 100,
-          pst: order.pst / 100
+          deliveryFee: order.deliveryFee,
+          discount: order.discount,
+          gst: order.gst,
+          pst: order.pst
         });
         break;
       case 'images':
@@ -265,9 +296,16 @@ const OrderEditPage: React.FC = () => {
           updateData = { customer: editingCustomer };
           break;
         case 'recipient':
-          updateData = {
-            deliveryAddress: editingRecipient
-          };
+          if (order?.deliveryAddress) {
+            updateData = {
+              deliveryAddress: editingRecipient
+            };
+          } else {
+            const fullName = `${editingRecipient.firstName || ''} ${editingRecipient.lastName || ''}`.trim();
+            updateData = {
+              recipientName: fullName || null
+            };
+          }
           break;
         case 'delivery':
           updateData = { 
@@ -276,7 +314,7 @@ const OrderEditPage: React.FC = () => {
             cardMessage: editingDelivery.cardMessage || null,
             specialInstructions: editingDelivery.specialInstructions || null,
             occasion: editingDelivery.occasion || null,
-            deliveryFee: Math.round(editingDelivery.deliveryFee * 100)
+            deliveryFee: Math.round(editingDelivery.deliveryFee || 0)
           };
           break;
         case 'products':
@@ -295,10 +333,10 @@ const OrderEditPage: React.FC = () => {
           break;
         case 'payment':
           updateData = { 
-            deliveryFee: Math.round(editingPayment.deliveryFee * 100),
-            discount: Math.round(editingPayment.discount * 100),
-            gst: Math.round(editingPayment.gst * 100),
-            pst: Math.round(editingPayment.pst * 100)
+            deliveryFee: Math.round(editingPayment.deliveryFee || 0),
+            discount: Math.round(editingPayment.discount || 0),
+            gst: Math.round(editingPayment.gst || 0),
+            pst: Math.round(editingPayment.pst || 0)
           };
           break;
         case 'images':

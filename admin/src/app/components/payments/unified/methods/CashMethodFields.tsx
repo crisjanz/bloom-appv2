@@ -1,6 +1,7 @@
 import Button from '@shared/ui/components/ui/button/Button';
 import InputField from '@shared/ui/forms/input/InputField';
 import { useMemo } from 'react';
+import { centsToDollars, dollarsToCents, formatCurrency } from '@shared/utils/currency';
 
 export interface CashMethodFieldsProps {
   amountDue: number;
@@ -21,15 +22,16 @@ const CashMethodFields = ({
   disabled,
   showProcessButton = true,
 }: CashMethodFieldsProps) => {
+  const amountDueDollars = centsToDollars(amountDue);
   const presets = useMemo(() => {
-    if (amountDue <= 0) return [];
+    if (amountDueDollars <= 0) return [];
     return [
-      roundPreset(amountDue, 1),
-      roundPreset(amountDue, 5),
-      roundPreset(amountDue, 10),
-      roundPreset(amountDue, 20),
+      roundPreset(amountDueDollars, 1),
+      roundPreset(amountDueDollars, 5),
+      roundPreset(amountDueDollars, 10),
+      roundPreset(amountDueDollars, 20),
     ];
-  }, [amountDue]);
+  }, [amountDueDollars]);
 
   return (
     <div className="space-y-3 sm:space-y-4 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
@@ -53,7 +55,7 @@ const CashMethodFields = ({
                 onClick={() => onAmountChange(amount.toFixed(2))}
                 type="button"
               >
-                ${amount}
+                {formatCurrency(dollarsToCents(amount))}
               </button>
             ))}
           </div>

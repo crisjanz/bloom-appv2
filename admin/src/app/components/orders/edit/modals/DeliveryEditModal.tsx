@@ -4,6 +4,7 @@ import InputField from '@shared/ui/forms/input/InputField';
 import Label from '@shared/ui/forms/Label';
 import DeliveryDatePicker from '@shared/ui/forms/DeliveryDatePicker';
 import FormFooter from '@shared/ui/components/ui/form/FormFooter';
+import { centsToDollars, parseUserCurrency } from '@shared/utils/currency';
 
 interface DeliveryEditModalProps {
   delivery: {
@@ -27,6 +28,10 @@ const DeliveryEditModal: React.FC<DeliveryEditModalProps> = ({
   onCancel,
   saving
 }) => {
+  const deliveryFeeDisplay = Number.isFinite(delivery.deliveryFee)
+    ? centsToDollars(delivery.deliveryFee).toFixed(2)
+    : '';
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -83,8 +88,8 @@ const DeliveryEditModal: React.FC<DeliveryEditModalProps> = ({
         type="number"
         step="0.01"
         min="0"
-        value={(delivery.deliveryFee / 100).toFixed(2)}
-        onChange={(e) => onChange({ ...delivery, deliveryFee: Math.round(parseFloat(e.target.value) * 100) || 0 })}
+        value={deliveryFeeDisplay || ''}
+        onChange={(e) => onChange({ ...delivery, deliveryFee: parseUserCurrency(e.target.value) })}
       />
 
       <FormFooter

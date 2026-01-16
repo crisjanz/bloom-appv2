@@ -12,6 +12,7 @@ import usePaymentSettingsConfig from '@domains/payments/hooks/usePaymentSettings
 import StandardTable, { ColumnDef } from '@shared/ui/components/ui/table/StandardTable';
 import { getPaymentStatusColor } from '@shared/utils/statusColors';
 import RefundModal from '@app/components/refunds/RefundModal';
+import { formatCurrency } from '@shared/utils/currency';
 
 type DatePreset = 'TODAY' | 'WEEK' | 'MONTH' | 'CUSTOM';
 
@@ -39,12 +40,6 @@ const channelOptions = [
   { value: 'PHONE', label: 'Phone' },
   { value: 'WEBSITE', label: 'Website' }
 ];
-
-const formatCurrency = (amount: number) =>
-  new Intl.NumberFormat('en-CA', {
-    style: 'currency',
-    currency: 'CAD'
-  }).format((amount || 0) / 100); // Convert cents to dollars
 
 const toTitleCase = (value: string) =>
   value

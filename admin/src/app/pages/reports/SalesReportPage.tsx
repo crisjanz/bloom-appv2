@@ -21,6 +21,7 @@ import { useSalesReports } from '@domains/reports/hooks/useSalesReports';
 import type { SalesOrder } from '@domains/reports/types';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
 import type { OrderStatus } from '@shared/utils/orderStatusHelpers';
+import { formatCurrency } from '@shared/utils/currency';
 
 type DatePreset = 'TODAY' | 'WEEK' | 'MONTH' | 'CUSTOM';
 
@@ -37,10 +38,7 @@ const backendStatusOptions = [
 
 const formatCurrencyFromCents = (amount?: number, emptyValue = '$0.00') => {
   if (amount === undefined || amount === null) return emptyValue;
-  return new Intl.NumberFormat('en-CA', {
-    style: 'currency',
-    currency: 'CAD'
-  }).format(amount / 100);
+  return formatCurrency(amount);
 };
 
 const formatLabel = (value: string) => {

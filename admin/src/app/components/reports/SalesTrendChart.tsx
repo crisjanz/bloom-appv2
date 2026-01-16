@@ -1,18 +1,12 @@
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
 import type { DailySalesPoint } from '@domains/reports/types';
+import { formatCurrency } from '@shared/utils/currency';
 
 interface SalesTrendChartProps {
   data: DailySalesPoint[];
   loading?: boolean;
 }
-
-const formatCurrency = (amount: number) =>
-  new Intl.NumberFormat('en-CA', {
-    style: 'currency',
-    currency: 'CAD',
-    minimumFractionDigits: 2
-  }).format(amount);
 
 const SalesTrendChart: React.FC<SalesTrendChartProps> = ({ data, loading }) => {
   if (loading) {
@@ -32,7 +26,7 @@ const SalesTrendChart: React.FC<SalesTrendChartProps> = ({ data, loading }) => {
   }
 
   const categories = data.map((point) => point.date);
-  const salesSeries = data.map((point) => Number((point.amount / 100).toFixed(2)));
+  const salesSeries = data.map((point) => point.amount);
   const orderCounts = data.map((point) => point.orders);
 
   const options: ApexOptions = {

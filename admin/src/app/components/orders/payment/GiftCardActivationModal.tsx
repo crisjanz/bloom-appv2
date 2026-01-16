@@ -4,6 +4,7 @@ import Label from "@shared/ui/forms/Label";
 import Button from "@shared/ui/components/ui/button/Button";
 import { getGiftCardSummary, validateGiftCardAmount } from "@shared/utils/giftCardHelpers";
 import { activateGiftCard } from "@shared/legacy-services/giftCardService";
+import { dollarsToCents, formatCurrency } from "@shared/utils/currency";
 
 type Props = {
   open: boolean;
@@ -92,12 +93,13 @@ const handleActivateAll = async () => {
         }
       }
 
-      const amount = item.giftCardInfo.isCustomAmount 
+      const amountDollars = item.giftCardInfo.isCustomAmount 
         ? customAmounts[item.id] 
         : item.giftCardInfo.value!;
+      const amountCents = dollarsToCents(amountDollars);
 
       if (item.giftCardInfo.isCustomAmount) {
-        const validation = validateGiftCardAmount(amount);
+        const validation = validateGiftCardAmount(amountDollars);
         if (!validation.valid) {
           newErrors[`${item.id}_amount`] = validation.error!;
           continue;
@@ -108,7 +110,7 @@ const handleActivateAll = async () => {
       for (let i = 0; i < item.quantity; i++) {
         cardDataForActivation.push({
           cardNumber: cardType === 'PHYSICAL' ? cardNumber : undefined, // Only for physical cards
-          amount,
+          amount: amountCents,
           type: cardType,
           recipientEmail: cardType === 'DIGITAL' ? recipientEmail : undefined,
           recipientName: recipientName || undefined,
@@ -168,7 +170,7 @@ const handleActivateAll = async () => {
                 </div>
                 {!item.giftCardInfo.isCustomAmount && (
                   <div className="text-lg font-semibold text-brand-500">
-                    ${item.giftCardInfo.value}
+                    {formatCurrency(dollarsToCents(item.giftCardInfo.value || 0))}
                   </div>
                 )}
               </div>

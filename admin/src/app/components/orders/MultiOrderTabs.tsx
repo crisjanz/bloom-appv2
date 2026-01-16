@@ -5,6 +5,7 @@ import RecipientCard from "./RecipientCard";
 import DeliveryCard from "./DeliveryCard";
 import ProductsCard from "./ProductsCard";
 import { isGiftCardProduct, getGiftCardInfo, orderContainsGiftCards } from '@shared/utils/giftCardHelpers';
+import { coerceCents, formatCurrency } from "@shared/utils/currency";
 
 
 type Address = {
@@ -331,8 +332,10 @@ export default function MultiOrderTabs({
             updateProducts(activeTab, updated);
           }}
           calculateRowTotal={(price, qty) => {
-            const total = parseFloat(price || "0") * parseInt(qty || "0");
-            return total.toFixed(2);
+            const priceCents = coerceCents(price || "0");
+            const quantity = parseInt(qty || "0");
+            const totalCents = priceCents * quantity;
+            return formatCurrency(totalCents);
           }}
         />
       </div>

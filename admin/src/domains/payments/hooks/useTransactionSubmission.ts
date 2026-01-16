@@ -12,6 +12,7 @@ import { useState, useCallback } from 'react';
 import { mapPaymentMethodType, getPaymentProvider, normalizePayments } from '@shared/utils/paymentHelpers';
 import { getOrCreateGuestCustomer } from '@shared/utils/customerHelpers';
 import { CompletionData } from './usePaymentState';
+import { centsToDollars, formatCurrency } from '@shared/utils/currency';
 
 export type PaymentPayload = {
   method: string;
@@ -34,7 +35,7 @@ export type GiftCardRedemption = {
   amount: number;
 };
 
-const MIN_BALANCE = 0.01;
+const MIN_BALANCE = 1;
 
 export const useTransactionSubmission = () => {
   const [pendingFinalization, setPendingFinalization] = useState<PaymentPayload[] | null>(null);
@@ -109,7 +110,7 @@ export const useTransactionSubmission = () => {
             deliveryTime: null,
             customProducts: nonDraftItems.map((item) => ({
               description: item.name || item.customName || 'POS Item', // Backend expects 'description'
-              price: String(item.customPrice ?? item.price ?? 0),
+              price: centsToDollars(item.customPrice ?? item.price ?? 0).toFixed(2),
               qty: String(item.quantity ?? 1),
               tax: item.isTaxable ?? true, // Include taxability
             })),
@@ -161,7 +162,7 @@ export const useTransactionSubmission = () => {
               sum + (item.rowTotal || item.unitPrice * item.quantity), 0) || 0;
             const calculatedTotal = itemsSubtotal + (order.deliveryFee || 0) + (order.totalTax || 0) - (order.discount || 0);
 
-            console.log(`📊 Draft order ${draftId} calculated total: $${(calculatedTotal / 100).toFixed(2)}`);
+            console.log(`📊 Draft order ${draftId} calculated total: ${formatCurrency(calculatedTotal)}`);
 
             const updateResponse = await fetch(`/api/orders/${draftId}/update`, {
               method: 'PUT',
@@ -177,7 +178,7 @@ export const useTransactionSubmission = () => {
               const errorData = await updateResponse.json().catch(() => ({}));
               console.error(`❌ Failed to update draft order ${draftId}:`, errorData);
             } else {
-              console.log(`✅ Updated draft order ${draftId} to PAID with paymentAmount: $${(calculatedTotal / 100).toFixed(2)}`);
+              console.log(`✅ Updated draft order ${draftId} to PAID with paymentAmount: ${formatCurrency(calculatedTotal)}`);
             }
           } catch (error) {
             console.error(`❌ Error updating draft order ${draftId}:`, error);
@@ -204,7 +205,7 @@ export const useTransactionSubmission = () => {
         const base = {
           type: mapPaymentMethodType(payment.method),
           provider: getPaymentProvider(payment.method, payment.metadata?.provider),
-          amount: Number(payment.amount.toFixed(2)),
+          amount: Math.round(payment.amount),
         };
 
         if (payment.method === 'credit') {

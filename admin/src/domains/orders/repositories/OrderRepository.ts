@@ -115,6 +115,14 @@ export class OrderRepository extends BaseRepository<Order> {
       customerType: 'REGULAR'
     } : undefined;
 
+    const recipientCustomer = backendOrder.recipientCustomer ? {
+      id: backendOrder.recipientCustomer.id,
+      firstName: backendOrder.recipientCustomer.firstName,
+      lastName: backendOrder.recipientCustomer.lastName,
+      email: backendOrder.recipientCustomer.email || undefined,
+      phone: backendOrder.recipientCustomer.phone || undefined
+    } : undefined;
+
     // Map delivery data to deliveryInfo
     const deliveryInfo = backendOrder.deliveryAddress ? {
       recipientName: `${backendOrder.deliveryAddress.firstName || backendOrder.recipientCustomer?.firstName || ''} ${backendOrder.deliveryAddress.lastName || backendOrder.recipientCustomer?.lastName || ''}`.trim(),
@@ -170,6 +178,7 @@ export class OrderRepository extends BaseRepository<Order> {
       channel: 'POS',
       status: this.mapStatusToFrontend(backendOrder.status, backendOrder.type),
       orderSource: backendOrder.orderSource,
+      recipientCustomer,
       items,
       taxBreakdown: (Array.isArray(backendOrder.taxBreakdown)
         ? backendOrder.taxBreakdown
@@ -183,6 +192,7 @@ export class OrderRepository extends BaseRepository<Order> {
       appliedDiscounts: [],
       fulfillmentType: backendOrder.type,
       deliveryInfo,
+      recipientName: backendOrder.recipientName || undefined,
       paymentStatus: 'PAID',
       orderDate: new Date(backendOrder.createdAt),
       requestedDeliveryDate: backendOrder.deliveryDate ? new Date(backendOrder.deliveryDate) : undefined,

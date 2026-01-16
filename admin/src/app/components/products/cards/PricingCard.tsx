@@ -2,6 +2,7 @@ import { FC, useMemo, useState } from "react";
 import InputField from "@shared/ui/forms/input/InputField";
 import ComponentCard from "@shared/ui/common/ComponentCard";
 import { Modal } from "@shared/ui/components/ui/modal";
+import { centsToDollars, dollarsToCents, formatCurrency, parseUserCurrency } from "@shared/utils/currency";
 
 // Simple UUID generator for browser compatibility
 const generateUUID = () => {
@@ -254,7 +255,7 @@ const PricingCard: FC<Props> = ({
 
       // Calculate price difference from all option adjustments (in cents)
       const totalAdjustment = combo.reduce((sum, v) => sum + (v.priceAdjustment || 0), 0);
-      const priceDifferenceCents = Math.round(totalAdjustment * 100);
+      const priceDifferenceCents = dollarsToCents(totalAdjustment);
 
       return {
         id: existingVariant?.id || generateUUID(),
@@ -491,8 +492,8 @@ const PricingCard: FC<Props> = ({
                   <span>Stock: {variant.stockLevel || 0}</span>
                   {variant.priceDifference !== 0 && (
                     <span className="text-success">
-                      {variant.priceDifference > 0 ? '+' : ''}
-                      ${(variant.priceDifference / 100).toFixed(2)}
+                      {variant.priceDifference > 0 ? '+' : '-'}
+                      {formatCurrency(Math.abs(variant.priceDifference))}
                     </span>
                   )}
                 </div>
@@ -663,12 +664,12 @@ const PricingCard: FC<Props> = ({
                         <td className="px-4 py-2">
                           <InputField
                             type="number"
-                            value={variant.priceDifference / 100}
+                            value={centsToDollars(variant.priceDifference).toFixed(2)}
                             onChange={(e) =>
                               updateVariant(
                                 variant.id,
                                 "priceDifference",
-                                Math.round(parseFloat(e.target.value) * 100) || 0
+                                parseUserCurrency(e.target.value)
                               )
                             }
                             placeholder="e.g. +5.00"
