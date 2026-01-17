@@ -1,8 +1,9 @@
 import { Router } from 'express';
+import type Stripe from 'stripe';
 import { PrismaClient } from '@prisma/client';
 import { triggerStatusNotifications } from '../../utils/notificationTriggers';
 import refundService from '../../services/refundService';
-import stripeService from '../../services/stripeService';
+import paymentProviderFactory from '../../services/paymentProviders/PaymentProviderFactory';
 import squareService from '../../services/squareService';
 
 const router = Router();
@@ -87,11 +88,17 @@ async function processOrderRefunds(orderId: string, employeeId?: string) {
 
           if (paymentMethod.provider === 'STRIPE') {
             console.log(`🔵 Processing Stripe refund for payment: ${paymentMethod.providerTransactionId}`);
-            const stripeRefund = await stripeService.createRefund(
-              paymentMethod.providerTransactionId,
-              methodRefundAmount / 100, // Convert cents to dollars
-              'Order cancelled'
-            );
+            const stripe = await paymentProviderFactory.getStripeClient();
+            const refundData: Stripe.RefundCreateParams = {
+              payment_intent: paymentMethod.providerTransactionId,
+              reason: 'Order cancelled' as Stripe.RefundCreateParams.Reason,
+            };
+
+            if (methodRefundAmount) {
+              refundData.amount = methodRefundAmount;
+            }
+
+            const stripeRefund = await stripe.refunds.create(refundData);
             providerRefundId = stripeRefund.id;
             console.log(`✅ Stripe refund created: ${providerRefundId}`);
           } else if (paymentMethod.provider === 'SQUARE') {

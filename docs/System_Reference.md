@@ -28,6 +28,7 @@
 - `routes/ftd/*` — Wire order ingestion, monitoring, and settings management.
 - `services/ftdMonitor.ts` — 4-minute polling loop with Puppeteer token refresh, syncs FTD → Bloom orders.
 - `services/paymentSettingsService.ts` — Encrypts provider credentials with `CONFIG_ENCRYPTION_KEY` and masks values in API responses.
+- `services/paymentProviders/PaymentProviderFactory.ts` — Lazy-loads Stripe client from encrypted DB settings with cache + invalidation.
 - `utils/taxCalculator.ts`, `utils/notificationTriggers.ts` — Centralized tax computation and status notification triggers for reuse across order flows.
 
 ### Key Frontend Areas (`admin/src`)
@@ -62,7 +63,7 @@
 - Avoid manual `/ 100` or `* 100` conversions in components; keep conversions centralized.
 
 ## Integrations & External Services
-- **Stripe** (`back/src/routes/stripe.ts`, `back/src/services/stripeService.ts`): Payment intents, saved cards, refunds, webhook ingestion. Requires `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, optional terminal config.
+- **Stripe** (`back/src/routes/stripe.ts`, `back/src/services/paymentProviders/PaymentProviderFactory.ts`): Payment intents, saved cards, refunds, webhook ingestion. Credentials are stored in `PaymentSettings` (encrypted via `CONFIG_ENCRYPTION_KEY`) and loaded lazily; `STRIPE_WEBHOOK_SECRET` is only needed for webhook verification.
 - **Square** (`back/src/routes/square.ts`, `back/src/services/squareService.ts`): Card payments, terminal flows, customer storage. Needs Square sandbox/live credentials.
 - **Twilio** (`back/src/services/smsService.ts`, `back/src/services/ftdNotification.ts`): SMS notifications; requires `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`.
 - **SendGrid** (`back/src/services/emailService.ts`, `back/src/services/ftdNotification.ts`): Email delivery; requires `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL`, `SENDGRID_FROM_NAME`.
@@ -171,7 +172,7 @@
   - Dev server: `npm run dev` (Vite on port 5173/5174)  
   - Type checking: `npm run typecheck`  
   - Build: `npm run build`
-- Recommended env setup: keep `.env` per package (backend vs admin). Backend requires DB URL (`DATABASE_URL`), Stripe/Square/Twilio/SendGrid credentials, R2 configuration, timezone `TZ=America/Vancouver`.
+- Recommended env setup: keep `.env` per package (backend vs admin). Backend requires DB URL (`DATABASE_URL`), Square/Twilio/SendGrid credentials, R2 configuration, timezone `TZ=America/Vancouver`. Stripe credentials are managed in Settings → Payments (keep `CONFIG_ENCRYPTION_KEY` set; `STRIPE_WEBHOOK_SECRET` only if webhooks are enabled).
 
 ## Testing & Observability
 - Automated tests are minimal; rely on manual QA and PT transaction reconciliation. Add unit tests around discount rules and order creation when time permits.

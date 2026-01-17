@@ -1,7 +1,7 @@
 import express from 'express';
-import Stripe from 'stripe';
-import stripeService from '../services/stripeService';
+import type Stripe from 'stripe';
 import { PrismaClient } from '@prisma/client';
+import paymentProviderFactory from '../services/paymentProviders/PaymentProviderFactory';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -17,37 +17,64 @@ router.post('/payment-intent', async (req, res) => {
       currency = 'cad',
       customerId,
       customerEmail,
+      customerPhone,
+      customerName,
       description,
       metadata = {},
       orderIds = []
     } = req.body;
 
-    if (!amount || amount <= 0) {
+    const parsedAmount = Number(amount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
       return res.status(400).json({ 
         error: 'Amount is required and must be greater than 0' 
       });
     }
 
+    const amountInCents = Math.round(parsedAmount);
+    const metadataPayload =
+      metadata && typeof metadata === 'object' ? metadata : {};
+    const orderIdList = Array.isArray(orderIds) ? orderIds : [];
+
     // Add order IDs to metadata for tracking
-    if (orderIds.length > 0) {
-      metadata.orderIds = orderIds.join(',');
-      metadata.source = 'bloom-flower-shop';
+    if (orderIdList.length > 0) {
+      metadataPayload.orderIds = orderIdList.join(',');
+      metadataPayload.source = 'bloom-flower-shop';
     }
 
-    const paymentIntent = await stripeService.createPaymentIntent({
-      amount,
+    const stripe = await paymentProviderFactory.getStripeClient();
+
+    let resolvedCustomerId = customerId;
+    if ((customerPhone || customerEmail) && !resolvedCustomerId) {
+      const customer = await stripe.customers.create({
+        email: customerEmail,
+        name: customerName || customerEmail?.split('@')[0] || 'Customer',
+        phone: customerPhone,
+      });
+      resolvedCustomerId = customer.id;
+      console.log(`✅ Created Stripe customer: ${resolvedCustomerId} for ${customerPhone || customerEmail}`);
+    }
+
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amountInCents,
       currency,
-      customerId,
-      customerEmail,
-      description: description || `Bloom Flower Shop - Order${orderIds.length > 1 ? 's' : ''} ${orderIds.join(', ')}`,
-      metadata,
+      customer: resolvedCustomerId,
+      description: description || `Bloom Flower Shop - Order${orderIdList.length > 1 ? 's' : ''} ${orderIdList.join(', ')}`,
+      metadata: metadataPayload,
+      automatic_payment_methods: { enabled: true },
+      receipt_email: customerEmail,
+      setup_future_usage: resolvedCustomerId ? 'off_session' : undefined,
     });
+
+    console.log(
+      `✅ Stripe PaymentIntent created: ${paymentIntent.id} for $${(amountInCents / 100).toFixed(2)}`
+    );
 
     res.json({
       success: true,
       clientSecret: paymentIntent.client_secret,
       paymentIntentId: paymentIntent.id,
-      amount: paymentIntent.amount / 100, // Convert back to dollars for frontend
+      amount: paymentIntent.amount,
     });
 
   } catch (error) {
@@ -68,7 +95,14 @@ router.post('/payment-intent/:id/confirm', async (req, res) => {
     const { id } = req.params;
     const { paymentMethodId } = req.body;
 
-    const paymentIntent = await stripeService.confirmPaymentIntent(id, paymentMethodId);
+    const stripe = await paymentProviderFactory.getStripeClient();
+    const confirmData: Stripe.PaymentIntentConfirmParams = {};
+
+    if (paymentMethodId) {
+      confirmData.payment_method = paymentMethodId;
+    }
+
+    const paymentIntent = await stripe.paymentIntents.confirm(id, confirmData);
 
     res.json({
       success: true,
@@ -99,7 +133,8 @@ router.post('/customer', async (req, res) => {
       });
     }
 
-    const customer = await stripeService.createCustomer({
+    const stripe = await paymentProviderFactory.getStripeClient();
+    const customer = await stripe.customers.create({
       email,
       name,
       phone,
@@ -136,12 +171,26 @@ router.post('/refund', async (req, res) => {
       });
     }
 
-    const refund = await stripeService.createRefund(paymentIntentId, amount, reason);
+    const stripe = await paymentProviderFactory.getStripeClient();
+    const refundData: Stripe.RefundCreateParams = {
+      payment_intent: paymentIntentId,
+    };
+
+    const parsedAmount = Number(amount);
+    if (Number.isFinite(parsedAmount) && parsedAmount > 0) {
+      refundData.amount = Math.round(parsedAmount);
+    }
+
+    if (reason) {
+      refundData.reason = reason as Stripe.RefundCreateParams.Reason;
+    }
+
+    const refund = await stripe.refunds.create(refundData);
 
     res.json({
       success: true,
       refundId: refund.id,
-      amount: refund.amount ? refund.amount / 100 : null, // Convert back to dollars
+      amount: refund.amount ?? null,
       status: refund.status,
     });
 
@@ -169,8 +218,15 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
       return res.status(400).send('No signature found');
     }
 
+    const stripe = await paymentProviderFactory.getStripeClient();
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+      console.error('❌ STRIPE_WEBHOOK_SECRET is not configured');
+      return res.status(500).send('Webhook secret not configured');
+    }
+
     // Verify webhook signature
-    event = stripeService.verifyWebhookSignature(req.body, signature);
+    event = stripe.webhooks.constructEvent(req.body, signature, webhookSecret);
     console.log(`✅ Stripe webhook verified: ${event.type}`);
 
   } catch (error) {
@@ -248,12 +304,13 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
  */
 router.get('/health', async (req, res) => {
   try {
-    const isHealthy = await stripeService.healthCheck();
+    const stripe = await paymentProviderFactory.getStripeClient();
+    await stripe.balance.retrieve();
     
     res.json({
       success: true,
       service: 'Stripe',
-      status: isHealthy ? 'connected' : 'disconnected',
+      status: 'connected',
       timestamp: new Date().toISOString(),
     });
 

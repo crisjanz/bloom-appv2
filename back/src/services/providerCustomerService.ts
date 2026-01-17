@@ -1,5 +1,5 @@
 import { PrismaClient, PaymentProvider } from '@prisma/client';
-import stripeService from './stripeService';
+import paymentProviderFactory from './paymentProviders/PaymentProviderFactory';
 
 const prisma = new PrismaClient();
 
@@ -106,7 +106,8 @@ class ProviderCustomerService {
       }
 
       // Create new Stripe customer
-      const stripeCustomer = await stripeService.createCustomer({
+      const stripe = await paymentProviderFactory.getStripeClient();
+      const stripeCustomer = await stripe.customers.create({
         email: options.email,
         name: options.name,
         phone: options.phone,

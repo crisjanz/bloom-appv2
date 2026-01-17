@@ -11,6 +11,7 @@ import {
   deleteOfflinePaymentMethod,
   reorderOfflinePaymentMethods,
 } from '../../services/paymentSettingsService';
+import paymentProviderFactory from '../../services/paymentProviders/PaymentProviderFactory';
 
 const router = Router();
 
@@ -43,6 +44,7 @@ router.put('/general', async (req, res) => {
 router.put('/providers/:provider', async (req, res) => {
   try {
     const settings = await updateProviderSettings(req.params.provider, req.body);
+    paymentProviderFactory.invalidateCache();
     res.json(settings);
   } catch (error) {
     handleError(res, error, `Failed to update ${req.params.provider} settings`);

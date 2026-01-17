@@ -118,6 +118,14 @@ async function getOrCreateSettings() {
   });
 }
 
+/**
+ * Get the raw PaymentSettings record from database
+ * Used by payment provider factory to access encrypted secrets
+ */
+export async function getSettingsRecord() {
+  return getOrCreateSettings();
+}
+
 export async function fetchPaymentSettings(): Promise<PaymentSettingsResponse> {
   const settings = await getOrCreateSettings();
 
