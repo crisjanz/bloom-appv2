@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import PageBreadcrumb from "@shared/ui/common/PageBreadCrumb";
 import ComponentCard from "@shared/ui/common/ComponentCard";
 import InputField from "@shared/ui/forms/input/InputField";
+import WireoutSettingsCard from "@app/components/settings/orders/WireoutSettingsCard";
 
 type ExternalProvider = {
   id: string;
@@ -126,81 +127,93 @@ const ExternalProvidersPage = () => {
 
   return (
     <div className="p-6">
-      <PageBreadcrumb />
+      <PageBreadcrumb pageTitle="Wire Services & External Orders" />
 
-      <ComponentCard title="External Providers">
-        {error && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
-        )}
+      <h2 className="text-2xl font-semibold text-black dark:text-white mb-6">Wire Services & External Orders</h2>
 
-        <form onSubmit={handleCreate} className="grid gap-4 md:grid-cols-3 mb-6">
-          <InputField
-            label="Provider Name"
-            placeholder="FTD"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-          />
-          <InputField
-            label="Provider Code"
-            placeholder="FTD"
-            value={code}
-            onChange={(event) => setCode(event.target.value)}
-          />
-          <div className="flex items-end">
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="w-full rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-600 disabled:opacity-50"
-            >
-              {isSaving ? "Saving..." : "Add Provider"}
-            </button>
-          </div>
-        </form>
+      {/* Wire-Out Settings */}
+      <WireoutSettingsCard />
 
-        {isLoading ? (
-          <div className="text-sm text-gray-500">Loading providers...</div>
-        ) : providers.length === 0 ? (
-          <div className="text-sm text-gray-500">No external providers yet.</div>
-        ) : (
-          <div className="space-y-3">
-            {providers.map((provider) => (
-              <div
-                key={provider.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-boxdark"
+      {/* External Providers (Wire-In) */}
+      <div className="mt-6">
+        <ComponentCard title="External Providers (Incoming Orders)">
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            Manage external providers for incoming wire orders and integrations.
+          </p>
+
+          {error && (
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleCreate} className="grid gap-4 md:grid-cols-3 mb-6">
+            <InputField
+              label="Provider Name"
+              placeholder="FTD"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+            />
+            <InputField
+              label="Provider Code"
+              placeholder="FTD"
+              value={code}
+              onChange={(event) => setCode(event.target.value)}
+            />
+            <div className="flex items-end">
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="w-full rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-600 disabled:opacity-50"
               >
-                <div>
-                  <div className="text-sm font-semibold text-gray-900 dark:text-white">
-                    {provider.name}
+                {isSaving ? "Saving..." : "Add Provider"}
+              </button>
+            </div>
+          </form>
+
+          {isLoading ? (
+            <div className="text-sm text-gray-500">Loading providers...</div>
+          ) : providers.length === 0 ? (
+            <div className="text-sm text-gray-500">No external providers yet.</div>
+          ) : (
+            <div className="space-y-3">
+              {providers.map((provider) => (
+                <div
+                  key={provider.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-boxdark"
+                >
+                  <div>
+                    <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                      {provider.name}
+                    </div>
+                    <div className="text-xs text-gray-500">{provider.code}</div>
                   </div>
-                  <div className="text-xs text-gray-500">{provider.code}</div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleActive(provider)}
+                      className={`rounded-full px-3 py-1 text-xs font-medium ${
+                        provider.isActive
+                          ? "bg-green-100 text-green-700"
+                          : "bg-gray-100 text-gray-600"
+                      }`}
+                    >
+                      {provider.isActive ? "Active" : "Inactive"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(provider)}
+                      className="rounded-full px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleToggleActive(provider)}
-                    className={`rounded-full px-3 py-1 text-xs font-medium ${
-                      provider.isActive
-                        ? "bg-green-100 text-green-700"
-                        : "bg-gray-100 text-gray-600"
-                    }`}
-                  >
-                    {provider.isActive ? "Active" : "Inactive"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(provider)}
-                    className="rounded-full px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </ComponentCard>
+              ))}
+            </div>
+          )}
+        </ComponentCard>
+      </div>
     </div>
   );
 };

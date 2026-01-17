@@ -1,7 +1,7 @@
 # Bloom System Reference
 
-**Last audited:** 2025-12-30  
-**Maintained by:** Cristian Janz  
+**Last audited:** 2026-01-17
+**Maintained by:** Cristian Janz
 **Stack:** React 19 + Vite 6 (admin), Express + Prisma + PostgreSQL (backend)
 
 ---
@@ -41,16 +41,25 @@
 - `app/pages/ftd/*` — FTD imports dashboard, approvals, and live feed.
 
 ## Data & Schema Highlights
-- **59 Prisma models** (1,535 lines total in `back/prisma/schema.prisma`)
-- `Order` model stores `recipientCustomerId` + `deliveryAddressId` (customer-based recipients) and tracks tax breakdown per order (`schema.prisma:328-383`).
+- **60 Prisma models** (1,545 lines total in `back/prisma/schema.prisma`)
+- `Order` model stores `recipientCustomerId` + `deliveryAddressId` (customer-based recipients), tracks tax breakdown per order, and supports `WIREOUT` order type with `wireoutServiceFee` and `wireoutServiceName` fields for outgoing wire orders (`schema.prisma:328-383`).
 - `Employee` includes `failedLoginAttempts` + `accountLockedUntil` for lockout enforcement (`schema.prisma:599-618`).
 - `PaymentSettings`, `OfflinePaymentMethod`, and `PaymentProviderMode` models support encrypted provider credentials and dynamic offline tenders (`schema.prisma:625-704`).
 - `GiftCard` and `GiftCardBatch` models back the full gift card lifecycle, including activation history (`schema.prisma:704-778`).
 - `PrintJob` model tracks print queue with status lifecycle (PENDING → PRINTING → COMPLETED) for WebSocket-based print agent integration (`schema.prisma:1474-1492`).
 - `Route` and `RouteStop` models enable delivery route planning with sequencing, driver assignment, and proof-of-delivery signatures (`schema.prisma:448-494`).
 - `WireProductLibrary` stores wire products fetched from providers like Petals.ca with R2-hosted images (`schema.prisma:1516-1530`).
+- `OperationsSettings` model stores wire-out configuration (default wire service name and fee) with single-row singleton pattern (`schema.prisma:997-1005`).
 - `ProviderCustomer` links multiple Stripe customer IDs to a single local customer for deduplication support (`schema.prisma:1176-1181`).
 - Prisma migrations are managed via `npx prisma migrate dev` during development; production deploys use `npm run deploy` (schema push + generate). See `back/package.json`.
+
+## Currency Handling
+- All monetary values are stored as cents (integers) across DB, backend, and admin frontend state.
+- Use `admin/src/shared/utils/currency.ts` for display and input parsing:
+  - `formatCurrency(cents)` for UI display
+  - `parseUserCurrency(input)` or `dollarsToCents(value)` for user-entered amounts
+- Event pricing fields (`quotedAmount`, `finalAmount`, `event_items.unitPrice/totalPrice`, `event_payments.amount`) are cents end-to-end.
+- Avoid manual `/ 100` or `* 100` conversions in components; keep conversions centralized.
 
 ## Integrations & External Services
 - **Stripe** (`back/src/routes/stripe.ts`, `back/src/services/stripeService.ts`): Payment intents, saved cards, refunds, webhook ingestion. Requires `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, optional terminal config.
@@ -117,6 +126,31 @@
 - **WireProductLibrary Model**: Stores wire products with metadata (productCode, productName, imageUrl, provider)
 - **FTD Integration**: Wire product images automatically associated with FTD orders during import
 - **Image Persistence**: Order.images array stores fetched/uploaded images across sessions
+
+## Wire-Out Order System
+- **Order Type**: Orders can be marked as `WIREOUT` (outgoing wire orders sent through relay services like FTD/Teleflora)
+- **Automatic Detection** (`admin/src/app/components/orders/RecipientCard.tsx`): When address entered is outside delivery zones, modal popup prompts:
+  - "Wire Order" → Sets orderType to WIREOUT
+  - "Direct Delivery" → Keeps as DELIVERY for out-of-zone direct deliveries
+- **Zone Detection**: Enhanced `calculateDeliveryFee()` function returns zone status (`admin/src/shared/utils/deliveryCalculations.ts`)
+  - Checks if destination address falls within configured delivery zones
+  - Triggers wireout detection modal when address is out of zone
+- **Wire Service Configuration** (`/settings/external-providers` - unified page):
+  - **Wire-Out Settings**: Default wire service name (e.g., "FTD") and default service fee in cents
+  - **External Providers**: Manage incoming wire order providers (FTD, DoorDash, etc.) with active/inactive toggles
+- **Tax Rules for Wire-Out Orders**: Province-aware tax calculation based on destination
+  - **BC destination**: GST (5%) + PST (7%) = 12% total
+  - **Other Canadian provinces**: GST only (5%)
+  - **International**: No tax (0%)
+- **Order Fields**: Wire-out orders store `wireoutServiceFee` (Int, cents) and `wireoutServiceName` (String) per order
+- **Settings API** (`back/src/routes/settings/operations.ts`):
+  - GET `/api/settings/operations` — fetch wire-out default settings
+  - PUT `/api/settings/operations` — update wire service name and default fee
+- **UI Components**:
+  - `WireoutSettingsCard` — Configure default wire service settings
+  - `WireoutDetectionModal` — Auto-popup when out-of-zone address detected
+  - Order type dropdown includes "Wire Order" option alongside Delivery and Pickup
+- **Multi-Order Support**: Each order tab can independently be DELIVERY, PICKUP, or WIREOUT with appropriate tax/fee calculations
 
 ## Security & Compliance
 - Secrets enforced at runtime: `JWT_SECRET`, `JWT_REFRESH_SECRET`, `CONFIG_ENCRYPTION_KEY`. Missing values crash the server.

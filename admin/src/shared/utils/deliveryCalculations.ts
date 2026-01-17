@@ -17,22 +17,31 @@ interface DeliverySettings {
   enabled: boolean;
 }
 
+export interface DeliveryZoneResult {
+  fee: number;
+  inZone: boolean;
+  distance: number | null;
+  zoneName?: string;
+}
+
 export async function calculateDeliveryFee(
   destinationAddress: string,
   destinationCity: string,
   destinationPostalCode: string,
   destinationProvince: string,
-  onFeeCalculated?: (fee: number) => void
+  onFeeCalculated?: (fee: number) => void,
+  onZoneResult?: (result: DeliveryZoneResult) => void
 ): Promise<number> {
   try {
     // Get delivery settings and zones
     const response = await fetch('/api/settings/delivery-charges');
     if (!response.ok) throw new Error('Failed to load delivery settings');
-    
+
     const { settings, zones }: { settings: DeliverySettings; zones: DeliveryZone[] } = await response.json();
-    
+
     if (!settings.enabled) {
       onFeeCalculated?.(0);
+      onZoneResult?.({ fee: 0, inZone: true, distance: null });
       return 0;
     }
 
@@ -51,6 +60,7 @@ export async function calculateDeliveryFee(
     if (distance === null) {
       console.warn('Could not calculate distance');
       onFeeCalculated?.(0);
+      onZoneResult?.({ fee: 0, inZone: false, distance: null });
       return 0;
     }
 
@@ -58,6 +68,7 @@ export async function calculateDeliveryFee(
     if (settings.maxDeliveryRadius && distance > settings.maxDeliveryRadius) {
       console.warn(`Address is beyond delivery radius: ${distance}km > ${settings.maxDeliveryRadius}km`);
       onFeeCalculated?.(0);
+      onZoneResult?.({ fee: 0, inZone: false, distance });
       return 0;
     }
 
@@ -73,16 +84,24 @@ export async function calculateDeliveryFee(
     if (!applicableZone) {
       console.warn(`No delivery zone found for distance: ${distance}km`);
       onFeeCalculated?.(0);
+      onZoneResult?.({ fee: 0, inZone: false, distance });
       return 0;
     }
 
     const feeInCents = Math.round(applicableZone.fee);
     onFeeCalculated?.(feeInCents);
+    onZoneResult?.({
+      fee: feeInCents,
+      inZone: true,
+      distance,
+      zoneName: applicableZone.name
+    });
     return feeInCents;
 
   } catch (error) {
     console.error('Error calculating delivery fee:', error);
     onFeeCalculated?.(0);
+    onZoneResult?.({ fee: 0, inZone: false, distance: null });
     return 0;
   }
 }

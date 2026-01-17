@@ -71,11 +71,14 @@ export default function ProductsCard({
   const [addOnSelections, setAddOnSelections] = useState<Record<string, string[]>>({});
   const [addOnLoading, setAddOnLoading] = useState(false);
   const [addOnError, setAddOnError] = useState<string | null>(null);
-  
+
   // Variant modal state
   const [showVariantModal, setShowVariantModal] = useState(false);
   const [selectedProductForVariants, setSelectedProductForVariants] = useState(null);
   const [pendingProductIndex, setPendingProductIndex] = useState<number | null>(null);
+
+  // Local editing state for price inputs (prevents cursor jumping)
+  const [editingPrices, setEditingPrices] = useState<Record<number, string>>({});
 
   // Get centralized tax rates
   const { individualTaxRates } = useTaxRates();
@@ -333,42 +336,6 @@ export default function ProductsCard({
       // This is a bit hacky but we need to trigger the parent update
       handleProductChange(-1, "removeAt", index);
     }
-  };
-
-  const calculateSubtotal = () => {
-    return customProducts.reduce((total, item) => {
-      const priceCents = coerceCents(item.price || "0");
-      const qty = parseInt(item.qty || "0");
-      return total + priceCents * qty;
-    }, 0);
-  };
-
-  const calculateTaxableTotal = () => {
-    return customProducts.reduce((total, item) => {
-      if (item.tax) {
-        const priceCents = coerceCents(item.price || "0");
-        const qty = parseInt(item.qty || "0");
-        return total + priceCents * qty;
-      }
-      return total;
-    }, 0);
-  };
-
-  const calculateTaxBreakdown = (taxableAmountCents: number) => {
-    return individualTaxRates.map((tax) => ({
-      name: tax.name,
-      rate: tax.rate,
-      amountCents: Math.round(taxableAmountCents * (tax.rate / 100)),
-    }));
-  };
-
-  const calculateTaxTotal = () => {
-    const taxableAmount = calculateTaxableTotal();
-    if (taxableAmount === 0) return 0;
-    return calculateTaxBreakdown(taxableAmount).reduce(
-      (sum, tax) => sum + tax.amountCents,
-      0
-    );
   };
 
   const combinedTaxRate = individualTaxRates.reduce(
@@ -636,23 +603,37 @@ export default function ProductsCard({
                   {/* Unit Price */}
                   <td className="w-22 py-2 px-1">
                     <InputField
-                      type="number"
-                      step={0.01}
-                      min="0"
+                      type="text"
                       placeholder="0.00"
-                      className="w-full text-center py-1 px-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      value={priceDisplay}
+                      className="w-full text-center py-1 px-1"
+                      value={editingPrices[idx] !== undefined ? editingPrices[idx] : priceDisplay}
+                      onFocus={() => {
+                        // Start editing - use current display value
+                        setEditingPrices(prev => ({ ...prev, [idx]: priceDisplay }));
+                      }}
                       onChange={(e) => {
                         const nextValue = e.target.value;
-                        if (nextValue === "") {
-                          handleProductChange(idx, "price", "");
-                          return;
+                        // Allow empty, digits, and decimal point (max 2 decimal places)
+                        if (nextValue === "" || /^\d*\.?\d{0,2}$/.test(nextValue)) {
+                          // Store raw input locally while editing
+                          setEditingPrices(prev => ({ ...prev, [idx]: nextValue }));
                         }
-                        handleProductChange(
-                          idx,
-                          "price",
-                          parseUserCurrency(nextValue).toString()
-                        );
+                      }}
+                      onBlur={() => {
+                        // Convert to cents and save
+                        const value = editingPrices[idx] || "";
+                        if (value === "") {
+                          handleProductChange(idx, "price", "");
+                        } else {
+                          const centsValue = parseUserCurrency(value);
+                          handleProductChange(idx, "price", centsValue.toString());
+                        }
+                        // Clear editing state
+                        setEditingPrices(prev => {
+                          const updated = { ...prev };
+                          delete updated[idx];
+                          return updated;
+                        });
                       }}
                     />
                   </td>
@@ -728,43 +709,28 @@ export default function ProductsCard({
         </table>
       </div>
 
-      {/* Summary */}
-      <div className="mt-6 flex justify-end">
-        <div className="w-full max-w-sm space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600 dark:text-gray-400">Subtotal:</span>
-            <span className="font-medium text-black dark:text-white">
-              {formatCurrency(calculateSubtotal())}
-            </span>
-          </div>
-          
-          {/* Individual Tax Breakdown - Only show if there are taxable items */}
-          {(() => {
-            const taxableAmount = calculateTaxableTotal();
-            if (taxableAmount === 0) return null;
-            
-            const taxCalc = calculateTaxBreakdown(taxableAmount);
-            return taxCalc.map((tax, idx) => (
-              <div key={idx} className="flex justify-between text-sm">
-                <span className="text-gray-600 dark:text-gray-400">
-                  {tax.name} ({tax.rate.toFixed(1)}%):
-                </span>
-                <span className="font-medium text-black dark:text-white">
-                  {formatCurrency(tax.amountCents)}
-                </span>
-              </div>
-            ));
-          })()}
-          
-          <div className="border-t border-stroke pt-2 dark:border-strokedark">
-            <div className="flex justify-between">
-              <span className="font-medium text-black dark:text-white">Total:</span>
-              <span className="text-lg font-semibold text-black dark:text-white">
-                {formatCurrency(calculateSubtotal() + calculateTaxTotal())}
-              </span>
-            </div>
-          </div>
-        </div>
+      {/* Add Product Button */}
+      <div className="mt-4">
+        <button
+          type="button"
+          onClick={handleAddCustomProduct}
+          className="inline-flex items-center justify-center rounded-md bg-brand-500 hover:bg-brand-600 py-2 px-4 text-center font-medium text-white transition-colors"
+        >
+          <svg
+            className="mr-2 h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+            />
+          </svg>
+          Add Product
+        </button>
       </div>
       </ComponentCard>
       

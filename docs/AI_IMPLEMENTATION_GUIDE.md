@@ -112,14 +112,19 @@ app.use(resourceRouter);
 
 #### 3. Price Handling Convention
 
-**CRITICAL:** Bloom stores prices in **cents** (integers) in the database, displays in dollars.
+**CRITICAL:** Bloom stores prices in **cents** (integers) across DB, backend, and admin frontend state. Display only uses the currency helpers.
 
 ```typescript
-// Database → Client (cents to dollars)
-const priceInDollars = priceInCents / 100;
+import { formatCurrency, dollarsToCents, parseUserCurrency } from '@shared/utils/currency';
 
-// Client → Database (dollars to cents)
-const priceInCents = Math.round(priceInDollars * 100);
+// Display cents
+const label = formatCurrency(totalCents); // "$25.00"
+
+// User input -> cents
+const priceCents = parseUserCurrency(inputValue); // "25.00" -> 2500
+
+// Programmatic dollars -> cents
+const feeCents = dollarsToCents(12.5); // 1250
 ```
 
 #### 4. Prisma Query Patterns

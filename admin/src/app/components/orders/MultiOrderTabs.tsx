@@ -25,7 +25,7 @@ type OrderEntry = {
   recipientAddress: Address;
   recipientAddressType: string;
   recipientAddressLabel?: string; // NEW: Custom address label
-  orderType: "DELIVERY" | "PICKUP";
+  orderType: "DELIVERY" | "PICKUP" | "WIREOUT";
   deliveryDate: string;
   deliveryTime: string;
   deliveryInstructions: string;

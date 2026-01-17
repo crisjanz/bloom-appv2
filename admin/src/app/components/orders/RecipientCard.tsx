@@ -5,15 +5,16 @@ import InputField from "@shared/ui/forms/input/InputField";
 import Select from "@shared/ui/forms/Select";
 import PhoneInput from "@shared/ui/forms/group-input/PhoneInput";
 import AddressAutocomplete from "@shared/ui/forms/AddressAutocomplete";
-import { calculateDeliveryFee } from "@shared/utils/deliveryCalculations";
+import { calculateDeliveryFee, DeliveryZoneResult } from "@shared/utils/deliveryCalculations";
 import { centsToDollars, parseUserCurrency } from "@shared/utils/currency";
 import RecipientUpdateModal from "./RecipientUpdateModal";
 import RecipientSearchModal from "./RecipientSearchModal";
 import RecipientPhoneMatchModal from "./RecipientPhoneMatchModal";
+import WireoutDetectionModal from "./WireoutDetectionModal";
 
 type Props = {
   orderType: string;
-  setOrderType: (val: "DELIVERY" | "PICKUP") => void;
+  setOrderType: (val: "DELIVERY" | "PICKUP" | "WIREOUT") => void;
   recipientFirstName: string;
   setRecipientFirstName: (val: string) => void;
   recipientLastName: string;
@@ -113,9 +114,14 @@ export default function RecipientCard({
   // Phone management state
   const [additionalPhones, setAdditionalPhones] = useState<Array<{ phone: string; label: string }>>([]);
 
+  // Wireout detection state
+  const [showWireoutModal, setShowWireoutModal] = useState(false);
+  const [pendingAddressForWireout, setPendingAddressForWireout] = useState<string>("");
+
   const orderTypeOptions = [
     { value: "DELIVERY" as const, label: "Delivery" },
     { value: "PICKUP" as const, label: "Pickup" },
+    { value: "WIREOUT" as const, label: "Wire Order" },
   ];
 
   const updateRecipientPhoneProgrammatically = (value: string) => {
@@ -396,7 +402,7 @@ export default function RecipientCard({
 
   useEffect(() => {
     if (
-      orderType === "DELIVERY" &&
+      (orderType === "DELIVERY" || orderType === "WIREOUT") &&
       recipientAddress.address1 &&
       recipientAddress.city &&
       recipientAddress.province &&
@@ -411,12 +417,23 @@ export default function RecipientCard({
           google.maps.DistanceMatrixService
         ) {
           console.log("🗺️ Google Maps loaded, calculating delivery fee...");
+
+          const handleZoneResult = (result: DeliveryZoneResult) => {
+            // If address is out of zone and order is currently DELIVERY, ask if it's a wireout
+            if (!result.inZone && orderType === "DELIVERY") {
+              const addressSummary = `${recipientAddress.address1}, ${recipientAddress.city}, ${recipientAddress.province}`;
+              setPendingAddressForWireout(addressSummary);
+              setShowWireoutModal(true);
+            }
+          };
+
           calculateDeliveryFee(
             recipientAddress.address1,
             recipientAddress.city,
             recipientAddress.postalCode,
             recipientAddress.province,
             onDeliveryFeeCalculated,
+            handleZoneResult
           );
         } else {
           console.warn(
@@ -432,12 +449,22 @@ export default function RecipientCard({
               console.log(
                 "🗺️ Google Maps loaded on retry, calculating delivery fee...",
               );
+
+              const handleZoneResult = (result: DeliveryZoneResult) => {
+                if (!result.inZone && orderType === "DELIVERY") {
+                  const addressSummary = `${recipientAddress.address1}, ${recipientAddress.city}, ${recipientAddress.province}`;
+                  setPendingAddressForWireout(addressSummary);
+                  setShowWireoutModal(true);
+                }
+              };
+
               calculateDeliveryFee(
                 recipientAddress.address1,
                 recipientAddress.city,
                 recipientAddress.postalCode,
                 recipientAddress.province,
                 onDeliveryFeeCalculated,
+                handleZoneResult
               );
             } else {
               console.error(
@@ -1573,6 +1600,19 @@ export default function RecipientCard({
           onChoice={handleRecipientUpdateChoice}
         />
       )}
+
+      {/* Wireout Detection Modal */}
+      <WireoutDetectionModal
+        open={showWireoutModal}
+        onClose={() => setShowWireoutModal(false)}
+        onWireout={() => {
+          setOrderType("WIREOUT");
+        }}
+        onDirectDelivery={() => {
+          // Keep as DELIVERY, user will handle out-of-zone fee manually
+        }}
+        addressSummary={pendingAddressForWireout}
+      />
     </>
   );
 }

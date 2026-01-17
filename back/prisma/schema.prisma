@@ -28,6 +28,7 @@ enum Visibility {
 enum OrderType {
   DELIVERY
   PICKUP
+  WIREOUT
 }
 
 enum OrderStatus {
@@ -412,6 +413,10 @@ model Order {
 
   deliveryFee Int @default(0) // Stored in cents
   discount    Int @default(0) // Stored in cents
+
+  // Wireout specific fields
+  wireoutServiceFee  Int?    // Wire service fee in cents (editable per order)
+  wireoutServiceName String? // Wire service partner name (FTD, etc.)
 
   // Legacy coupon support (during migration)
   couponCode String?
@@ -991,6 +996,16 @@ model POSSettings {
   updatedAt DateTime @updatedAt
 
   @@map("pos_settings")
+}
+
+model OperationsSettings {
+  id                  String   @id @default(cuid())
+  wireoutServiceFee   Int      @default(1500) // Wire service fee in cents (default $15.00)
+  wireoutServiceName  String   @default("FTD") // Wire service name (FTD, Teleflora, etc.)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@map("operations_settings")
 }
 
 // PT-XXXX TRANSACTION SYSTEM

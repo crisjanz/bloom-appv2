@@ -1,6 +1,6 @@
 import React from 'react';
 import { Modal } from '@shared/ui/components/ui/modal';
-import { centsToDollars, dollarsToCents, formatCurrency, coerceCents } from '@shared/utils/currency';
+import { centsToDollars, dollarsToCents, formatCurrency } from '@shared/utils/currency';
 
 type Variant = {
   id: string;
@@ -30,7 +30,7 @@ type Props = {
 export default function ProductVariantModal({ open, product, onClose, onSelectVariant }: Props) {
   if (!open || !product) return null;
 
-  const basePriceCents = coerceCents(product.price || 0);
+  const basePriceCents = dollarsToCents(product.price || 0);
   
   // Get all variants including default
   const allVariants = product.variants || [];
