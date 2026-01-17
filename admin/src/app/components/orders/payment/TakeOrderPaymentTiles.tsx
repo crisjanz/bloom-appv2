@@ -7,6 +7,7 @@ import {
   BoltIcon,
   CheckLineIcon,
   SlashIcon,
+  ArrowRightIcon,
 } from '@shared/assets/icons';
 import CashPaymentModal from '@app/components/pos/payment/CashPaymentModal';
 import CardPaymentModal from '@app/components/pos/payment/CardPaymentModal';
@@ -30,6 +31,7 @@ type Props = {
   giftCardDiscount?: number;
   manualDiscount?: number;
   manualDiscountType?: '$' | '%';
+  isOverlay?: boolean;
 };
 
 type PaymentButton = {
@@ -53,6 +55,7 @@ const TakeOrderPaymentTiles: FC<Props> = ({
   giftCardDiscount = 0,
   manualDiscount = 0,
   manualDiscountType = '$',
+  isOverlay = false,
 }) => {
   // Safety check for undefined values
   const safeGrandTotal = grandTotal || 0;
@@ -83,7 +86,7 @@ const TakeOrderPaymentTiles: FC<Props> = ({
   const [splitPaymentRows, setSplitPaymentRows] = useState<SplitPaymentRow[]>([]);
   const [splitRemaining, setSplitRemaining] = useState(safeGrandTotal);
 
-  const paymentButtons: PaymentButton[] = [
+  const basePaymentButtons: PaymentButton[] = [
     {
       id: 'card',
       label: 'Card',
@@ -121,9 +124,28 @@ const TakeOrderPaymentTiles: FC<Props> = ({
     },
   ];
 
+  // Add "Send to POS" button when in overlay mode
+  const paymentButtons: PaymentButton[] = isOverlay
+    ? [
+        {
+          id: 'send_to_pos',
+          label: 'Send to POS',
+          icon: <ArrowRightIcon className="h-5 w-5" />,
+        },
+        ...basePaymentButtons,
+      ]
+    : basePaymentButtons;
+
   const handleButtonClick = (buttonId: string) => {
     if (buttonId === 'split') {
       handleSplitPaymentStart();
+    } else if (buttonId === 'send_to_pos') {
+      // Send to POS immediately triggers payment flow with special method
+      onComplete({
+        method: 'send_to_pos',
+        amount: safeGrandTotal,
+        metadata: {},
+      });
     } else {
       setActiveModal(buttonId);
     }

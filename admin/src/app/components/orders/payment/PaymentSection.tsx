@@ -275,7 +275,19 @@ const PaymentSection: React.FC<Props> = ({
   };
 
   const handlePaymentConfirm = async (payments: PaymentEntry[]) => {
-    if (!payments.length && amountAfterGiftCards > 0) {
+    // Check if this is a "Send to POS" payment
+    const posTransferPayment = payments.find(p => p.method === 'send_to_pos');
+
+    // For Send to POS, validate orders before processing
+    if (posTransferPayment) {
+      const validationError = validateOrdersBeforePayment();
+      if (validationError) {
+        setFormError(validationError);
+        return;
+      }
+    }
+
+    if (!payments.length && amountAfterGiftCards > 0 && !posTransferPayment) {
       setFormError("No payments were entered.");
       return;
     }
@@ -290,9 +302,6 @@ const PaymentSection: React.FC<Props> = ({
       giftCardDiscount +
       automaticDiscountAmount;
 
-    // Check if this is a "Send to POS" payment
-    const posTransferPayment = payments.find(p => p.method === 'send_to_pos');
-    
     if (posTransferPayment) {
       // Prevent multiple submissions
       if (processing) {
@@ -584,8 +593,13 @@ const PaymentSection: React.FC<Props> = ({
         totalDeliveryFee={totalDeliveryFee}
         customer={customerState.customer}
         onComplete={(paymentData) => {
-          // Trigger payment with the payment data from modal
-          handleTriggerPayment();
+          // Handle "Send to POS" button click
+          if (paymentData?.method === 'send_to_pos') {
+            handlePaymentConfirm([paymentData]);
+          } else {
+            // Trigger payment modal for other payment methods
+            handleTriggerPayment();
+          }
         }}
         onDiscountsChange={(discounts) => {
           if (discounts.manualDiscount !== undefined) {
@@ -600,6 +614,7 @@ const PaymentSection: React.FC<Props> = ({
         giftCardDiscount={giftCardDiscount}
         manualDiscount={manualDiscount}
         manualDiscountType={manualDiscountType}
+        isOverlay={isOverlay}
       />
 
       {formError && (
