@@ -2,12 +2,6 @@
 ALTER TYPE "OrderStatus" ADD VALUE IF NOT EXISTS 'REFUNDED';
 ALTER TYPE "OrderStatus" ADD VALUE IF NOT EXISTS 'PARTIALLY_REFUNDED';
 
--- AlterEnum: Add EXTERNAL to OrderSource first
-ALTER TYPE "OrderSource" ADD VALUE IF NOT EXISTS 'EXTERNAL';
-
--- Update existing WIREIN values to EXTERNAL (if any exist)
-UPDATE "Order" SET "orderSource" = 'EXTERNAL' WHERE "orderSource" = 'WIREIN';
-
 -- Now we can safely remove WIREIN since no data uses it
 DO $$
 BEGIN
@@ -21,7 +15,13 @@ BEGIN
 
         -- Create new enum and migrate
         CREATE TYPE "OrderSource_new" AS ENUM ('PHONE', 'WALKIN', 'EXTERNAL', 'WEBSITE', 'POS');
-        ALTER TABLE "Order" ALTER COLUMN "orderSource" TYPE "OrderSource_new" USING ("orderSource"::text::"OrderSource_new");
+        ALTER TABLE "Order" ALTER COLUMN "orderSource" TYPE "OrderSource_new"
+        USING (
+          CASE
+            WHEN "orderSource"::text = 'WIREIN' THEN 'EXTERNAL'
+            ELSE "orderSource"::text
+          END
+        )::"OrderSource_new";
         DROP TYPE "OrderSource";
         ALTER TYPE "OrderSource_new" RENAME TO "OrderSource";
 
@@ -35,12 +35,6 @@ ALTER TYPE "OrderExternalSource" ADD VALUE IF NOT EXISTS 'DOORDASH';
 ALTER TYPE "OrderExternalSource" ADD VALUE IF NOT EXISTS 'FUNERAL_SERVICE';
 ALTER TYPE "OrderExternalSource" ADD VALUE IF NOT EXISTS 'OTHER';
 
--- AlterEnum: Add EXTERNAL to PaymentMethodType first
-ALTER TYPE "PaymentMethodType" ADD VALUE IF NOT EXISTS 'EXTERNAL';
-
--- Update existing FTD values to EXTERNAL in payment_methods (if any exist)
-UPDATE "payment_methods" SET "type" = 'EXTERNAL' WHERE "type" = 'FTD';
-
 -- Now we can safely remove FTD since no data uses it
 DO $$
 BEGIN
@@ -52,8 +46,20 @@ BEGIN
         CREATE TYPE "PaymentMethodType_new" AS ENUM ('CASH', 'CARD', 'GIFT_CARD', 'STORE_CREDIT', 'CHECK', 'COD', 'HOUSE_ACCOUNT', 'OFFLINE', 'EXTERNAL');
 
         -- Update both tables that use this enum
-        ALTER TABLE "payment_methods" ALTER COLUMN "type" TYPE "PaymentMethodType_new" USING ("type"::text::"PaymentMethodType_new");
-        ALTER TABLE "refund_methods" ALTER COLUMN "paymentMethodType" TYPE "PaymentMethodType_new" USING ("paymentMethodType"::text::"PaymentMethodType_new");
+        ALTER TABLE "payment_methods" ALTER COLUMN "type" TYPE "PaymentMethodType_new"
+        USING (
+          CASE
+            WHEN "type"::text = 'FTD' THEN 'EXTERNAL'
+            ELSE "type"::text
+          END
+        )::"PaymentMethodType_new";
+        ALTER TABLE "refund_methods" ALTER COLUMN "paymentMethodType" TYPE "PaymentMethodType_new"
+        USING (
+          CASE
+            WHEN "paymentMethodType"::text = 'FTD' THEN 'EXTERNAL'
+            ELSE "paymentMethodType"::text
+          END
+        )::"PaymentMethodType_new";
 
         DROP TYPE "PaymentMethodType";
         ALTER TYPE "PaymentMethodType_new" RENAME TO "PaymentMethodType";

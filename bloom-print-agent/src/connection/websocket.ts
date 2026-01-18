@@ -6,6 +6,10 @@ export interface PrintJob {
   id: string;
   type: 'RECEIPT' | 'ORDER_TICKET' | 'REPORT';
   orderId: string;
+  agentType?: 'receipt-agent' | 'electron-agent' | null;
+  printerName?: string | null;
+  printerTray?: number | null;
+  copies?: number;
   data: any; // Full order object
   template: string;
   priority: number;

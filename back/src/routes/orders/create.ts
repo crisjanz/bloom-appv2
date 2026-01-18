@@ -27,6 +27,7 @@ router.post('/create', async (req, res) => {
     }
 
     const createdOrders = [];
+    const printActions: Array<Record<string, any>> = [];
 
     for (const orderData of orders) {
       console.log('Creating order for:', orderData.orderType);
@@ -147,27 +148,33 @@ router.post('/create', async (req, res) => {
           });
 
         if (updatedOrder.type === 'DELIVERY') {
-          printService.queuePrintJob({
-            type: PrintJobType.ORDER_TICKET,
-            orderId: updatedOrder.id,
-            order: updatedOrder as any,
-            template: 'delivery-ticket-v1',
-            priority: 10
-          }).catch((error) => {
+          try {
+            const result = await printService.queuePrintJob({
+              type: PrintJobType.ORDER_TICKET,
+              orderId: updatedOrder.id,
+              order: updatedOrder as any,
+              template: 'delivery-ticket-v1',
+              priority: 10
+            });
+            printActions.push({ orderId: updatedOrder.id, orderNumber: updatedOrder.orderNumber, ...result });
+          } catch (error) {
             console.error(`❌ Failed to queue delivery print job for order #${updatedOrder.orderNumber}:`, error);
-          });
+          }
         }
 
         if (updatedOrder.orderSource === 'POS' || updatedOrder.orderSource === 'WALKIN') {
-          printService.queuePrintJob({
-            type: PrintJobType.RECEIPT,
-            orderId: updatedOrder.id,
-            order: updatedOrder as any,
-            template: 'receipt-v1',
-            priority: 10
-          }).catch((error) => {
+          try {
+            const result = await printService.queuePrintJob({
+              type: PrintJobType.RECEIPT,
+              orderId: updatedOrder.id,
+              order: updatedOrder as any,
+              template: 'receipt-v1',
+              priority: 10
+            });
+            printActions.push({ orderId: updatedOrder.id, orderNumber: updatedOrder.orderNumber, ...result });
+          } catch (error) {
             console.error(`❌ Failed to queue receipt print job for order #${updatedOrder.orderNumber}:`, error);
-          });
+          }
         }
 
       } catch (error) {
@@ -182,7 +189,8 @@ router.post('/create', async (req, res) => {
     res.json({ 
       success: true, 
       orders: createdOrders,
-      totalAmount: createdOrders.reduce((sum, order) => sum + order.paymentAmount, 0)
+      totalAmount: createdOrders.reduce((sum, order) => sum + order.paymentAmount, 0),
+      printActions
     });
 
   } catch (error) {

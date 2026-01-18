@@ -1,8 +1,22 @@
 import { PrismaClient, PrintJobStatus, PrintJobType, Order } from '@prisma/client';
 import { WebSocketServer } from 'ws';
 import { buildRouteViewUrl, generateRouteToken } from '../utils/routeToken';
+import { printSettingsService } from './printSettingsService';
 
 const prisma = new PrismaClient();
+
+export type PrintJobRoutingResult =
+  | { action: 'skipped'; reason: string; type: PrintJobType }
+  | { action: 'browser-print'; type: PrintJobType; template: string; data: any; copies: number }
+  | {
+      action: 'queued';
+      type: PrintJobType;
+      jobId: string;
+      agentType: string;
+      printerName: string | null;
+      printerTray: number | null;
+      copies: number;
+    };
 
 export class PrintService {
   private wss: WebSocketServer | null = null;
@@ -23,8 +37,15 @@ export class PrintService {
     order: Order;
     template: string;
     priority?: number;
-  }): Promise<void> {
+  }): Promise<PrintJobRoutingResult> {
     try {
+      const config = await printSettingsService.getConfigForType(params.type);
+
+      if (!config.enabled) {
+        console.log(`🖨️ Print job skipped (disabled): ${params.type}`);
+        return { action: 'skipped', reason: 'disabled', type: params.type };
+      }
+
       let jobData: any = params.order as any;
 
       if (params.type === PrintJobType.ORDER_TICKET) {
@@ -44,6 +65,16 @@ export class PrintService {
         }
       }
 
+      if (config.destination === 'browser') {
+        return {
+          action: 'browser-print',
+          type: params.type,
+          template: params.template,
+          data: jobData,
+          copies: config.copies
+        };
+      }
+
       const printJob = await prisma.printJob.create({
         data: {
           type: params.type,
@@ -51,7 +82,11 @@ export class PrintService {
           data: jobData,
           template: params.template,
           priority: params.priority ?? 0,
-          status: PrintJobStatus.PENDING
+          status: PrintJobStatus.PENDING,
+          agentType: config.destination,
+          printerName: config.printerName ?? null,
+          printerTray: config.printerTray ?? null,
+          copies: config.copies
         }
       });
       console.log(`🖨️ Print job queued: ${params.type} for order ${params.orderId ?? '(manual)'}`);
@@ -64,6 +99,10 @@ export class PrintService {
             id: printJob.id,
             type: printJob.type,
             orderId: printJob.orderId,
+            agentType: printJob.agentType,
+            printerName: printJob.printerName,
+            printerTray: printJob.printerTray,
+            copies: printJob.copies,
             data: jobData,
             template: printJob.template,
             priority: printJob.priority,
@@ -78,6 +117,15 @@ export class PrintService {
           }
         });
       }
+      return {
+        action: 'queued',
+        type: params.type,
+        jobId: printJob.id,
+        agentType: printJob.agentType ?? config.destination,
+        printerName: printJob.printerName ?? null,
+        printerTray: printJob.printerTray ?? null,
+        copies: printJob.copies
+      };
     } catch (error) {
       console.error('Failed to queue print job:', error);
       throw error;

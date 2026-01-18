@@ -22,8 +22,19 @@ export class JobProcessor {
     logger.info(`Processing print job: ${job.id} (Type: ${job.type})`);
 
     try {
+      if (job.agentType && job.agentType !== 'electron-agent') {
+        logger.info(`Skipping job ${job.id} for agent type: ${job.agentType}`);
+        return;
+      }
+
       // Select correct printer based on job type
-      const printerName = job.type === 'RECEIPT' ? thermalPrinter : laserPrinter;
+      const defaultPrinterName = job.type === 'RECEIPT' ? thermalPrinter : laserPrinter;
+      const printerName = job.printerName || defaultPrinterName;
+      const copies = Math.max(job.copies ?? 1, 1);
+      const printOptions = {
+        printerTray: job.printerTray ?? null,
+        copies
+      };
 
       if (!printerName) {
         throw new Error(`No printer configured for job type: ${job.type}`);
@@ -31,11 +42,11 @@ export class JobProcessor {
 
       // Process based on type
       if (job.type === 'RECEIPT') {
-        await this.printReceipt(job, printerName);
+        await this.printReceipt(job, printerName, printOptions);
       } else if (job.type === 'ORDER_TICKET') {
-        await this.printOrderTicket(job, printerName);
+        await this.printOrderTicket(job, printerName, printOptions);
       } else if (job.type === 'REPORT') {
-        await this.printReport(job, printerName);
+        await this.printReport(job, printerName, printOptions);
       } else {
         throw new Error(`Unknown job type: ${job.type}`);
       }
@@ -58,19 +69,27 @@ export class JobProcessor {
   /**
    * Print receipt (thermal printer)
    */
-  private async printReceipt(job: PrintJob, printerName: string): Promise<void> {
+  private async printReceipt(
+    job: PrintJob,
+    printerName: string,
+    options: { printerTray?: number | null; copies?: number }
+  ): Promise<void> {
     logger.info(`Printing receipt to ${printerName}`);
 
     // TODO: Format receipt with ESC/POS commands
     // For now, print simple HTML receipt
     const receiptHTML = this.generateReceiptHTML(job.data);
-    await this.printHTML(receiptHTML, printerName);
+    await this.printHTML(receiptHTML, printerName, options);
   }
 
   /**
    * Print order ticket (laser printer)
    */
-  private async printOrderTicket(job: PrintJob, printerName: string): Promise<void> {
+  private async printOrderTicket(
+    job: PrintJob,
+    printerName: string,
+    options: { printerTray?: number | null; copies?: number }
+  ): Promise<void> {
     logger.info(`Printing order ticket to ${printerName}`);
 
     try {
@@ -92,7 +111,7 @@ export class JobProcessor {
 
       const ticketHTML = generateOrderTicketHTML(ticketData);
       logger.info(`HTML generated, length: ${ticketHTML.length} characters`);
-      await this.printHTML(ticketHTML, printerName);
+      await this.printHTML(ticketHTML, printerName, options);
     } catch (error) {
       logger.error('Failed to generate ticket:', error);
       throw error;
@@ -102,18 +121,26 @@ export class JobProcessor {
   /**
    * Print report (laser printer)
    */
-  private async printReport(job: PrintJob, printerName: string): Promise<void> {
+  private async printReport(
+    job: PrintJob,
+    printerName: string,
+    options: { printerTray?: number | null; copies?: number }
+  ): Promise<void> {
     logger.info(`Printing report to ${printerName}`);
 
     // TODO: Generate report PDF
     const reportHTML = this.generateReportHTML(job.data);
-    await this.printHTML(reportHTML, printerName);
+    await this.printHTML(reportHTML, printerName, options);
   }
 
   /**
    * Print HTML to printer (using Electron's print API)
    */
-  private async printHTML(html: string, printerName: string): Promise<void> {
+  private async printHTML(
+    html: string,
+    printerName: string,
+    options?: { printerTray?: number | null; copies?: number }
+  ): Promise<void> {
     return new Promise((resolve, reject) => {
       // Create hidden window for printing
       const printWindow = new BrowserWindow({
@@ -150,7 +177,11 @@ export class JobProcessor {
           logger.info(`PDF generated: ${pdfPath}`);
 
           // Use Mac's lpr command to actually print
-          exec(`lpr -P "${printerName}" "${pdfPath}"`, (error: any, stdout: any, stderr: any) => {
+          const copiesOption = options?.copies && options.copies > 1 ? `-# ${options.copies}` : '';
+          const trayOption = options?.printerTray ? `-o InputSlot=Tray${options.printerTray}` : '';
+          const printCommand = `lpr ${copiesOption} ${trayOption} -P "${printerName}" "${pdfPath}"`;
+
+          exec(printCommand, (error: any, stdout: any, stderr: any) => {
             if (error) {
               logger.error(`Print command failed: ${error.message}`);
               logger.error(`stderr: ${stderr}`);

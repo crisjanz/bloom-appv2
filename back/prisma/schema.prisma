@@ -7,6 +7,1080 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Product {
+  id                       String              @id @default(uuid())
+  name                     String
+  slug                     String              @unique
+  description              String
+  categoryId               String
+  reportingCategoryId      String
+  recipeNotes              String?
+  productType              ProductType         @default(MAIN)
+  inventoryMode            InventoryMode       @default(OWN)
+  visibility               Visibility          @default(BOTH)
+  showOnHomepage           Boolean             @default(false)
+  isActive                 Boolean             @default(true)
+  isTaxable                Boolean             @default(true)
+  createdAt                DateTime            @default(now())
+  updatedAt                DateTime            @updatedAt
+  images                   String[]            @default([])
+  availabilityType         String?             @default("always")
+  holidayPreset            String?
+  availableFrom            DateTime?
+  availableTo              DateTime?
+  notAvailableFrom         DateTime?
+  notAvailableUntil        DateTime?
+  isTemporarilyUnavailable Boolean             @default(false)
+  unavailableUntil         DateTime?
+  unavailableMessage       String?
+  featuredAssetId          String?
+  bundleComponents         BundleItem[]        @relation("BundleParent")
+  includedInBundles        BundleItem[]        @relation("BundleChild")
+  orderItems               OrderItem[]
+  category                 Category            @relation("ProductCategory", fields: [categoryId], references: [id])
+  reportingCategory        ReportingCategory   @relation("ProductReportingCategory", fields: [reportingCategoryId], references: [id])
+  addonGroups              ProductAddOnGroup[]
+  tags                     ProductTag[]
+  variants                 ProductVariant[]
+  eventItems               EventItem[]
+}
+
+model ProductVariant {
+  id               String          @id @default(uuid())
+  productId        String
+  name             String
+  sku              String          @unique
+  price            Int
+  priceDifference  Int?
+  discountPrice    Int?
+  stockLevel       Int?
+  trackInventory   Boolean         @default(true)
+  isDefault        Boolean         @default(false)
+  isManuallyEdited Boolean         @default(false)
+  featuredImageUrl String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  product          Product         @relation(fields: [productId], references: [id])
+  options          VariantOption[]
+}
+
+model ProductOption {
+  id              String               @id @default(uuid())
+  name            String
+  impactsVariants Boolean              @default(true)
+  optionType      String?
+  values          ProductOptionValue[]
+}
+
+model ProductOptionValue {
+  id              String          @id @default(uuid())
+  label           String
+  optionId        String
+  sortOrder       Int             @default(0)
+  priceAdjustment Int?            @default(0)
+  option          ProductOption   @relation(fields: [optionId], references: [id])
+  variants        VariantOption[]
+}
+
+model VariantOption {
+  id            String             @id @default(uuid())
+  variantId     String
+  optionValueId String
+  optionValue   ProductOptionValue @relation(fields: [optionValueId], references: [id])
+  variant       ProductVariant     @relation(fields: [variantId], references: [id])
+}
+
+model BundleItem {
+  id                 String  @id @default(uuid())
+  bundleProductId    String
+  componentProductId String
+  quantity           Int
+  bundleProduct      Product @relation("BundleParent", fields: [bundleProductId], references: [id])
+  componentProduct   Product @relation("BundleChild", fields: [componentProductId], references: [id])
+}
+
+model AddOnGroup {
+  id        String              @id @default(uuid())
+  name      String
+  isDefault Boolean             @default(false)
+  addOns    AddOnProduct[]
+  products  ProductAddOnGroup[] @relation("ProductToAddOnGroup")
+}
+
+model AddOnProduct {
+  id             String     @id @default(uuid())
+  addonProductId String
+  groupId        String
+  group          AddOnGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([addonProductId, groupId])
+}
+
+model ProductAddOnGroup {
+  id        String     @id @default(uuid())
+  productId String
+  groupId   String
+  group     AddOnGroup @relation("ProductToAddOnGroup", fields: [groupId], references: [id], onDelete: Cascade)
+  product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, groupId])
+}
+
+model Tag {
+  id       String       @id @default(uuid())
+  name     String       @unique
+  products ProductTag[]
+}
+
+model ProductTag {
+  id        String  @id @default(uuid())
+  productId String
+  tagId     String
+  product   Product @relation(fields: [productId], references: [id])
+  tag       Tag     @relation(fields: [tagId], references: [id])
+}
+
+model Category {
+  id        String     @id @default(uuid())
+  name      String
+  slug      String?    @unique
+  parentId  String?
+  level     Int        @default(1)
+  sortOrder Int        @default(0)
+  isActive  Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @default(now()) @updatedAt
+  parent    Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children  Category[] @relation("CategoryHierarchy")
+  products  Product[]  @relation("ProductCategory")
+
+  @@unique([parentId, name])
+}
+
+model ReportingCategory {
+  id       String    @id @default(uuid())
+  name     String    @unique
+  products Product[] @relation("ProductReportingCategory")
+}
+
+model Customer {
+  id                  String               @id @default(cuid())
+  firstName           String
+  lastName            String
+  email               String?              @unique
+  phone               String?
+  phoneLabel          String?              @default("Mobile")
+  phoneNumbers        Json                 @default("[]")
+  notes               String?
+  homeAddressId       String?              @unique
+  password            String?
+  isRegistered        Boolean              @default(false)
+  lastLogin           DateTime?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  addresses           Address[]            @relation("MyAddresses")
+  homeAddress         Address?             @relation("HomeAddress", fields: [homeAddressId], references: [id])
+  ordersAsBuyer       Order[]              @relation("BuyerOrders")
+  ordersAsRecipient   Order[]              @relation("RecipientOrders")
+  savedBySenders      CustomerRecipient[]  @relation("Recipients")
+  savedRecipients     CustomerRecipient[]  @relation("Senders")
+  events              Event[]
+  paymentTransactions PaymentTransaction[]
+  providerCustomers   ProviderCustomer[]
+
+  @@index([phone])
+  @@index([firstName, lastName])
+}
+
+model CustomerRecipient {
+  id          String   @id @default(cuid())
+  senderId    String
+  recipientId String
+  createdAt   DateTime @default(now())
+  recipient   Customer @relation("Recipients", fields: [recipientId], references: [id])
+  sender      Customer @relation("Senders", fields: [senderId], references: [id])
+
+  @@unique([senderId, recipientId])
+  @@index([senderId])
+  @@index([recipientId])
+  @@map("customer_recipients")
+}
+
+model Address {
+  id                  String       @id @default(cuid())
+  label               String?
+  firstName           String?
+  lastName            String?
+  address1            String
+  address2            String?
+  city                String
+  province            String
+  postalCode          String
+  country             String       @default("CA")
+  phone               String?
+  company             String?      @db.VarChar(255)
+  addressType         AddressType? @default(RESIDENCE)
+  customerId          String?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @default(now()) @updatedAt
+  customer            Customer?    @relation("MyAddresses", fields: [customerId], references: [id])
+  homeOf              Customer?    @relation("HomeAddress")
+  ordersDeliveredHere Order[]      @relation("DeliveryAddress")
+
+  @@index([country])
+  @@index([customerId])
+}
+
+model Order {
+  id                  String               @id @default(cuid())
+  orderNumber         Int                  @unique @default(autoincrement())
+  type                OrderType
+  status              OrderStatus          @default(DRAFT)
+  orderSource         OrderSource          @default(PHONE)
+  externalSource      OrderExternalSource?
+  externalReference   String?              @unique
+  importedPayload     Json?
+  externalStatus      String?
+  needsExternalUpdate Boolean              @default(false)
+  images              String[]             @default([])
+  customerId          String?
+  recipientCustomerId String?
+  deliveryAddressId   String?
+  employeeId          String?
+  cardMessage         String?
+  specialInstructions String?
+  occasion            String?
+  deliveryDate        DateTime?
+  deliveryTime        String?
+  deliveryFee         Int                  @default(0)
+  discount            Int                  @default(0)
+  couponCode          String?
+  couponId            String?
+  discountId          String?
+  discountCode        String?
+  discountBreakdown   Json                 @default("[]")
+  taxBreakdown        Json                 @default("[]")
+  totalTax            Int                  @default(0)
+  gst                 Int                  @default(0)
+  pst                 Int                  @default(0)
+  paymentAmount       Int                  @default(0)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  recipientId         String?
+  recipientName       String?
+  wireoutServiceFee   Int?
+  wireoutServiceName  String?
+  coupon              Coupon?              @relation(fields: [couponId], references: [id])
+  customer            Customer?            @relation("BuyerOrders", fields: [customerId], references: [id])
+  deliveryAddress     Address?             @relation("DeliveryAddress", fields: [deliveryAddressId], references: [id])
+  appliedDiscount     Discount?            @relation(fields: [discountId], references: [id])
+  employee            Employee?            @relation("EmployeeOrders", fields: [employeeId], references: [id])
+  recipientCustomer   Customer?            @relation("RecipientOrders", fields: [recipientCustomerId], references: [id])
+  orderItems          OrderItem[]
+  printJobs           PrintJob[]
+  routeStop           RouteStop?           @relation("RouteStopOrder")
+  communications      OrderCommunication[]
+  orderPayments       OrderPayment[]
+  orderRefunds        OrderRefund[]
+
+  @@index([createdAt])
+  @@index([status])
+  @@index([orderSource])
+  @@index([externalSource])
+}
+
+model Route {
+  id          String      @id @default(uuid())
+  routeNumber Int         @unique @default(autoincrement())
+  name        String?
+  date        DateTime
+  driverId    String?
+  status      RouteStatus @default(PLANNED)
+  startedAt   DateTime?
+  completedAt DateTime?
+  notes       String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  driver      Employee?   @relation("DriverRoutes", fields: [driverId], references: [id])
+  stops       RouteStop[]
+
+  @@index([date])
+  @@index([driverId])
+  @@index([status])
+}
+
+model RouteStop {
+  id            String     @id @default(uuid())
+  routeId       String
+  orderId       String     @unique
+  sequence      Int
+  status        StopStatus @default(PENDING)
+  arrivedAt     DateTime?
+  deliveredAt   DateTime?
+  driverNotes   String?
+  signatureUrl  String?
+  photoUrl      String?
+  recipientName String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  order         Order      @relation("RouteStopOrder", fields: [orderId], references: [id])
+  route         Route      @relation(fields: [routeId], references: [id], onDelete: Cascade)
+
+  @@unique([routeId, sequence])
+  @@index([routeId])
+  @@index([orderId])
+}
+
+model OrderItem {
+  id          String   @id @default(cuid())
+  orderId     String
+  productId   String?
+  customName  String?
+  unitPrice   Int
+  quantity    Int
+  rowTotal    Int
+  description String?
+  order       Order    @relation(fields: [orderId], references: [id])
+  product     Product? @relation(fields: [productId], references: [id])
+}
+
+model OrderCommunication {
+  id           String            @id @default(uuid())
+  orderId      String
+  employeeId   String?
+  type         CommunicationType
+  status       String?
+  quickActions String[]          @default([])
+  message      String
+  recipient    String?
+  subject      String?
+  isAutomatic  Boolean           @default(false)
+  sentVia      String?
+  createdAt    DateTime          @default(now())
+  employee     Employee?         @relation(fields: [employeeId], references: [id])
+  order        Order             @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+  @@index([createdAt])
+  @@map("order_communications")
+}
+
+model Coupon {
+  id                   String        @id @default(uuid())
+  code                 String        @unique
+  name                 String
+  description          String?
+  discountType         String
+  value                Int
+  usageLimit           Int?
+  usageCount           Int           @default(0)
+  perCustomerLimit     Int?
+  startDate            DateTime?
+  endDate              DateTime?
+  minimumOrder         Int?
+  applicableProducts   String[]      @default([])
+  applicableCategories String[]      @default([])
+  posOnly              Boolean       @default(false)
+  webOnly              Boolean       @default(false)
+  enabled              Boolean       @default(true)
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  usages               CouponUsage[]
+  orders               Order[]
+}
+
+model CouponUsage {
+  id         String   @id @default(uuid())
+  couponId   String
+  customerId String?
+  orderId    String?
+  employeeId String?
+  source     String
+  usedAt     DateTime @default(now())
+  coupon     Coupon   @relation(fields: [couponId], references: [id])
+}
+
+model Discount {
+  id                   String          @id @default(uuid())
+  code                 String?         @unique
+  name                 String
+  description          String?
+  discountType         DiscountType
+  triggerType          TriggerType
+  value                Int
+  applicableProducts   String[]        @default([])
+  applicableCategories String[]        @default([])
+  minimumQuantity      Int?
+  maximumQuantity      Int?
+  minimumOrder         Int?
+  buyXGetYFree         Json?
+  autoApply            Boolean         @default(false)
+  priority             Int             @default(1)
+  stackable            Boolean         @default(false)
+  usageLimit           Int?
+  usageCount           Int             @default(0)
+  perCustomerLimit     Int?
+  startDate            DateTime?
+  endDate              DateTime?
+  posOnly              Boolean         @default(false)
+  webOnly              Boolean         @default(false)
+  enabled              Boolean         @default(true)
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  usages               DiscountUsage[]
+  orders               Order[]
+
+  @@index([discountType])
+  @@index([triggerType])
+  @@index([enabled])
+  @@index([startDate, endDate])
+}
+
+model DiscountUsage {
+  id           String   @id @default(uuid())
+  discountId   String
+  customerId   String?
+  orderId      String?
+  employeeId   String?
+  source       String
+  appliedValue Int
+  usedAt       DateTime @default(now())
+  discount     Discount @relation(fields: [discountId], references: [id])
+}
+
+model AddressShortcut {
+  type         ShortcutType
+  id           String       @id @default(cuid())
+  label        String
+  address1     String
+  address2     String?
+  city         String
+  province     String
+  postalCode   String
+  country      String       @default("CA")
+  phoneNumbers String[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @default(now()) @updatedAt
+
+  @@index([country])
+  @@index([type])
+}
+
+model Employee {
+  id                  String               @id @default(cuid())
+  name                String
+  email               String?              @unique
+  phone               String?
+  type                EmployeeType         @default(CASHIER)
+  isActive            Boolean              @default(true)
+  password            String?
+  lastLogin           DateTime?
+  failedLoginAttempts Int                  @default(0)
+  accountLockedUntil  DateTime?
+  orders              Order[]              @relation("EmployeeOrders")
+  routes              Route[]              @relation("DriverRoutes")
+  eventPayments       EventPayment[]
+  events              Event[]
+  communications      OrderCommunication[]
+  paymentTransactions PaymentTransaction[] @relation("EmployeeTransactions")
+  refunds             Refund[]             @relation("EmployeeRefunds")
+}
+
+model MessageSuggestion {
+  id      String @id @default(cuid())
+  label   String
+  message String
+}
+
+model PaymentSettings {
+  id                  String              @id @default(cuid())
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  defaultCardProvider PaymentProvider?
+  stripeEnabled       Boolean             @default(false)
+  stripeMode          PaymentProviderMode @default(TERMINAL)
+  stripePublicKey     String?
+  stripeSecretKey     String?
+  stripeTerminalId    String?
+  stripeAccountId     String?
+  squareEnabled       Boolean             @default(false)
+  squareMode          PaymentProviderMode @default(TERMINAL)
+  squareAppId         String?
+  squareAccessToken   String?
+  squareLocationId    String?
+  squareTerminalId    String?
+  paypalEnabled       Boolean             @default(false)
+  paypalEnvironment   String?
+  paypalClientId      String?
+  paypalClientSecret  String?
+  allowSplitPayments  Boolean             @default(true)
+  allowOfflineNotes   Boolean             @default(true)
+  codEnabled          Boolean             @default(false)
+  houseAccountEnabled Boolean             @default(false)
+  checkEnabled        Boolean             @default(false)
+
+  @@map("payment_settings")
+}
+
+model OfflinePaymentMethod {
+  id                  String          @id @default(cuid())
+  name                String
+  code                String          @unique
+  description         String?
+  instructions        String?
+  isActive            Boolean         @default(true)
+  visibleOnPos        Boolean         @default(true)
+  visibleOnTakeOrder  Boolean         @default(true)
+  requiresReference   Boolean         @default(false)
+  allowChangeTracking Boolean         @default(false)
+  sortOrder           Int             @default(0)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  paymentMethods      PaymentMethod[]
+
+  @@map("offline_payment_methods")
+}
+
+model StoreSettings {
+  id        String   @id @default(cuid())
+  storeName String
+  phone     String
+  email     String
+  address   String
+  city      String
+  state     String
+  zipCode   String
+  country   String   @default("CA")
+  taxId     String?
+  currency  String   @default("CAD")
+  timezone  String   @default("America/Vancouver")
+  logoUrl   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("store_settings")
+}
+
+model BusinessHoursSettings {
+  id               String   @id @default(cuid())
+  timezone         String   @default("America/Vancouver")
+  mondayOpen       String?
+  mondayClose      String?
+  mondayEnabled    Boolean  @default(true)
+  tuesdayOpen      String?
+  tuesdayClose     String?
+  tuesdayEnabled   Boolean  @default(true)
+  wednesdayOpen    String?
+  wednesdayClose   String?
+  wednesdayEnabled Boolean  @default(true)
+  thursdayOpen     String?
+  thursdayClose    String?
+  thursdayEnabled  Boolean  @default(true)
+  fridayOpen       String?
+  fridayClose      String?
+  fridayEnabled    Boolean  @default(true)
+  saturdayOpen     String?
+  saturdayClose    String?
+  saturdayEnabled  Boolean  @default(true)
+  sundayOpen       String?
+  sundayClose      String?
+  sundayEnabled    Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("business_hours_settings")
+}
+
+model DeliveryExceptions {
+  id         String   @id @default(cuid())
+  exceptions Json[]
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("delivery_exceptions")
+}
+
+model Holiday {
+  id          String   @id @default(cuid())
+  name        String
+  startDate   String
+  endDate     String
+  isOpen      Boolean  @default(false)
+  openTime    String?
+  closeTime   String?
+  isRecurring Boolean  @default(false)
+  color       String   @default("red")
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("holidays")
+}
+
+model DeliveryZone {
+  id          String   @id @default(cuid())
+  name        String
+  minDistance Float
+  maxDistance Float?
+  fee         Int
+  enabled     Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("delivery_zones")
+}
+
+model DeliverySettings {
+  id                  String   @id @default(cuid())
+  storeAddress        String
+  storePostalCode     String?
+  storeLatitude       Float?
+  storeLongitude      Float?
+  deliveryMode        String   @default("DISTANCE")
+  freeDeliveryMinimum Int?
+  maxDeliveryRadius   Float?
+  enabled             Boolean  @default(true)
+  businessHoursOnly   Boolean  @default(true)
+  advanceOrderHours   Int      @default(2)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@map("delivery_settings")
+}
+
+model DeliveryPostalZone {
+  id          String   @id @default(cuid())
+  name        String
+  postalCodes String[]
+  fee         Int
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("delivery_postal_zones")
+}
+
+model DeliveryRegionZone {
+  id        String   @id @default(cuid())
+  name      String
+  cities    String[]
+  provinces String[]
+  fee       Int
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("delivery_region_zones")
+}
+
+model GiftCard {
+  id             String                @id @default(uuid())
+  cardNumber     String                @unique
+  type           String
+  initialValue   Int                   @default(0)
+  currentBalance Int                   @default(0)
+  purchasedBy    String?
+  recipientEmail String?
+  recipientName  String?
+  message        String?
+  status         String                @default("INACTIVE")
+  expirationDate DateTime?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  transactions   GiftCardTransaction[]
+}
+
+model GiftCardTransaction {
+  id           String   @id @default(uuid())
+  giftCardId   String
+  orderId      String?
+  type         String
+  amount       Int
+  balanceAfter Int
+  notes        String?
+  employeeId   String?
+  createdAt    DateTime @default(now())
+  giftCard     GiftCard @relation(fields: [giftCardId], references: [id])
+}
+
+model POSSettings {
+  id        String   @id @default(cuid())
+  tabs      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("pos_settings")
+}
+
+model OperationsSettings {
+  id                 String   @id @default(cuid())
+  wireoutServiceFee  Int      @default(1500)
+  wireoutServiceName String   @default("FTD")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("operations_settings")
+}
+
+model PrintSettings {
+  id        String   @id @default(cuid())
+  storeId   String?  @unique
+
+  // Receipts (Thermal/POS - in-person sales)
+  receiptsEnabled     Boolean @default(true)
+  receiptsDestination String  @default("browser")
+  receiptsCopies      Int     @default(1)
+  receiptsPrinterName String?
+  receiptsPrinterTray Int?
+
+  // Order Tickets (Delivery tags - flower orders)
+  ticketsEnabled     Boolean @default(true)
+  ticketsDestination String  @default("electron-agent")
+  ticketsPrinterName String?
+  ticketsPrinterTray Int?    @default(1)
+
+  // Documents (Invoices + Reports - general printing)
+  documentsEnabled     Boolean @default(true)
+  documentsDestination String  @default("browser")
+  documentsPrinterName String?
+  documentsPrinterTray Int?    @default(2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("print_settings")
+}
+
+model TransactionCounter {
+  id           String @id @default(cuid())
+  currentValue Int    @default(0)
+  prefix       String @default("PT")
+
+  @@map("transaction_counter")
+}
+
+model PaymentTransaction {
+  id                String                   @id @default(uuid())
+  transactionNumber String                   @unique
+  status            PaymentTransactionStatus @default(PENDING)
+  channel           PaymentChannel
+  totalAmount       Int                      @default(0)
+  taxAmount         Int                      @default(0)
+  tipAmount         Int                      @default(0)
+  customerId        String
+  employeeId        String?
+  notes             String?
+  receiptSent       Boolean                  @default(false)
+  receiptEmail      String?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+  completedAt       DateTime?
+  orderPayments     OrderPayment[]
+  paymentMethods    PaymentMethod[]
+  customer          Customer                 @relation(fields: [customerId], references: [id])
+  employee          Employee?                @relation("EmployeeTransactions", fields: [employeeId], references: [id])
+  refunds           Refund[]
+
+  @@index([createdAt])
+  @@index([status])
+  @@index([customerId])
+  @@map("payment_transactions")
+}
+
+model PaymentMethod {
+  id                    String                @id @default(uuid())
+  transactionId         String
+  type                  PaymentMethodType
+  provider              PaymentProvider
+  amount                Int
+  offlineMethodId       String?
+  providerTransactionId String?
+  providerMetadata      Json?
+  cardLast4             String?
+  cardBrand             String?
+  giftCardNumber        String?
+  checkNumber           String?
+  status                String                @default("completed")
+  processedAt           DateTime              @default(now())
+  paymentSource         String?               @default("MANUAL")
+  isCardPresent         Boolean               @default(false)
+  offlineMethod         OfflinePaymentMethod? @relation(fields: [offlineMethodId], references: [id])
+  transaction           PaymentTransaction    @relation(fields: [transactionId], references: [id])
+
+  @@map("payment_methods")
+}
+
+model OrderPayment {
+  id            String             @id @default(uuid())
+  transactionId String
+  orderId       String
+  amount        Int
+  order         Order              @relation(fields: [orderId], references: [id])
+  transaction   PaymentTransaction @relation(fields: [transactionId], references: [id])
+
+  @@map("order_payments")
+}
+
+model Refund {
+  id                  String             @id @default(uuid())
+  transactionId       String
+  refundNumber        String             @unique
+  amount              Int
+  reason              String?
+  employeeId          String?
+  processedAt         DateTime           @default(now())
+  refundType          String             @default("FULL")
+  itemBreakdown       Json?
+  taxRefunded         Int                @default(0)
+  deliveryFeeRefunded Int                @default(0)
+  orderRefunds        OrderRefund[]
+  refundMethods       RefundMethod[]
+  employee            Employee?          @relation("EmployeeRefunds", fields: [employeeId], references: [id])
+  transaction         PaymentTransaction @relation(fields: [transactionId], references: [id])
+
+  @@map("refunds")
+}
+
+model RefundMethod {
+  id                String            @id @default(uuid())
+  refundId          String
+  paymentMethodType PaymentMethodType
+  provider          PaymentProvider
+  amount            Int
+  providerRefundId  String?
+  status            String            @default("completed")
+  refund            Refund            @relation(fields: [refundId], references: [id])
+
+  @@map("refund_methods")
+}
+
+model OrderRefund {
+  id       String @id @default(uuid())
+  refundId String
+  orderId  String
+  amount   Int
+  order    Order  @relation(fields: [orderId], references: [id])
+  refund   Refund @relation(fields: [refundId], references: [id])
+
+  @@map("order_refunds")
+}
+
+model ExternalProvider {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  code      String   @unique
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("external_providers")
+}
+
+model TaxRate {
+  id          String   @id @default(cuid())
+  name        String
+  rate        Float
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(1)
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  @@index([isActive])
+  @@index([sortOrder])
+  @@map("tax_rates")
+}
+
+model NotificationSettings {
+  id        String   @id @default(cuid())
+  type      String   @unique
+  settings  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("notification_settings")
+}
+
+model ProviderCustomer {
+  id                 String          @id @default(uuid())
+  customerId         String
+  provider           PaymentProvider
+  providerCustomerId String
+  providerEmail      String?
+  providerMetadata   Json?
+  isActive           Boolean         @default(true)
+  lastSyncAt         DateTime?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  isPrimary          Boolean         @default(false)
+  customer           Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerCustomerId])
+  @@index([customerId])
+  @@index([customerId, provider])
+  @@index([provider, providerCustomerId])
+  @@map("provider_customers")
+}
+
+model Event {
+  id                String         @id @default(uuid())
+  eventNumber       Int            @unique @default(autoincrement())
+  eventType         EventType
+  eventName         String
+  description       String?
+  customerId        String
+  eventDate         DateTime
+  setupDate         DateTime?
+  setupTime         String?
+  venue             String
+  venueAddress      String?
+  contactPerson     String?
+  contactPhone      String?
+  estimatedGuests   Int?
+  serviceType       String?
+  status            EventStatus    @default(INQUIRY)
+  quotedAmount      Int?
+  finalAmount       Int?
+  employeeId        String?
+  designNotes       String?
+  setupNotes        String?
+  internalNotes     String?
+  customerNotes     String?
+  lastContactDate   DateTime?
+  quoteEmailSent    Boolean        @default(false)
+  quoteEmailDate    DateTime?
+  inspirationPhotos String[]       @default([])
+  quotePhotos       String[]       @default([])
+  finalPhotos       String[]       @default([])
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  completedAt       DateTime?
+  items             EventItem[]
+  payments          EventPayment[]
+  customer          Customer       @relation(fields: [customerId], references: [id])
+  employee          Employee?      @relation(fields: [employeeId], references: [id])
+
+  @@index([eventType])
+  @@index([status])
+  @@index([eventDate])
+  @@index([customerId])
+  @@map("events")
+}
+
+model EventItem {
+  id              String    @id @default(uuid())
+  eventId         String
+  category        String
+  description     String
+  quantity        Int       @default(1)
+  unitPrice       Int
+  totalPrice      Int
+  productionNotes String?
+  isCompleted     Boolean   @default(false)
+  completedAt     DateTime?
+  productId       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  event           Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  product         Product?  @relation(fields: [productId], references: [id])
+
+  @@map("event_items")
+}
+
+model EventPayment {
+  id           String             @id @default(uuid())
+  eventId      String
+  amount       Int
+  paymentType  EventPaymentType
+  status       EventPaymentStatus @default(PENDING)
+  description  String?
+  reference    String?
+  notes        String?
+  employeeId   String?
+  dueDate      DateTime?
+  receivedDate DateTime?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  employee     Employee?          @relation(fields: [employeeId], references: [id])
+  event        Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@index([status])
+  @@map("event_payments")
+}
+
+model PrintJob {
+  id           String         @id @default(cuid())
+  type         PrintJobType
+  status       PrintJobStatus @default(PENDING)
+  agentType    String?
+  printerName  String?
+  printerTray  Int?
+  copies       Int            @default(1)
+  orderId      String?
+  data         Json
+  template     String
+  priority     Int            @default(0)
+  agentId      String?
+  errorMessage String?
+  createdAt    DateTime       @default(now())
+  printedAt    DateTime?
+  updatedAt    DateTime       @updatedAt
+  order        Order?         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([orderId])
+  @@index([agentId])
+}
+
+model FAQ {
+  id        String   @id @default(cuid())
+  question  String
+  answer    String
+  position  Int      @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model HomepageSettings {
+  id                 String   @id @default(cuid())
+  announcementBanner Json
+  updatedAt          DateTime @updatedAt
+}
+
+model ShopProfile {
+  id                 String   @id @default(cuid())
+  googleGeminiApiKey String?
+  settings           Json?    @default("{}")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  googleMapsApiKey   String?
+
+  @@map("shop_profile")
+}
+
+model WireProductLibrary {
+  id          String    @id @default(cuid())
+  productCode String    @unique
+  productName String?
+  description String?
+  imageUrl    String?
+  source      String?
+  externalUrl String?
+  timesUsed   Int       @default(0)
+  lastUsedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([productCode])
+  @@index([source])
+}
+
 enum ProductType {
   MAIN
   ADDON
@@ -73,19 +1147,19 @@ enum PrintJobStatus {
 }
 
 enum RouteStatus {
-  PLANNED // Route created but not started
-  IN_PROGRESS // Driver has started deliveries
-  COMPLETED // All stops delivered
-  CANCELLED // Route cancelled
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
 }
 
 enum StopStatus {
-  PENDING // Not yet visited
-  EN_ROUTE // Driver heading there
-  ARRIVED // Driver at location
-  DELIVERED // Successfully delivered
-  ATTEMPTED // Delivery attempted but failed
-  SKIPPED // Skipped
+  PENDING
+  EN_ROUTE
+  ARRIVED
+  DELIVERED
+  ATTEMPTED
+  SKIPPED
 }
 
 enum EmployeeType {
@@ -120,901 +1194,24 @@ enum CommunicationType {
   NOTE
 }
 
-model Product {
-  id                  String        @id @default(uuid())
-  name                String
-  slug                String        @unique
-  description         String
-  categoryId          String
-  reportingCategoryId String
-  recipeNotes         String?
-  productType         ProductType   @default(MAIN)
-  inventoryMode       InventoryMode @default(OWN)
-  visibility          Visibility    @default(BOTH)
-  showOnHomepage      Boolean       @default(false)
-  isActive            Boolean       @default(true)
-  isTaxable           Boolean       @default(true)
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
-  images              String[]      @default([])
-
-  // New Availability Fields
-  availabilityType         String?   @default("always")
-  holidayPreset            String?
-  availableFrom            DateTime?
-  availableTo              DateTime?
-  notAvailableFrom         DateTime?
-  notAvailableUntil        DateTime?
-  isTemporarilyUnavailable Boolean   @default(false)
-  unavailableUntil         DateTime?
-  unavailableMessage       String?
-
-  category          Category          @relation("ProductCategory", fields: [categoryId], references: [id])
-  reportingCategory ReportingCategory @relation("ProductReportingCategory", fields: [reportingCategoryId], references: [id])
-
-  featuredAssetId   String?
-  variants          ProductVariant[]
-  tags              ProductTag[]
-  addonGroups       ProductAddOnGroup[]
-  bundleComponents  BundleItem[]        @relation("BundleParent")
-  includedInBundles BundleItem[]        @relation("BundleChild")
-  orderItems        OrderItem[]
-  eventItems        EventItem[] // Wedding/event items can reference products
-}
-
-model ProductVariant {
-  id               String   @id @default(uuid())
-  productId        String
-  name             String
-  sku              String   @unique
-  price            Int // For default variant, this IS the base price. For others, calculated: base + priceDifference
-  priceDifference  Int? // Price adjustment from base (in cents). NULL for default variant
-  discountPrice    Int?
-  stockLevel       Int?
-  trackInventory   Boolean  @default(true)
-  isDefault        Boolean  @default(false)
-  isManuallyEdited Boolean  @default(false) // TRUE if price was manually edited after generation
-  featuredImageUrl String? // URL of the product image representing this variant
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  product Product         @relation(fields: [productId], references: [id])
-  options VariantOption[]
-}
-
-model ProductOption {
-  id              String               @id @default(uuid())
-  name            String
-  impactsVariants Boolean              @default(true)
-  optionType      String? // 'PRICING_TIER' for pricing, null for customization
-  values          ProductOptionValue[]
-}
-
-model ProductOptionValue {
-  id              String @id @default(uuid())
-  label           String
-  optionId        String
-  sortOrder       Int    @default(0)
-  priceAdjustment Int?   @default(0) // Price adjustment in cents (e.g., +500 for +$5.00)
-
-  option   ProductOption   @relation(fields: [optionId], references: [id])
-  variants VariantOption[]
-}
-
-model VariantOption {
-  id            String @id @default(uuid())
-  variantId     String
-  optionValueId String
-
-  variant     ProductVariant     @relation(fields: [variantId], references: [id])
-  optionValue ProductOptionValue @relation(fields: [optionValueId], references: [id])
-}
-
-model BundleItem {
-  id                 String @id @default(uuid())
-  bundleProductId    String
-  componentProductId String
-  quantity           Int
-
-  bundleProduct    Product @relation("BundleParent", fields: [bundleProductId], references: [id])
-  componentProduct Product @relation("BundleChild", fields: [componentProductId], references: [id])
-}
-
-model AddOnGroup {
-  id        String              @id @default(uuid())
-  name      String
-  isDefault Boolean             @default(false)
-  addOns    AddOnProduct[]
-  products  ProductAddOnGroup[] @relation("ProductToAddOnGroup")
-}
-
-model AddOnProduct {
-  id             String @id @default(uuid())
-  addonProductId String
-  groupId        String
-
-  group AddOnGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
-
-  @@unique([addonProductId, groupId])
-}
-
-model ProductAddOnGroup {
-  id        String @id @default(uuid())
-  productId String
-  groupId   String
-
-  product Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
-  group   AddOnGroup @relation("ProductToAddOnGroup", fields: [groupId], references: [id], onDelete: Cascade)
-
-  @@unique([productId, groupId])
-}
-
-model Tag {
-  id       String       @id @default(uuid())
-  name     String       @unique
-  products ProductTag[]
-}
-
-model ProductTag {
-  id        String @id @default(uuid())
-  productId String
-  tagId     String
-
-  product Product @relation(fields: [productId], references: [id])
-  tag     Tag     @relation(fields: [tagId], references: [id])
-}
-
-model Category {
-  id        String  @id @default(uuid())
-  name      String
-  slug      String? @unique // Make optional for now
-  parentId  String?
-  level     Int     @default(1) // 1=top level, 2=sub, 3=sub-sub (max 3 levels)
-  sortOrder Int     @default(0)
-  isActive  Boolean @default(true)
-
-  // Self-referencing relationship for hierarchy
-  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
-  children Category[] @relation("CategoryHierarchy")
-
-  // Products can be assigned to any level
-  products Product[] @relation("ProductCategory")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt // Default to now for existing rows
-
-  @@unique([parentId, name]) // Unique name within same parent
-}
-
-model ReportingCategory {
-  id       String    @id @default(uuid())
-  name     String    @unique
-  products Product[] @relation("ProductReportingCategory")
-}
-
-model Customer {
-  id            String    @id @default(cuid())
-  firstName     String
-  lastName      String
-  email         String?   @unique
-  phone         String? // Primary phone - used for matching/merging customers
-  phoneLabel    String?   @default("Mobile") // Label for primary phone (Mobile, Home, Work, etc.)
-  phoneNumbers  Json      @default("[]") // Additional phones: [{phone: string, label: string}]
-  notes         String?
-  homeAddress   Address?  @relation("HomeAddress", fields: [homeAddressId], references: [id])
-  homeAddressId String?   @unique
-  addresses     Address[] @relation("MyAddresses")
-  password      String?
-  isRegistered  Boolean   @default(false)
-  lastLogin     DateTime?
-
-  // Order relationships
-  ordersAsBuyer     Order[] @relation("BuyerOrders")
-  ordersAsRecipient Order[] @relation("RecipientOrders")
-
-  // Recipient relationships
-  savedRecipients CustomerRecipient[] @relation("Senders")
-  savedBySenders  CustomerRecipient[] @relation("Recipients")
-
-  paymentTransactions PaymentTransaction[]
-  providerCustomers   ProviderCustomer[]
-  events              Event[] // Wedding/event manager
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([phone]) // Speed up duplicate detection by phone
-  @@index([firstName, lastName]) // Speed up duplicate detection by name
-}
-
-// Junction table for Customer-to-Customer recipient relationships
-model CustomerRecipient {
-  id          String @id @default(cuid())
-  senderId    String
-  recipientId String
-
-  sender    Customer @relation("Senders", fields: [senderId], references: [id])
-  recipient Customer @relation("Recipients", fields: [recipientId], references: [id])
-
-  createdAt DateTime @default(now())
-
-  @@unique([senderId, recipientId])
-  @@index([senderId])
-  @@index([recipientId])
-  @@map("customer_recipients")
-}
-
-// 🌍 Updated Address model for international support
-model Address {
-  id          String       @id @default(cuid())
-  label       String? // "Home", "Office", "Mom's House", etc.
-  firstName   String? // Nullable - auto-populated from Customer for legacy/historical data
-  lastName    String? // Nullable - auto-populated from Customer for legacy/historical data
-  address1    String
-  address2    String?
-  city        String
-  province    String // Now supports state/province/region worldwide
-  postalCode  String // Now supports postal codes/zip codes worldwide
-  country     String       @default("CA") // ISO country code (CA, US, GB, etc.)
-  phone       String?
-  company     String?      @db.VarChar(255)
-  addressType AddressType? @default(RESIDENCE) // Type of delivery location
-
-  customer   Customer? @relation("MyAddresses", fields: [customerId], references: [id])
-  customerId String?
-
-  homeOf              Customer? @relation("HomeAddress")
-  ordersDeliveredHere Order[]   @relation("DeliveryAddress")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt // Add @default(now()) here
-
-  @@index([country])
-  @@index([customerId])
-}
-
-model Order {
-  id                  String               @id @default(cuid())
-  orderNumber         Int                  @unique @default(autoincrement())
-  type                OrderType
-  status              OrderStatus          @default(DRAFT)
-  orderSource         OrderSource          @default(PHONE)
-  externalSource      OrderExternalSource?
-  externalReference   String?              @unique
-  importedPayload     Json?
-  externalStatus      String?
-  needsExternalUpdate Boolean              @default(false)
-  images              String[]             @default([])
-
-  customer   Customer? @relation("BuyerOrders", fields: [customerId], references: [id])
-  customerId String?
-
-  // Recipient as Customer (customer-to-customer relationships)
-  recipientCustomer   Customer? @relation("RecipientOrders", fields: [recipientCustomerId], references: [id])
-  recipientCustomerId String?
-  recipientId         String? // Legacy snapshot of recipient customer id (kept for backwards compatibility)
-  recipientName       String? // Display name for orders without full customer (e.g., DoorDash "David J.")
-
-  // Delivery address from recipient's addresses
-  deliveryAddress   Address? @relation("DeliveryAddress", fields: [deliveryAddressId], references: [id])
-  deliveryAddressId String?
-
-  employee   Employee? @relation("EmployeeOrders", fields: [employeeId], references: [id])
-  employeeId String?
-
-  orderItems OrderItem[]
-
-  cardMessage         String?
-  specialInstructions String?
-  occasion            String?
-
-  deliveryDate DateTime?
-  deliveryTime String?
-
-  deliveryFee Int @default(0) // Stored in cents
-  discount    Int @default(0) // Stored in cents
-
-  // Wireout specific fields
-  wireoutServiceFee  Int?    // Wire service fee in cents (editable per order)
-  wireoutServiceName String? // Wire service partner name (FTD, etc.)
-
-  // Legacy coupon support (during migration)
-  couponCode String?
-  couponId   String?
-  coupon     Coupon? @relation(fields: [couponId], references: [id])
-
-  // New unified discount support
-  discountId        String?
-  discountCode      String?
-  appliedDiscount   Discount? @relation(fields: [discountId], references: [id])
-  discountBreakdown Json      @default("[]") // Array of applied discounts with details
-
-  // Dynamic tax breakdown - supports any number of tax rates
-  taxBreakdown  Json @default("[]") // Array of {name: string, rate: number, amount: number}
-  totalTax      Int  @default(0) // Stored in cents
-  gst           Int  @default(0) // Stored in cents
-  pst           Int  @default(0) // Stored in cents - Sum of all tax amounts
-  paymentAmount Int  @default(0) // Stored in cents
-
-  // Payment transaction links
-  orderPayments OrderPayment[]
-  orderRefunds  OrderRefund[]
-
-  // Communication history
-  communications OrderCommunication[]
-  printJobs      PrintJob[]
-  routeStop      RouteStop?           @relation("RouteStopOrder")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([createdAt])
-  @@index([status])
-  @@index([orderSource])
-  @@index([externalSource])
-}
-
-model Route {
-  id          String   @id @default(uuid())
-  routeNumber Int      @unique @default(autoincrement())
-  name        String?
-  date        DateTime
-
-  driverId String?
-  driver   Employee? @relation("DriverRoutes", fields: [driverId], references: [id], onDelete: SetNull)
-
-  status      RouteStatus @default(PLANNED)
-  startedAt   DateTime?
-  completedAt DateTime?
-
-  notes     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  stops RouteStop[]
-
-  @@index([date])
-  @@index([driverId])
-  @@index([status])
-}
-
-model RouteStop {
-  id      String @id @default(uuid())
-  routeId String
-  route   Route  @relation(fields: [routeId], references: [id], onDelete: Cascade)
-
-  orderId String @unique
-  order   Order  @relation("RouteStopOrder", fields: [orderId], references: [id], onDelete: Restrict)
-
-  sequence Int
-
-  status      StopStatus @default(PENDING)
-  arrivedAt   DateTime?
-  deliveredAt DateTime?
-
-  driverNotes   String?
-  signatureUrl  String?
-  photoUrl      String?
-  recipientName String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([routeId, sequence])
-  @@index([routeId])
-  @@index([orderId])
-}
-
-model OrderItem {
-  id      String @id @default(cuid())
-  order   Order  @relation(fields: [orderId], references: [id])
-  orderId String
-
-  product   Product? @relation(fields: [productId], references: [id])
-  productId String?
-
-  customName  String?
-  description String?
-  unitPrice   Int
-  quantity    Int
-  rowTotal    Int
-}
-
-// CUSTOMER COMMUNICATION TRACKING
-model OrderCommunication {
-  id         String  @id @default(uuid())
-  orderId    String
-  employeeId String? // NULL for automatic system messages
-
-  type         CommunicationType
-  status       String? // For phone calls: ANSWERED, VOICEMAIL, NO_ANSWER, CALLBACK
-  quickActions String[]          @default([]) // Array of selected quick actions
-
-  // Message content
-  message   String // SMS text, call notes, or email content
-  recipient String? // Phone number or email address
-  subject   String? // For emails only
-
-  // Tracking
-  isAutomatic Boolean @default(false) // TRUE for system notifications
-  sentVia     String? // "Twilio", "SendGrid", "Manual"
-
-  createdAt DateTime @default(now())
-
-  order    Order     @relation(fields: [orderId], references: [id])
-  employee Employee? @relation(fields: [employeeId], references: [id])
-
-  @@index([orderId])
-  @@index([createdAt])
-  @@map("order_communications")
-}
-
-// UPDATED COMPREHENSIVE COUPON SYSTEM
-model Coupon {
-  id           String  @id @default(uuid())
-  code         String  @unique
-  name         String // "Spring Sale 20% Off", "Welcome Discount"
-  description  String? // Optional description for admin reference
-  discountType String // "PERCENTAGE", "FIXED_AMOUNT", "FREE_SHIPPING"
-  value        Int // 2000 cents (for 20% or $20) - stored in cents for FIXED_AMOUNT
-
-  // Usage limits
-  usageLimit       Int? // Max total uses (null = unlimited)
-  usageCount       Int  @default(0) // Current usage count
-  perCustomerLimit Int? // Max uses per customer
-
-  // Date restrictions
-  startDate DateTime?
-  endDate   DateTime?
-
-  // Order requirements
-  minimumOrder Int? // Minimum order amount in cents
-
-  // Product/Category restrictions
-  applicableProducts   String[] @default([]) // Product IDs (empty = all products)
-  applicableCategories String[] @default([]) // Category IDs
-
-  // Channel restrictions
-  posOnly Boolean @default(false) // POS-only coupons
-  webOnly Boolean @default(false) // Website-only coupons
-
-  // Status
-  enabled   Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  orders Order[]
-  usages CouponUsage[]
-}
-
-model CouponUsage {
-  id         String   @id @default(uuid())
-  couponId   String
-  customerId String? // Track per-customer usage
-  orderId    String? // Link to actual orders
-  employeeId String? // Who applied it (POS context)
-  source     String // "POS", "WEBSITE"
-  usedAt     DateTime @default(now())
-
-  coupon Coupon @relation(fields: [couponId], references: [id])
-}
-
-// UNIFIED DISCOUNT SYSTEM - Next generation discount engine
 enum DiscountType {
-  FIXED_AMOUNT // $5 OFF
-  PERCENTAGE // 20% OFF  
-  FREE_SHIPPING // Free delivery
-  SALE_PRICE // Product-specific pricing
-  BUY_X_GET_Y_FREE // Buy 2 Get 1 Free
+  FIXED_AMOUNT
+  PERCENTAGE
+  FREE_SHIPPING
+  SALE_PRICE
+  BUY_X_GET_Y_FREE
 }
 
 enum TriggerType {
-  COUPON_CODE // Manual entry required
-  AUTOMATIC_PRODUCT // Auto-apply when product added
-  AUTOMATIC_CATEGORY // Auto-apply for category items
-}
-
-model Discount {
-  id String @id @default(uuid())
-
-  // Core identification
-  code        String? @unique // NULL for automatic discounts
-  name        String // "Spring Sale 20% Off", "Roses Sale Price"
-  description String? // Admin reference description
-
-  // Discount configuration
-  discountType DiscountType // Type of discount to apply
-  triggerType  TriggerType // How discount is triggered
-  value        Int // 2000 cents (for 20% or $20), or sale price amount - stored in cents for FIXED_AMOUNT/SALE_PRICE
-
-  // Product targeting
-  applicableProducts   String[] @default([]) // Product IDs (empty = all products)
-  applicableCategories String[] @default([]) // Category IDs (empty = all categories)
-
-  // Advanced rules
-  minimumQuantity Int? // Buy 3+ for discount
-  maximumQuantity Int? // Only first 5 items get discount
-  minimumOrder    Int? // Minimum order amount required in cents
-  buyXGetYFree    Json? // {buy: 2, get: 1, freeType: "CHEAPEST"}
-
-  // Application behavior
-  autoApply Boolean @default(false) // Automatic vs manual application
-  priority  Int     @default(1) // Conflict resolution order (lower = higher priority)
-  stackable Boolean @default(false) // Can combine with other discounts
-
-  // Usage & validity
-  usageLimit       Int? // Max total uses (null = unlimited)
-  usageCount       Int       @default(0) // Current usage count
-  perCustomerLimit Int? // Max uses per customer
-  startDate        DateTime? // When discount becomes active
-  endDate          DateTime? // When discount expires
-
-  // Channel restrictions
-  posOnly Boolean @default(false) // POS-only discounts
-  webOnly Boolean @default(false) // Website-only discounts
-
-  // Status
-  enabled   Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  orders Order[] // Orders using this discount
-  usages DiscountUsage[]
-
-  @@index([discountType])
-  @@index([triggerType])
-  @@index([enabled])
-  @@index([startDate, endDate])
-}
-
-model DiscountUsage {
-  id           String   @id @default(uuid())
-  discountId   String
-  customerId   String? // Track per-customer usage
-  orderId      String? // Link to actual orders
-  employeeId   String? // Who applied it (POS context)
-  source       String // "POS", "WEBSITE"
-  appliedValue Int // Actual discount amount applied in cents
-  usedAt       DateTime @default(now())
-
-  discount Discount @relation(fields: [discountId], references: [id])
-}
-
-// 🌍 Updated AddressShortcut for international support
-model AddressShortcut {
-  type         ShortcutType
-  id           String       @id @default(cuid())
-  label        String
-  address1     String
-  address2     String?
-  city         String
-  province     String // Now supports state/province/region worldwide
-  postalCode   String // Now supports postal codes/zip codes worldwide
-  country      String       @default("CA") // ISO country code
-  phoneNumbers String[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt // Add @default(now()) here
-
-  @@index([country])
-  @@index([type])
-}
-
-model Employee {
-  id                  String               @id @default(cuid())
-  name                String
-  email               String?              @unique
-  phone               String?
-  type                EmployeeType         @default(CASHIER)
-  isActive            Boolean              @default(true)
-  password            String? // Hashed password for authentication
-  lastLogin           DateTime? // Track login activity
-  failedLoginAttempts Int                  @default(0)
-  accountLockedUntil  DateTime?
-  orders              Order[]              @relation("EmployeeOrders")
-  paymentTransactions PaymentTransaction[] @relation("EmployeeTransactions")
-  refunds             Refund[]             @relation("EmployeeRefunds")
-  events              Event[] // Wedding/event manager
-  eventPayments       EventPayment[] // Event payment tracking
-  communications      OrderCommunication[] // Customer communications
-  routes              Route[]              @relation("DriverRoutes")
-}
-
-model MessageSuggestion {
-  id      String @id @default(cuid())
-  label   String // e.g. "Sympathy", "Birthday"
-  message String
+  COUPON_CODE
+  AUTOMATIC_PRODUCT
+  AUTOMATIC_CATEGORY
 }
 
 enum PaymentProviderMode {
   TERMINAL
   MANUAL
   HYBRID
-}
-
-model PaymentSettings {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  defaultCardProvider PaymentProvider?
-
-  // Stripe Settings
-  stripeEnabled    Boolean             @default(false)
-  stripeMode       PaymentProviderMode @default(TERMINAL)
-  stripePublicKey  String?
-  stripeSecretKey  String? // Encrypted, masked in API responses
-  stripeTerminalId String?
-  stripeAccountId  String?
-
-  // Square Settings
-  squareEnabled     Boolean             @default(false)
-  squareMode        PaymentProviderMode @default(TERMINAL)
-  squareAppId       String?
-  squareAccessToken String? // Encrypted, masked in API responses
-  squareLocationId  String?
-  squareTerminalId  String?
-
-  // PayPal Settings
-  paypalEnabled      Boolean @default(false)
-  paypalEnvironment  String? // "sandbox" | "live"
-  paypalClientId     String?
-  paypalClientSecret String? // Encrypted, masked in API responses
-
-  // Global payment behaviour
-  allowSplitPayments  Boolean @default(true)
-  allowOfflineNotes   Boolean @default(true)
-  codEnabled          Boolean @default(false)
-  houseAccountEnabled Boolean @default(false)
-  checkEnabled        Boolean @default(false)
-
-  @@map("payment_settings")
-}
-
-model OfflinePaymentMethod {
-  id                  String   @id @default(cuid())
-  name                String
-  code                String   @unique
-  description         String?
-  instructions        String?
-  isActive            Boolean  @default(true)
-  visibleOnPos        Boolean  @default(true)
-  visibleOnTakeOrder  Boolean  @default(true)
-  requiresReference   Boolean  @default(false)
-  allowChangeTracking Boolean  @default(false)
-  sortOrder           Int      @default(0)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-
-  paymentMethods PaymentMethod[]
-
-  @@map("offline_payment_methods")
-}
-
-model StoreSettings {
-  id        String   @id @default(cuid())
-  storeName String
-  phone     String
-  email     String
-  address   String
-  city      String
-  state     String
-  zipCode   String
-  country   String   @default("CA")
-  taxId     String?
-  currency  String   @default("CAD")
-  timezone  String   @default("America/Vancouver")
-  logoUrl   String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("store_settings")
-}
-
-model BusinessHoursSettings {
-  id       String @id @default(cuid())
-  timezone String @default("America/Vancouver")
-
-  mondayOpen    String?
-  mondayClose   String?
-  mondayEnabled Boolean @default(true)
-
-  tuesdayOpen    String?
-  tuesdayClose   String?
-  tuesdayEnabled Boolean @default(true)
-
-  wednesdayOpen    String?
-  wednesdayClose   String?
-  wednesdayEnabled Boolean @default(true)
-
-  thursdayOpen    String?
-  thursdayClose   String?
-  thursdayEnabled Boolean @default(true)
-
-  fridayOpen    String?
-  fridayClose   String?
-  fridayEnabled Boolean @default(true)
-
-  saturdayOpen    String?
-  saturdayClose   String?
-  saturdayEnabled Boolean @default(true)
-
-  sundayOpen    String?
-  sundayClose   String?
-  sundayEnabled Boolean @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("business_hours_settings")
-}
-
-model DeliveryExceptions {
-  id         String   @id @default(cuid())
-  exceptions Json[] // Array of {date, noDelivery, noPickup} objects
-  notes      String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  @@map("delivery_exceptions")
-}
-
-model Holiday {
-  id        String  @id @default(cuid())
-  name      String // "Christmas Day", "Mother's Day", "Vacation"
-  startDate String // "2024-12-25" 
-  endDate   String // "2024-12-25" (same for single day, different for ranges)
-  isOpen    Boolean @default(false) // false = closed, true = special hours
-
-  // Special hours (only used if isOpen = true)
-  openTime  String? // "10:00"
-  closeTime String? // "15:00"
-
-  // Metadata
-  isRecurring Boolean @default(false) // For future: annual holidays
-  color       String  @default("red") // "red", "green", "blue" for calendar display
-  notes       String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("holidays")
-}
-
-model DeliveryZone {
-  id          String   @id @default(cuid())
-  name        String // "Downtown", "Suburbs", "Zone 1", etc.
-  minDistance Float // Minimum distance in km
-  maxDistance Float? // Maximum distance in km (null = unlimited)
-  fee         Int // Delivery fee for this zone in cents
-  enabled     Boolean  @default(true)
-  sortOrder   Int      @default(0) // For ordering zones
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@map("delivery_zones")
-}
-
-model DeliverySettings {
-  id              String  @id @default(cuid())
-  // Store Location
-  storeAddress    String // Full address for distance calculations
-  storePostalCode String? // Postal code as fallback
-  storeLatitude   Float? // For precise distance calculations
-  storeLongitude  Float?
-
-  // Delivery Options
-  deliveryMode        String  @default("DISTANCE") // "DISTANCE", "POSTAL_CODE", "REGION"
-  freeDeliveryMinimum Int? // Free delivery over $X in cents
-  maxDeliveryRadius   Float? // Maximum delivery distance in km
-  enabled             Boolean @default(true)
-
-  // Future features
-  businessHoursOnly Boolean @default(true)
-  advanceOrderHours Int     @default(2) // Minimum hours for advance orders
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("delivery_settings")
-}
-
-// Future: For postal code zones
-model DeliveryPostalZone {
-  id          String   @id @default(cuid())
-  name        String // "Downtown Vancouver", "Richmond", etc.
-  postalCodes String[] // Array of postal code prefixes: ["V6B", "V6C", "V6E"]
-  fee         Int // Fee in cents
-  enabled     Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@map("delivery_postal_zones")
-}
-
-// Future: For region-based zones
-model DeliveryRegionZone {
-  id        String   @id @default(cuid())
-  name      String // "Vancouver", "Burnaby", "Richmond"
-  cities    String[] // Array of city names
-  provinces String[] // Array of province codes
-  fee       Int // Fee in cents
-  enabled   Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("delivery_region_zones")
-}
-
-// Add these to your schema.prisma
-
-model GiftCard {
-  id         String @id @default(uuid())
-  cardNumber String @unique // "GC-X7K9-M3R8"
-  type       String // "PHYSICAL", "DIGITAL"
-
-  // Balance tracking
-  initialValue   Int @default(0) // Stored in cents
-  currentBalance Int @default(0) // Stored in cents
-
-  // Card details
-  purchasedBy    String? // Customer who bought it
-  recipientEmail String? // For digital cards
-  recipientName  String?
-  message        String? // Gift message
-
-  // Status
-  status         String    @default("INACTIVE") // "INACTIVE", "ACTIVE", "USED", "EXPIRED", "CANCELLED"
-  expirationDate DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  transactions GiftCardTransaction[]
-}
-
-model GiftCardTransaction {
-  id           String   @id @default(uuid())
-  giftCardId   String
-  orderId      String? // When used for purchase
-  type         String // "PURCHASE", "REDEMPTION", "REFUND", "ACTIVATION"
-  amount       Int // Positive for purchase/refund, negative for redemption - stored in cents
-  balanceAfter Int // Remaining balance after transaction - stored in cents
-  notes        String?
-  employeeId   String? // Who processed the transaction
-  createdAt    DateTime @default(now())
-
-  giftCard GiftCard @relation(fields: [giftCardId], references: [id])
-}
-
-model POSSettings {
-  id        String   @id @default(cuid())
-  tabs      Json // Store tab configuration as JSON
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("pos_settings")
-}
-
-model OperationsSettings {
-  id                  String   @id @default(cuid())
-  wireoutServiceFee   Int      @default(1500) // Wire service fee in cents (default $15.00)
-  wireoutServiceName  String   @default("FTD") // Wire service name (FTD, Teleflora, etc.)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-
-  @@map("operations_settings")
-}
-
-// PT-XXXX TRANSACTION SYSTEM
-model TransactionCounter {
-  id           String @id @default(cuid())
-  currentValue Int    @default(0)
-  prefix       String @default("PT")
-
-  @@map("transaction_counter")
 }
 
 enum PaymentTransactionStatus {
@@ -1036,7 +1233,7 @@ enum PaymentMethodType {
   COD
   HOUSE_ACCOUNT
   OFFLINE
-  EXTERNAL // External provider payment (source in providerMetadata)
+  EXTERNAL
 }
 
 enum PaymentProvider {
@@ -1052,211 +1249,6 @@ enum PaymentChannel {
   WEBSITE
 }
 
-model PaymentTransaction {
-  id                String                   @id @default(uuid())
-  transactionNumber String                   @unique // PT-00001, PT-00002, etc.
-  status            PaymentTransactionStatus @default(PENDING)
-  channel           PaymentChannel
-
-  // Transaction totals
-  totalAmount Int @default(0) // Stored in cents
-  taxAmount   Int @default(0) // Stored in cents
-  tipAmount   Int @default(0) // Stored in cents
-
-  // Customer and employee tracking
-  customerId String
-  employeeId String?
-
-  // Metadata
-  notes        String?
-  receiptSent  Boolean @default(false)
-  receiptEmail String?
-
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  completedAt DateTime?
-
-  // Relations
-  customer       Customer        @relation(fields: [customerId], references: [id])
-  employee       Employee?       @relation("EmployeeTransactions", fields: [employeeId], references: [id])
-  paymentMethods PaymentMethod[]
-  orderPayments  OrderPayment[]
-  refunds        Refund[]
-
-  @@index([createdAt])
-  @@index([status])
-  @@index([customerId])
-  @@map("payment_transactions")
-}
-
-model PaymentMethod {
-  id              String            @id @default(uuid())
-  transactionId   String
-  type            PaymentMethodType
-  provider        PaymentProvider
-  amount          Int // Stored in cents
-  offlineMethodId String?
-
-  paymentSource   String?           @default("MANUAL") // TERMINAL, SAVED_CARD, MANUAL_ENTRY, ONLINE
-  isCardPresent   Boolean           @default(false)
-
-  // Provider-specific data
-  providerTransactionId String? // Stripe payment_intent_id, Square payment_id, etc.
-  providerMetadata      Json? // Provider-specific response data
-
-  // Method-specific details
-  cardLast4      String? // For card payments
-  cardBrand      String? // visa, mastercard, etc.
-  giftCardNumber String? // For gift card payments
-  checkNumber    String? // For check payments
-
-  status      String   @default("completed") // completed, failed, refunded
-  processedAt DateTime @default(now())
-
-  transaction   PaymentTransaction    @relation(fields: [transactionId], references: [id])
-  offlineMethod OfflinePaymentMethod? @relation(fields: [offlineMethodId], references: [id])
-
-  @@map("payment_methods")
-}
-
-model OrderPayment {
-  id            String @id @default(uuid())
-  transactionId String
-  orderId       String
-  amount        Int // How much of this order was paid in this transaction - stored in cents
-
-  transaction PaymentTransaction @relation(fields: [transactionId], references: [id])
-  order       Order              @relation(fields: [orderId], references: [id])
-
-  @@map("order_payments")
-}
-
-model Refund {
-  id            String  @id @default(uuid())
-  transactionId String
-  refundNumber  String  @unique // RF-00001, RF-00002, etc.
-  amount        Int // Stored in cents
-  reason        String?
-
-  refundType             String @default("FULL") // FULL, PARTIAL
-  itemBreakdown          Json?
-  taxRefunded            Int    @default(0)
-  deliveryFeeRefunded    Int    @default(0)
-
-  // Refund breakdown by payment method
-  refundMethods RefundMethod[]
-  orderRefunds  OrderRefund[]
-
-  employeeId  String?
-  processedAt DateTime @default(now())
-
-  transaction PaymentTransaction @relation(fields: [transactionId], references: [id])
-  employee    Employee?          @relation("EmployeeRefunds", fields: [employeeId], references: [id])
-
-  @@map("refunds")
-}
-
-model RefundMethod {
-  id                String            @id @default(uuid())
-  refundId          String
-  paymentMethodType PaymentMethodType
-  provider          PaymentProvider
-  amount            Int // Stored in cents
-
-  // Provider refund tracking
-  providerRefundId String? // Stripe refund_id, Square refund_id, etc.
-  status           String  @default("completed") // completed, failed, pending
-
-  refund Refund @relation(fields: [refundId], references: [id])
-
-  @@map("refund_methods")
-}
-
-model OrderRefund {
-  id       String @id @default(uuid())
-  refundId String
-  orderId  String
-  amount   Int // Stored in cents
-
-  refund Refund @relation(fields: [refundId], references: [id])
-  order  Order  @relation(fields: [orderId], references: [id])
-
-  @@map("order_refunds")
-}
-
-model ExternalProvider {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  code      String   @unique
-  isActive  Boolean  @default(true)
-  sortOrder Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("external_providers")
-}
-
-// Tax Rate Configuration
-model TaxRate {
-  id          String  @id @default(cuid())
-  name        String // e.g., "GST", "PST", "VAT", "Sales Tax"
-  rate        Float // Percentage (e.g., 5.00 for 5%)
-  isActive    Boolean @default(true)
-  sortOrder   Int     @default(1)
-  description String? // Optional description
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
-
-  @@index([isActive])
-  @@index([sortOrder])
-  @@map("tax_rates")
-}
-
-// Notification Settings Storage
-model NotificationSettings {
-  id        String   @id @default(cuid())
-  type      String   @unique // "ORDER_STATUS", "MARKETING", etc.
-  settings  String // JSON string of settings data
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("notification_settings")
-}
-
-// Provider Customer Linking - Links local customers to payment provider customer IDs
-model ProviderCustomer {
-  id                 String          @id @default(uuid())
-  customerId         String // Local customer ID
-  provider           PaymentProvider // STRIPE, SQUARE, etc.
-  providerCustomerId String // Stripe customer ID, Square customer ID, etc.
-  providerEmail      String? // Email used with the provider (may differ from local)
-
-  // Provider-specific metadata
-  providerMetadata Json? // Store provider response data
-  isActive         Boolean   @default(true)
-  isPrimary        Boolean   @default(false) // Primary Stripe ID for future transactions
-  lastSyncAt       DateTime? // Last time we synced with provider
-
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-
-  // Constraints
-  // REMOVED: @@unique([customerId, provider]) to allow multiple Stripe IDs per customer
-  // (FloraNext/Stripe creates duplicate customers per transaction)
-  @@unique([provider, providerCustomerId]) // Each Stripe ID can only be used once
-  @@index([customerId])
-  @@index([customerId, provider]) // Index for efficient lookup
-  @@index([provider, providerCustomerId])
-  @@map("provider_customers")
-}
-
-// === WEDDING/EVENT MANAGER SYSTEM ===
-
 enum EventType {
   WEDDING
   CORPORATE
@@ -1268,25 +1260,25 @@ enum EventType {
 }
 
 enum EventStatus {
-  INQUIRY // Initial customer contact/inquiry
-  QUOTE_REQUESTED // Customer has requested a quote
-  QUOTE_SENT // Staff has sent quote to customer
-  QUOTE_APPROVED // Customer has approved the quote
-  DEPOSIT_RECEIVED // Deposit payment received
-  IN_PRODUCTION // Items being created/prepared
-  READY_FOR_INSTALL // Ready for delivery/installation
-  INSTALLED // Successfully delivered/installed
-  COMPLETED // Event completed successfully
-  CANCELLED // Event cancelled
-  REJECTED // Quote rejected by customer
+  INQUIRY
+  QUOTE_REQUESTED
+  QUOTE_SENT
+  QUOTE_APPROVED
+  DEPOSIT_RECEIVED
+  IN_PRODUCTION
+  READY_FOR_INSTALL
+  INSTALLED
+  COMPLETED
+  CANCELLED
+  REJECTED
 }
 
 enum EventPaymentType {
   CASH
   CHECK
   BANK_TRANSFER
-  POS_SYSTEM // Payment made through other POS
-  CREDIT_CARD // Manual credit card (when integrated later)
+  POS_SYSTEM
+  CREDIT_CARD
   OTHER
 }
 
@@ -1295,216 +1287,4 @@ enum EventPaymentStatus {
   RECEIVED
   FAILED
   REFUNDED
-}
-
-model Event {
-  id          String @id @default(uuid())
-  eventNumber Int    @unique @default(autoincrement()) // EV-001, EV-002, etc.
-
-  // Basic event information
-  eventType   EventType
-  eventName   String // "Sarah & Mike's Wedding", "Annual Corporate Gala"
-  description String? // Additional event details
-
-  // Customer information
-  customerId String
-  customer   Customer @relation(fields: [customerId], references: [id])
-
-  // Event details
-  eventDate     DateTime // When the actual event takes place
-  setupDate     DateTime? // When setup/installation should happen
-  setupTime     String? // Time for setup
-  venue         String // Event location/venue
-  venueAddress  String? // Full venue address
-  contactPerson String? // Primary contact at venue
-  contactPhone  String? // Contact phone number
-
-  // Guest and service details
-  estimatedGuests Int? // Number of guests expected
-  serviceType     String? // "Full Service", "Delivery Only", "Pickup"
-
-  // Quote and pricing
-  status       EventStatus @default(INQUIRY)
-  quotedAmount Int? // Total quoted amount in cents
-  finalAmount  Int? // Final agreed amount (may differ from quote) in cents
-
-  // Staff and workflow
-  employeeId String? // Primary staff member handling event
-  employee   Employee? @relation(fields: [employeeId], references: [id])
-
-  // Production notes
-  designNotes   String? // Design and production instructions
-  setupNotes    String? // Setup and installation notes
-  internalNotes String? // Private staff notes
-
-  // Communication
-  customerNotes   String? // Notes from customer
-  lastContactDate DateTime? // Last time we contacted customer
-  quoteEmailSent  Boolean   @default(false)
-  quoteEmailDate  DateTime?
-
-  // Images and inspiration
-  inspirationPhotos String[] @default([]) // Customer-provided inspiration images
-  quotePhotos       String[] @default([]) // Staff-provided quote/example images
-  finalPhotos       String[] @default([]) // Final installation photos
-
-  // Timestamps
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  completedAt DateTime? // When event was marked as completed
-
-  // Relations
-  items    EventItem[]
-  payments EventPayment[]
-
-  @@index([eventType])
-  @@index([status])
-  @@index([eventDate])
-  @@index([customerId])
-  @@map("events")
-}
-
-model EventItem {
-  id      String @id @default(uuid())
-  eventId String
-  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
-
-  // Item details
-  category    String // "Bridal Bouquet", "Centerpiece", "Ceremony Arrangement", etc.
-  description String // Detailed description of the item
-  quantity    Int    @default(1)
-  unitPrice   Int // Price per item in cents
-  totalPrice  Int // quantity * unitPrice in cents
-
-  // Production details
-  productionNotes String? // Special instructions for creating this item
-  isCompleted     Boolean   @default(false)
-  completedAt     DateTime?
-
-  // Optional product link (for items that exist in regular catalog)
-  productId String?
-  product   Product? @relation(fields: [productId], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("event_items")
-}
-
-model EventPayment {
-  id      String @id @default(uuid())
-  eventId String
-  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
-
-  // Payment details
-  amount      Int // Stored in cents
-  paymentType EventPaymentType
-  status      EventPaymentStatus @default(PENDING)
-
-  // Payment metadata
-  description String? // "Deposit", "Final Payment", "Additional Services"
-  reference   String? // Check number, transaction ID, etc.
-  notes       String? // Additional payment notes
-
-  // Staff tracking
-  employeeId String?
-  employee   Employee? @relation(fields: [employeeId], references: [id])
-
-  // Dates
-  dueDate      DateTime? // When payment is due
-  receivedDate DateTime? // When payment was actually received
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-
-  @@index([eventId])
-  @@index([status])
-  @@map("event_payments")
-}
-
-// === POS CART SYSTEM ===
-// REMOVED: Cart system reverted to local state management for better performance
-// Draft orders now use the existing Order model with status = DRAFT
-
-model PrintJob {
-  id     String         @id @default(cuid())
-  type   PrintJobType
-  status PrintJobStatus @default(PENDING)
-
-  orderId String?
-  order   Order?  @relation(fields: [orderId], references: [id], onDelete: Cascade)
-
-  data     Json
-  template String
-  priority Int    @default(0)
-
-  agentId      String?
-  errorMessage String?
-
-  createdAt DateTime  @default(now())
-  printedAt DateTime?
-  updatedAt DateTime  @updatedAt
-
-  @@index([status])
-  @@index([createdAt])
-  @@index([orderId])
-  @@index([agentId])
-}
-
-model FAQ {
-  id        String   @id @default(cuid())
-  question  String
-  answer    String   @db.Text
-  position  Int      @unique
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model HomepageSettings {
-  id                 String   @id @default(cuid())
-  announcementBanner Json // {message, bgColor, textColor, fontSize, fontWeight, isActive, link}
-  updatedAt          DateTime @updatedAt
-}
-
-// Shop Profile - Central configuration for shop-specific settings
-// Future: Consolidate StoreSettings, DeliverySettings, etc. here for multi-tenant support
-model ShopProfile {
-  id String @id @default(cuid())
-
-  // API Keys
-  googleGeminiApiKey String? // For OCR/vision features
-  googleMapsApiKey   String? // For address validation and geocoding
-
-  // Future migrations: Consolidate scattered settings here
-  // - StoreSettings (name, address, timezone)
-  // - DeliverySettings (location, zones)
-  // - Tax rates, business hours, etc.
-  settings Json? @default("{}")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("shop_profile")
-}
-
-// Wire Product Library for FTD/Teleflora/Wire-in product images and descriptions
-model WireProductLibrary {
-  id          String  @id @default(cuid())
-  productCode String  @unique // "TWR14-4A", "B9-5140s", "ch77aa-s"
-  productName String? // "Teleflora's Festive Pines"
-  description String? @db.Text // Full description
-  imageUrl    String? // Supabase URL or external URL
-  source      String? // "FTD", "Teleflora", "Petals.ca", etc.
-  externalUrl String? // Original link like "petals.ca/ch77aa-s"
-
-  // Usage tracking
-  timesUsed  Int       @default(0)
-  lastUsedAt DateTime?
-
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([productCode])
-  @@index([source])
 }

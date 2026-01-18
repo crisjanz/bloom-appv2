@@ -120,7 +120,7 @@ router.post('/', async (req, res) => {
       return res.status(404).json({ error: 'Order not found' });
     }
 
-    await printService.queuePrintJob({
+    const result = await printService.queuePrintJob({
       type: payload.type,
       orderId: order.id,
       order,
@@ -128,7 +128,8 @@ router.post('/', async (req, res) => {
       priority: payload.priority ?? 0
     });
 
-    res.status(201).json({ success: true });
+    const statusCode = result.action === 'queued' ? 201 : 200;
+    res.status(statusCode).json({ success: true, ...result });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors });
