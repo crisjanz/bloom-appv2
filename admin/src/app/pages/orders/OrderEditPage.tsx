@@ -1,12 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router';
 import PageBreadcrumb from '@shared/ui/common/PageBreadCrumb';
 import ComponentCard from '@shared/ui/common/ComponentCard';
 import { Modal } from '@shared/ui/components/ui/modal';
 import OrderHeader from '@app/components/orders/edit/OrderHeader';
 import OrderSections from '@app/components/orders/edit/OrderSections';
+import OrderCommunicationModal from '@app/components/delivery/OrderCommunicationModal';
 import { Order } from '@app/components/orders/types';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
+import { useApiClient } from '@shared/hooks/useApiClient';
+import { useCommunicationsSocket, CommunicationsSocketEvent } from '@shared/hooks/useCommunicationsSocket';
 
 const splitRecipientName = (name?: string | null) => {
   if (!name) {
@@ -114,11 +117,14 @@ interface PaymentAdjustmentResult {
 const OrderEditPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { getBusinessDateString } = useBusinessTimezone();
+  const apiClient = useApiClient();
   
   // MIGRATION: Use domain hook for order management
   const { order: domainOrder, loading, saving, error, fetchOrder, updateOrderStatus, updateOrderField, updateOrderDirect } = useOrderManagement(id);
   const order = domainOrder ? mapDomainOrderToFrontend(domainOrder) : null;
   const [activeModal, setActiveModal] = useState<string | null>(null);
+  const [communicationModalOpen, setCommunicationModalOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   
   // Edit states
   const [editingCustomer, setEditingCustomer] = useState<any>(null);
@@ -145,6 +151,58 @@ const OrderEditPage: React.FC = () => {
   const [receiptInvoiceModalOpen, setReceiptInvoiceModalOpen] = useState(false);
 
   // MIGRATION: Order auto-loads via useOrderManagement hook when id changes
+  const handleUnreadCountsUpdated = useCallback(
+    (payload: { orderId: string; orderUnreadCount: number; totalUnreadCount: number }) => {
+      if (!order?.id || payload.orderId !== order.id) return;
+      setUnreadCount(payload.orderUnreadCount);
+    },
+    [order?.id]
+  );
+
+  const handleCommunicationsEvent = useCallback(
+    (event: CommunicationsSocketEvent) => {
+      if (event.type !== 'sms:received' || event.data.orderId !== order?.id) return;
+
+      setUnreadCount((prev) =>
+        typeof event.data.orderUnreadCount === 'number' ? event.data.orderUnreadCount : prev + 1
+      );
+    },
+    [order?.id]
+  );
+
+  useCommunicationsSocket(handleCommunicationsEvent, Boolean(order?.id));
+
+  useEffect(() => {
+    if (!order?.id) {
+      setUnreadCount(0);
+      return;
+    }
+
+    let isActive = true;
+
+    const loadUnreadCount = async () => {
+      try {
+        const { data, status } = await apiClient.get(`/api/orders/${order.id}/communications`);
+        if (!isActive) return;
+        if (status < 400 && data?.success) {
+          const count = Array.isArray(data.communications)
+            ? data.communications.filter(
+                (comm: any) => comm.type === 'SMS_RECEIVED' && !comm.readAt
+              ).length
+            : 0;
+          setUnreadCount(count);
+        }
+      } catch (error) {
+        console.error('Failed to load communications:', error);
+      }
+    };
+
+    loadUnreadCount();
+
+    return () => {
+      isActive = false;
+    };
+  }, [apiClient, order?.id]);
 
   // MIGRATION: Handle status change using domain hook
   const handleStatusChange = async (newStatus: string) => {
@@ -481,6 +539,8 @@ const OrderEditPage: React.FC = () => {
         onStatusChange={handleStatusChange}
         onCancelRefund={handleCancelRefund}
         onReceiptInvoice={() => setReceiptInvoiceModalOpen(true)}
+        onContact={() => setCommunicationModalOpen(true)}
+        unreadCount={unreadCount}
       />
 
       <ComponentCard title="Order Details">
@@ -626,6 +686,13 @@ const OrderEditPage: React.FC = () => {
         onClose={() => setReceiptInvoiceModalOpen(false)}
         orderId={order.id}
         orderNumber={order.orderNumber}
+      />
+
+      <OrderCommunicationModal
+        isOpen={communicationModalOpen}
+        onClose={() => setCommunicationModalOpen(false)}
+        order={order}
+        onUnreadCountsUpdated={handleUnreadCountsUpdated}
       />
     </div>
   );
