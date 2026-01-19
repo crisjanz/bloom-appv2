@@ -151,7 +151,7 @@ router.post('/order-confirmation', async (req, res) => {
 // Get SMS service status
 router.get('/status', async (req, res) => {
   try {
-    const status = smsService.getStatus();
+    const status = await smsService.getStatus();
     res.json({
       success: true,
       status

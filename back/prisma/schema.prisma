@@ -753,6 +753,38 @@ model PrintSettings {
   @@map("print_settings")
 }
 
+model EmailSettings {
+  id String @id @default(cuid())
+
+  // Email Provider
+  provider String  @default("sendgrid")
+  enabled  Boolean @default(true)
+
+  // SendGrid
+  apiKey String?
+
+  // SMTP
+  smtpHost     String?
+  smtpPort     Int?
+  smtpUser     String?
+  smtpPassword String?
+
+  // From Settings
+  fromEmail String @default("noreply@hellobloom.ca")
+  fromName  String @default("Bloom Flowers")
+
+  // SMS/Twilio Settings
+  smsEnabled       Boolean @default(false)
+  twilioAccountSid String?
+  twilioAuthToken  String?
+  twilioPhoneNumber String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("email_settings")
+}
+
 model TransactionCounter {
   id           String @id @default(cuid())
   currentValue Int    @default(0)

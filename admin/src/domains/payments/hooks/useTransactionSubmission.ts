@@ -94,6 +94,8 @@ export const useTransactionSubmission = () => {
       // Collect all order IDs (draft + newly created)
       let allOrderIds = Array.from(new Set([...explicitOrderIds, ...draftOrderIds]));
 
+      let printActions: any[] = [];
+
       // Create orders for non-draft cart items if any
       if (nonDraftItems.length > 0) {
         console.log('📦 Creating POS orders from cart items...', { count: nonDraftItems.length });
@@ -139,6 +141,9 @@ export const useTransactionSubmission = () => {
         // Add newly created order IDs
         const newOrderIds = orderResult.orders.map((order: any) => order.id);
         allOrderIds = Array.from(new Set([...allOrderIds, ...newOrderIds]));
+        if (Array.isArray(orderResult.printActions)) {
+          printActions = orderResult.printActions;
+        }
         console.log('✅ Created POS orders:', newOrderIds);
       }
 
@@ -326,6 +331,8 @@ export const useTransactionSubmission = () => {
         data: {
           transaction,
           activatedGiftCards: activatedGiftCards,
+          orderIds: allOrderIds,
+          printActions,
         },
       };
     } catch (processingError) {

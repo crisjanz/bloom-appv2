@@ -1,9 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import sgMail from '@sendgrid/mail';
-
-// Initialize SendGrid with API key
-sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
+import nodemailer from 'nodemailer';
+import { emailSettingsService } from './emailSettingsService';
 
 interface EmailOptions {
   to: string;
@@ -12,6 +11,13 @@ interface EmailOptions {
   text?: string;
   templateId?: string;
   dynamicTemplateData?: any;
+  attachments?: EmailAttachment[];
+}
+
+interface EmailAttachment {
+  filename: string;
+  content: Buffer;
+  contentType?: string;
 }
 
 interface GiftCardEmailData {
@@ -38,8 +44,6 @@ interface ReceiptEmailData {
 }
 
 class EmailService {
-  private fromEmail = process.env.SENDGRID_FROM_EMAIL || 'noreply@bloomflowershop.com';
-  private fromName = process.env.SENDGRID_FROM_NAME || 'Bloom Flower Shop';
   private giftCardTemplateCache: string | null | undefined;
   private warnedMissingGiftCardTemplate = false;
 
@@ -48,39 +52,102 @@ class EmailService {
    */
   async sendEmail(options: EmailOptions): Promise<boolean> {
     try {
-      const msg: any = {
-        to: options.to,
-        from: {
-          email: this.fromEmail,
-          name: this.fromName
-        },
-        subject: options.subject
-      };
+      const settings = await emailSettingsService.getSettingsWithSecrets();
 
-      // Add content based on whether we're using templates or custom HTML
-      if (options.templateId) {
-        msg.templateId = options.templateId;
-        msg.dynamicTemplateData = options.dynamicTemplateData || {};
-      } else {
-        if (options.html) {
-          msg.html = options.html;
-        }
-        if (options.text) {
-          msg.text = options.text;
-        }
+      if (!settings.enabled || settings.provider === 'disabled') {
+        console.warn('Email sending is disabled by settings.');
+        return false;
       }
 
-      console.log('📧 Sending email:', {
-        to: options.to,
-        subject: options.subject,
-        templateId: options.templateId || 'custom'
-      });
+      const from = {
+        email: settings.fromEmail,
+        name: settings.fromName,
+      };
 
-      await sgMail.send(msg);
-      console.log('✅ Email sent successfully');
+      if (settings.provider === 'sendgrid') {
+        if (!settings.apiKey) {
+          console.error('SendGrid API key is not configured.');
+          return false;
+        }
+
+        sgMail.setApiKey(settings.apiKey);
+        const msg: any = {
+          to: options.to,
+          from,
+          subject: options.subject
+        };
+
+        // Add content based on whether we're using templates or custom HTML
+        if (options.templateId) {
+          msg.templateId = options.templateId;
+          msg.dynamicTemplateData = options.dynamicTemplateData || {};
+        } else {
+          if (options.html) {
+            msg.html = options.html;
+          }
+          if (options.text) {
+            msg.text = options.text;
+          }
+        }
+
+        if (options.attachments?.length) {
+          msg.attachments = options.attachments.map((attachment) => ({
+            content: attachment.content.toString('base64'),
+            filename: attachment.filename,
+            type: attachment.contentType || 'application/octet-stream',
+            disposition: 'attachment'
+          }));
+        }
+
+        console.log('Sending email via SendGrid:', {
+          to: options.to,
+          subject: options.subject,
+          templateId: options.templateId || 'custom'
+        });
+
+        await sgMail.send(msg);
+      } else if (settings.provider === 'smtp') {
+        if (!settings.smtpHost || !settings.smtpPort) {
+          console.error('SMTP settings are incomplete.');
+          return false;
+        }
+
+        const transporter = nodemailer.createTransport({
+          host: settings.smtpHost,
+          port: settings.smtpPort,
+          secure: settings.smtpPort === 465,
+          auth: settings.smtpUser
+            ? {
+                user: settings.smtpUser,
+                pass: settings.smtpPassword || ''
+              }
+            : undefined
+        });
+
+        await transporter.sendMail({
+          to: options.to,
+          from: `${from.name} <${from.email}>`,
+          subject: options.subject,
+          html: options.html,
+          text: options.text,
+          attachments: options.attachments?.map((attachment) => ({
+            filename: attachment.filename,
+            content: attachment.content,
+            contentType: attachment.contentType || 'application/octet-stream'
+          }))
+        });
+      } else {
+        console.warn(`Unsupported email provider: ${settings.provider}`);
+        return false;
+      }
+
+      console.log('Email sent successfully:', {
+        to: options.to,
+        subject: options.subject
+      });
       return true;
     } catch (error) {
-      console.error('❌ Failed to send email:', error);
+      console.error('Failed to send email:', error);
       return false;
     }
   }

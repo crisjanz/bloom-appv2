@@ -100,6 +100,7 @@ import PaymentEditModal from '@app/components/orders/edit/modals/PaymentEditModa
 import ImagesEditModal from '@app/components/orders/edit/modals/ImagesEditModal';
 import PaymentAdjustmentModal from '@app/components/orders/edit/modals/PaymentAdjustmentModal';
 import RefundModal from '@app/components/refunds/RefundModal';
+import ReceiptInvoiceModal from '@app/components/orders/ReceiptInvoiceModal';
 
 interface PaymentAdjustmentResult {
   method: 'auto' | 'manual';
@@ -139,6 +140,9 @@ const OrderEditPage: React.FC = () => {
   // Refund modal states
   const [refundModalOpen, setRefundModalOpen] = useState(false);
   const [refundTransactionNumber, setRefundTransactionNumber] = useState<string | null>(null);
+
+  // Receipt/Invoice modal state
+  const [receiptInvoiceModalOpen, setReceiptInvoiceModalOpen] = useState(false);
 
   // MIGRATION: Order auto-loads via useOrderManagement hook when id changes
 
@@ -476,6 +480,7 @@ const OrderEditPage: React.FC = () => {
         order={order}
         onStatusChange={handleStatusChange}
         onCancelRefund={handleCancelRefund}
+        onReceiptInvoice={() => setReceiptInvoiceModalOpen(true)}
       />
 
       <ComponentCard title="Order Details">
@@ -613,6 +618,14 @@ const OrderEditPage: React.FC = () => {
           setRefundTransactionNumber(null);
         }}
         onRefundComplete={handleRefundComplete}
+      />
+
+      {/* Receipt/Invoice Modal */}
+      <ReceiptInvoiceModal
+        isOpen={receiptInvoiceModalOpen}
+        onClose={() => setReceiptInvoiceModalOpen(false)}
+        orderId={order.id}
+        orderNumber={order.orderNumber}
       />
     </div>
   );

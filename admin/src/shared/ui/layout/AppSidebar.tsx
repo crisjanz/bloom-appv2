@@ -15,6 +15,7 @@ import {
   PieChartIcon,
   TableIcon,
   UserCircleIcon,
+  MailIcon,
 } from "@shared/assets/icons";
 import { useSidebar } from "@app/contexts/SidebarContext";
 
@@ -83,12 +84,16 @@ const navItems: NavItem[] = [
     name: "Settings",
     icon: <SettingsIcon />,
     path: "/settings",
-    subItems: [
-      { name: "Website", path: "/settings/website", pro: false, icon: <GridIcon /> },
-      { name: "Gift Cards", path: "/gift-cards", pro: false, icon: <GridIcon /> },
-      { name: "External Providers", path: "/settings/external-providers", pro: false, icon: <LinkIcon /> },
-      { name: "Discounts", path: "/discounts", pro: false, icon: <BoxCubeIcon /> },
-    ],
+  },
+  {
+    name: "Discounts",
+    icon: <BoxCubeIcon />,
+    path: "/discounts",
+  },
+  {
+    name: "Gift Cards",
+    icon: <GridIcon />,
+    path: "/gift-cards",
   },
   {
     name: "Reports",

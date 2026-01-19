@@ -9,8 +9,17 @@ CREATE TABLE IF NOT EXISTS "operations_settings" (
   "updatedAt" TIMESTAMP(3) NOT NULL
 );
 
--- 2. Add WIREOUT to OrderType enum (already exists - skip)
--- Cannot add enum value conditionally in safe way, assuming it exists
+-- 2. Add WIREOUT to OrderType enum (if not exists)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_enum e
+    JOIN pg_type t ON e.enumtypid = t.oid
+    WHERE t.typname = 'OrderType' AND e.enumlabel = 'WIREOUT'
+  ) THEN
+    ALTER TYPE "OrderType" ADD VALUE 'WIREOUT';
+  END IF;
+END $$;
 
 -- 3. Add wireout fields to Order table (if not exist)
 ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "wireoutServiceFee" INTEGER;

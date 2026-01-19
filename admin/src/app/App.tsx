@@ -46,6 +46,7 @@ import OrdersPage from "./pages/settings/orders";
 import DiscountsPage from "./pages/settings/discounts";
 import POSSettingsPage from "./pages/settings/pos";
 import PrintPage from "./pages/settings/print";
+import EmailSettingsPage from "./pages/settings/email";
 import EventsPage from "./pages/settings/events";
 import WebsitePage from "./pages/settings/website";
 import MiscPage from "./pages/settings/misc";
@@ -162,6 +163,7 @@ export default function App() {
             <Route path="settings/discounts" element={<DiscountsPage />} />
             <Route path="settings/pos" element={<POSSettingsPage />} />
             <Route path="settings/print" element={<PrintPage />} />
+            <Route path="settings/email" element={<EmailSettingsPage />} />
             <Route path="settings/events" element={<EventsPage />} />
             <Route path="settings/website" element={<WebsitePage />} />
             <Route path="settings/misc" element={<MiscPage />} />

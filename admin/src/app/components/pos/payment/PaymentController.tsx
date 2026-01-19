@@ -22,6 +22,7 @@ import { usePaymentModals } from '@domains/payments/hooks/usePaymentModals';
 import { usePaymentDiscounts } from '@domains/payments/hooks/usePaymentDiscounts';
 import { useSplitPayment } from '@domains/payments/hooks/useSplitPayment';
 import { useTransactionSubmission } from '@domains/payments/hooks/useTransactionSubmission';
+import { useApiClient } from '@shared/hooks/useApiClient';
 import {
   BoltIcon,
   CreditCardIcon,
@@ -209,6 +210,7 @@ const PaymentController: FC<Props> = ({
   const paymentDiscounts = usePaymentDiscounts(appliedDiscounts, onDiscountsChange, onGiftCardChange, onCouponChange);
   const splitPayment = useSplitPayment(total);
   const transactionSubmission = useTransactionSubmission();
+  const apiClient = useApiClient();
 
   // Coupon validation hook
   const {
@@ -386,6 +388,7 @@ const PaymentController: FC<Props> = ({
       }
 
       const { transaction, activatedGiftCards } = result.data;
+      const completedOrderIds = result.data?.orderIds || orderIds || [];
 
       if (activatedGiftCards && activatedGiftCards.length > 0) {
         paymentModals.setShowGiftCardHandoff(true);
@@ -412,7 +415,19 @@ const PaymentController: FC<Props> = ({
         paymentModals.setShowNotificationModal(true);
       }
       if (paymentState.quickActions.printReceipt) {
-        console.log('🖨️ Print receipt for', transaction.transactionNumber);
+        try {
+          const settingsResponse = await apiClient.get('/api/print-settings');
+          if (settingsResponse.status < 400 && settingsResponse.data?.receiptsDestination === 'browser') {
+            for (const id of completedOrderIds) {
+              const printResponse = await apiClient.post(`/api/print/receipt/${id}`);
+              if (printResponse.status < 400 && printResponse.data?.action === 'browser-print' && printResponse.data?.pdfUrl) {
+                window.open(printResponse.data.pdfUrl, '_blank');
+              }
+            }
+          }
+        } catch (printError) {
+          console.error('Failed to trigger receipt print:', printError);
+        }
       }
 
       onComplete({

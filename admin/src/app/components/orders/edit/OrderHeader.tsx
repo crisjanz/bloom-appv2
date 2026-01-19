@@ -9,9 +9,10 @@ interface OrderHeaderProps {
   order: Order;
   onStatusChange: (status: string) => void;
   onCancelRefund?: () => void;
+  onReceiptInvoice?: () => void;
 }
 
-const OrderHeader: React.FC<OrderHeaderProps> = ({ order, onStatusChange, onCancelRefund }) => {
+const OrderHeader: React.FC<OrderHeaderProps> = ({ order, onStatusChange, onCancelRefund, onReceiptInvoice }) => {
   const statusOptions = getStatusOptions(order.type);
   const { formatDate, loading: timezoneLoading } = useBusinessTimezone();
 
@@ -51,6 +52,14 @@ const OrderHeader: React.FC<OrderHeaderProps> = ({ order, onStatusChange, onCanc
         
         {/* Status display and controls */}
         <div className="flex items-center gap-3">
+          {onReceiptInvoice && (
+            <button
+              onClick={onReceiptInvoice}
+              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              Receipt/Invoice
+            </button>
+          )}
           {canCancelRefund && (
             <button
               onClick={onCancelRefund}

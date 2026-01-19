@@ -65,7 +65,7 @@
 ## Integrations & External Services
 - **Stripe** (`back/src/routes/stripe.ts`, `back/src/services/paymentProviders/PaymentProviderFactory.ts`): Payment intents, saved cards, refunds, webhook ingestion. Credentials are stored in `PaymentSettings` (encrypted via `CONFIG_ENCRYPTION_KEY`) and loaded lazily; `STRIPE_WEBHOOK_SECRET` is only needed for webhook verification.
 - **Square** (`back/src/routes/square.ts`, `back/src/services/squareService.ts`): Card payments, terminal flows, customer storage. Needs Square sandbox/live credentials.
-- **Twilio** (`back/src/services/smsService.ts`, `back/src/services/ftdNotification.ts`): SMS notifications; requires `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`.
+- **Twilio** (`back/src/services/smsService.ts`, `back/src/services/ftdNotification.ts`): SMS notifications; credentials stored in `EmailSettings` (encrypted auth token) and managed via Settings → Email & SMS with `CONFIG_ENCRYPTION_KEY` set.
 - **SendGrid** (`back/src/services/emailService.ts`, `back/src/services/ftdNotification.ts`): Email delivery; requires `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL`, `SENDGRID_FROM_NAME`.
 - **Cloudflare R2** (`back/src/utils/r2Client.ts`): Product & order image storage; expects R2 account, key, secret, bucket, and public URL env vars.
 - **Petals.ca** (`back/src/routes/wire-products.ts`): Wire product image fetching with automated R2 upload for FTD/Teleflora product library management.

@@ -3,9 +3,22 @@ import { PrismaClient, OrderStatus, PrintJobType } from '@prisma/client';
 import { calculateTax } from '../../utils/taxCalculator';
 import { triggerStatusNotifications } from '../../utils/notificationTriggers';
 import { printService } from '../../services/printService';
+import { printSettingsService } from '../../services/printSettingsService';
+import { buildReceiptPdf } from '../../templates/receipt-pdf';
+import { buildThermalReceipt } from '../../templates/receipt-thermal';
 
 const router = express.Router();
 const prisma = new PrismaClient();
+
+function getOrderTransactions(order: any) {
+  const transactions = order.orderPayments?.map((op: any) => op.transaction).filter(Boolean) || [];
+
+  // Sort: completed first, then failed/cancelled, then others
+  return transactions.sort((a: any, b: any) => {
+    const priority = { COMPLETED: 0, FAILED: 1, CANCELLED: 2, PROCESSING: 3, PENDING: 4 };
+    return (priority[a.status] ?? 99) - (priority[b.status] ?? 99);
+  });
+}
 
 // Create orders after payment confirmation
 router.post('/create', async (req, res) => {
@@ -131,7 +144,16 @@ router.post('/create', async (req, res) => {
               include: {
                 product: true
               }
-            }
+            },
+            orderPayments: {
+              include: {
+                transaction: {
+                  include: {
+                    paymentMethods: true,
+                  },
+                },
+              },
+            },
           }
         });
 
@@ -164,11 +186,30 @@ router.post('/create', async (req, res) => {
 
         if (updatedOrder.orderSource === 'POS' || updatedOrder.orderSource === 'WALKIN') {
           try {
+            const config = await printSettingsService.getConfigForType(PrintJobType.RECEIPT);
+            const orderWithTransactions = {
+              ...updatedOrder,
+              transactions: getOrderTransactions(updatedOrder),
+            };
+            let jobOrder: any = orderWithTransactions;
+            let template = 'receipt-pdf-v1';
+
+            if (config.destination === 'electron-agent') {
+              const pdfBuffer = await buildReceiptPdf(orderWithTransactions);
+              jobOrder = { ...orderWithTransactions, pdfBase64: pdfBuffer.toString('base64') };
+            }
+
+            if (config.destination === 'receipt-agent') {
+              const thermalBuffer = await buildThermalReceipt(orderWithTransactions);
+              jobOrder = { ...orderWithTransactions, thermalCommands: thermalBuffer.toString('base64') };
+              template = 'receipt-thermal-v1';
+            }
+
             const result = await printService.queuePrintJob({
               type: PrintJobType.RECEIPT,
               orderId: updatedOrder.id,
-              order: updatedOrder as any,
-              template: 'receipt-v1',
+              order: jobOrder,
+              template,
               priority: 10
             });
             printActions.push({ orderId: updatedOrder.id, orderNumber: updatedOrder.orderNumber, ...result });

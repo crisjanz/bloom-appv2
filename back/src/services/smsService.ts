@@ -1,10 +1,5 @@
 import twilio from 'twilio';
-
-// Initialize Twilio client
-const twilioClient = twilio(
-  process.env.TWILIO_ACCOUNT_SID!,
-  process.env.TWILIO_AUTH_TOKEN!
-);
+import { emailSettingsService } from './emailSettingsService';
 
 interface SMSOptions {
   to: string;
@@ -33,13 +28,35 @@ interface OrderConfirmationSMSData {
 }
 
 class SMSService {
-  private fromPhone = process.env.TWILIO_PHONE_NUMBER || '';
+  private async getTwilioClient() {
+    const settings = await emailSettingsService.getSettingsWithSecrets();
+
+    if (!settings.smsEnabled || !settings.twilioAccountSid || !settings.twilioAuthToken) {
+      throw new Error('SMS is not configured');
+    }
+
+    return twilio(settings.twilioAccountSid, settings.twilioAuthToken);
+  }
+
+  private async getFromPhone() {
+    const settings = await emailSettingsService.getSettingsWithSecrets();
+    return settings.twilioPhoneNumber || '';
+  }
 
   /**
    * Send a basic SMS
    */
   async sendSMS(options: SMSOptions): Promise<boolean> {
     try {
+      const twilioClient = await this.getTwilioClient();
+      const fromPhone = await this.getFromPhone();
+      const cleanFromPhone = this.formatPhoneNumber(fromPhone);
+
+      if (!cleanFromPhone) {
+        console.error('❌ SMS from phone is not configured:', fromPhone);
+        return false;
+      }
+
       // Validate phone number format
       const cleanPhone = this.formatPhoneNumber(options.to);
       if (!cleanPhone) {
@@ -54,7 +71,7 @@ class SMSService {
 
       const message = await twilioClient.messages.create({
         body: options.message,
-        from: this.fromPhone,
+        from: cleanFromPhone,
         to: cleanPhone
       });
 
@@ -220,22 +237,46 @@ Text STOP to opt out.`;
   /**
    * Validate if SMS service is configured
    */
-  isConfigured(): boolean {
-    return !!(
-      process.env.TWILIO_ACCOUNT_SID &&
-      process.env.TWILIO_AUTH_TOKEN &&
-      process.env.TWILIO_PHONE_NUMBER
-    );
+  async isConfigured(): Promise<boolean> {
+    try {
+      const settings = await emailSettingsService.getSettingsWithSecrets();
+      const fromPhone = this.formatPhoneNumber(settings.twilioPhoneNumber || '');
+
+      return Boolean(
+        settings.smsEnabled &&
+          settings.twilioAccountSid &&
+          settings.twilioAuthToken &&
+          fromPhone
+      );
+    } catch (error) {
+      console.error('❌ Failed to load SMS settings:', error);
+      return false;
+    }
   }
 
   /**
    * Get service status
    */
-  getStatus(): { configured: boolean; fromPhone: string } {
-    return {
-      configured: this.isConfigured(),
-      fromPhone: this.fromPhone
-    };
+  async getStatus(): Promise<{ configured: boolean; fromPhone: string }> {
+    try {
+      const settings = await emailSettingsService.getSettingsWithSecrets();
+      const fromPhone = settings.twilioPhoneNumber || '';
+      const configured =
+        settings.smsEnabled &&
+        Boolean(settings.twilioAccountSid && settings.twilioAuthToken) &&
+        Boolean(this.formatPhoneNumber(fromPhone));
+
+      return {
+        configured,
+        fromPhone
+      };
+    } catch (error) {
+      console.error('❌ Failed to load SMS settings:', error);
+      return {
+        configured: false,
+        fromPhone: ''
+      };
+    }
   }
 }
 

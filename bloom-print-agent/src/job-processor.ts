@@ -76,6 +76,11 @@ export class JobProcessor {
   ): Promise<void> {
     logger.info(`Printing receipt to ${printerName}`);
 
+    if (job.data?.pdfBase64) {
+      await this.printPdfBuffer(job.data.pdfBase64, printerName, options);
+      return;
+    }
+
     // TODO: Format receipt with ESC/POS commands
     // For now, print simple HTML receipt
     const receiptHTML = this.generateReceiptHTML(job.data);
@@ -128,9 +133,51 @@ export class JobProcessor {
   ): Promise<void> {
     logger.info(`Printing report to ${printerName}`);
 
+    if (job.data?.pdfBase64) {
+      await this.printPdfBuffer(job.data.pdfBase64, printerName, options);
+      return;
+    }
+
     // TODO: Generate report PDF
     const reportHTML = this.generateReportHTML(job.data);
     await this.printHTML(reportHTML, printerName, options);
+  }
+
+  private async printPdfBuffer(
+    base64Data: string,
+    printerName: string,
+    options?: { printerTray?: number | null; copies?: number }
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      try {
+        const { exec } = require('child_process');
+        const fs = require('fs');
+        const os = require('os');
+        const path = require('path');
+
+        const pdfPath = path.join(os.tmpdir(), `bloom-print-${Date.now()}.pdf`);
+        fs.writeFileSync(pdfPath, Buffer.from(base64Data, 'base64'));
+
+        const copiesOption = options?.copies && options.copies > 1 ? `-# ${options.copies}` : '';
+        const trayOption = options?.printerTray ? `-o InputSlot=Tray${options.printerTray}` : '';
+        const printCommand = `lpr ${copiesOption} ${trayOption} -P "${printerName}" "${pdfPath}"`;
+
+        exec(printCommand, (error: any, stdout: any, stderr: any) => {
+          if (error) {
+            logger.error(`PDF print command failed: ${error.message}`);
+            logger.error(`stderr: ${stderr}`);
+            fs.unlinkSync(pdfPath);
+            reject(new Error(`Print failed: ${error.message}`));
+          } else {
+            logger.info('PDF sent to printer successfully');
+            fs.unlinkSync(pdfPath);
+            resolve();
+          }
+        });
+      } catch (error) {
+        reject(error);
+      }
+    });
   }
 
   /**

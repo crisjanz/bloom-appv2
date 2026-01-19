@@ -11,6 +11,7 @@ import {
   PageIcon,
   PlugInIcon,
   ListIcon,
+  MailIcon,
 } from "@shared/assets/icons";
 
 const settings = [
@@ -19,10 +20,10 @@ const settings = [
   { title: "Delivery / Pickup", desc: "Times, charges, website logic", href: "/settings/delivery", icon: <TruckIcon className="w-6 h-6 text-primary" /> },
   { title: "Notifications", desc: "SMS, email, templates", href: "/settings/notifications", icon: <GridIcon className="w-6 h-6 text-primary" /> },
   { title: "Orders", desc: "Toggles, add-ons, logic", href: "/settings/orders", icon: <BoxCubeIcon className="w-6 h-6 text-primary" /> },
-  { title: "Wire Services", desc: "Wire-out settings & external providers", href: "/settings/external-providers", icon: <LinkIcon className="w-6 h-6 text-primary" /> },
-  { title: "Coupons & Discounts", desc: "Coupons, gift cards, sales", href: "/settings/discounts", icon: <PageIcon className="w-6 h-6 text-primary" /> },
+  { title: "Wire Services", desc: "Wire-out services (FTD, Floranext, etc)", href: "/settings/external-providers", icon: <LinkIcon className="w-6 h-6 text-primary" /> },
   { title: "POS Settings", desc: "POS grid settings and TBD", href: "/settings/pos", icon: <GridIcon className="w-6 h-6 text-primary" /> },
   { title: "Print Settings", desc: "Tickets, layouts, printers", href: "/settings/print", icon: <GridIcon className="w-6 h-6 text-primary" /> },
+  { title: "Email & SMS Settings", desc: "Email (SendGrid/SMTP), SMS (Twilio)", href: "/settings/email", icon: <MailIcon className="w-6 h-6 text-primary" /> },
   { title: "Event Manager", desc: "Event system logic (TBD)", href: "/settings/events", icon: <CalenderIcon className="w-6 h-6 text-primary" /> },
   { title: "Website Settings", desc: "SEO, social, general setup", href: "/settings/website", icon: <LinkIcon className="w-6 h-6 text-primary" /> },
   { title: "Miscellaneous", desc: "Tags, backup/restore", href: "/settings/misc", icon: <ListIcon className="w-6 h-6 text-primary" /> },

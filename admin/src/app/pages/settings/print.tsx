@@ -296,6 +296,61 @@ const PrintPage = () => {
           Save Settings
         </LoadingButton>
       </div>
+
+      <ComponentCard title="Preview Templates" desc="Test print templates using your most recent completed order.">
+        <div className="flex flex-wrap gap-3">
+          <button
+            onClick={async () => {
+              try {
+                const response = await apiClient.get("/api/print/preview/receipt");
+                if (response.data?.pdfUrl) {
+                  window.open(response.data.pdfUrl, "_blank");
+                }
+              } catch (err) {
+                console.error("Error previewing receipt:", err);
+                alert("Failed to generate receipt preview. Make sure you have at least one completed order.");
+              }
+            }}
+            className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 transition"
+          >
+            Preview Receipt (PDF)
+          </button>
+
+          <button
+            onClick={async () => {
+              try {
+                const response = await apiClient.get("/api/print/preview/thermal");
+                if (response.data?.pdfUrl) {
+                  window.open(response.data.pdfUrl, "_blank");
+                }
+              } catch (err) {
+                console.error("Error previewing thermal:", err);
+                alert("Failed to generate thermal preview. Make sure you have at least one completed order.");
+              }
+            }}
+            className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 transition"
+          >
+            Preview Receipt (Thermal)
+          </button>
+
+          <button
+            onClick={async () => {
+              try {
+                const response = await apiClient.get("/api/print/preview/invoice");
+                if (response.data?.pdfUrl) {
+                  window.open(response.data.pdfUrl, "_blank");
+                }
+              } catch (err) {
+                console.error("Error previewing invoice:", err);
+                alert("Failed to generate invoice preview. Make sure you have at least one completed order.");
+              }
+            }}
+            className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 transition"
+          >
+            Preview Invoice
+          </button>
+        </div>
+      </ComponentCard>
     </div>
   );
 };
