@@ -13,7 +13,7 @@ export const formatDateTime = (value: Date | string | null | undefined) => {
 };
 
 export const generatePdfBuffer = (
-  build: (doc: PDFKit.PDFDocument) => void,
+  build: (doc: InstanceType<typeof PDFDocument>) => void,
   options?: { size?: [number, number] | string; margin?: number }
 ) =>
   new Promise<Buffer>((resolve, reject) => {
