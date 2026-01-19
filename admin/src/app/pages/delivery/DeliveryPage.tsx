@@ -528,16 +528,9 @@ const DeliveryPage: React.FC = () => {
       {/* Order Number */}
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
-          <div className="relative inline-flex items-center">
-            <span className="font-semibold text-gray-900 dark:text-white">
-              #{order.orderNumber}
-            </span>
-            {unreadCount > 0 && (
-              <span className="absolute -top-2 -right-3 bg-red-500 text-white text-xs font-bold rounded-full min-w-5 h-5 px-1 flex items-center justify-center">
-                {unreadLabel}
-              </span>
-            )}
-          </div>
+          <span className="font-semibold text-gray-900 dark:text-white">
+            #{order.orderNumber}
+          </span>
           {assignedOrderIds.has(order.id) && (
             <span className="px-2 py-0.5 text-xs font-medium rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
               In Route
@@ -620,10 +613,15 @@ const DeliveryPage: React.FC = () => {
         <div className="flex gap-2">
           <button
             onClick={(e) => handleOpenCommunication(order, e)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-500 text-white rounded hover:bg-brand-600 transition-colors text-sm"
+            className="relative flex items-center gap-1.5 px-3 py-1.5 bg-brand-500 text-white rounded hover:bg-brand-600 transition-colors text-sm"
           >
             <PhoneIcon className="w-4 h-4" />
             Contact
+            {unreadCount > 0 && (
+              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full min-w-5 h-5 px-1 flex items-center justify-center">
+                {unreadLabel}
+              </span>
+            )}
           </button>
           <button
             onClick={(e) => handleFulfill(order, e)}
