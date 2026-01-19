@@ -178,6 +178,13 @@ This is a test message to verify SMS integration is working. If you received thi
   }
 
   /**
+   * Normalize phone number to E.164 format for matching
+   */
+  normalizePhoneNumber(phone: string): string | null {
+    return this.formatPhoneNumber(phone);
+  }
+
+  /**
    * Generate receipt SMS message
    */
   private generateReceiptMessage(data: ReceiptSMSData): string {

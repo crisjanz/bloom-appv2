@@ -1,33 +1,61 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import PhoneInput from '@shared/ui/forms/PhoneInput';
+import { ChatIcon } from '@shared/assets/icons';
+import Select from '@shared/ui/forms/Select';
 
 interface SmsComposerProps {
   onSend: (message: string, phoneNumber: string) => Promise<boolean>;
   defaultPhone: string;
+  recipientName?: string;
+  address?: string;
+  phoneOptions?: Array<{ label: string; value: string }>;
+  variant?: 'card' | 'plain';
+  showHeader?: boolean;
+  className?: string;
 }
 
-export default function SmsComposer({ onSend, defaultPhone }: SmsComposerProps) {
+export default function SmsComposer({
+  onSend,
+  defaultPhone,
+  recipientName,
+  address,
+  phoneOptions = [],
+  variant = 'card',
+  showHeader = true,
+  className = ''
+}: SmsComposerProps) {
   const [phoneNumber, setPhoneNumber] = useState(defaultPhone);
+  const [selectedPhone, setSelectedPhone] = useState(defaultPhone);
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
 
+  const confirmDeliveryTemplate = `Hi${recipientName ? ` ${recipientName}` : ''}! This is In Your Vase Flowers. We have flowers for you and need to confirm delivery details. Address: ${address || '[address]'}. Reply with best time and confirm address is correct.`;
+
   const templates = [
     {
-      label: 'Delivery Reminder',
-      text: 'Hi! This is Bloom Flower Shop. Your order is scheduled for delivery today. We\'ll notify you when it\'s on the way!'
-    },
-    {
-      label: 'Running Late',
-      text: 'Hi! This is Bloom Flower Shop. We\'re running a bit behind schedule today. Your delivery will arrive shortly. Thank you for your patience!'
-    },
-    {
-      label: 'Delivered',
-      text: 'Hi! This is Bloom Flower Shop. Your order has been delivered! We hope you love it. Thank you for your business!'
+      label: 'Confirm Delivery',
+      text: confirmDeliveryTemplate
     }
   ];
 
   const handleTemplateSelect = (templateText: string) => {
     setMessage(templateText);
+  };
+
+  useEffect(() => {
+    setPhoneNumber(defaultPhone || '');
+    setSelectedPhone(defaultPhone || '');
+  }, [defaultPhone]);
+
+  const handlePhoneSelect = (value: string) => {
+    setSelectedPhone(value);
+    setPhoneNumber(value);
+  };
+
+  const handlePhoneInputChange = (value: string) => {
+    setPhoneNumber(value);
+    const hasOption = phoneOptions.some((option) => option.value === value);
+    setSelectedPhone(hasOption ? value : '');
   };
 
   const handleSend = async () => {
@@ -58,21 +86,37 @@ export default function SmsComposer({ onSend, defaultPhone }: SmsComposerProps) 
     }
   };
 
-  const charCount = message.length;
-  const charLimit = 160;
-  const isOverLimit = charCount > charLimit;
+  const containerClasses = [
+    variant === 'card'
+      ? 'bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4'
+      : '',
+    className
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Send SMS</h3>
+    <div className={containerClasses}>
+      {showHeader && (
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Send SMS</h3>
+      )}
 
       <div className="space-y-4">
+        {phoneOptions.length > 0 && (
+          <Select
+            label="Contacts"
+            options={phoneOptions}
+            placeholder="Select a contact"
+            value={selectedPhone}
+            onChange={handlePhoneSelect}
+          />
+        )}
         {/* Phone Number */}
         <div>
           <PhoneInput
             label="Phone Number"
             value={phoneNumber || ''}
-            onChange={(value) => setPhoneNumber(value)}
+            onChange={handlePhoneInputChange}
             placeholder="(604) 555-1234"
           />
         </div>
@@ -107,21 +151,16 @@ export default function SmsComposer({ onSend, defaultPhone }: SmsComposerProps) 
             placeholder="Type your message here..."
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500"
           />
-          <div className="flex justify-between items-center mt-1">
-            <p className={`text-sm ${isOverLimit ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'}`}>
-              {charCount} / {charLimit} characters
-              {isOverLimit && ' (message will be split into multiple SMS)'}
-            </p>
-          </div>
         </div>
 
         {/* Send Button */}
         <button
           onClick={handleSend}
           disabled={sending || !phoneNumber.trim() || !message.trim()}
-          className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
-          {sending ? 'Sending...' : '💬 Send SMS'}
+          <ChatIcon className="w-4 h-4" />
+          {sending ? 'Sending...' : 'Send SMS'}
         </button>
       </div>
     </div>

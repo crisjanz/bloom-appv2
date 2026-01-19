@@ -1,59 +1,189 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import CommunicationTimeline from './CommunicationTimeline';
 import PhoneNoteForm from './PhoneNoteForm';
 import SmsComposer from './SmsComposer';
 import { Modal } from '@shared/ui/components/ui/modal';
 import { formatCurrency } from '@shared/utils/currency';
+import { useApiClient } from '@shared/hooks/useApiClient';
+import { useCommunicationsSocket, CommunicationsSocketEvent } from '@shared/hooks/useCommunicationsSocket';
+import { ChevronDownIcon } from '@shared/assets/icons';
+import { formatPhoneDisplay } from '@shared/ui/forms/PhoneInput';
+import DeliveryEditModal from '@app/components/orders/edit/modals/DeliveryEditModal';
 
 interface OrderCommunicationModalProps {
   isOpen: boolean;
   onClose: () => void;
   order: any;
+  onUnreadCountsUpdated?: (payload: {
+    orderId: string;
+    orderUnreadCount: number;
+    totalUnreadCount: number;
+  }) => void;
 }
 
-export default function OrderCommunicationModal({ isOpen, onClose, order }: OrderCommunicationModalProps) {
+interface RelatedOrder {
+  id: string;
+  orderNumber: number;
+  deliveryDate: string | null;
+  status: string;
+}
+
+export default function OrderCommunicationModal({
+  isOpen,
+  onClose,
+  order,
+  onUnreadCountsUpdated
+}: OrderCommunicationModalProps) {
+  const apiClient = useApiClient();
   const [communications, setCommunications] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [deliveryTime, setDeliveryTime] = useState(order?.deliveryTime || '');
+  const [additionalPhones, setAdditionalPhones] = useState<string[]>([]);
+  const [newPhone, setNewPhone] = useState('');
+  const [relatedOrders, setRelatedOrders] = useState<RelatedOrder[]>([]);
+  const [activePanel, setActivePanel] = useState<'phone' | 'sms' | 'delivery' | null>(null);
+  const [deliveryDraft, setDeliveryDraft] = useState({
+    deliveryDate: '',
+    deliveryTime: '',
+    cardMessage: '',
+    specialInstructions: '',
+    occasion: '',
+    deliveryFee: 0
+  });
+  const [savingDelivery, setSavingDelivery] = useState(false);
 
-  // Fetch communications when modal opens
+  const buildDeliveryDraft = useCallback((source: any) => {
+    return {
+      deliveryDate: source?.deliveryDate ? source.deliveryDate.split('T')[0] : '',
+      deliveryTime: source?.deliveryTime || '',
+      cardMessage: source?.cardMessage || '',
+      specialInstructions: source?.specialInstructions || '',
+      occasion: source?.occasion || '',
+      deliveryFee: typeof source?.deliveryFee === 'number' ? source.deliveryFee : 0
+    };
+  }, []);
+
   useEffect(() => {
-    if (isOpen && order?.id) {
-      fetchCommunications();
-    }
+    setAdditionalPhones(order?.additionalPhones || []);
+    setDeliveryDraft(buildDeliveryDraft(order));
+  }, [buildDeliveryDraft, order?.additionalPhones, order?.id]);
+
+  useEffect(() => {
+    setActivePanel(null);
   }, [isOpen, order?.id]);
 
-  const fetchCommunications = async () => {
+  const fetchCommunications = useCallback(async () => {
+    if (!order?.id) return;
+
     try {
       setLoading(true);
-      const response = await fetch(`/api/orders/${order.id}/communications`);
-      const data = await response.json();
-      if (data.success) {
-        setCommunications(data.communications);
+      const { data, status } = await apiClient.get(`/api/orders/${order.id}/communications`);
+      if (status < 400 && data.success) {
+        setCommunications(data.communications || []);
       }
     } catch (error) {
       console.error('Failed to fetch communications:', error);
     } finally {
       setLoading(false);
     }
+  }, [apiClient, order?.id]);
+
+  const markCommunicationsRead = useCallback(async () => {
+    if (!order?.id) return;
+
+    try {
+      const { data, status } = await apiClient.patch(
+        `/api/orders/${order.id}/communications/mark-read`
+      );
+      if (status < 400 && data?.success) {
+        const orderUnreadCount = Number(data.orderUnreadCount || 0);
+        const totalUnreadCount = Number(data.totalUnreadCount || 0);
+
+        onUnreadCountsUpdated?.({
+          orderId: order.id,
+          orderUnreadCount,
+          totalUnreadCount
+        });
+
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('communications:unread-updated', {
+              detail: { totalUnreadCount }
+            })
+          );
+        }
+      }
+    } catch (error) {
+      console.error('Failed to mark communications as read:', error);
+    }
+  }, [apiClient, onUnreadCountsUpdated, order?.id]);
+
+  const fetchRelatedOrders = useCallback(async () => {
+    if (!order?.id) return;
+
+    try {
+      const { data, status } = await apiClient.get(`/api/orders/${order.id}/related-orders`);
+      if (status < 400 && data.success) {
+        setRelatedOrders(data.relatedOrders || []);
+        if (Array.isArray(data.additionalPhones)) {
+          setAdditionalPhones(data.additionalPhones);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch related orders:', error);
+    }
+  }, [apiClient, order?.id]);
+
+  // Fetch communications when modal opens
+  useEffect(() => {
+    if (isOpen && order?.id) {
+      fetchCommunications();
+      markCommunicationsRead();
+      fetchRelatedOrders();
+    }
+  }, [fetchCommunications, fetchRelatedOrders, isOpen, markCommunicationsRead, order?.id]);
+
+  const handleAddPhone = async () => {
+    if (!newPhone.trim() || !order?.id) return;
+
+    try {
+      const { data, status } = await apiClient.post(`/api/orders/${order.id}/additional-phones`, {
+        phone: newPhone
+      });
+      if (status < 400 && data.success) {
+        setAdditionalPhones(data.additionalPhones);
+        setNewPhone('');
+        fetchRelatedOrders(); // Refresh related orders
+      }
+    } catch (error) {
+      console.error('Failed to add phone:', error);
+    }
+  };
+
+  const handleRemovePhone = async (phone: string) => {
+    if (!order?.id) return;
+
+    try {
+      const { data, status } = await apiClient.delete(`/api/orders/${order.id}/additional-phones/${phone}`);
+      if (status < 400 && data.success) {
+        setAdditionalPhones(data.additionalPhones);
+        fetchRelatedOrders();
+      }
+    } catch (error) {
+      console.error('Failed to remove phone:', error);
+    }
   };
 
   const handlePhoneNoteSubmit = async (noteData: any) => {
     try {
-      const response = await fetch(`/api/orders/${order.id}/communications`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'PHONE_CALL',
-          status: noteData.status,
-          quickActions: noteData.quickActions,
-          message: noteData.notes,
-          employeeId: null // TODO: Get from auth context
-        })
+      const { data, status } = await apiClient.post(`/api/orders/${order.id}/communications`, {
+        type: 'PHONE_CALL',
+        status: noteData.status,
+        quickActions: noteData.quickActions,
+        message: noteData.notes,
+        employeeId: null // TODO: Get from auth context
       });
 
-      const data = await response.json();
-      if (data.success) {
+      if (status < 400 && data.success) {
         // Refresh communications
         fetchCommunications();
       }
@@ -64,18 +194,13 @@ export default function OrderCommunicationModal({ isOpen, onClose, order }: Orde
 
   const handleSmsSend = async (message: string, phoneNumber: string) => {
     try {
-      const response = await fetch(`/api/orders/${order.id}/sms`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phoneNumber,
-          message,
-          employeeId: null // TODO: Get from auth context
-        })
+      const { data, status } = await apiClient.post(`/api/orders/${order.id}/sms`, {
+        phoneNumber,
+        message,
+        employeeId: null // TODO: Get from auth context
       });
 
-      const data = await response.json();
-      if (data.success) {
+      if (status < 400 && data.success) {
         // Refresh communications
         fetchCommunications();
         return true;
@@ -87,49 +212,125 @@ export default function OrderCommunicationModal({ isOpen, onClose, order }: Orde
     }
   };
 
-  const handleDeliveryTimeUpdate = async () => {
-    try {
-      const response = await fetch(`/api/orders/${order.id}/delivery-time`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deliveryTime })
-      });
+  const handleDeliverySave = async () => {
+    if (!order?.id) return;
 
-      const data = await response.json();
-      if (data.success) {
-        alert('Delivery time updated!');
+    setSavingDelivery(true);
+    try {
+      const payload = {
+        deliveryDate: deliveryDraft.deliveryDate || null,
+        deliveryTime: deliveryDraft.deliveryTime || null,
+        cardMessage: deliveryDraft.cardMessage || null,
+        specialInstructions: deliveryDraft.specialInstructions || null,
+        occasion: deliveryDraft.occasion || null,
+        deliveryFee: Math.round(deliveryDraft.deliveryFee || 0)
+      };
+
+      const { data, status } = await apiClient.put(`/api/orders/${order.id}/update`, payload);
+      if (status < 400 && data?.success) {
+        if (data.order) {
+          setDeliveryDraft(buildDeliveryDraft(data.order));
+        }
+        setActivePanel(null);
       }
     } catch (error) {
-      console.error('Failed to update delivery time:', error);
+      console.error('Failed to update delivery details:', error);
+    } finally {
+      setSavingDelivery(false);
     }
   };
 
-  if (!isOpen) return null;
+  const handleDeliveryCancel = () => {
+    setDeliveryDraft(buildDeliveryDraft(order));
+    setActivePanel(null);
+  };
+
+  const handleSocketEvent = useCallback(
+    (event: CommunicationsSocketEvent) => {
+      if (!isOpen || event.type !== 'sms:received' || event.data.orderId !== order?.id) {
+        return;
+      }
+
+      fetchCommunications();
+
+      if (typeof event.data.orderUnreadCount === 'number' && typeof event.data.totalUnreadCount === 'number') {
+        onUnreadCountsUpdated?.({
+          orderId: order.id,
+          orderUnreadCount: event.data.orderUnreadCount,
+          totalUnreadCount: event.data.totalUnreadCount
+        });
+
+      }
+    },
+    [fetchCommunications, isOpen, onUnreadCountsUpdated, order?.id]
+  );
+
+  useCommunicationsSocket(handleSocketEvent, isOpen);
 
   const customerPhone = order?.customer?.phone;
   const recipientPhone = order?.deliveryAddress?.phone;
+  const phoneOptions = useMemo(() => {
+    const options: Array<{ label: string; value: string }> = [];
+
+    if (customerPhone) {
+      options.push({
+        label: `Customer • ${formatPhoneDisplay(customerPhone)}`,
+        value: customerPhone
+      });
+    }
+
+    if (recipientPhone) {
+      options.push({
+        label: `Recipient • ${formatPhoneDisplay(recipientPhone)}`,
+        value: recipientPhone
+      });
+    }
+
+    additionalPhones.forEach((phone, index) => {
+      options.push({
+        label: `Additional ${index + 1} • ${formatPhoneDisplay(phone)}`,
+        value: phone
+      });
+    });
+
+    const seen = new Set<string>();
+    return options.filter((option) => {
+      const normalized = option.value.trim();
+      if (!normalized || seen.has(normalized)) {
+        return false;
+      }
+      seen.add(normalized);
+      return true;
+    });
+  }, [additionalPhones, customerPhone, recipientPhone]);
+
+  const togglePanel = (panel: 'phone' | 'sms' | 'delivery') => {
+    setActivePanel((prev) => (prev === panel ? null : panel));
+  };
+
+  if (!isOpen) return null;
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      className="w-[95vw] h-[90vh]"
+      className="w-[92vw] max-w-5xl overflow-hidden"
     >
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-[80vh] overflow-hidden">
         {/* Header */}
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             Customer Communication - Order #{order?.orderNumber}
           </h2>
         </div>
 
         {/* Main Content */}
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex overflow-hidden min-h-0">
           {/* Left Side - Order Summary */}
-          <div className="w-1/3 p-6 border-r border-gray-200 dark:border-gray-700 overflow-y-auto">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Order Details</h3>
+          <div className="w-1/3 p-4 border-r border-gray-200 dark:border-gray-700 overflow-y-auto min-h-0">
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-3">Order Details</h3>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Status</p>
                 <p className="font-medium text-gray-900 dark:text-white">{order?.status}</p>
@@ -142,7 +343,7 @@ export default function OrderCommunicationModal({ isOpen, onClose, order }: Orde
                 </p>
                 {customerPhone && (
                   <a href={`tel:${customerPhone}`} className="text-blue-500 hover:underline text-sm">
-                    {customerPhone}
+                    {formatPhoneDisplay(customerPhone)}
                   </a>
                 )}
               </div>
@@ -154,7 +355,7 @@ export default function OrderCommunicationModal({ isOpen, onClose, order }: Orde
                 </p>
                 {recipientPhone && (
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {recipientPhone}
+                    {formatPhoneDisplay(recipientPhone)}
                   </p>
                 )}
                 {order?.deliveryAddress && (
@@ -168,24 +369,28 @@ export default function OrderCommunicationModal({ isOpen, onClose, order }: Orde
               </div>
 
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Delivery</p>
-                <p className="font-medium text-gray-900 dark:text-white">
-                  {order?.deliveryDate ? new Date(order.deliveryDate).toLocaleDateString() : 'Not set'}
-                </p>
-                <div className="flex gap-2 mt-2">
-                  <input
-                    type="time"
-                    value={deliveryTime}
-                    onChange={(e) => setDeliveryTime(e.target.value)}
-                    className="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                  />
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Delivery</p>
                   <button
-                    onClick={handleDeliveryTimeUpdate}
-                    className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                    type="button"
+                    onClick={() => togglePanel('delivery')}
+                    className="text-xs font-medium text-brand-500 hover:text-brand-600"
                   >
-                    Update
+                    Edit
                   </button>
                 </div>
+                <p className="font-medium text-gray-900 dark:text-white">
+                  {deliveryDraft.deliveryDate
+                    ? new Date(`${deliveryDraft.deliveryDate}T00:00:00`).toLocaleDateString()
+                    : 'Not set'}
+                </p>
+                {deliveryDraft.deliveryTime ? (
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {deliveryDraft.deliveryTime}
+                  </p>
+                ) : (
+                  <p className="text-sm text-gray-400">No time specified</p>
+                )}
               </div>
 
               <div>
@@ -195,25 +400,159 @@ export default function OrderCommunicationModal({ isOpen, onClose, order }: Orde
                 </p>
               </div>
 
-              {order?.specialInstructions && (
+              {deliveryDraft.specialInstructions && (
                 <div>
                   <p className="text-sm text-gray-500 dark:text-gray-400">Special Instructions</p>
-                  <p className="text-sm text-gray-900 dark:text-white">{order.specialInstructions}</p>
+                  <p className="text-sm text-gray-900 dark:text-white">{deliveryDraft.specialInstructions}</p>
+                </div>
+              )}
+
+              {/* Additional Phones */}
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Additional Contacts</p>
+                {additionalPhones.length > 0 && (
+                  <div className="space-y-1 mb-2">
+                    {additionalPhones.map((phone) => (
+                      <div key={phone} className="flex items-center justify-between text-sm">
+                        <a href={`tel:${phone}`} className="text-blue-500 hover:underline">
+                          {phone.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3')}
+                        </a>
+                        <button
+                          onClick={() => handleRemovePhone(phone)}
+                          className="text-red-500 hover:text-red-700 text-xs"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-1">
+                  <input
+                    type="tel"
+                    value={newPhone}
+                    onChange={(e) => setNewPhone(e.target.value)}
+                    placeholder="Add phone..."
+                    className="flex-1 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  />
+                  <button
+                    onClick={handleAddPhone}
+                    disabled={!newPhone.trim()}
+                    className="px-2 py-1 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+
+              {/* Related Orders */}
+              {relatedOrders.length > 0 && (
+                <div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Related Orders</p>
+                  <div className="space-y-1">
+                    {relatedOrders.map((ro) => (
+                      <div
+                        key={ro.id}
+                        className="text-xs bg-gray-50 dark:bg-gray-800 rounded px-2 py-1"
+                      >
+                        <span className="font-medium">#{ro.orderNumber}</span>
+                        {ro.deliveryDate && (
+                          <span className="text-gray-500 ml-2">
+                            {new Date(ro.deliveryDate).toLocaleDateString()}
+                          </span>
+                        )}
+                        <span className="text-gray-400 ml-2">{ro.status}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
           </div>
 
           {/* Right Side - Communication Hub */}
-          <div className="w-2/3 flex flex-col">
+          <div className="w-2/3 flex flex-col min-h-0">
             {/* Scrollable Communication Area */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              <PhoneNoteForm onSubmit={handlePhoneNoteSubmit} />
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
+              <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+                <button
+                  type="button"
+                  onClick={() => togglePanel('delivery')}
+                  className="w-full flex items-center justify-between px-4 py-3 text-left"
+                >
+                  <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                    Delivery Details
+                  </span>
+                  <ChevronDownIcon
+                    className={`w-5 h-5 transition-transform ${
+                      activePanel === 'delivery' ? 'rotate-180 text-brand-500' : 'text-gray-400'
+                    }`}
+                  />
+                </button>
+                {activePanel === 'delivery' && (
+                  <div className="border-t border-gray-200 dark:border-gray-700 p-4">
+                    <DeliveryEditModal
+                      delivery={deliveryDraft}
+                      onChange={setDeliveryDraft}
+                      onSave={handleDeliverySave}
+                      onCancel={handleDeliveryCancel}
+                      saving={savingDelivery}
+                    />
+                  </div>
+                )}
+              </div>
 
-              <SmsComposer
-                onSend={handleSmsSend}
-                defaultPhone={recipientPhone || customerPhone || ''}
-              />
+              <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+                <button
+                  type="button"
+                  onClick={() => togglePanel('phone')}
+                  className="w-full flex items-center justify-between px-4 py-3 text-left"
+                >
+                  <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                    Phone Call Notes
+                  </span>
+                  <ChevronDownIcon
+                    className={`w-5 h-5 transition-transform ${
+                      activePanel === 'phone' ? 'rotate-180 text-brand-500' : 'text-gray-400'
+                    }`}
+                  />
+                </button>
+                {activePanel === 'phone' && (
+                  <div className="border-t border-gray-200 dark:border-gray-700 p-4">
+                    <PhoneNoteForm onSubmit={handlePhoneNoteSubmit} variant="plain" showHeader={false} />
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+                <button
+                  type="button"
+                  onClick={() => togglePanel('sms')}
+                  className="w-full flex items-center justify-between px-4 py-3 text-left"
+                >
+                  <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                    Send SMS
+                  </span>
+                  <ChevronDownIcon
+                    className={`w-5 h-5 transition-transform ${
+                      activePanel === 'sms' ? 'rotate-180 text-brand-500' : 'text-gray-400'
+                    }`}
+                  />
+                </button>
+                {activePanel === 'sms' && (
+                  <div className="border-t border-gray-200 dark:border-gray-700 p-4">
+                    <SmsComposer
+                      onSend={handleSmsSend}
+                      defaultPhone={recipientPhone || customerPhone || ''}
+                      recipientName={order?.deliveryAddress?.firstName || order?.customer?.firstName}
+                      address={order?.deliveryAddress ? `${order.deliveryAddress.address1}${order.deliveryAddress.address2 ? `, ${order.deliveryAddress.address2}` : ''}, ${order.deliveryAddress.city}` : undefined}
+                      phoneOptions={phoneOptions}
+                      variant="plain"
+                      showHeader={false}
+                    />
+                  </div>
+                )}
+              </div>
 
               <CommunicationTimeline
                 communications={communications}

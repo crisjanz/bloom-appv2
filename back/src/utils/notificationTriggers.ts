@@ -190,7 +190,8 @@ export async function triggerStatusNotifications(order: any, newStatus: string, 
                     message: notificationData.template || '',
                     recipient: notification.recipient,
                     isAutomatic: true,
-                    sentVia: 'Twilio'
+                    sentVia: 'Twilio',
+                    readAt: new Date()
                   }
                 });
                 console.log(`📝 Logged SMS communication for order #${order.orderNumber}`);
@@ -211,7 +212,8 @@ export async function triggerStatusNotifications(order: any, newStatus: string, 
                     recipient: notification.recipient,
                     subject: notificationData.subject || '',
                     isAutomatic: true,
-                    sentVia: 'SendGrid'
+                    sentVia: 'SendGrid',
+                    readAt: new Date()
                   }
                 });
                 console.log(`📝 Logged Email communication for order #${order.orderNumber}`);

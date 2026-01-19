@@ -23,6 +23,7 @@ import { getStatusOptions, OrderType as FulfillmentOrderType } from '@shared/uti
 import { useNavigate } from 'react-router';
 import useRoutes from '@shared/hooks/useRoutes';
 import { dollarsToCents, formatCurrency } from '@shared/utils/currency';
+import { useCommunicationsSocket, CommunicationsSocketEvent } from '@shared/hooks/useCommunicationsSocket';
 // MIGRATION: Use domain hook for delivery management
 import { useDeliveryManagement } from '@domains/orders/hooks/useDeliveryManagement';
 import { OrderStatus as DomainOrderStatus } from '@domains/orders/entities/Order';
@@ -63,6 +64,7 @@ type DeliveryOrder = {
   }>;
   paymentAmount?: number;
   total?: number;
+  unreadCommunicationCount?: number;
 };
 
 type DeliveryData = {
@@ -102,6 +104,7 @@ const DeliveryPage: React.FC = () => {
   // Communication modal state
   const [communicationModalOpen, setCommunicationModalOpen] = useState(false);
   const [selectedOrderForComm, setSelectedOrderForComm] = useState<any>(null);
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
 
   // Route assignments for badge/linking
   const { routes: routeSummaries } = useRoutes(selectedDate);
@@ -116,6 +119,30 @@ const DeliveryPage: React.FC = () => {
     });
     return ids;
   }, [routeSummaries]);
+
+  const handleUnreadCountsUpdated = useCallback(
+    (payload: { orderId: string; orderUnreadCount: number }) => {
+      setUnreadCounts((prev) => ({
+        ...prev,
+        [payload.orderId]: payload.orderUnreadCount
+      }));
+    },
+    []
+  );
+
+  const handleCommunicationsEvent = useCallback((event: CommunicationsSocketEvent) => {
+    if (event.type !== 'sms:received') return;
+
+    setUnreadCounts((prev) => ({
+      ...prev,
+      [event.data.orderId]:
+        typeof event.data.orderUnreadCount === 'number'
+          ? event.data.orderUnreadCount
+          : (prev[event.data.orderId] || 0) + 1
+    }));
+  }, []);
+
+  useCommunicationsSocket(handleCommunicationsEvent);
 
   // Helper to filter orders by delivery date
   const filterOrdersByDate = (orders: any, targetDate: string) => {
@@ -251,6 +278,23 @@ const DeliveryPage: React.FC = () => {
     setDisplayData(todayOrders);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allOrders, timezone]);
+
+  useEffect(() => {
+    if (!allOrders) return;
+
+    const nextCounts: Record<string, number> = {};
+    const collectCounts = (orders: DeliveryOrder[]) => {
+      orders.forEach((order) => {
+        nextCounts[order.id] = order.unreadCommunicationCount ?? 0;
+      });
+    };
+
+    collectCounts(allOrders.forDelivery || []);
+    collectCounts(allOrders.forPickup || []);
+    collectCounts(allOrders.completed || []);
+
+    setUnreadCounts(nextCounts);
+  }, [allOrders]);
 
   // Set initial date when timezone is loaded
   useEffect(() => {
@@ -472,6 +516,8 @@ const DeliveryPage: React.FC = () => {
         : typeof order.total === 'number'
         ? dollarsToCents(order.total)
         : 0;
+    const unreadCount = unreadCounts[order.id] ?? order.unreadCommunicationCount ?? 0;
+    const unreadLabel = unreadCount > 9 ? '9+' : `${unreadCount}`;
 
     return (
       <tr 
@@ -482,9 +528,16 @@ const DeliveryPage: React.FC = () => {
       {/* Order Number */}
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
-          <span className="font-semibold text-gray-900 dark:text-white">
-            #{order.orderNumber}
-          </span>
+          <div className="relative inline-flex items-center">
+            <span className="font-semibold text-gray-900 dark:text-white">
+              #{order.orderNumber}
+            </span>
+            {unreadCount > 0 && (
+              <span className="absolute -top-2 -right-3 bg-red-500 text-white text-xs font-bold rounded-full min-w-5 h-5 px-1 flex items-center justify-center">
+                {unreadLabel}
+              </span>
+            )}
+          </div>
           {assignedOrderIds.has(order.id) && (
             <span className="px-2 py-0.5 text-xs font-medium rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
               In Route
@@ -827,6 +880,7 @@ const DeliveryPage: React.FC = () => {
         isOpen={communicationModalOpen}
         onClose={handleCloseCommunication}
         order={selectedOrderForComm}
+        onUnreadCountsUpdated={handleUnreadCountsUpdated}
       />
     </div>
   );

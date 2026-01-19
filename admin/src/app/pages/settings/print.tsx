@@ -349,6 +349,23 @@ const PrintPage = () => {
           >
             Preview Invoice
           </button>
+
+          <button
+            onClick={async () => {
+              try {
+                const response = await apiClient.get("/api/print/preview/ticket");
+                if (response.data?.pdfUrl) {
+                  window.open(response.data.pdfUrl, "_blank");
+                }
+              } catch (err) {
+                console.error("Error previewing ticket:", err);
+                alert("Failed to generate ticket preview. Make sure you have at least one completed order.");
+              }
+            }}
+            className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 transition"
+          >
+            Preview Order Ticket
+          </button>
         </div>
       </ComponentCard>
     </div>

@@ -243,6 +243,7 @@ model Order {
   externalStatus      String?
   needsExternalUpdate Boolean              @default(false)
   images              String[]             @default([])
+  additionalPhones    String[]             @default([])
   customerId          String?
   recipientCustomerId String?
   deliveryAddressId   String?
@@ -357,6 +358,7 @@ model OrderCommunication {
   isAutomatic  Boolean           @default(false)
   sentVia      String?
   createdAt    DateTime          @default(now())
+  readAt       DateTime?
   employee     Employee?         @relation(fields: [employeeId], references: [id])
   order        Order             @relation(fields: [orderId], references: [id])
 

@@ -1,5 +1,5 @@
 import express from 'express';
-import { PrismaClient, OrderType, OrderStatus } from '@prisma/client';
+import { PrismaClient, OrderType, OrderStatus, CommunicationType } from '@prisma/client';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -205,13 +205,45 @@ router.get('/delivery', async (req, res) => {
 
     console.log(`Found delivery orders: ${forDelivery.length} for delivery, ${forPickup.length} for pickup, ${completed.length} completed`);
 
+    const allOrders = [...forDelivery, ...forPickup, ...completed];
+    const orderIds = allOrders.map((order) => order.id);
+    const unreadCountsByOrder: Record<string, number> = {};
+
+    if (orderIds.length > 0) {
+      const unreadCounts = await prisma.orderCommunication.groupBy({
+        by: ['orderId'],
+        where: {
+          orderId: { in: orderIds },
+          type: CommunicationType.SMS_RECEIVED,
+          readAt: null
+        },
+        _count: {
+          orderId: true
+        }
+      });
+
+      unreadCounts.forEach((entry) => {
+        unreadCountsByOrder[entry.orderId] = entry._count.orderId;
+      });
+    }
+
+    const attachUnreadCounts = <T extends { id: string }>(orders: T[]) =>
+      orders.map((order) => ({
+        ...order,
+        unreadCommunicationCount: unreadCountsByOrder[order.id] ?? 0
+      }));
+
+    const forDeliveryWithUnread = attachUnreadCounts(forDelivery);
+    const forPickupWithUnread = attachUnreadCounts(forPickup);
+    const completedWithUnread = attachUnreadCounts(completed);
+
     // Build response based on query type
     const responseData: any = {
       success: true,
       orders: {
-        forDelivery,
-        forPickup,
-        completed
+        forDelivery: forDeliveryWithUnread,
+        forPickup: forPickupWithUnread,
+        completed: completedWithUnread
       },
       summary: {
         totalForDelivery: forDelivery.length,

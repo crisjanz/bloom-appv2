@@ -8,6 +8,8 @@ import { buildInvoicePdf } from '../../templates/invoice-pdf';
 import { buildOrderTicketPdf } from '../../templates/order-ticket-pdf';
 import { buildThermalReceipt } from '../../templates/receipt-thermal';
 import { loadLocalPdf, storePdf } from '../../utils/pdfStorage';
+import { buildRouteViewUrl, generateRouteToken } from '../../utils/routeToken';
+import { generateOrderQRCodeBuffer } from '../../utils/qrCodeGenerator';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -165,7 +167,16 @@ router.post('/order-ticket/:orderId', async (req, res) => {
     }
 
     if (config.destination === 'browser') {
-      const pdfBuffer = await buildOrderTicketPdf(order);
+      let qrBuffer: Buffer | null = null;
+      try {
+        const token = generateRouteToken(order.id);
+        const driverRouteUrl = buildRouteViewUrl(token);
+        qrBuffer = await generateOrderQRCodeBuffer(driverRouteUrl);
+      } catch (error) {
+        console.error('Failed to generate driver route QR for order ticket:', error);
+      }
+
+      const pdfBuffer = await buildOrderTicketPdf(order, { qrCodeBuffer: qrBuffer });
       const stored = await storePdf(pdfBuffer, `order-ticket-${order.orderNumber ?? order.id}`);
       return res.json({ action: 'browser-print', pdfUrl: stored.url });
     }
@@ -182,6 +193,41 @@ router.post('/order-ticket/:orderId', async (req, res) => {
   } catch (error) {
     console.error('Error printing order ticket:', error);
     res.status(500).json({ error: 'Failed to print order ticket' });
+  }
+});
+
+router.get('/preview/ticket', async (req, res) => {
+  try {
+    const order = await prisma.order.findFirst({
+      where: { status: 'COMPLETED' },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        customer: true,
+        recipientCustomer: true,
+        deliveryAddress: true,
+        orderItems: true,
+      },
+    });
+
+    if (!order) {
+      return res.status(404).json({ error: 'No completed orders found for preview' });
+    }
+
+    let qrBuffer: Buffer | null = null;
+    try {
+      const token = generateRouteToken(order.id);
+      const driverRouteUrl = buildRouteViewUrl(token);
+      qrBuffer = await generateOrderQRCodeBuffer(driverRouteUrl);
+    } catch (error) {
+      console.error('Failed to generate driver route QR for ticket preview:', error);
+    }
+
+    const pdfBuffer = await buildOrderTicketPdf(order, { qrCodeBuffer: qrBuffer });
+    const stored = await storePdf(pdfBuffer, `preview-ticket-${Date.now()}`);
+    res.json({ pdfUrl: stored.url });
+  } catch (error) {
+    console.error('Error generating ticket preview:', error);
+    res.status(500).json({ error: 'Failed to generate ticket preview' });
   }
 });
 

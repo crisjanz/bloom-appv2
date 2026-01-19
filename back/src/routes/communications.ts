@@ -3,6 +3,7 @@ import { PrismaClient, CommunicationType } from '@prisma/client';
 import smsService from '../services/smsService';
 
 const router = Router();
+const metaRouter = Router();
 const prisma = new PrismaClient();
 
 // GET /api/orders/:orderId/communications - Get all communications for an order
@@ -72,7 +73,8 @@ router.post('/:orderId/communications', async (req: Request, res: Response) => {
         recipient,
         subject,
         isAutomatic: false,
-        sentVia: 'Manual'
+        sentVia: 'Manual',
+        readAt: new Date()
       },
       include: {
         employee: {
@@ -133,7 +135,8 @@ router.post('/:orderId/sms', async (req: Request, res: Response) => {
         message,
         recipient: phoneNumber,
         isAutomatic: false,
-        sentVia: 'Twilio'
+        sentVia: 'Twilio',
+        readAt: new Date()
       },
       include: {
         employee: {
@@ -189,4 +192,245 @@ router.patch('/:orderId/delivery-time', async (req: Request, res: Response) => {
   }
 });
 
+// PATCH /api/orders/:orderId/communications/mark-read - Mark SMS communications as read
+router.patch('/:orderId/communications/mark-read', async (req: Request, res: Response) => {
+  try {
+    const { orderId } = req.params;
+
+    const updated = await prisma.orderCommunication.updateMany({
+      where: {
+        orderId,
+        type: CommunicationType.SMS_RECEIVED,
+        readAt: null
+      },
+      data: {
+        readAt: new Date()
+      }
+    });
+
+    const [orderUnreadCount, totalUnreadCount] = await Promise.all([
+      prisma.orderCommunication.count({
+        where: {
+          orderId,
+          type: CommunicationType.SMS_RECEIVED,
+          readAt: null
+        }
+      }),
+      prisma.orderCommunication.count({
+        where: {
+          type: CommunicationType.SMS_RECEIVED,
+          readAt: null
+        }
+      })
+    ]);
+
+    res.json({
+      success: true,
+      updated: updated.count,
+      orderUnreadCount,
+      totalUnreadCount
+    });
+  } catch (error) {
+    console.error('Error marking communications as read:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to mark communications as read'
+    });
+  }
+});
+
+// POST /api/orders/:orderId/additional-phones - Add a phone number to order
+router.post('/:orderId/additional-phones', async (req: Request, res: Response) => {
+  try {
+    const { orderId } = req.params;
+    const { phone } = req.body;
+
+    if (!phone || typeof phone !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'Phone number is required'
+      });
+    }
+
+    // Normalize phone - keep only digits
+    const normalizedPhone = phone.replace(/\D/g, '');
+    if (normalizedPhone.length < 10) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid phone number'
+      });
+    }
+
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: { additionalPhones: true }
+    });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        error: 'Order not found'
+      });
+    }
+
+    // Check if already exists
+    if (order.additionalPhones.includes(normalizedPhone)) {
+      return res.json({
+        success: true,
+        additionalPhones: order.additionalPhones
+      });
+    }
+
+    const updated = await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        additionalPhones: {
+          push: normalizedPhone
+        }
+      },
+      select: { additionalPhones: true }
+    });
+
+    res.json({
+      success: true,
+      additionalPhones: updated.additionalPhones
+    });
+  } catch (error) {
+    console.error('Error adding additional phone:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to add phone number'
+    });
+  }
+});
+
+// DELETE /api/orders/:orderId/additional-phones/:phone - Remove a phone number from order
+router.delete('/:orderId/additional-phones/:phone', async (req: Request, res: Response) => {
+  try {
+    const { orderId, phone } = req.params;
+
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: { additionalPhones: true }
+    });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        error: 'Order not found'
+      });
+    }
+
+    const updated = await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        additionalPhones: order.additionalPhones.filter(p => p !== phone)
+      },
+      select: { additionalPhones: true }
+    });
+
+    res.json({
+      success: true,
+      additionalPhones: updated.additionalPhones
+    });
+  } catch (error) {
+    console.error('Error removing additional phone:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to remove phone number'
+    });
+  }
+});
+
+// GET /api/orders/:orderId/related-orders - Get orders with same phone numbers
+router.get('/:orderId/related-orders', async (req: Request, res: Response) => {
+  try {
+    const { orderId } = req.params;
+
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        customer: { select: { phone: true } },
+        deliveryAddress: { select: { phone: true } }
+      }
+    });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        error: 'Order not found'
+      });
+    }
+
+    // Collect all phone numbers for this order
+    const phones: string[] = [];
+    if (order.customer?.phone) phones.push(order.customer.phone);
+    if (order.deliveryAddress?.phone) phones.push(order.deliveryAddress.phone);
+    phones.push(...order.additionalPhones);
+
+    if (phones.length === 0) {
+      return res.json({
+        success: true,
+        relatedOrders: []
+      });
+    }
+
+    // Find other orders with matching phones
+    const relatedOrders = await prisma.order.findMany({
+      where: {
+        id: { not: orderId },
+        OR: [
+          { customer: { phone: { in: phones } } },
+          { deliveryAddress: { phone: { in: phones } } },
+          { additionalPhones: { hasSome: phones } }
+        ]
+      },
+      select: {
+        id: true,
+        orderNumber: true,
+        deliveryDate: true,
+        status: true
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 10
+    });
+
+    res.json({
+      success: true,
+      relatedOrders,
+      additionalPhones: order.additionalPhones
+    });
+  } catch (error) {
+    console.error('Error fetching related orders:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch related orders'
+    });
+  }
+});
+
+// GET /api/communications/unread-count - Get total unread SMS count
+metaRouter.get('/unread-count', async (req: Request, res: Response) => {
+  try {
+    const count = await prisma.orderCommunication.count({
+      where: {
+        type: CommunicationType.SMS_RECEIVED,
+        readAt: null
+      }
+    });
+
+    res.json({
+      success: true,
+      count
+    });
+  } catch (error) {
+    console.error('Error fetching unread communications count:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch unread communications count'
+    });
+  }
+});
+
+export { metaRouter as communicationsMetaRouter };
 export default router;

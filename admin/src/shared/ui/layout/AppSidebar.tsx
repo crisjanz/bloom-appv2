@@ -18,6 +18,8 @@ import {
   MailIcon,
 } from "@shared/assets/icons";
 import { useSidebar } from "@app/contexts/SidebarContext";
+import { useApiClient } from "@shared/hooks/useApiClient";
+import { useCommunicationsSocket, CommunicationsSocketEvent } from "@shared/hooks/useCommunicationsSocket";
 
 type NavItem = {
   name: string;
@@ -116,6 +118,8 @@ const othersItems: NavItem[] = [];
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered, toggleMobileSidebar } = useSidebar();
   const location = useLocation();
+  const apiClient = useApiClient();
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const [openSubmenu, setOpenSubmenu] = useState<{
     type: "main" | "others";
@@ -125,6 +129,52 @@ const AppSidebar: React.FC = () => {
     {}
   );
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  const fetchUnreadCount = useCallback(async () => {
+    try {
+      const { data, status } = await apiClient.get("/api/communications/unread-count");
+      if (status < 400 && data?.success) {
+        setUnreadCount(Number(data.count || 0));
+      }
+    } catch (error) {
+      console.error('Failed to load unread communications count:', error);
+    }
+  }, [apiClient]);
+
+  const handleCommunicationsEvent = useCallback((event: CommunicationsSocketEvent) => {
+    if (event.type !== 'sms:received') return;
+
+    if (typeof event.data.totalUnreadCount === 'number') {
+      setUnreadCount(event.data.totalUnreadCount);
+      return;
+    }
+
+    setUnreadCount((prev) => prev + 1);
+  }, []);
+
+  useCommunicationsSocket(handleCommunicationsEvent);
+
+  useEffect(() => {
+    fetchUnreadCount();
+  }, [fetchUnreadCount]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{ totalUnreadCount?: number }>).detail;
+      if (typeof detail?.totalUnreadCount === 'number') {
+        setUnreadCount(detail.totalUnreadCount);
+      } else {
+        fetchUnreadCount();
+      }
+    };
+
+    window.addEventListener("communications:unread-updated", handler as EventListener);
+    return () => {
+      window.removeEventListener("communications:unread-updated", handler as EventListener);
+    };
+  }, [fetchUnreadCount]);
 
   const isActive = useCallback(
     (path: string) => location.pathname === path,
@@ -301,33 +351,44 @@ const AppSidebar: React.FC = () => {
                 }}
               >
                 <ul className="mt-2 space-y-1 ml-9">
-                  {nav.subItems?.map((subItem) => (
-                    <li key={subItem.name}>
-                      <Link
-                        to={subItem.path}
-                        className={`menu-dropdown-item ${
-                          isActive(subItem.path)
-                            ? "menu-dropdown-item-active"
-                            : "menu-dropdown-item-inactive"
-                        } flex items-center gap-2`}
-                      >
-                        {subItem.icon && (
-                          <span className="w-4 h-4 flex-shrink-0">
-                            {subItem.icon}
+                  {nav.subItems?.map((subItem) => {
+                    const isDeliveryItem = subItem.path === "/delivery";
+                    const showUnreadBadge = isDeliveryItem && unreadCount > 0;
+                    const unreadLabel = unreadCount > 9 ? '9+' : `${unreadCount}`;
+
+                    return (
+                      <li key={subItem.name}>
+                        <Link
+                          to={subItem.path}
+                          className={`menu-dropdown-item ${
+                            isActive(subItem.path)
+                              ? "menu-dropdown-item-active"
+                              : "menu-dropdown-item-inactive"
+                          } flex items-center gap-2`}
+                        >
+                          {subItem.icon && (
+                            <span className="w-4 h-4 flex-shrink-0">
+                              {subItem.icon}
+                            </span>
+                          )}
+                          {subItem.name}
+                          <span className="flex items-center gap-1 ml-auto">
+                            {showUnreadBadge && (
+                              <span className="bg-red-500 text-white text-xs font-bold rounded-full min-w-5 h-5 px-1 flex items-center justify-center">
+                                {unreadLabel}
+                              </span>
+                            )}
+                            {subItem.new && (
+                              <span className="menu-dropdown-badge">new</span>
+                            )}
+                            {subItem.pro && (
+                              <span className="menu-dropdown-badge">pro</span>
+                            )}
                           </span>
-                        )}
-                        {subItem.name}
-                        <span className="flex items-center gap-1 ml-auto">
-                          {subItem.new && (
-                            <span className="menu-dropdown-badge">new</span>
-                          )}
-                          {subItem.pro && (
-                            <span className="menu-dropdown-badge">pro</span>
-                          )}
-                        </span>
-                      </Link>
-                    </li>
-                  ))}
+                        </Link>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             )}

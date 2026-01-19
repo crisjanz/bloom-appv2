@@ -1,3 +1,5 @@
+import { useEffect, useMemo, useRef } from 'react';
+
 interface Communication {
   id: string;
   type: string;
@@ -19,23 +21,18 @@ interface CommunicationTimelineProps {
   loading: boolean;
 }
 
-export default function CommunicationTimeline({ communications, loading }: CommunicationTimelineProps) {
-  const getIcon = (type: string) => {
-    switch (type) {
-      case 'PHONE_CALL':
-        return '📞';
-      case 'SMS_SENT':
-      case 'SMS_RECEIVED':
-        return '💬';
-      case 'EMAIL_SENT':
-        return '📧';
-      case 'NOTE':
-        return '📝';
-      default:
-        return '💬';
-    }
-  };
+const formatPhone = (phone: string) => {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+  }
+  return phone;
+};
 
+export default function CommunicationTimeline({ communications, loading }: CommunicationTimelineProps) {
   const getTypeLabel = (type: string) => {
     switch (type) {
       case 'PHONE_CALL':
@@ -64,6 +61,18 @@ export default function CommunicationTimeline({ communications, loading }: Commu
     });
   };
 
+  const orderedCommunications = useMemo(() => {
+    return [...communications].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+  }, [communications]);
+
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [orderedCommunications.length]);
+
   if (loading) {
     return (
       <div className="flex justify-center items-center py-8">
@@ -80,57 +89,76 @@ export default function CommunicationTimeline({ communications, loading }: Commu
     );
   }
 
+  const renderBubble = (comm: Communication) => {
+    const isIncoming = comm.type === 'SMS_RECEIVED';
+    const isOutgoing = comm.type === 'SMS_SENT' || comm.type === 'EMAIL_SENT';
+
+    if (!isIncoming && !isOutgoing) {
+      return (
+        <div key={comm.id} className="flex w-full">
+          <div className="w-full rounded-lg bg-gray-100 dark:bg-gray-800 px-4 py-2 text-center">
+            <div className="text-xs font-medium text-gray-700 dark:text-gray-200">
+              {getTypeLabel(comm.type)}
+            </div>
+            {comm.status && (
+              <div className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                {comm.status}
+              </div>
+            )}
+            <div className="mt-1 text-xs text-gray-700 dark:text-gray-200 whitespace-pre-wrap">
+              {comm.message}
+            </div>
+            <div className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+              {formatDate(comm.createdAt)}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    const containerClass = isOutgoing ? 'flex justify-end' : 'flex justify-start';
+    const bubbleClass = isOutgoing
+      ? 'max-w-[70%] bg-brand-500 text-white rounded-2xl rounded-br-sm px-4 py-2'
+      : 'max-w-[70%] bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-2xl rounded-bl-sm px-4 py-2';
+    const timeClass = isOutgoing ? 'text-white/70' : 'text-gray-500 dark:text-gray-400';
+
+    const phoneLabel = comm.recipient ? formatPhone(comm.recipient) : null;
+
+    return (
+      <div key={comm.id} className={containerClass}>
+        <div className={bubbleClass}>
+          {comm.type === 'EMAIL_SENT' && (
+            <div className="text-[11px] uppercase tracking-wide text-white/80 mb-1">
+              Email Sent
+            </div>
+          )}
+          {phoneLabel && (
+            <div className={`text-[11px] mb-1 ${isOutgoing ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'}`}>
+              {isIncoming ? `From: ${phoneLabel}` : `To: ${phoneLabel}`}
+            </div>
+          )}
+          {comm.subject && (
+            <div className="text-xs font-semibold mb-1">
+              {comm.subject}
+            </div>
+          )}
+          <div className="text-sm whitespace-pre-wrap">
+            {comm.message}
+          </div>
+          <div className={`text-xs mt-1 ${timeClass}`}>
+            {formatDate(comm.createdAt)}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div>
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Communication History</h3>
-      <div className="space-y-4">
-        {communications.map((comm) => (
-          <div
-            key={comm.id}
-            className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700"
-          >
-            <div className="flex items-start justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">{getIcon(comm.type)}</span>
-                <div>
-                  <p className="font-medium text-gray-900 dark:text-white">
-                    {getTypeLabel(comm.type)}
-                  </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {formatDate(comm.createdAt)} · {comm.employee?.name || 'System'}
-                  </p>
-                </div>
-              </div>
-              {comm.isAutomatic && (
-                <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 rounded">
-                  Auto
-                </span>
-              )}
-            </div>
-
-            {comm.type === 'PHONE_CALL' && comm.status && (
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Status: {comm.status}
-              </p>
-            )}
-
-            {comm.recipient && (
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                To: {comm.recipient}
-              </p>
-            )}
-
-            {comm.subject && (
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                Subject: {comm.subject}
-              </p>
-            )}
-
-            <p className="text-sm text-gray-900 dark:text-white whitespace-pre-wrap">
-              {comm.message}
-            </p>
-          </div>
-        ))}
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Conversation</h3>
+      <div className="space-y-3">
+        {orderedCommunications.map((comm) => renderBubble(comm))}
+        <div ref={bottomRef} />
       </div>
     </div>
   );

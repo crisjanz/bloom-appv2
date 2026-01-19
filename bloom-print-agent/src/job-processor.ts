@@ -2,7 +2,6 @@ import { BrowserWindow } from 'electron';
 import { logger } from './main';
 import { PrintJob } from './connection/websocket';
 import { generateOrderTicketHTML, parseOrderForTicket } from './templates/order-ticket-template';
-import QRCode from 'qrcode';
 
 /**
  * Process print jobs and send to printers
@@ -98,21 +97,15 @@ export class JobProcessor {
     logger.info(`Printing order ticket to ${printerName}`);
 
     try {
+      if (job.data?.pdfBase64) {
+        await this.printPdfBuffer(job.data.pdfBase64, printerName, options);
+        return;
+      }
+
       // Parse order data and generate professional ticket
       logger.info(`Order data received: ${JSON.stringify(job.data).substring(0, 500)}...`);
       const ticketData = parseOrderForTicket(job.data);
       logger.info(`Ticket data parsed: ${JSON.stringify(ticketData).substring(0, 500)}...`);
-
-      if (ticketData.driverRouteUrl) {
-        try {
-          ticketData.driverRouteQrCodeDataUrl = await QRCode.toDataURL(ticketData.driverRouteUrl, {
-            width: 220,
-            margin: 1
-          });
-        } catch (error) {
-          logger.warn('Failed to generate QR code for driver route:', error);
-        }
-      }
 
       const ticketHTML = generateOrderTicketHTML(ticketData);
       logger.info(`HTML generated, length: ${ticketHTML.length} characters`);

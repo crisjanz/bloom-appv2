@@ -22,7 +22,7 @@ import customersAuthRouter from './routes/customersAuth';
 import customerDuplicatesRouter from './routes/customerDuplicates';
 import giftCardsRouter from './routes/gift-cards';
 import ordersRouter from './routes/orders/index';
-import communicationsRouter from './routes/communications';
+import communicationsRouter, { communicationsMetaRouter } from './routes/communications';
 import paymentTransactionsRouter from './routes/payment-transactions';
 import refundsRouter from './routes/refunds';
 import faqsRouter from './routes/settings/faqs';
@@ -64,6 +64,7 @@ import routesRouter from './routes/routes';
 import driverRouteViewRouter from './routes/driver/route-view';
 import driverQRRouter from './routes/driver/qr-code';
 import { printService } from './services/printService';
+import { setCommunicationsWebSocketServer } from './services/communicationsSocketService';
 
 dotenv.config();
 
@@ -215,6 +216,7 @@ app.post('/api/settings/delivery-charges', saveDeliveryCharges);
 app.use('/api/gift-cards', giftCardsRouter);
 app.use('/api/orders', ordersRouter);
 app.use('/api/orders', communicationsRouter); // Communication endpoints for orders
+app.use('/api/communications', communicationsMetaRouter);
 app.use('/api/payment-transactions', paymentTransactionsRouter);
 app.use('/api', refundsRouter);
 app.use('/api/settings/payments', paymentSettingsRouter);
@@ -243,13 +245,30 @@ app.use('/api/driver', driverRouteViewRouter);
 app.use('/api/driver', driverQRRouter);
 app.use('/api/wire-products', wireProductsRouter);
 
-const wss = new WebSocketServer({
-  server,
-  path: '/print-agent'
-});
+// Use noServer mode for multiple WebSocket endpoints
+const wss = new WebSocketServer({ noServer: true });
+const communicationsWss = new WebSocketServer({ noServer: true });
 
-// Connect WebSocket server to print service for broadcasting
+// Connect WebSocket servers to services
 printService.setWebSocketServer(wss);
+setCommunicationsWebSocketServer(communicationsWss);
+
+// Handle upgrade requests manually to route to correct WebSocket server
+server.on('upgrade', (request, socket, head) => {
+  const { pathname } = new URL(request.url || '', `http://${request.headers.host}`);
+
+  if (pathname === '/print-agent') {
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      wss.emit('connection', ws, request);
+    });
+  } else if (pathname === '/communications') {
+    communicationsWss.handleUpgrade(request, socket, head, (ws) => {
+      communicationsWss.emit('connection', ws, request);
+    });
+  } else {
+    socket.destroy();
+  }
+});
 
 wss.on('connection', (ws) => {
   console.log('📡 Print agent connected');
@@ -283,6 +302,18 @@ wss.on('connection', (ws) => {
 
   ws.on('error', (error) => {
     console.error('WebSocket error:', error);
+  });
+});
+
+communicationsWss.on('connection', (ws) => {
+  console.log('📡 Communications WebSocket connected');
+
+  ws.on('close', () => {
+    console.log('📡 Communications WebSocket disconnected');
+  });
+
+  ws.on('error', (error) => {
+    console.error('Communications WebSocket error:', error);
   });
 });
 

@@ -6,9 +6,17 @@ interface PhoneNoteFormProps {
     quickActions: string[];
     notes: string;
   }) => Promise<void>;
+  variant?: 'card' | 'plain';
+  showHeader?: boolean;
+  className?: string;
 }
 
-export default function PhoneNoteForm({ onSubmit }: PhoneNoteFormProps) {
+export default function PhoneNoteForm({
+  onSubmit,
+  variant = 'card',
+  showHeader = true,
+  className = ''
+}: PhoneNoteFormProps) {
   const [status, setStatus] = useState('');
   const [quickActions, setQuickActions] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
@@ -47,9 +55,20 @@ export default function PhoneNoteForm({ onSubmit }: PhoneNoteFormProps) {
     }
   };
 
+  const containerClasses = [
+    variant === 'card'
+      ? 'bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4'
+      : '',
+    className
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Phone Call Notes</h3>
+    <div className={containerClasses}>
+      {showHeader && (
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Phone Call Notes</h3>
+      )}
 
       <div className="space-y-4">
         {/* Status Dropdown */}

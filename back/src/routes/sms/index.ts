@@ -1,7 +1,10 @@
 import { Router } from 'express';
 import { smsService } from '../../services/smsService';
+import webhookRouter from './webhook';
 
 const router = Router();
+
+router.use(webhookRouter);
 
 // Test SMS endpoint
 router.post('/test', async (req, res) => {
