@@ -17,6 +17,15 @@ async function loadOrder(orderId: string) {
       recipientCustomer: true,
       deliveryAddress: true,
       orderItems: true,
+      orderPayments: {
+        include: {
+          transaction: {
+            include: {
+              paymentMethods: true,
+            },
+          },
+        },
+      },
     },
   });
 }
