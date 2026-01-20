@@ -19,8 +19,20 @@ router.post('/', async (req, res) => {
       notes,
       receiptEmail,
       paymentMethods,
-      orderIds
+      orderIds,
+      isAdjustment,
+      orderPaymentAllocations
     } = req.body;
+
+    const adjustmentFlag = Boolean(isAdjustment);
+    const allocationList = Array.isArray(orderPaymentAllocations) ? orderPaymentAllocations : [];
+    const resolvedOrderIds = adjustmentFlag
+      ? allocationList
+          .map((allocation: any) => allocation?.orderId)
+          .filter((orderId: any): orderId is string => typeof orderId === 'string' && orderId.trim().length > 0)
+      : Array.isArray(orderIds)
+        ? orderIds
+        : [];
 
     // Validation
     if (
@@ -28,12 +40,14 @@ router.post('/', async (req, res) => {
       !channel ||
       !totalAmount ||
       !paymentMethods ||
-      !orderIds ||
-      !Array.isArray(orderIds) ||
-      orderIds.length === 0
+      !Array.isArray(paymentMethods) ||
+      resolvedOrderIds.length === 0 ||
+      (adjustmentFlag && allocationList.length === 0)
     ) {
       return res.status(400).json({
-        error: 'Missing required fields: customerId, channel, totalAmount, paymentMethods, orderIds'
+        error: adjustmentFlag
+          ? 'Missing required fields: customerId, channel, totalAmount, paymentMethods, orderPaymentAllocations'
+          : 'Missing required fields: customerId, channel, totalAmount, paymentMethods, orderIds'
       });
     }
 
@@ -43,6 +57,15 @@ router.post('/', async (req, res) => {
       return res.status(400).json({
         error: 'Payment methods total does not match transaction total'
       });
+    }
+
+    if (adjustmentFlag) {
+      const allocationTotal = allocationList.reduce((sum: number, allocation: any) => sum + allocation.amount, 0);
+      if (Math.abs(allocationTotal - totalAmount) > 0.01) {
+        return res.status(400).json({
+          error: 'Order payment allocations total does not match transaction total'
+        });
+      }
     }
 
     const transaction = await transactionService.createTransaction({
@@ -55,7 +78,9 @@ router.post('/', async (req, res) => {
       notes,
       receiptEmail,
       paymentMethods,
-      orderIds
+      orderIds: resolvedOrderIds,
+      isAdjustment: adjustmentFlag,
+      orderPaymentAllocations: allocationList
     });
 
     res.status(201).json(transaction);

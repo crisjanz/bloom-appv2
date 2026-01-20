@@ -27,7 +27,8 @@ router.put('/:id/update', async (req, res) => {
               addresses: true,
             }
           },
-          deliveryAddress: true
+          deliveryAddress: true,
+          orderItems: true
         }
       });
 
@@ -136,6 +137,33 @@ router.put('/:id/update', async (req, res) => {
       if (updateData.pst !== undefined) {
         orderUpdateData.pst = updateData.pst;
       }
+      if (updateData.totalTax !== undefined) {
+        orderUpdateData.totalTax = updateData.totalTax;
+      }
+      if (updateData.taxBreakdown !== undefined) {
+        orderUpdateData.taxBreakdown = updateData.taxBreakdown;
+      }
+
+      if (updateData.gst !== undefined || updateData.pst !== undefined) {
+        const gst = updateData.gst ?? currentOrder.gst ?? 0;
+        const pst = updateData.pst ?? currentOrder.pst ?? 0;
+        orderUpdateData.totalTax = gst + pst;
+        orderUpdateData.taxBreakdown = [
+          ...(gst ? [{ name: 'GST', rate: 0, amount: gst }] : []),
+          ...(pst ? [{ name: 'PST', rate: 0, amount: pst }] : [])
+        ];
+      }
+
+      if (
+        updateData.taxBreakdown !== undefined &&
+        orderUpdateData.totalTax === undefined &&
+        Array.isArray(updateData.taxBreakdown)
+      ) {
+        orderUpdateData.totalTax = updateData.taxBreakdown.reduce(
+          (sum: number, tax: any) => sum + (tax.amount || 0),
+          0
+        );
+      }
 
       // Handle status updates (with notification triggers)
       if (updateData.status) {
@@ -150,8 +178,8 @@ router.put('/:id/update', async (req, res) => {
       }
 
       // Handle order items updates
-if (updateData.orderItems || updateData.recalculateTotal) {
-  if (updateData.orderItems) {
+      if (updateData.orderItems || updateData.recalculateTotal) {
+        if (updateData.orderItems) {
     // Delete existing order items
     await tx.orderItem.deleteMany({
       where: { orderId: id }
@@ -184,6 +212,26 @@ if (updateData.orderItems || updateData.recalculateTotal) {
 
   orderUpdateData.paymentAmount = subtotal + currentDeliveryFee - currentDiscount + currentTotalTax;
 }
+
+      const shouldRecalculateTotals =
+        !updateData.orderItems &&
+        !updateData.recalculateTotal &&
+        (orderUpdateData.deliveryFee !== undefined ||
+          orderUpdateData.discount !== undefined ||
+          orderUpdateData.totalTax !== undefined ||
+          orderUpdateData.taxBreakdown !== undefined);
+
+      if (shouldRecalculateTotals) {
+        const subtotal = currentOrder.orderItems.reduce((sum, item) => sum + item.rowTotal, 0);
+        const currentDeliveryFee =
+          orderUpdateData.deliveryFee !== undefined ? orderUpdateData.deliveryFee : currentOrder.deliveryFee;
+        const currentDiscount =
+          orderUpdateData.discount !== undefined ? orderUpdateData.discount : currentOrder.discount;
+        const currentTotalTax =
+          orderUpdateData.totalTax !== undefined ? orderUpdateData.totalTax : currentOrder.totalTax;
+
+        orderUpdateData.paymentAmount = subtotal + currentDeliveryFee - currentDiscount + currentTotalTax;
+      }
 
       // Handle images updates
       if (updateData.images !== undefined) {

@@ -13,6 +13,8 @@ export interface CreateTransactionData {
   receiptEmail?: string;
   orderIds: string[];
   paymentMethods: PaymentMethodData[];
+  isAdjustment?: boolean;
+  orderPaymentAllocations?: OrderPaymentAllocation[];
 }
 
 export interface PaymentMethodData {
@@ -26,6 +28,11 @@ export interface PaymentMethodData {
   giftCardNumber?: string;
   checkNumber?: string;
   offlineMethodId?: string;
+}
+
+export interface OrderPaymentAllocation {
+  orderId: string;
+  amount: number;
 }
 
 export interface TransactionQueryFilters {
@@ -142,6 +149,7 @@ class TransactionService {
    */
   async createTransaction(data: CreateTransactionData) {
     const transactionNumber = await this.generateTransactionNumber();
+    const isAdjustment = Boolean(data.isAdjustment);
     
     return await prisma.$transaction(async (tx) => {
       // Create the main payment transaction
@@ -186,9 +194,10 @@ class TransactionService {
 
       const normalizedOrderIds = Array.from(
         new Set(
-          (data.orderIds || []).filter(
-            (orderId): orderId is string => typeof orderId === 'string' && orderId.trim().length > 0
-          )
+          (isAdjustment
+            ? (data.orderPaymentAllocations || []).map((allocation) => allocation?.orderId)
+            : data.orderIds || []
+          ).filter((orderId): orderId is string => typeof orderId === 'string' && orderId.trim().length > 0)
         )
       );
 
@@ -196,70 +205,103 @@ class TransactionService {
         throw new Error(`No order IDs provided for transaction ${transactionNumber}`);
       }
 
-      // Create order payment links
       const orders = await tx.order.findMany({
         where: { id: { in: normalizedOrderIds } },
-        select: {
-          id: true,
-          paymentAmount: true,
-          deliveryFee: true,
-          totalTax: true,
-          discount: true,
-          orderItems: {
-            select: {
-              rowTotal: true
+        select: isAdjustment
+          ? { id: true }
+          : {
+              id: true,
+              paymentAmount: true,
+              deliveryFee: true,
+              totalTax: true,
+              discount: true,
+              orderItems: {
+                select: {
+                  rowTotal: true
+                }
+              }
             }
-          }
-        }
       });
 
-      const orderAmountMap = new Map<string, number>();
-      const ordersNeedingPaymentUpdate: Array<{ id: string; amount: number }> = [];
-
-      orders.forEach((order) => {
-        const itemsTotal = order.orderItems.reduce((sum, item) => sum + item.rowTotal, 0);
-        let amount = order.paymentAmount || 0;
-
-        if (amount <= 0) {
-          amount = itemsTotal + (order.deliveryFee || 0) + (order.totalTax || 0) - (order.discount || 0);
-          if (amount < 0) {
-            amount = 0;
-          }
-          if (amount > 0) {
-            ordersNeedingPaymentUpdate.push({ id: order.id, amount });
-          }
-        }
-
-        orderAmountMap.set(order.id, amount);
-      });
-
-      const missingOrderIds = normalizedOrderIds.filter((orderId) => !orderAmountMap.has(orderId));
+      const orderIdSet = new Set(orders.map((order) => order.id));
+      const missingOrderIds = normalizedOrderIds.filter((orderId) => !orderIdSet.has(orderId));
       if (missingOrderIds.length > 0) {
         throw new Error(`Orders not found for transaction ${transactionNumber}: ${missingOrderIds.join(', ')}`);
       }
 
-      if (ordersNeedingPaymentUpdate.length > 0) {
+      if (isAdjustment) {
+        const allocationMap = new Map<string, number>();
+
+        (data.orderPaymentAllocations || []).forEach((allocation) => {
+          if (!allocation || typeof allocation.orderId !== 'string') {
+            return;
+          }
+          const nextAmount = (allocationMap.get(allocation.orderId) || 0) + allocation.amount;
+          allocationMap.set(allocation.orderId, nextAmount);
+        });
+
+        normalizedOrderIds.forEach((orderId) => {
+          const allocatedAmount = allocationMap.get(orderId);
+          if (!allocatedAmount || allocatedAmount <= 0) {
+            throw new Error(`Missing adjustment allocation for order ${orderId} on ${transactionNumber}`);
+          }
+        });
+
         await Promise.all(
-          ordersNeedingPaymentUpdate.map((order) =>
-            tx.order.update({
-              where: { id: order.id },
-              data: { paymentAmount: order.amount }
+          normalizedOrderIds.map((orderId) =>
+            tx.orderPayment.create({
+              data: {
+                transactionId: paymentTransaction.id,
+                orderId,
+                amount: allocationMap.get(orderId) || 0
+              }
+            })
+          )
+        );
+      } else {
+        const orderAmountMap = new Map<string, number>();
+        const ordersNeedingPaymentUpdate: Array<{ id: string; amount: number }> = [];
+
+        orders.forEach((order: any) => {
+          const itemsTotal = order.orderItems.reduce((sum: number, item: any) => sum + item.rowTotal, 0);
+          let amount = order.paymentAmount || 0;
+
+          if (amount <= 0) {
+            amount = itemsTotal + (order.deliveryFee || 0) + (order.totalTax || 0) - (order.discount || 0);
+            if (amount < 0) {
+              amount = 0;
+            }
+            if (amount > 0) {
+              ordersNeedingPaymentUpdate.push({ id: order.id, amount });
+            }
+          }
+
+          orderAmountMap.set(order.id, amount);
+        });
+
+        if (ordersNeedingPaymentUpdate.length > 0) {
+          await Promise.all(
+            ordersNeedingPaymentUpdate.map((order) =>
+              tx.order.update({
+                where: { id: order.id },
+                data: { paymentAmount: order.amount }
+              })
+            )
+          );
+        }
+
+        await Promise.all(
+          normalizedOrderIds.map((orderId) =>
+            tx.orderPayment.create({
+              data: {
+                transactionId: paymentTransaction.id,
+                orderId,
+                amount: orderAmountMap.get(orderId) || 0
+              }
             })
           )
         );
       }
-
-      const orderPayments = await Promise.all(
-        normalizedOrderIds.map((orderId) =>
-          tx.orderPayment.create({
-            data: {
-              transactionId: paymentTransaction.id,
-              orderId,
-              amount: orderAmountMap.get(orderId) || 0
-            }
-          })
-        )
-      );
 
       // Update transaction status to completed if all payments succeeded
       const updatedTransaction = await tx.paymentTransaction.update({
@@ -280,15 +322,17 @@ class TransactionService {
         }
       });
 
-      // Update all associated orders to PAID status when transaction completes
-      await Promise.all(
-        normalizedOrderIds.map(orderId =>
-          tx.order.update({
-            where: { id: orderId },
-            data: { status: 'PAID' }
-          })
-        )
-      );
+      if (!isAdjustment) {
+        // Update all associated orders to PAID status when transaction completes
+        await Promise.all(
+          normalizedOrderIds.map(orderId =>
+            tx.order.update({
+              where: { id: orderId },
+              data: { status: 'PAID' }
+            })
+          )
+        );
+      }
 
       return updatedTransaction;
     });

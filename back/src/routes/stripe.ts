@@ -1,10 +1,143 @@
 import express from 'express';
 import type Stripe from 'stripe';
-import { PrismaClient } from '@prisma/client';
+import { PaymentProvider, PrismaClient } from '@prisma/client';
 import paymentProviderFactory from '../services/paymentProviders/PaymentProviderFactory';
+import providerCustomerService from '../services/providerCustomerService';
 
 const router = express.Router();
 const prisma = new PrismaClient();
+
+type StripeOrderPaymentInfo = {
+  orderId: string;
+  orderNumber?: number | null;
+  orderCustomerId?: string | null;
+  transactionId: string;
+  transactionNumber: string;
+  transactionChannel: string;
+  transactionCustomerId: string;
+  paymentIntentId: string;
+  stripeCustomerId?: string;
+  stripePaymentMethodId?: string;
+  cardLast4?: string | null;
+  cardBrand?: string | null;
+};
+
+const resolvePaymentMetadata = (metadata: any) => {
+  if (!metadata || typeof metadata !== 'object') {
+    return {};
+  }
+
+  return metadata;
+};
+
+async function getStripePaymentInfoForOrder(orderId: string): Promise<StripeOrderPaymentInfo | null> {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: { id: true, orderNumber: true, customerId: true }
+  });
+
+  if (!order) {
+    return null;
+  }
+
+  const orderPayments = await prisma.orderPayment.findMany({
+    where: { orderId },
+    include: {
+      transaction: {
+        include: {
+          paymentMethods: true
+        }
+      }
+    }
+  });
+
+  const transactions = orderPayments
+    .map((orderPayment) => orderPayment.transaction)
+    .filter(Boolean)
+    .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  for (const transaction of transactions) {
+    if (transaction.status !== 'COMPLETED') {
+      continue;
+    }
+
+    const stripeMethod = transaction.paymentMethods?.find(
+      (method: any) =>
+        method.type === 'CARD' &&
+        method.provider === 'STRIPE' &&
+        typeof method.providerTransactionId === 'string' &&
+        method.providerTransactionId.length > 0
+    );
+
+    if (!stripeMethod) {
+      continue;
+    }
+
+    const metadata = resolvePaymentMetadata(stripeMethod.providerMetadata);
+
+    return {
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      orderCustomerId: order.customerId,
+      transactionId: transaction.id,
+      transactionNumber: transaction.transactionNumber,
+      transactionChannel: transaction.channel,
+      transactionCustomerId: transaction.customerId,
+      paymentIntentId: stripeMethod.providerTransactionId,
+      stripeCustomerId: metadata.stripeCustomerId || metadata.customerId || undefined,
+      stripePaymentMethodId: metadata.paymentMethodId || metadata.stripePaymentMethodId || undefined,
+      cardLast4: stripeMethod.cardLast4,
+      cardBrand: stripeMethod.cardBrand
+    };
+  }
+
+  return null;
+}
+
+async function resolveStripeCustomerId(
+  orderCustomerId?: string | null,
+  paymentIntentCustomerId?: string | null
+): Promise<string | undefined> {
+  if (paymentIntentCustomerId) {
+    return paymentIntentCustomerId;
+  }
+
+  if (!orderCustomerId) {
+    return undefined;
+  }
+
+  const providerCustomer = await providerCustomerService.getProviderCustomer(orderCustomerId, PaymentProvider.STRIPE);
+  return providerCustomer?.providerCustomerId || undefined;
+}
+
+async function resolveStripePaymentMethodId(
+  stripe: Stripe,
+  customerId?: string,
+  paymentMethodId?: string
+): Promise<string | undefined> {
+  if (paymentMethodId) {
+    return paymentMethodId;
+  }
+
+  if (!customerId) {
+    return undefined;
+  }
+
+  const customer = await stripe.customers.retrieve(customerId);
+  if (!('deleted' in customer)) {
+    const defaultMethod = customer.invoice_settings?.default_payment_method;
+    if (defaultMethod) {
+      return typeof defaultMethod === 'string' ? defaultMethod : defaultMethod.id;
+    }
+  }
+
+  const paymentMethods = await stripe.paymentMethods.list({
+    customer: customerId,
+    type: 'card'
+  });
+
+  return paymentMethods.data[0]?.id;
+}
 
 /**
  * Create a payment intent
@@ -163,17 +296,26 @@ router.post('/customer', async (req, res) => {
  */
 router.post('/refund', async (req, res) => {
   try {
-    const { paymentIntentId, amount, reason } = req.body;
+    const { paymentIntentId, amount, reason, orderId } = req.body;
 
-    if (!paymentIntentId) {
+    if (!paymentIntentId && !orderId) {
       return res.status(400).json({ 
-        error: 'Payment intent ID is required' 
+        error: 'Payment intent ID or order ID is required' 
       });
     }
 
     const stripe = await paymentProviderFactory.getStripeClient();
+    const orderPaymentInfo = orderId ? await getStripePaymentInfoForOrder(orderId) : null;
+    const resolvedPaymentIntentId = paymentIntentId || orderPaymentInfo?.paymentIntentId;
+
+    if (!resolvedPaymentIntentId) {
+      return res.status(404).json({
+        error: 'No Stripe payment found for this order'
+      });
+    }
+
     const refundData: Stripe.RefundCreateParams = {
-      payment_intent: paymentIntentId,
+      payment_intent: resolvedPaymentIntentId,
     };
 
     const parsedAmount = Number(amount);
@@ -192,12 +334,116 @@ router.post('/refund', async (req, res) => {
       refundId: refund.id,
       amount: refund.amount ?? null,
       status: refund.status,
+      paymentIntentId: resolvedPaymentIntentId,
+      transactionId: orderPaymentInfo?.transactionId ?? null,
+      transactionNumber: orderPaymentInfo?.transactionNumber ?? null,
+      cardLast4: orderPaymentInfo?.cardLast4 ?? null,
+      cardBrand: orderPaymentInfo?.cardBrand ?? null
     });
 
   } catch (error) {
     console.error('❌ Stripe refund failed:', error);
     res.status(500).json({ 
       error: 'Failed to process refund',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+/**
+ * Charge additional amount to saved payment method
+ * POST /api/stripe/charge-saved
+ */
+router.post('/charge-saved', async (req, res) => {
+  try {
+    const { orderId, amount, description } = req.body;
+
+    if (!orderId) {
+      return res.status(400).json({ error: 'Order ID is required' });
+    }
+
+    const parsedAmount = Number(amount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      return res.status(400).json({ error: 'Amount must be greater than 0' });
+    }
+
+    const paymentInfo = await getStripePaymentInfoForOrder(orderId);
+    if (!paymentInfo) {
+      return res.status(404).json({ error: 'No Stripe payment found for this order' });
+    }
+
+    const stripe = await paymentProviderFactory.getStripeClient();
+    let paymentIntentCustomerId: string | null = null;
+    let paymentIntentMethodId: string | null = paymentInfo.stripePaymentMethodId || null;
+    let paymentMethodCardLast4 = paymentInfo.cardLast4 || null;
+    let paymentMethodCardBrand = paymentInfo.cardBrand || null;
+
+    const existingPaymentIntent = await stripe.paymentIntents.retrieve(paymentInfo.paymentIntentId, {
+      expand: ['payment_method', 'customer']
+    });
+
+    if (!paymentIntentCustomerId) {
+      const customer = existingPaymentIntent.customer;
+      paymentIntentCustomerId = typeof customer === 'string' ? customer : customer?.id ?? null;
+    }
+
+    if (!paymentIntentMethodId) {
+      const paymentMethod = existingPaymentIntent.payment_method;
+      paymentIntentMethodId = typeof paymentMethod === 'string' ? paymentMethod : paymentMethod?.id ?? null;
+      if (typeof paymentMethod === 'object' && paymentMethod?.card) {
+        paymentMethodCardLast4 = paymentMethod.card.last4 || paymentMethodCardLast4;
+        paymentMethodCardBrand = paymentMethod.card.brand || paymentMethodCardBrand;
+      }
+    }
+
+    const stripeCustomerId = await resolveStripeCustomerId(
+      paymentInfo.orderCustomerId,
+      paymentIntentCustomerId
+    );
+    const paymentMethodId = await resolveStripePaymentMethodId(
+      stripe,
+      stripeCustomerId,
+      paymentIntentMethodId || undefined
+    );
+
+    if (!paymentMethodId) {
+      return res.status(400).json({ error: 'No saved Stripe payment method available for this order' });
+    }
+
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(parsedAmount),
+      currency: 'cad',
+      customer: stripeCustomerId || undefined,
+      payment_method: paymentMethodId,
+      confirm: true,
+      off_session: true,
+      description: description || `Order adjustment for #${paymentInfo.orderNumber ?? orderId}`,
+      metadata: {
+        orderId,
+        source: 'order-adjustment',
+        originalPaymentIntentId: paymentInfo.paymentIntentId
+      },
+      expand: ['payment_method', 'latest_charge']
+    });
+
+    if (typeof paymentIntent.payment_method === 'object' && paymentIntent.payment_method?.card) {
+      paymentMethodCardLast4 = paymentIntent.payment_method.card.last4 || paymentMethodCardLast4;
+      paymentMethodCardBrand = paymentIntent.payment_method.card.brand || paymentMethodCardBrand;
+    }
+
+    res.json({
+      success: true,
+      paymentIntentId: paymentIntent.id,
+      amount: paymentIntent.amount,
+      cardLast4: paymentMethodCardLast4,
+      cardBrand: paymentMethodCardBrand,
+      stripeCustomerId,
+      paymentMethodId
+    });
+  } catch (error) {
+    console.error('❌ Charge saved card failed:', error);
+    res.status(500).json({
+      error: 'Failed to charge saved card',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
   }

@@ -5,12 +5,17 @@ import Label from '@shared/ui/forms/Label';
 import Select from '@shared/ui/forms/Select';
 import { Modal } from '@shared/ui/components/ui/modal';
 import { centsToDollars, formatCurrency, parseUserCurrency } from '@shared/utils/currency';
+import { useApiClient } from '@shared/hooks/useApiClient';
 
 interface PaymentAdjustmentModalProps {
+  orderId: string;
   oldTotal: number;
   newTotal: number;
   originalPaymentMethod: string;
   originalCardLast4?: string;
+  originalCardBrand?: string;
+  originalPaymentIntentId?: string;
+  paymentProvider?: string;
   customerName: string;
   onComplete: (adjustmentData: PaymentAdjustmentResult) => void;
   onCancel: () => void;
@@ -22,9 +27,15 @@ interface PaymentAdjustmentResult {
   amount: number;
   success: boolean;
   notes: string;
-  transactionId?: string;
   cashReceived?: number;
   changeDue?: number;
+  paymentMethodType?: string;
+  provider?: string;
+  providerTransactionId?: string;
+  providerRefundId?: string;
+  cardLast4?: string;
+  cardBrand?: string;
+  providerMetadata?: Record<string, any>;
 }
 
 const paymentMethodOptions = [
@@ -35,18 +46,24 @@ const paymentMethodOptions = [
 ];
 
 const PaymentAdjustmentModal: React.FC<PaymentAdjustmentModalProps> = ({
+  orderId,
   oldTotal,
   newTotal,
   originalPaymentMethod,
   originalCardLast4,
+  originalCardBrand,
+  originalPaymentIntentId,
+  paymentProvider,
   customerName,
   onComplete,
   onCancel
 }) => {
+  const apiClient = useApiClient();
   const [processing, setProcessing] = useState(false);
   const [showAlternativeMethod, setShowAlternativeMethod] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState('cash');
   const [notes, setNotes] = useState('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
   // Cash handling states
   const [cashReceived, setCashReceived] = useState('');
@@ -55,6 +72,7 @@ const PaymentAdjustmentModal: React.FC<PaymentAdjustmentModalProps> = ({
   const difference = newTotal - oldTotal;
   const isRefund = difference < 0;
   const amount = Math.abs(difference);
+  const autoChargeAvailable = paymentProvider === 'STRIPE';
 
   const calculateChange = () => {
     const receivedCents = parseUserCurrency(cashReceived);
@@ -63,35 +81,81 @@ const PaymentAdjustmentModal: React.FC<PaymentAdjustmentModalProps> = ({
 
   const handleAutoCharge = async () => {
     setProcessing(true);
+    setErrorMessage(null);
     
     try {
-      // TODO: Replace with real payment processor integration
-      // For now, simulate the payment processing
-      await simulatePaymentProcessing();
-      
-      const result: PaymentAdjustmentResult = {
-        method: 'auto',
-        paymentType: originalPaymentMethod,
-        amount: amount,
-        success: true,
-        notes: `${isRefund ? 'Refunded' : 'Charged'} ${formatCurrency(amount)} to ${originalPaymentMethod} ending in ${originalCardLast4}`,
-        transactionId: `txn_${Date.now()}` // Placeholder transaction ID
-      };
-      
-      onComplete(result);
-      
+      if (!orderId) {
+        throw new Error('Order ID is missing.');
+      }
+
+      if (isRefund) {
+        const { data, status } = await apiClient.post('/api/stripe/refund', {
+          paymentIntentId: originalPaymentIntentId,
+          orderId,
+          amount
+        });
+
+        if (status >= 400 || !data?.success) {
+          throw new Error(data?.error || 'Failed to process refund.');
+        }
+
+        const cardLast4 = data.cardLast4 || originalCardLast4;
+        const paymentLabel = originalPaymentMethod || (originalCardBrand ? `${originalCardBrand} Card` : 'Card');
+        const cardSuffix = cardLast4 ? ` ending in ${cardLast4}` : '';
+
+        onComplete({
+          method: 'auto',
+          paymentType: paymentLabel,
+          amount,
+          success: true,
+          notes: `Refunded ${formatCurrency(amount)} to ${paymentLabel}${cardSuffix}.`,
+          paymentMethodType: 'CARD',
+          provider: 'STRIPE',
+          providerRefundId: data.refundId || undefined,
+          cardLast4,
+          cardBrand: data.cardBrand || originalCardBrand
+        });
+      } else {
+        const { data, status } = await apiClient.post('/api/stripe/charge-saved', {
+          orderId,
+          amount,
+          description: 'Order adjustment'
+        });
+
+        if (status >= 400 || !data?.success) {
+          throw new Error(data?.error || 'Failed to charge card.');
+        }
+
+        const cardLast4 = data.cardLast4 || originalCardLast4;
+        const paymentLabel = originalPaymentMethod || (originalCardBrand ? `${originalCardBrand} Card` : 'Card');
+        const cardSuffix = cardLast4 ? ` ending in ${cardLast4}` : '';
+
+        onComplete({
+          method: 'auto',
+          paymentType: paymentLabel,
+          amount,
+          success: true,
+          notes: `Charged ${formatCurrency(amount)} to ${paymentLabel}${cardSuffix}.`,
+          paymentMethodType: 'CARD',
+          provider: 'STRIPE',
+          providerTransactionId: data.paymentIntentId || undefined,
+          cardLast4,
+          cardBrand: data.cardBrand || originalCardBrand,
+          providerMetadata: {
+            stripeCustomerId: data.stripeCustomerId,
+            paymentMethodId: data.paymentMethodId,
+            originalPaymentIntentId: originalPaymentIntentId
+          }
+        });
+      }
     } catch (error) {
       console.error('Payment processing failed:', error);
-      
-      const result: PaymentAdjustmentResult = {
-        method: 'auto',
-        paymentType: originalPaymentMethod,
-        amount: amount,
-        success: false,
-        notes: `Failed to ${isRefund ? 'refund' : 'charge'} ${formatCurrency(amount)} - please process manually`,
-      };
-      
-      onComplete(result);
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : `Failed to ${isRefund ? 'refund' : 'charge'} the card.`
+      );
+      setShowAlternativeMethod(true);
     } finally {
       setProcessing(false);
     }
@@ -113,7 +177,9 @@ const PaymentAdjustmentModal: React.FC<PaymentAdjustmentModalProps> = ({
       success: true,
       notes: `Cash payment: Received ${formatCurrency(receivedCents)}, Change due: ${formatCurrency(changeCents)}`,
       cashReceived: receivedCents,
-      changeDue: changeCents
+      changeDue: changeCents,
+      paymentMethodType: 'CASH',
+      provider: 'INTERNAL'
     };
     
     if (notes.trim()) {
@@ -125,30 +191,38 @@ const PaymentAdjustmentModal: React.FC<PaymentAdjustmentModalProps> = ({
 
   const handleOtherPayment = async () => {
     setProcessing(true);
+    setErrorMessage(null);
     
     try {
       let paymentNotes = '';
-      let transactionId = '';
+      let paymentMethodType = 'CASH';
+      let provider = 'INTERNAL';
+      let paymentLabel = '';
       
       switch (selectedMethod) {
         case 'manual_cc':
           // TODO: Add manual CC processing form
-          paymentNotes = `Manual credit card: ${isRefund ? 'Refunded' : 'Charged'} ${formatCurrency(amount)} - processed over phone`;
-          transactionId = `manual_${Date.now()}`;
+          paymentMethodType = 'CARD';
+          provider = 'INTERNAL';
+          paymentLabel = 'Manual credit card';
+          paymentNotes = `${paymentLabel}: ${isRefund ? 'Refunded' : 'Charged'} ${formatCurrency(amount)} - processed over phone`;
           break;
         case 'stripe':
           // TODO: Integrate with Stripe Terminal
-          await simulateTerminalProcessing('Stripe');
-          paymentNotes = `Stripe Terminal: ${isRefund ? 'Refunded' : 'Charged'} ${formatCurrency(amount)}`;
-          transactionId = `stripe_${Date.now()}`;
+          paymentMethodType = 'CARD';
+          provider = 'STRIPE';
+          paymentLabel = 'Stripe Terminal';
+          paymentNotes = `${paymentLabel}: ${isRefund ? 'Refunded' : 'Charged'} ${formatCurrency(amount)}`;
           break;
         case 'square':
           // TODO: Integrate with Square Terminal
-          await simulateTerminalProcessing('Square');
-          paymentNotes = `Square Terminal: ${isRefund ? 'Refunded' : 'Charged'} ${formatCurrency(amount)}`;
-          transactionId = `square_${Date.now()}`;
+          paymentMethodType = 'CARD';
+          provider = 'SQUARE';
+          paymentLabel = 'Square Terminal';
+          paymentNotes = `${paymentLabel}: ${isRefund ? 'Refunded' : 'Charged'} ${formatCurrency(amount)}`;
           break;
         default:
+          paymentLabel = 'Manual payment adjustment';
           paymentNotes = `Manual payment adjustment: ${formatCurrency(amount)}`;
       }
       
@@ -162,7 +236,8 @@ const PaymentAdjustmentModal: React.FC<PaymentAdjustmentModalProps> = ({
         amount: amount,
         success: true,
         notes: paymentNotes,
-        transactionId
+        paymentMethodType,
+        provider
       };
       
       onComplete(result);
@@ -176,6 +251,8 @@ const PaymentAdjustmentModal: React.FC<PaymentAdjustmentModalProps> = ({
         amount: amount,
         success: false,
         notes: `Failed to process ${selectedMethod} payment - please try again`,
+        paymentMethodType: 'CASH',
+        provider: 'INTERNAL'
       };
       
       onComplete(result);
@@ -192,33 +269,6 @@ const PaymentAdjustmentModal: React.FC<PaymentAdjustmentModalProps> = ({
     if (method === 'cash' && !isRefund) {
       setCashReceived(centsToDollars(amount).toFixed(2));
     }
-  };
-
-  // Simulate payment processing - replace with real integration later
-  const simulatePaymentProcessing = (): Promise<void> => {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        // Simulate 90% success rate
-        if (Math.random() > 0.1) {
-          resolve();
-        } else {
-          reject(new Error('Payment declined'));
-        }
-      }, 2000);
-    });
-  };
-
-  // Simulate terminal processing
-  const simulateTerminalProcessing = (terminal: string): Promise<void> => {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        if (Math.random() > 0.05) { // 95% success rate for terminals
-          resolve();
-        } else {
-          reject(new Error(`${terminal} terminal error`));
-        }
-      }, 3000);
-    });
   };
 
   return (
@@ -265,14 +315,21 @@ const PaymentAdjustmentModal: React.FC<PaymentAdjustmentModalProps> = ({
             </div>
           </div>
 
-          {!showAlternativeMethod ? (
+          {errorMessage && (
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {errorMessage}
+            </div>
+          )}
+
+          {!showAlternativeMethod && autoChargeAvailable ? (
             /* Default: Auto Charge Option */
             <div className="space-y-4">
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <CreditCardIcon className="w-5 h-5 text-blue-600" />
                   <span className="font-medium text-blue-900 dark:text-blue-100">
-                    {originalPaymentMethod} ending in {originalCardLast4}
+                    {originalPaymentMethod}
+                    {originalCardLast4 ? ` ending in ${originalCardLast4}` : ''}
                   </span>
                 </div>
                 <p className="text-sm text-blue-700 dark:text-blue-300">

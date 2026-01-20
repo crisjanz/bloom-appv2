@@ -24,6 +24,36 @@ const splitRecipientName = (name?: string | null) => {
   return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
 };
 
+const formatPaymentMethodLabel = (method: any) => {
+  if (!method) return 'Payment';
+
+  const type = method.type ? String(method.type) : '';
+  const provider = method.provider ? String(method.provider) : '';
+  const cardSuffix = method.cardLast4 ? ` ending in ${method.cardLast4}` : '';
+
+  if (type === 'CARD') {
+    const providerLabel = provider || 'Card';
+    return `${providerLabel} Card${cardSuffix}`;
+  }
+
+  const typeLabel = type
+    ? type
+        .toLowerCase()
+        .split('_')
+        .map((part: string) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ')
+    : 'Payment';
+
+  return typeLabel;
+};
+
+const resolveAdjustmentChannel = (orderSource?: string) => {
+  const normalized = orderSource?.toUpperCase();
+  if (normalized === 'PHONE') return 'PHONE';
+  if (normalized === 'POS' || normalized === 'WALKIN') return 'POS';
+  return 'WEBSITE';
+};
+
 // Convert domain Order to frontend Order format
 const mapDomainOrderToFrontend = (domainOrder: DomainOrder): Order => {
   return {
@@ -111,7 +141,24 @@ interface PaymentAdjustmentResult {
   amount: number;
   success: boolean;
   notes: string;
-  transactionId?: string;
+  paymentMethodType?: string;
+  provider?: string;
+  providerTransactionId?: string;
+  providerRefundId?: string;
+  cardLast4?: string;
+  cardBrand?: string;
+  providerMetadata?: Record<string, any>;
+}
+
+interface OrderPaymentInfo {
+  transactionId: string;
+  transactionNumber: string;
+  paymentMethodType: string;
+  provider: string;
+  cardLast4?: string;
+  cardBrand?: string;
+  paymentIntentId?: string;
+  methodLabel: string;
 }
 
 const OrderEditPage: React.FC = () => {
@@ -125,6 +172,7 @@ const OrderEditPage: React.FC = () => {
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [communicationModalOpen, setCommunicationModalOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [paymentInfo, setPaymentInfo] = useState<OrderPaymentInfo | null>(null);
   
   // Edit states
   const [editingCustomer, setEditingCustomer] = useState<any>(null);
@@ -140,7 +188,11 @@ const OrderEditPage: React.FC = () => {
     oldTotal: number;
     newTotal: number;
     originalPaymentMethod: string;
-    originalCardLast4: string;
+    originalCardLast4?: string;
+    originalCardBrand?: string;
+    originalPaymentIntentId?: string;
+    paymentProvider?: string;
+    transactionId?: string;
   } | null>(null);
 
   // Refund modal states
@@ -198,6 +250,76 @@ const OrderEditPage: React.FC = () => {
     };
 
     loadUnreadCount();
+
+    return () => {
+      isActive = false;
+    };
+  }, [apiClient, order?.id]);
+
+  useEffect(() => {
+    if (!order?.id) {
+      setPaymentInfo(null);
+      return;
+    }
+
+    let isActive = true;
+
+    const loadPaymentInfo = async () => {
+      try {
+        const { data, status } = await apiClient.get(`/api/payment-transactions/order/${order.id}`);
+        if (!isActive) return;
+
+        if (status >= 400 || !Array.isArray(data)) {
+          setPaymentInfo(null);
+          return;
+        }
+
+        const transactions = [...data].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+
+        let selectedTransaction: any | null = null;
+        let selectedMethod: any | null = null;
+
+        for (const transaction of transactions) {
+          const cardMethod = transaction.paymentMethods?.find(
+            (method: any) => method.type === 'CARD'
+          );
+
+          if (cardMethod) {
+            selectedTransaction = transaction;
+            selectedMethod = cardMethod;
+            break;
+          }
+
+          if (!selectedMethod && Array.isArray(transaction.paymentMethods) && transaction.paymentMethods.length > 0) {
+            selectedTransaction = transaction;
+            selectedMethod = transaction.paymentMethods[0];
+          }
+        }
+
+        if (selectedTransaction && selectedMethod) {
+          setPaymentInfo({
+            transactionId: selectedTransaction.id,
+            transactionNumber: selectedTransaction.transactionNumber,
+            paymentMethodType: selectedMethod.type,
+            provider: selectedMethod.provider || 'INTERNAL',
+            cardLast4: selectedMethod.cardLast4,
+            cardBrand: selectedMethod.cardBrand,
+            paymentIntentId: selectedMethod.providerTransactionId,
+            methodLabel: formatPaymentMethodLabel(selectedMethod)
+          });
+          return;
+        }
+
+        setPaymentInfo(null);
+      } catch (error) {
+        console.error('Failed to load payment info:', error);
+        setPaymentInfo(null);
+      }
+    };
+
+    loadPaymentInfo();
 
     return () => {
       isActive = false;
@@ -428,15 +550,19 @@ const OrderEditPage: React.FC = () => {
       console.log('Update result:', result);
       
       if (result) {
-        const newTotal = order?.paymentAmount || 0;
+        const newTotal = result?.paymentAmount ?? order?.paymentAmount ?? 0;
         
         // Check if payment adjustment is needed (for differences of $0.50 or more)
         if (Math.abs(newTotal - oldTotal) >= 50) {
           setPaymentAdjustmentData({
             oldTotal,
             newTotal,
-            originalPaymentMethod: 'Payment Transaction',
-            originalCardLast4: '1234' // TODO: Get from actual order data
+            originalPaymentMethod: paymentInfo?.methodLabel || 'Payment',
+            originalCardLast4: paymentInfo?.cardLast4,
+            originalCardBrand: paymentInfo?.cardBrand,
+            originalPaymentIntentId: paymentInfo?.paymentIntentId,
+            paymentProvider: paymentInfo?.provider,
+            transactionId: paymentInfo?.transactionId
           });
           setShowPaymentAdjustment(true);
         }
@@ -458,24 +584,98 @@ const OrderEditPage: React.FC = () => {
   const handlePaymentAdjustmentComplete = async (adjustmentData: PaymentAdjustmentResult) => {
     try {
       console.log('Payment adjustment completed:', adjustmentData);
-      
-      // TODO: Add API endpoint to save payment adjustment notes
-      // await fetch(`/api/orders/${id}/add-note`, {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     note: adjustmentData.notes,
-      //     type: 'payment_adjustment',
-      //     employeeId: 'current-employee-id' // TODO: Get from auth
-      //   })
-      // });
-      
+      const adjustmentContext = paymentAdjustmentData;
+      const difference = adjustmentContext ? adjustmentContext.newTotal - adjustmentContext.oldTotal : 0;
+      const isRefund = difference < 0;
+      const adjustmentAmount = adjustmentData.amount || Math.abs(difference);
+      const orderId = order?.id;
+      const customerId = order?.customer?.id;
+      let recordError: string | null = null;
+
+      if (adjustmentData.success && orderId && adjustmentAmount > 0) {
+        const paymentMethodType =
+          adjustmentData.paymentMethodType || paymentInfo?.paymentMethodType || 'CASH';
+        const provider = adjustmentData.provider || paymentInfo?.provider || 'INTERNAL';
+
+        if (isRefund) {
+          const transactionId = adjustmentContext?.transactionId;
+          if (!transactionId) {
+            recordError = 'Missing original transaction for refund. Please record the refund manually.';
+          } else {
+            try {
+              await apiClient.post(`/api/payment-transactions/${transactionId}/refunds`, {
+                amount: adjustmentAmount,
+                reason: adjustmentData.notes || 'Order adjustment refund',
+                employeeId: undefined,
+                refundMethods: [
+                  {
+                    paymentMethodType,
+                    provider,
+                    amount: adjustmentAmount,
+                    providerRefundId: adjustmentData.providerRefundId
+                  }
+                ]
+              });
+            } catch (refundError) {
+              console.error('Failed to record refund:', refundError);
+              recordError = 'Payment refunded but failed to record refund details.';
+            }
+          }
+        } else {
+          if (!customerId) {
+            recordError = 'Order customer is missing for adjustment transaction.';
+          } else {
+            try {
+              await apiClient.post('/api/payment-transactions', {
+                customerId,
+                employeeId: undefined,
+                channel: resolveAdjustmentChannel(order?.orderSource),
+                totalAmount: adjustmentAmount,
+                taxAmount: 0,
+                tipAmount: 0,
+                notes: adjustmentData.notes || 'Order adjustment',
+                paymentMethods: [
+                  {
+                    type: paymentMethodType,
+                    provider,
+                    amount: adjustmentAmount,
+                    providerTransactionId: adjustmentData.providerTransactionId,
+                    providerMetadata: adjustmentData.providerMetadata,
+                    cardLast4: adjustmentData.cardLast4,
+                    cardBrand: adjustmentData.cardBrand
+                  }
+                ],
+                orderIds: [orderId],
+                isAdjustment: true,
+                orderPaymentAllocations: [{ orderId, amount: adjustmentAmount }]
+              });
+            } catch (transactionError) {
+              console.error('Failed to record adjustment transaction:', transactionError);
+              recordError = 'Payment processed but failed to record adjustment transaction.';
+            }
+          }
+        }
+      }
+
+      if (order?.id && adjustmentData.notes) {
+        try {
+          await apiClient.post(`/api/orders/${order.id}/communications`, {
+            type: 'NOTE',
+            message: adjustmentData.notes
+          });
+        } catch (noteError) {
+          console.error('Failed to save adjustment note:', noteError);
+        }
+      }
+
       setShowPaymentAdjustment(false);
       setPaymentAdjustmentData(null);
-      
-      // Show success message
-      alert(`Payment adjustment completed successfully!\n\n${adjustmentData.notes}`);
-      
+
+      const message = adjustmentData.success
+        ? `Payment adjustment completed successfully!\n\n${adjustmentData.notes || ''}`
+        : `Payment adjustment failed.\n\n${adjustmentData.notes || ''}`;
+      const finalMessage = recordError ? `${message}\n\n${recordError}` : message;
+      alert(finalMessage);
     } catch (error) {
       console.error('Error saving payment adjustment:', error);
       alert('Payment processed but failed to save notes. Please add manual note to order.');
@@ -659,10 +859,14 @@ const OrderEditPage: React.FC = () => {
       {/* Payment Adjustment Modal */}
       {showPaymentAdjustment && paymentAdjustmentData && (
         <PaymentAdjustmentModal
+          orderId={order.id}
           oldTotal={paymentAdjustmentData.oldTotal}
           newTotal={paymentAdjustmentData.newTotal}
           originalPaymentMethod={paymentAdjustmentData.originalPaymentMethod}
           originalCardLast4={paymentAdjustmentData.originalCardLast4}
+          originalCardBrand={paymentAdjustmentData.originalCardBrand}
+          originalPaymentIntentId={paymentAdjustmentData.originalPaymentIntentId}
+          paymentProvider={paymentAdjustmentData.paymentProvider}
           customerName={`${order?.customer?.firstName} ${order?.customer?.lastName}`}
           onComplete={handlePaymentAdjustmentComplete}
           onCancel={handlePaymentAdjustmentCancel}
