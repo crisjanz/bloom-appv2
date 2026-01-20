@@ -588,11 +588,12 @@ const OrderEditPage: React.FC = () => {
       const difference = adjustmentContext ? adjustmentContext.newTotal - adjustmentContext.oldTotal : 0;
       const isRefund = difference < 0;
       const adjustmentAmount = adjustmentData.amount || Math.abs(difference);
+      const normalizedAmount = Number.isFinite(adjustmentAmount) ? Math.round(adjustmentAmount) : 0;
       const orderId = order?.id;
       const customerId = order?.customer?.id;
       let recordError: string | null = null;
 
-      if (adjustmentData.success && orderId && adjustmentAmount > 0) {
+      if (adjustmentData.success && orderId && normalizedAmount > 0) {
         const paymentMethodType =
           adjustmentData.paymentMethodType || paymentInfo?.paymentMethodType || 'CASH';
         const provider = adjustmentData.provider || paymentInfo?.provider || 'INTERNAL';
@@ -603,19 +604,22 @@ const OrderEditPage: React.FC = () => {
             recordError = 'Missing original transaction for refund. Please record the refund manually.';
           } else {
             try {
-              await apiClient.post(`/api/payment-transactions/${transactionId}/refunds`, {
-                amount: adjustmentAmount,
+              const { data, status } = await apiClient.post(`/api/payment-transactions/${transactionId}/refunds`, {
+                amount: normalizedAmount,
                 reason: adjustmentData.notes || 'Order adjustment refund',
                 employeeId: undefined,
                 refundMethods: [
                   {
                     paymentMethodType,
                     provider,
-                    amount: adjustmentAmount,
+                    amount: normalizedAmount,
                     providerRefundId: adjustmentData.providerRefundId
                   }
                 ]
               });
+              if (status >= 400) {
+                throw new Error(data?.error || 'Failed to record refund.');
+              }
             } catch (refundError) {
               console.error('Failed to record refund:', refundError);
               recordError = 'Payment refunded but failed to record refund details.';
@@ -626,11 +630,11 @@ const OrderEditPage: React.FC = () => {
             recordError = 'Order customer is missing for adjustment transaction.';
           } else {
             try {
-              await apiClient.post('/api/payment-transactions', {
+              const { data, status } = await apiClient.post('/api/payment-transactions', {
                 customerId,
                 employeeId: undefined,
                 channel: resolveAdjustmentChannel(order?.orderSource),
-                totalAmount: adjustmentAmount,
+                totalAmount: normalizedAmount,
                 taxAmount: 0,
                 tipAmount: 0,
                 notes: adjustmentData.notes || 'Order adjustment',
@@ -638,7 +642,7 @@ const OrderEditPage: React.FC = () => {
                   {
                     type: paymentMethodType,
                     provider,
-                    amount: adjustmentAmount,
+                    amount: normalizedAmount,
                     providerTransactionId: adjustmentData.providerTransactionId,
                     providerMetadata: adjustmentData.providerMetadata,
                     cardLast4: adjustmentData.cardLast4,
@@ -647,8 +651,11 @@ const OrderEditPage: React.FC = () => {
                 ],
                 orderIds: [orderId],
                 isAdjustment: true,
-                orderPaymentAllocations: [{ orderId, amount: adjustmentAmount }]
+                orderPaymentAllocations: [{ orderId, amount: normalizedAmount }]
               });
+              if (status >= 400) {
+                throw new Error(data?.error || 'Failed to record adjustment transaction.');
+              }
             } catch (transactionError) {
               console.error('Failed to record adjustment transaction:', transactionError);
               recordError = 'Payment processed but failed to record adjustment transaction.';
