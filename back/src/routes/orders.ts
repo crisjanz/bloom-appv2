@@ -381,6 +381,19 @@ router.put('/:id/update', async (req, res) => {
         orderUpdateData.paymentAmount = subtotal + currentDeliveryFee - currentDiscount + currentTotalTax;
       }
 
+      // Recalculate paymentAmount if fee/discount changed WITHOUT item changes
+      if (!updateData.orderItems && (deliveryData.deliveryFee !== undefined || updateData.discount !== undefined)) {
+        const existingItems = await tx.orderItem.findMany({
+          where: { orderId: id }
+        });
+        const subtotal = existingItems.reduce((sum, item) => sum + item.rowTotal, 0);
+        const currentDeliveryFee = orderUpdateData.deliveryFee ?? currentOrder.deliveryFee ?? 0;
+        const currentDiscount = orderUpdateData.discount ?? currentOrder.discount ?? 0;
+        const currentTotalTax = orderUpdateData.totalTax ?? currentOrder.totalTax ?? 0;
+
+        orderUpdateData.paymentAmount = subtotal + currentDeliveryFee - currentDiscount + currentTotalTax;
+      }
+
       // Handle images updates
       if (updateData.images !== undefined) {
         // For now, we'll store images as JSON array in the order
