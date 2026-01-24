@@ -65,6 +65,8 @@ import TransactionsReportPage from "./pages/reports/TransactionsReportPage";
 import WireProductsPage from "./pages/wire-products/WireProductsPage";
 import MobileHomePage from "./pages/mobile/MobileHomePage";
 import MobileScanPage from "./pages/mobile/MobileScanPage";
+import MobileFulfillmentPage from "./pages/mobile/MobileFulfillmentPage";
+import MobileDeliveryPage from "./pages/mobile/MobileDeliveryPage";
 import MobileRedirect from "./components/MobileRedirect";
 import ExternalOrdersPage from "./pages/orders/ExternalOrdersPage";
 
@@ -82,6 +84,8 @@ export default function App() {
           {/* Mobile routes - OUTSIDE AppLayout for mobile-optimized experience */}
           <Route path="/mobile" element={<MobileHomePage />} />
           <Route path="/mobile/scan" element={<MobileScanPage />} />
+          <Route path="/mobile/delivery" element={<MobileDeliveryPage />} />
+          <Route path="/mobile/fulfillment" element={<MobileFulfillmentPage />} />
 
           {/* POS route - OUTSIDE AppLayout for fullscreen */}
           <Route path="/pos" element={<POSPage />} />

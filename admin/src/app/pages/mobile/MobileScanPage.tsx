@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeftIcon, CheckCircleIcon } from '@shared/assets/icons';
+import { ChevronLeftIcon, CheckCircleIcon, CameraIcon } from '@shared/assets/icons';
 import Select from '@shared/ui/forms/Select';
 
 interface ParsedOrderData {
@@ -199,18 +199,27 @@ export default function MobileScanPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-brand-50 to-brand-100 dark:from-gray-900 dark:to-gray-800 flex flex-col">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-900 shadow-sm p-4 flex items-center gap-4">
+      <div className="bg-white dark:bg-gray-900 shadow-sm p-4 flex items-center gap-3">
         <button
           onClick={() => navigate('/mobile')}
-          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+          className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+          aria-label="Back to mobile home"
         >
-          <ChevronLeftIcon className="w-6 h-6 text-gray-900 dark:text-white" />
+          <ChevronLeftIcon className="w-5 h-5" />
         </button>
-        <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-          Scan Order
-        </h1>
+        <div>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+            Scan Order
+          </h1>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Capture external order forms
+          </p>
+        </div>
+        <div className="ml-auto w-10 h-10 bg-brand-500 rounded-full flex items-center justify-center">
+          <CameraIcon className="w-5 h-5 text-white" />
+        </div>
       </div>
 
       {/* Content */}

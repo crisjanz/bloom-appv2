@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { TruckIcon } from '@shared/assets/icons';
+import { TruckIcon, PackageIcon } from '@shared/assets/icons';
 
 export default function MobileHomePage() {
   const navigate = useNavigate();
@@ -43,7 +43,7 @@ export default function MobileHomePage() {
 
           {/* Delivery Route Button */}
           <button
-            onClick={() => navigate('/delivery')}
+            onClick={() => navigate('/mobile/delivery')}
             className="w-full bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 flex flex-col items-center gap-4 active:scale-95 transition-transform"
           >
             <div className="w-20 h-20 bg-orange-500 rounded-full flex items-center justify-center">
@@ -55,6 +55,24 @@ export default function MobileHomePage() {
               </h2>
               <p className="text-gray-600 dark:text-gray-400 mt-2">
                 View today's deliveries
+              </p>
+            </div>
+          </button>
+
+          {/* Fulfillment Button */}
+          <button
+            onClick={() => navigate('/mobile/fulfillment')}
+            className="w-full bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 flex flex-col items-center gap-4 active:scale-95 transition-transform"
+          >
+            <div className="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center">
+              <PackageIcon className="w-12 h-12 text-white" />
+            </div>
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                Fulfillment
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400 mt-2">
+                Fulfill today's orders
               </p>
             </div>
           </button>

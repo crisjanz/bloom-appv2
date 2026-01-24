@@ -75,6 +75,7 @@ import { ReactComponent as ClockIcon } from "./more-icons/clock.svg?react";
 import { ReactComponent as MapPinIcon } from "./more-icons/map-pin.svg?react";
 import { ReactComponent as PackageIcon } from "./more-icons/package.svg?react";
 import { ReactComponent as UserIcon2 } from "./more-icons/user.svg?react";
+import { ReactComponent as CameraIcon } from "./more-icons/camera.svg?react";
 
 export {
   // Core icons
@@ -154,4 +155,5 @@ export {
   MapPinIcon,
   PackageIcon,
   UserIcon2,
+  CameraIcon,
 };
