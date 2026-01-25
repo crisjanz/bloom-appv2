@@ -5,6 +5,9 @@
 
 import { useMemo } from 'react'
 
+// Token storage key
+const ACCESS_TOKEN_KEY = 'bloom_access_token'
+
 // Simple API client interface
 export interface ApiClient {
   get: (url: string) => Promise<{ data: any; status: number }>
@@ -22,8 +25,27 @@ class FetchApiClient implements ApiClient {
     this.baseURL = baseURL
   }
 
+  private buildHeaders(isJson: boolean): HeadersInit {
+    const headers: HeadersInit = {}
+
+    if (isJson) {
+      headers['Content-Type'] = 'application/json'
+    }
+
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem(ACCESS_TOKEN_KEY)
+      if (token) {
+        headers.Authorization = `Bearer ${token}`
+      }
+    }
+
+    return headers
+  }
+
   async get(url: string) {
-    const response = await fetch(`${this.baseURL}${url}`)
+    const response = await fetch(`${this.baseURL}${url}`, {
+      headers: this.buildHeaders(false)
+    })
     const data = await response.json()
     return { data, status: response.status }
   }
@@ -35,11 +57,12 @@ class FetchApiClient implements ApiClient {
 
     if (data instanceof FormData) {
       options.body = data
+      options.headers = this.buildHeaders(false)
     } else if (data !== undefined) {
-      options.headers = {
-        'Content-Type': 'application/json'
-      }
+      options.headers = this.buildHeaders(true)
       options.body = JSON.stringify(data)
+    } else {
+      options.headers = this.buildHeaders(false)
     }
 
     const response = await fetch(`${this.baseURL}${url}`, options)
@@ -57,9 +80,7 @@ class FetchApiClient implements ApiClient {
   async put(url: string, data?: any) {
     const response = await fetch(`${this.baseURL}${url}`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: this.buildHeaders(true),
       body: data ? JSON.stringify(data) : undefined
     })
     const responseData = await response.json()
@@ -69,9 +90,7 @@ class FetchApiClient implements ApiClient {
   async patch(url: string, data?: any) {
     const response = await fetch(`${this.baseURL}${url}`, {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: this.buildHeaders(true),
       body: data ? JSON.stringify(data) : undefined
     })
     const responseData = await response.json()
@@ -80,10 +99,19 @@ class FetchApiClient implements ApiClient {
 
   async delete(url: string) {
     const response = await fetch(`${this.baseURL}${url}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+      headers: this.buildHeaders(false)
     })
-    const data = await response.json()
-    return { data, status: response.status }
+
+    let responseData: any = null
+
+    try {
+      responseData = await response.json()
+    } catch {
+      responseData = null
+    }
+
+    return { data: responseData, status: response.status }
   }
 }
 

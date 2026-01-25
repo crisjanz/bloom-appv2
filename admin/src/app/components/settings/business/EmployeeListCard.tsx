@@ -1,20 +1,27 @@
-import { useEffect, useState } from "react";
-import ComponentCard from "@shared/ui/common/ComponentCard";
+import { useState } from "react";
 import InputField from "@shared/ui/forms/input/InputField";
-import Label from "@shared/ui/forms/Label";
+import PhoneInput from "@shared/ui/forms/PhoneInput";
 import Select from "@shared/ui/forms/Select";
-import Button from "@shared/ui/components/ui/button/Button";
-
-type Employee = {
-  id: string;
-  name: string;
-  email?: string;
-  phone?: string;
-  type: string;
-};
+import LoadingButton from "@shared/ui/components/ui/button/LoadingButton";
+import FormFooter from "@shared/ui/components/ui/form/FormFooter";
+import FormError from "@shared/ui/components/ui/form/FormError";
+import { Modal } from "@shared/ui/components/ui/modal";
+import { LockIcon, PencilIcon, SaveIcon, TrashBinIcon } from "@shared/assets/icons";
+import { useEmployees, type Employee } from "@shared/hooks/useEmployees";
+import SetPasswordModal from "./SetPasswordModal";
 
 export default function EmployeeSettingsCard() {
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const {
+    employees,
+    loading,
+    error,
+    createEmployee,
+    updateEmployee,
+    deleteEmployee,
+    setPassword,
+    resetPassword,
+  } = useEmployees();
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -25,31 +32,51 @@ export default function EmployeeSettingsCard() {
   const [editEmail, setEditEmail] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editType, setEditType] = useState("CASHIER");
+  const [isCreating, setIsCreating] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [resettingId, setResettingId] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [passwordEmployee, setPasswordEmployee] = useState<Employee | null>(null);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
-  useEffect(() => {
-    fetch("/api/employees")
-      .then((res) => res.json())
-      .then((data) => setEmployees(data));
-  }, []);
+  const employeeTypeOptions = [
+    { value: "CASHIER", label: "Cashier" },
+    { value: "DESIGNER", label: "Designer" },
+    { value: "DRIVER", label: "Driver" },
+    { value: "ADMIN", label: "Admin" },
+  ];
+
+  const getTypeLabel = (value: string) =>
+    employeeTypeOptions.find((option) => option.value === value)?.label || value;
 
   const handleAdd = async () => {
-    if (!name || !type) return;
+    setFormError(null);
 
-    const res = await fetch("/api/employees", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, type, phone }),
-    });
+    if (!name || !type) {
+      setFormError("Name and type are required");
+      return;
+    }
 
-    if (res.ok) {
-      const newEmp = await res.json();
-      if (!employees.some(emp => emp.id === newEmp.id)) {
-        setEmployees([...employees, newEmp]);
-      }
+    setIsCreating(true);
+
+    try {
+      await createEmployee({
+        name: name.trim(),
+        email: email.trim() || null,
+        phone: phone || null,
+        type,
+      });
+
       setName("");
       setEmail("");
       setPhone("");
       setType("CASHIER");
+    } catch (err: any) {
+      setFormError(err?.message ?? "Failed to create employee");
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -57,9 +84,12 @@ export default function EmployeeSettingsCard() {
     const confirmed = confirm("Delete this employee?");
     if (!confirmed) return;
 
-    const res = await fetch(`/api/employees/${id}`, { method: "DELETE" });
-    if (res.ok) {
-      setEmployees(employees.filter((emp) => emp.id !== id));
+    setActionError(null);
+
+    try {
+      await deleteEmployee(id);
+    } catch (err: any) {
+      setActionError(err?.message ?? "Failed to delete employee");
     }
   };
 
@@ -69,40 +99,66 @@ export default function EmployeeSettingsCard() {
     setEditEmail(emp.email || "");
     setEditPhone(emp.phone || "");
     setEditType(emp.type);
+    setEditError(null);
   };
 
   const handleUpdate = async () => {
-    if (!editEmployee || !editName || !editType) return;
+    if (!editEmployee) return;
+
+    setEditError(null);
+
+    if (!editName || !editType) {
+      setEditError("Name and type are required");
+      return;
+    }
+
+    setIsUpdating(true);
 
     try {
-      const res = await fetch(`/api/employees/${editEmployee.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: editName, email: editEmail, type: editType, phone: editPhone }),
+      await updateEmployee(editEmployee.id, {
+        name: editName.trim(),
+        email: editEmail.trim() || null,
+        phone: editPhone || null,
+        type: editType,
       });
 
-      if (res.ok) {
-        const updatedEmp = await res.json();
-        setEmployees(employees.map(emp => emp.id === updatedEmp.id ? updatedEmp : emp));
-        setEditEmployee(null);
-        setEditName("");
-        setEditEmail("");
-        setEditPhone("");
-        setEditType("CASHIER");
-      } else {
-        console.error("Failed to update employee:", res.statusText);
-      }
-    } catch (error) {
-      console.error("Error updating employee:", error);
+      setEditEmployee(null);
+      setEditName("");
+      setEditEmail("");
+      setEditPhone("");
+      setEditType("CASHIER");
+    } catch (err: any) {
+      setEditError(err?.message ?? "Failed to update employee");
+    } finally {
+      setIsUpdating(false);
     }
   };
 
-  const employeeTypeOptions = [
-    { value: "CASHIER", label: "Cashier" },
-    { value: "DESIGNER", label: "Designer" },
-    { value: "DRIVER", label: "Driver" },
-    { value: "ADMIN", label: "Admin" },
-  ];
+  const handleResetPassword = async (employee: Employee) => {
+    const confirmed = confirm(`Reset password for ${employee.name}?`);
+    if (!confirmed) return;
+
+    setActionError(null);
+    setResettingId(employee.id);
+
+    try {
+      await resetPassword(employee.id);
+    } catch (err: any) {
+      setActionError(err?.message ?? "Failed to reset password");
+    } finally {
+      setResettingId(null);
+    }
+  };
+
+  const openPasswordModal = (employee: Employee) => {
+    setPasswordEmployee(employee);
+    setIsPasswordModalOpen(true);
+  };
+
+  const closePasswordModal = () => {
+    setIsPasswordModalOpen(false);
+    setPasswordEmployee(null);
+  };
 
   return (
     <div className="p-0">
@@ -116,7 +172,7 @@ export default function EmployeeSettingsCard() {
               Manage staff that appear in the Take Order form.
             </p>
           </div>
-          <span 
+          <span
             onClick={() => setIsCardBodyVisible(!isCardBodyVisible)}
             className="text-sm hover:underline font-medium cursor-pointer text-gray-600 dark:text-gray-300"
           >
@@ -128,166 +184,175 @@ export default function EmployeeSettingsCard() {
           className={`p-4 border-t border-gray-100 dark:border-gray-800 sm:p-6 ${isCardBodyVisible ? "" : "hidden"}`}
         >
           <div className="space-y-6">
+            <FormError error={error || actionError} />
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                {employees.map((emp) => (
-                  <div
-                    key={emp.id}
-                    className="flex justify-between items-center border p-2 rounded"
-                  >
-                    <div>
-                      <strong>{emp.name}</strong>
-                      <span className="ml-2 text-sm text-gray-500">
-                        {emp.type.charAt(0) + emp.type.slice(1).toLowerCase()}
-                      </span>
-                      {emp.email && (
-                        <span className="ml-2 text-sm text-gray-500">
-                          ({emp.email})
-                        </span>
-                      )}
-                      {emp.phone && (
-                        <span className="ml-2 text-sm text-gray-500">
-                          {emp.phone}
-                        </span>
-                      )}
-                    </div>
-                    <div className="space-x-2">
-                      <span
-                        className="text-blue-600 text-sm hover:underline cursor-pointer"
-                        onClick={() => handleEdit(emp)}
-                      >
-                        Edit
-                      </span>
-                      <span
-                        className="text-red-600 text-sm hover:text-red-800 cursor-pointer"
-                        onClick={() => handleDelete(emp.id)}
-                      >
-                        ✕
-                      </span>
-                    </div>
+              <div className="space-y-3">
+                {loading ? (
+                  <div className="flex justify-center py-10">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500"></div>
                   </div>
-                ))}
+                ) : employees.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-lg">
+                    <p>No employees yet.</p>
+                    <p className="text-sm">Add your first employee to get started.</p>
+                  </div>
+                ) : (
+                  employees.map((emp) => (
+                    <div
+                      key={emp.id}
+                      className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-3"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <strong className="text-gray-800 dark:text-gray-100">
+                              {emp.name}
+                            </strong>
+                            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                              {getTypeLabel(emp.type)}
+                            </span>
+                          </div>
+                          <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                            {emp.email && <span>{emp.email}</span>}
+                            {emp.phone && <span>{emp.phone}</span>}
+                          </div>
+                          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                            <span className={`text-2xl ${emp.hasPassword ? "text-green-500" : "text-gray-300"}`}>
+                              •
+                            </span>
+                            <span>{emp.hasPassword ? "Login enabled" : "No login"}</span>
+                            {!emp.email && (
+                              <span className="text-xs text-red-500">
+                                Email required to enable login
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <LoadingButton
+                            type="button"
+                            variant="secondary"
+                            loading={resettingId === emp.id}
+                            loadingText="Resetting..."
+                            icon={<LockIcon className="h-4 w-4" />}
+                            disabled={(!emp.hasPassword && !emp.email) || resettingId === emp.id}
+                            onClick={() =>
+                              emp.hasPassword
+                                ? handleResetPassword(emp)
+                                : openPasswordModal(emp)
+                            }
+                          >
+                            {emp.hasPassword ? "Reset Password" : "Set Password"}
+                          </LoadingButton>
+                          <button
+                            onClick={() => handleEdit(emp)}
+                            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                            title="Edit"
+                          >
+                            <PencilIcon className="w-4 h-4 text-gray-500" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(emp.id)}
+                            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                            title="Delete"
+                          >
+                            <TrashBinIcon className="w-4 h-4 text-red-500" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
-              <div>
-                <div className="flex flex-col gap-3">
-                  <div>
-                    <Label htmlFor="name">Name</Label>
-                    <InputField
-                      id="name"
-                      type="text"
-                      placeholder="Name"
-                      className="input-primary"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="email">Email (optional)</Label>
-                    <InputField
-                      id="email"
-                      type="email"
-                      placeholder="Email (optional)"
-                      className="input-primary"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="phone">Phone</Label>
-                    <InputField
-                      id="phone"
-                      type="tel"
-                      placeholder="Phone"
-                      className="input-primary"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                    />
-                  </div>
-                  <div>
-  <Label htmlFor="type">Type</Label>
-  <Select
-    id="type"
-    value={type}
-    onChange={setType}
-    className="select-input"
-    options={employeeTypeOptions}
-  />
-</div>
-                  <Button
-                    className="btn-primary w-fit"
-                    onClick={handleAdd}
-                  >
-                    Add Employee
-                  </Button>
-                </div>
+              <div className="space-y-4">
+                <InputField
+                  label="Name"
+                  type="text"
+                  placeholder="Name"
+                  value={name || ""}
+                  onChange={(e) => setName(e.target.value)}
+                />
+                <InputField
+                  label="Email (optional)"
+                  type="email"
+                  placeholder="Email (optional)"
+                  value={email || ""}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+                <PhoneInput
+                  label="Phone"
+                  value={phone || ""}
+                  onChange={(value) => setPhone(value)}
+                />
+                <Select
+                  id="type"
+                  label="Type"
+                  value={type}
+                  onChange={setType}
+                  className="select-input"
+                  options={employeeTypeOptions}
+                />
+                <FormError error={formError} />
+                <LoadingButton
+                  className="w-fit"
+                  onClick={handleAdd}
+                  loading={isCreating}
+                  loadingText="Adding..."
+                  icon={<SaveIcon className="w-4 h-4" />}
+                >
+                  Add Employee
+                </LoadingButton>
               </div>
             </div>
           </div>
         </div>
       </div>
-      {editEmployee && (
-  <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-[100]">
-    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg max-w-md w-full">
-      <h3 className="text-lg font-medium mb-4">Edit Employee</h3>
-      <div className="space-y-4">
-        <div>
-          <Label htmlFor="edit-name">Name</Label>
+
+      <Modal isOpen={!!editEmployee} onClose={() => setEditEmployee(null)} className="max-w-lg">
+        <div className="p-6 space-y-4">
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white">Edit Employee</h3>
+          <FormError error={editError} />
           <InputField
-            id="edit-name"
+            label="Name"
             type="text"
-            value={editName}
+            value={editName || ""}
             onChange={(e) => setEditName(e.target.value)}
-            className="input-primary"
           />
-        </div>
-        <div>
-          <Label htmlFor="edit-email">Email (optional)</Label>
           <InputField
-            id="edit-email"
+            label="Email (optional)"
             type="email"
-            value={editEmail}
+            value={editEmail || ""}
             onChange={(e) => setEditEmail(e.target.value)}
-            className="input-primary"
           />
-        </div>
-        <div>
-          <Label htmlFor="edit-phone">Phone</Label>
-          <InputField
-            id="edit-phone"
-            type="tel"
-            value={editPhone}
-            onChange={(e) => setEditPhone(e.target.value)}
-            className="input-primary"
+          <PhoneInput
+            label="Phone"
+            value={editPhone || ""}
+            onChange={(value) => setEditPhone(value)}
           />
-        </div>
-        <div>
-          <Label htmlFor="edit-type">Type</Label>
           <Select
             id="edit-type"
+            label="Type"
             value={editType}
             onChange={(value) => setEditType(value)}
             className="select-input"
             options={employeeTypeOptions}
           />
+          <FormFooter
+            onCancel={() => setEditEmployee(null)}
+            onSubmit={handleUpdate}
+            submitting={isUpdating}
+            submitIcon={<SaveIcon className="w-4 h-4" />}
+          />
         </div>
-        <div className="flex justify-end space-x-2">
-          <Button
-            className="btn-secondary"
-            onClick={() => setEditEmployee(null)}
-          >
-            Cancel
-          </Button>
-          <Button
-            className="btn-primary"
-            onClick={handleUpdate}
-          >
-            Save
-          </Button>
-        </div>
-      </div>
-    </div>
-  </div>
-)}
+      </Modal>
+
+      <SetPasswordModal
+        isOpen={isPasswordModalOpen}
+        employee={passwordEmployee}
+        onClose={closePasswordModal}
+        onSave={setPassword}
+      />
     </div>
   );
 }
