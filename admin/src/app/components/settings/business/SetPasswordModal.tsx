@@ -10,7 +10,7 @@ interface SetPasswordModalProps {
   isOpen: boolean;
   employee: Employee | null;
   onClose: () => void;
-  onSave: (employeeId: string, password: string) => Promise<void>;
+  onSave: (employeeId: string, password: string) => Promise<unknown>;
 }
 
 const validatePassword = (password: string, confirmPassword: string) => {

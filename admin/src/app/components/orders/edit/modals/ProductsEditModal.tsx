@@ -50,7 +50,7 @@ const ProductsEditModal: React.FC<ProductsEditModalProps> = ({
   const [showSearch, setShowSearch] = useState(false);
   const [searching, setSearching] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
-  const searchTimeout = useRef<NodeJS.Timeout>();
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Track display values for prices to prevent cursor jumping
   const [priceDisplayValues, setPriceDisplayValues] = useState<Record<string, string>>(() => {
