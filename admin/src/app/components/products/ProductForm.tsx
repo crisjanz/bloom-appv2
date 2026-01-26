@@ -265,6 +265,10 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
     if (!initialData) {
       setSelectedAddOnGroupIds([]);
       setAddOnGroupSeed((seed) => seed + 1);
+      // Mark initial load as complete for new products
+      setTimeout(() => {
+        isInitialLoadRef.current = false;
+      }, 100);
     }
   }, [initialData]);
 

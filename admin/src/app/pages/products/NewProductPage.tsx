@@ -22,8 +22,8 @@ const NewProductPage = () => {
       throw new Error(message);
     }
 
-    const result = await response.json();
-    navigate(`/products/view/${result.id}`);
+    await response.json();
+    navigate('/products');
   };
 
   return (
