@@ -188,6 +188,7 @@ router.put('/:id/update', async (req, res) => {
     // Create new order items with calculated rowTotals
     const newOrderItems = updateData.orderItems.map((item: any) => ({
       orderId: id,
+      productId: item.productId || null,
       customName: item.customName,
       description: item.description || null,
       unitPrice: item.unitPrice,
