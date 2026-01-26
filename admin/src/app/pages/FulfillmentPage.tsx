@@ -101,15 +101,60 @@ const FulfillmentPage: React.FC = () => {
 
     if (!order.orderItems || order.orderItems.length === 0) return;
 
-    const firstItem = order.orderItems[0];
-
-    // Second priority: Local product - use product images
-    if (firstItem.productId && firstItem.product?.images && firstItem.product.images.length > 0) {
-      setProductImage(firstItem.product.images[0]);
+    // Second priority: Local product with linked images
+    const itemWithImage = order.orderItems.find(
+      (item) => item.product?.images && item.product.images.length > 0
+    );
+    if (itemWithImage?.product?.images?.[0]) {
+      setProductImage(itemWithImage.product.images[0]);
       return;
     }
 
+    // Third priority: Try to match catalog product by name (for imported/website orders without productId)
+    const nameCandidate = order.orderItems.find((item) => item.customName)?.customName || '';
+    const baseName = nameCandidate.split(' - ')[0]?.trim();
+    if (baseName) {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL}/api/products/search?q=${encodeURIComponent(baseName)}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          if (Array.isArray(data)) {
+            const normalizedBase = baseName.toLowerCase();
+            const match =
+              data.find(
+                (product: any) =>
+                  typeof product.name === 'string' &&
+                  product.name.toLowerCase() === normalizedBase &&
+                  Array.isArray(product.images) &&
+                  product.images.length > 0
+              ) ||
+              data.find(
+                (product: any) =>
+                  Array.isArray(product.images) && product.images.length > 0
+              );
+
+            if (match?.images?.[0]) {
+              setProductImage(match.images[0]);
+              return;
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error matching catalog product image:', error);
+      }
+    }
+
     // Third priority: Wire-in product - check WireProductLibrary
+    const firstItem = order.orderItems[0];
     const searchText = firstItem.description || firstItem.customName || '';
     if (searchText) {
       try {

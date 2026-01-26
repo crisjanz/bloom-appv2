@@ -719,6 +719,7 @@ router.get('/search', async (req, res) => {
         return {
           id: product.id,
           name: product.name,
+          images: product.images ?? [],
           categoryId: product.category?.id,
           categoryIds,
           categoryName: product.category?.name,
