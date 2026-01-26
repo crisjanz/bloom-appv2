@@ -30,7 +30,7 @@ type OptionGroup = {
 type Variant = {
   id: string;
   name: string; // e.g., "Large - Red"
-  sku: string; // Optional
+  sku?: string; // Optional
   priceDifference: number; // In cents, e.g., 500 for +5.00
   stockLevel: number;
   trackInventory: boolean;
