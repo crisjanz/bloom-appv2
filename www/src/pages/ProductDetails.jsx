@@ -101,7 +101,11 @@ const ProductDetails = () => {
         </div>
       </section>
 
-      <RelatedProducts productId={product.id} categoryId={product.categoryId} />
+      <RelatedProducts
+        productId={product.id}
+        categoryId={product.categoryId}
+        categoryIds={product.categoryIds}
+      />
     </>
   );
 };

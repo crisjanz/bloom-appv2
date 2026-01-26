@@ -41,6 +41,7 @@ model Product {
   reportingCategory        ReportingCategory   @relation("ProductReportingCategory", fields: [reportingCategoryId], references: [id])
   addonGroups              ProductAddOnGroup[]
   tags                     ProductTag[]
+  categoryLinks            ProductCategoryLink[]
   variants                 ProductVariant[]
   eventItems               EventItem[]
 }
@@ -140,6 +141,18 @@ model ProductTag {
   tag       Tag     @relation(fields: [tagId], references: [id])
 }
 
+model ProductCategoryLink {
+  id         String   @id @default(uuid())
+  productId  String
+  categoryId String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, categoryId])
+  @@index([productId])
+  @@index([categoryId])
+}
+
 model Category {
   id        String     @id @default(uuid())
   name      String
@@ -153,6 +166,7 @@ model Category {
   parent    Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
   children  Category[] @relation("CategoryHierarchy")
   products  Product[]  @relation("ProductCategory")
+  productLinks ProductCategoryLink[]
 
   @@unique([parentId, name])
 }

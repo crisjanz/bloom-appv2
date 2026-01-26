@@ -1,18 +1,22 @@
-import { FC, useEffect, useState } from 'react';
+import { FC, useEffect, useMemo, useState } from 'react';
 import InputField from '@shared/ui/forms/input/InputField';
 import SelectField from '@shared/ui/forms/Select';
 import ToggleSwitch from '@shared/ui/forms/switch/Switch';
 import ComponentCard from '@shared/ui/common/ComponentCard';
+import MultiSelect from '@shared/ui/forms/MultiSelect';
+import { useApiClient } from '@shared/hooks/useApiClient';
 
 type Category = {
   id: string;
   name: string;
   depth?: number;
+  fullName?: string;
 };
 
 type Props = {
   visibility: string;
   categoryId: string;
+  additionalCategoryIds: string[];
   reportingCategoryId: string;
   isTaxable: boolean;
   isActive: boolean;
@@ -22,12 +26,14 @@ type Props = {
   slug: string;
   title: string;
   onChange: (field: string, value: string | boolean | number) => void;
+  onAdditionalCategoriesChange: (categoryIds: string[]) => void;
   onSave: () => void;
 };
 
 const SettingsCard: FC<Props> = ({
   visibility,
   categoryId,
+  additionalCategoryIds,
   reportingCategoryId,
   isTaxable,
   isActive,
@@ -36,23 +42,35 @@ const SettingsCard: FC<Props> = ({
   inventory,
   slug,
   onChange,
+  onAdditionalCategoriesChange,
   onSave,
 }) => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [reportingCategories, setReportingCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const apiClient = useApiClient();
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [catRes, repCatRes] = await Promise.all([
-          fetch('/api/categories'), // This will return flat list with depth info
-          fetch('/api/reportingcategories'),
+        const [catResponse, repCatResponse] = await Promise.all([
+          apiClient.get('/api/categories'),
+          apiClient.get('/api/reportingcategories'),
         ]);
-        if (!catRes.ok) throw new Error('Failed to fetch categories');
-        if (!repCatRes.ok) throw new Error('Failed to fetch reporting categories');
-        const catData = await catRes.json();
-        const repCatData = await repCatRes.json();
+
+        if (catResponse.status >= 400) {
+          throw new Error(catResponse.data?.error || 'Failed to fetch categories');
+        }
+
+        if (repCatResponse.status >= 400) {
+          throw new Error(
+            repCatResponse.data?.error || 'Failed to fetch reporting categories'
+          );
+        }
+
+        const catData = catResponse.data;
+        const repCatData = repCatResponse.data;
+
         setCategories(Array.isArray(catData) ? catData : catData.categories || []);
         setReportingCategories(
           Array.isArray(repCatData)
@@ -66,7 +84,18 @@ const SettingsCard: FC<Props> = ({
       }
     };
     fetchData();
-  }, []);
+  }, [apiClient]);
+
+  const additionalCategoryOptions = useMemo(
+    () =>
+      categories
+        .filter((cat) => cat.id !== categoryId)
+        .map((cat) => ({
+          value: cat.id,
+          text: `${cat.depth ? '-- '.repeat(cat.depth) : ''}${cat.name}`,
+        })),
+    [categories, categoryId]
+  );
 
   const handleChange = (field: string, value: string | boolean | number) => {
     console.log(`SettingsCard: Updating ${field} to`, value, `type: ${typeof value}`);
@@ -122,6 +151,17 @@ const SettingsCard: FC<Props> = ({
             value: cat.id,
             depth: cat.depth || 0, // Add depth for indentation
           }))}
+          disabled={isLoading}
+        />
+      </div>
+
+      <div className="mb-5.5">
+        <MultiSelect
+          key={`additional-categories-${categoryId}-${additionalCategoryIds.join('-')}`}
+          label="Additional Categories"
+          options={additionalCategoryOptions}
+          defaultSelected={additionalCategoryIds}
+          onChange={onAdditionalCategoriesChange}
           disabled={isLoading}
         />
       </div>

@@ -18,6 +18,11 @@ const generateUUID = () => {
 type ProductWithVariantOptions = Prisma.ProductGetPayload<{
   include: {
     category: true;
+    categoryLinks: {
+      select: {
+        categoryId: true;
+      };
+    };
     reportingCategory: true;
     variants: {
       orderBy: { isDefault: Prisma.SortOrder };
@@ -137,6 +142,36 @@ const parseIdArray = (value: unknown): string[] => {
   }
 
   return [];
+};
+
+const mergeCategoryIds = (primaryId: string | null | undefined, categoryIds: string[]) => {
+  const merged = new Set<string>();
+
+  if (primaryId) {
+    merged.add(primaryId);
+  }
+
+  for (const categoryId of categoryIds) {
+    if (categoryId) {
+      merged.add(categoryId);
+    }
+  }
+
+  return Array.from(merged);
+};
+
+const findMissingCategoryIds = async (categoryIds: string[]) => {
+  if (categoryIds.length === 0) {
+    return [];
+  }
+
+  const categories = await prisma.category.findMany({
+    where: { id: { in: categoryIds } },
+    select: { id: true },
+  });
+
+  const foundIds = new Set(categories.map((category) => category.id));
+  return categoryIds.filter((categoryId) => !foundIds.has(categoryId));
 };
 
 const extractOptionMetadata = (option: Prisma.ProductOptionGetPayload<{}>): {
@@ -279,8 +314,17 @@ const transformProductResponse = (product: ProductWithVariantOptions) => {
   const {
     variants: _unusedVariants,
     addonGroups: addonGroupLinks,
+    categoryLinks,
     ...productRest
   } = product;
+
+  const linkedCategoryIds = (categoryLinks ?? []).map((link) => link.categoryId);
+  const categoryIds =
+    linkedCategoryIds.length > 0
+      ? linkedCategoryIds
+      : product.categoryId
+      ? [product.categoryId]
+      : [];
 
   const addOnGroups = (addonGroupLinks ?? []).map((link) => ({
     assignmentId: link.id,
@@ -297,6 +341,7 @@ const transformProductResponse = (product: ProductWithVariantOptions) => {
   return {
     ...productRest,
     price: basePriceCents / 100,
+    categoryIds,
     baseVariant: defaultVariant,
     variants: variantList,
     optionStructure,
@@ -607,6 +652,11 @@ router.get('/search', async (req, res) => {
       },
       include: {
         category: true,
+        categoryLinks: {
+          select: {
+            categoryId: true,
+          },
+        },
         reportingCategory: true,
         variants: true,
         addonGroups: {
@@ -630,10 +680,21 @@ router.get('/search', async (req, res) => {
           priceDifference: variant.priceDifference || 0
         }));
 
+        const linkedCategoryIds = (product.categoryLinks ?? []).map(
+          (link) => link.categoryId
+        );
+        const categoryIds =
+          linkedCategoryIds.length > 0
+            ? linkedCategoryIds
+            : product.category?.id
+            ? [product.category.id]
+            : [];
+
         return {
           id: product.id,
           name: product.name,
           categoryId: product.category?.id,
+          categoryIds,
           categoryName: product.category?.name,
           reportingCategoryId: product.reportingCategory?.id,
           reportingCategoryName: product.reportingCategory?.name,
@@ -666,6 +727,11 @@ router.get('/', async (req, res) => {
           },
         },
         category: true,
+        categoryLinks: {
+          select: {
+            categoryId: true,
+          },
+        },
         reportingCategory: true,
         addonGroups: {
           include: {
@@ -695,6 +761,7 @@ router.post('/', upload.array('images'), async (req, res) => {
     slug,
     visibility,
     categoryId,
+    categoryIds: categoryIdsRaw,
     reportingCategoryId,
     description,
     price,
@@ -767,6 +834,14 @@ router.post('/', upload.array('images'), async (req, res) => {
       : [];
     const basePrice = parseCurrencyToCents(price || 0);
     const addOnGroupIds = parseIdArray(addOnGroupIdsRaw);
+    const categoryIds = mergeCategoryIds(categoryId, parseIdArray(categoryIdsRaw));
+
+    const missingCategoryIds = await findMissingCategoryIds(categoryIds);
+    if (missingCategoryIds.length > 0) {
+      return res.status(400).json({
+        error: `Categories not found: ${missingCategoryIds.join(', ')}`,
+      });
+    }
 
     if (addOnGroupIds.length > 0) {
       const groups = await prisma.addOnGroup.findMany({
@@ -850,6 +925,16 @@ router.post('/', upload.array('images'), async (req, res) => {
           reportingCategory: { connect: { id: reportingCategoryId } },
         },
       });
+
+      if (categoryIds.length > 0) {
+        await tx.productCategoryLink.createMany({
+          data: categoryIds.map((linkedCategoryId) => ({
+            productId: createdProduct.id,
+            categoryId: linkedCategoryId,
+          })),
+          skipDuplicates: true,
+        });
+      }
 
       const optionGroupMap = await createProductOptions(tx, optionGroupInputs);
 
@@ -975,6 +1060,11 @@ router.get('/:id/option-structure', async (req, res) => {
           },
         },
         category: true,
+        categoryLinks: {
+          select: {
+            categoryId: true,
+          },
+        },
         reportingCategory: true,
         addonGroups: {
           include: {
@@ -1022,6 +1112,11 @@ router.get('/:id', async (req, res) => {
           },
         },
         category: true,
+        categoryLinks: {
+          select: {
+            categoryId: true,
+          },
+        },
         reportingCategory: true,
         addonGroups: {
           include: {
@@ -1064,6 +1159,7 @@ router.put('/:id', async (req, res) => {
     visibility,
     description,
     categoryId,
+    categoryIds: categoryIdsRaw,
     reportingCategoryId,
     isTaxable,
     isActive,
@@ -1095,7 +1191,7 @@ router.put('/:id', async (req, res) => {
 
     const existingProduct = await prisma.product.findUnique({
       where: { id },
-      select: { productType: true },
+      select: { productType: true, categoryId: true },
     });
 
     if (!existingProduct) {
@@ -1192,7 +1288,23 @@ router.put('/:id', async (req, res) => {
       : [];
     const baseInventory = parseInt(inventory || '0', 10) || 0;
     const addOnGroupIds = parseIdArray(addOnGroupIdsRaw);
+    const primaryCategoryId = categoryId || existingProduct.categoryId;
+    const categoryIds = mergeCategoryIds(
+      primaryCategoryId,
+      parseIdArray(categoryIdsRaw)
+    );
     const resolvedProductType = (productType || existingProduct.productType) as string;
+
+    if (!primaryCategoryId) {
+      return res.status(400).json({ error: 'Category is required' });
+    }
+
+    const missingCategoryIds = await findMissingCategoryIds(categoryIds);
+    if (missingCategoryIds.length > 0) {
+      return res.status(400).json({
+        error: `Categories not found: ${missingCategoryIds.join(', ')}`,
+      });
+    }
 
     if (resolvedProductType === 'MAIN' && addOnGroupIds.length > 0) {
       const groups = await prisma.addOnGroup.findMany({
@@ -1250,6 +1362,42 @@ router.put('/:id', async (req, res) => {
         where: { id },
         data: updateData,
       });
+
+      const existingCategoryLinks = await tx.productCategoryLink.findMany({
+        where: { productId: id },
+        select: { categoryId: true },
+      });
+
+      const existingCategoryIds = new Set(
+        existingCategoryLinks.map((link) => link.categoryId)
+      );
+      const incomingCategoryIds = new Set(categoryIds);
+
+      const categoriesToRemove = [...existingCategoryIds].filter(
+        (linkedCategoryId) => !incomingCategoryIds.has(linkedCategoryId)
+      );
+      const categoriesToAdd = categoryIds.filter(
+        (linkedCategoryId) => !existingCategoryIds.has(linkedCategoryId)
+      );
+
+      if (categoriesToRemove.length > 0) {
+        await tx.productCategoryLink.deleteMany({
+          where: {
+            productId: id,
+            categoryId: { in: categoriesToRemove },
+          },
+        });
+      }
+
+      if (categoriesToAdd.length > 0) {
+        await tx.productCategoryLink.createMany({
+          data: categoriesToAdd.map((linkedCategoryId) => ({
+            productId: id,
+            categoryId: linkedCategoryId,
+          })),
+          skipDuplicates: true,
+        });
+      }
 
       const optionMap = await createProductOptions(tx, optionGroupInputs);
 

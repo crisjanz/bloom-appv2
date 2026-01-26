@@ -46,7 +46,20 @@ const ProductGrid = ({
 
     // Filter by category
     if (categoryIds) {
-      filtered = filtered.filter((p) => categoryIds.includes(p.categoryId));
+      filtered = filtered.filter((product) => {
+        const productCategoryIds =
+          Array.isArray(product.categoryIds) && product.categoryIds.length > 0
+            ? product.categoryIds
+            : product.categoryId
+              ? [product.categoryId]
+              : product.category?.id
+                ? [product.category.id]
+                : [];
+
+        return categoryIds.some((categoryId) =>
+          productCategoryIds.includes(categoryId)
+        );
+      });
     } else {
       // When showing all products, hide add-ons (they only show in their specific categories)
       filtered = filtered.filter((p) => p.productType !== 'ADDON');

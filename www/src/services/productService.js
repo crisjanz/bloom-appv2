@@ -32,9 +32,35 @@ export async function getFeaturedProducts() {
 /**
  * Get related products (same category, excluding current product)
  */
-export async function getRelatedProducts(productId, categoryId, limit = 4) {
+export async function getRelatedProducts(productId, categoryIds, limit = 4) {
   const allProducts = await getProducts();
+  const resolvedCategoryIds = Array.isArray(categoryIds)
+    ? categoryIds
+    : categoryIds
+      ? [categoryIds]
+      : [];
+
+  if (resolvedCategoryIds.length === 0) {
+    return [];
+  }
+
   return allProducts
-    .filter(p => p.id !== productId && p.categoryId === categoryId && p.isActive && p.visibility !== 'POS_ONLY')
+    .filter((product) => {
+      if (product.id === productId) return false;
+      if (!product.isActive || product.visibility === 'POS_ONLY') return false;
+
+      const productCategoryIds =
+        Array.isArray(product.categoryIds) && product.categoryIds.length > 0
+          ? product.categoryIds
+          : product.categoryId
+            ? [product.categoryId]
+            : product.category?.id
+              ? [product.category.id]
+              : [];
+
+      return resolvedCategoryIds.some((categoryId) =>
+        productCategoryIds.includes(categoryId)
+      );
+    })
     .slice(0, limit);
 }

@@ -1,19 +1,27 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import PropTypes from 'prop-types';
 import { Link } from "react-router-dom";
 import { getRelatedProducts } from "../../services/productService";
 import { useCart } from "../../contexts/CartContext";
 import placeholderImage from "../../assets/ecom-images/products/product-carousel-02/image-01.jpg";
 
-const RelatedProducts = ({ productId, categoryId }) => {
+const RelatedProducts = ({ productId, categoryId, categoryIds }) => {
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const { addToCart } = useCart();
 
+  const resolvedCategoryIds = useMemo(() => {
+    if (Array.isArray(categoryIds) && categoryIds.length > 0) {
+      return categoryIds;
+    }
+
+    return categoryId ? [categoryId] : [];
+  }, [categoryId, categoryIds]);
+
   useEffect(() => {
     async function loadRelatedProducts() {
       try {
-        const products = await getRelatedProducts(productId, categoryId, 4);
+        const products = await getRelatedProducts(productId, resolvedCategoryIds, 4);
         setRelatedProducts(products);
       } catch (error) {
         console.error('Failed to load related products:', error);
@@ -22,10 +30,10 @@ const RelatedProducts = ({ productId, categoryId }) => {
       }
     }
 
-    if (productId && categoryId) {
+    if (productId && resolvedCategoryIds.length > 0) {
       loadRelatedProducts();
     }
-  }, [productId, categoryId]);
+  }, [productId, resolvedCategoryIds]);
 
   if (loading) {
     return (
@@ -156,7 +164,8 @@ const RelatedProducts = ({ productId, categoryId }) => {
 
 RelatedProducts.propTypes = {
   productId: PropTypes.string.isRequired,
-  categoryId: PropTypes.string.isRequired,
+  categoryId: PropTypes.string,
+  categoryIds: PropTypes.arrayOf(PropTypes.string),
 };
 
 export default RelatedProducts;

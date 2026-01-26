@@ -88,7 +88,12 @@ router.get('/:id/products', async (req, res) => {
   
   try {
     const products = await prisma.product.findMany({
-      where: { categoryId: id },
+      where: {
+        OR: [
+          { categoryId: id },
+          { categoryLinks: { some: { categoryId: id } } },
+        ],
+      },
       select: {
         id: true,
         name: true,
@@ -226,7 +231,12 @@ router.delete('/:id', async (req, res) => {
   try {
     // Check if category has products
     const productCount = await prisma.product.count({
-      where: { categoryId: id }
+      where: {
+        OR: [
+          { categoryId: id },
+          { categoryLinks: { some: { categoryId: id } } },
+        ],
+      },
     });
     
     if (productCount > 0) {

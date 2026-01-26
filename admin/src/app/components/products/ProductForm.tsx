@@ -68,6 +68,7 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
   const [description, setDescription] = useState('');
   const [visibility, setVisibility] = useState('ONLINE');
   const [categoryId, setCategoryId] = useState('');
+  const [additionalCategoryIds, setAdditionalCategoryIds] = useState<string[]>([]);
   const [reportingCategoryId, setReportingCategoryId] = useState('');
   const [price, setPrice] = useState(0);
   const [priceTitle, setPriceTitle] = useState('');
@@ -131,7 +132,14 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
       setTitle(initialData.name || '');
       setDescription(initialData.description || '');
       setVisibility(initialData.visibility || 'ONLINE');
-      setCategoryId(initialData.categoryId || '');
+      const initialCategoryId = initialData.categoryId || '';
+      setCategoryId(initialCategoryId);
+      const initialCategoryIds = Array.isArray(initialData.categoryIds)
+        ? initialData.categoryIds
+        : [];
+      setAdditionalCategoryIds(
+        initialCategoryIds.filter((id: string) => id && id !== initialCategoryId)
+      );
       setReportingCategoryId(initialData.reportingCategoryId || '');
       setPrice(initialData.price || 0);
       setIsTaxable(Boolean(initialData.isTaxable));
@@ -479,6 +487,16 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
         break;
       case 'categoryId':
         setCategoryId(value);
+        setAdditionalCategoryIds((prev) =>
+          prev.filter((category) => category !== value)
+        );
+        break;
+      case 'additionalCategoryIds':
+        setAdditionalCategoryIds(
+          Array.isArray(value)
+            ? value.filter((category) => category !== categoryId)
+            : []
+        );
         break;
       case 'reportingCategoryId':
         setReportingCategoryId(value);
@@ -570,12 +588,17 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
       if (!categoryId) throw new Error('Category is required');
       if (!reportingCategoryId) throw new Error('Reporting category is required');
 
+      const categoryIds = Array.from(
+        new Set([categoryId, ...additionalCategoryIds].filter(Boolean))
+      );
+
       const data = {
         title,
         name: title,
         description: description || 'No description provided',
         visibility,
         categoryId,
+        categoryIds,
         reportingCategoryId,
         isTaxable,
         isActive,
@@ -659,6 +682,7 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
         <SettingsCard
           visibility={visibility}
           categoryId={categoryId}
+          additionalCategoryIds={additionalCategoryIds}
           reportingCategoryId={reportingCategoryId}
           isTaxable={isTaxable}
           isActive={isActive}
@@ -668,6 +692,9 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
           slug={slug}
           title={title}
           onChange={handleChange}
+          onAdditionalCategoriesChange={(categoryIds) =>
+            handleChange('additionalCategoryIds', categoryIds)
+          }
           onSave={handleSave}
         />
         {productType === 'MAIN' && (
