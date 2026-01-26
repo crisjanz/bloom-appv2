@@ -426,8 +426,50 @@ router.post('/create-from-floranext', async (req, res) => {
     const deliveryFeeCents = Math.round(orderData.deliveryFee * 100);
     const gstCents = Math.round(orderData.gst * 100);
     const pstCents = Math.round(orderData.pst * 100);
-    const totalTaxCents = gstCents + pstCents;
+    const parsedTaxTotalCents = Math.round(orderData.taxTotal * 100);
+    const totalTaxCents = gstCents + pstCents > 0 ? gstCents + pstCents : parsedTaxTotalCents;
     const grandTotalCents = Math.round(orderData.grandTotal * 100);
+
+    const usesHstFallback = gstCents === 0 && pstCents === 0 && totalTaxCents > 0;
+    const activeTaxRates = await prisma.taxRate.findMany({
+      where: { isActive: true },
+      orderBy: { sortOrder: 'asc' },
+    });
+
+    const matched = { gst: false, pst: false, hst: false };
+    const taxBreakdown = activeTaxRates
+      .map((tax) => {
+        const nameUpper = tax.name.toUpperCase();
+        let amount = 0;
+
+        if (nameUpper.includes('GST')) {
+          matched.gst = true;
+          amount = gstCents;
+        } else if (nameUpper.includes('PST')) {
+          matched.pst = true;
+          amount = pstCents;
+        } else if (usesHstFallback && nameUpper.includes('HST')) {
+          matched.hst = true;
+          amount = totalTaxCents;
+        }
+
+        return {
+          name: tax.name,
+          rate: tax.rate,
+          amount,
+        };
+      })
+      .filter((tax) => tax.amount > 0);
+
+    if (!matched.gst && gstCents > 0) {
+      taxBreakdown.push({ name: 'GST', rate: 0, amount: gstCents });
+    }
+    if (!matched.pst && pstCents > 0) {
+      taxBreakdown.push({ name: 'PST', rate: 0, amount: pstCents });
+    }
+    if (!matched.hst && usesHstFallback) {
+      taxBreakdown.push({ name: 'HST', rate: 0, amount: totalTaxCents });
+    }
 
     // 7. Create order items from products
     const orderItems = orderData.products.map((product) => ({
@@ -456,6 +498,9 @@ router.post('/create-from-floranext', async (req, res) => {
         deliveryFee: deliveryFeeCents,
         paymentAmount: grandTotalCents,
         totalTax: totalTaxCents,
+        gst: gstCents,
+        pst: pstCents,
+        taxBreakdown,
         orderItems: {
           create: orderItems,
         },
