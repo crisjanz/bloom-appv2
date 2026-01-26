@@ -276,9 +276,13 @@ const PaymentController: FC<Props> = ({
     const productIds = cartItems
       .map((item) => item.productId ?? item.id)
       .filter(Boolean);
-    const categoryIds = cartItems
-      .map((item) => item.categoryId)
-      .filter(Boolean);
+    const categoryIds = [
+      ...new Set(
+        cartItems.flatMap((item) =>
+          item.categoryIds || (item.categoryId ? [item.categoryId] : [])
+        )
+      ),
+    ].filter(Boolean);
 
     const result = await validateCoupon(trimmed, total, {
       customerId: customer?.id,

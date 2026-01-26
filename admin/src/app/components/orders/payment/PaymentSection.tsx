@@ -121,6 +121,7 @@ const PaymentSection: React.FC<Props> = ({
             cartItems.push({
               id: product.productId || product.id || `temp-${Date.now()}`,
               categoryId: product.category || '',
+              categoryIds: product.categoryIds || (product.category ? [product.category] : []),
               quantity: parseInt(product.qty) || 1,
               price: coerceCents(product.price || "0")
             });

@@ -42,6 +42,7 @@ export default function POSPage() {
       const cartItemsForAPI = currentCartItems.map(item => ({
         id: item.id,
         categoryId: item.categoryId,
+        categoryIds: item.categoryIds || (item.categoryId ? [item.categoryId] : []),
         quantity: item.quantity,
         price: item.customPrice ?? item.price ?? item.unitPrice ?? 0
       }));

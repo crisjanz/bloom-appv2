@@ -431,13 +431,14 @@ router.post('/validate', async (req, res) => {
     }
 
     if (discount.applicableCategories.length > 0) {
-      const hasApplicableCategories = cartItems.some((item: any) => 
-        discount.applicableCategories.includes(item.categoryId)
-      );
-      
+      const hasApplicableCategories = cartItems.some((item: any) => {
+        const itemCategoryIds = item.categoryIds || (item.categoryId ? [item.categoryId] : []);
+        return itemCategoryIds.some((catId: string) => discount.applicableCategories.includes(catId));
+      });
+
       if (!hasApplicableCategories) {
-        return res.status(400).json({ 
-          error: 'This discount does not apply to items in your cart' 
+        return res.status(400).json({
+          error: 'This discount does not apply to items in your cart'
         });
       }
     }
@@ -547,12 +548,13 @@ router.post('/auto-apply', async (req, res) => {
       } else if (discount.triggerType === 'AUTOMATIC_CATEGORY' && discount.applicableCategories.length > 0) {
         console.log('🎯 Checking AUTOMATIC_CATEGORY discount');
         console.log('📦 Applicable categories:', discount.applicableCategories);
-        console.log('🛒 Cart category IDs:', cartItems.map((item: any) => item.categoryId));
-        
-        // Check if any cart items match the applicable categories
-        isApplicable = cartItems.some((item: any) => 
-          discount.applicableCategories.includes(item.categoryId)
-        );
+        console.log('🛒 Cart category IDs:', cartItems.map((item: any) => item.categoryIds || [item.categoryId]));
+
+        // Check if any cart items match the applicable categories (supports multi-category)
+        isApplicable = cartItems.some((item: any) => {
+          const itemCategoryIds = item.categoryIds || (item.categoryId ? [item.categoryId] : []);
+          return itemCategoryIds.some((catId: string) => discount.applicableCategories.includes(catId));
+        });
         console.log('✅ Category match found:', isApplicable);
       } else if (discount.applicableProducts.length === 0 && discount.applicableCategories.length === 0) {
         console.log('🎯 No restrictions - applies to all products');
