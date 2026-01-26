@@ -3,35 +3,21 @@ import productTwo from "/images/cat2.jpg";
 import productThree from "/images/cat3.jpg";
 import productFour from "/images/cat4.jpg";
 import { Link } from "react-router-dom";
+import useCategoriesTree from "../hooks/useCategoriesTree.jsx";
+import { buildCategoryUrl } from "../utils/categoryTree";
 
-const productItems = [
-  {
-    image: productOne,
-    link: "/shop",
-    title: "Fresh Flowers",
-    subtitle: "8 Products Available",
-  },
-  {
-    image: productTwo,
-    link: "/occasions/houseplants",
-    title: "House Plants",
-    subtitle: "4 Products Available",
-  },
-  {
-    image: productThree,
-    link: "/occasions/gifts",
-    title: "Gifts",
-    subtitle: "12 Products Available",
-  },
-  {
-    image: productFour,
-    link: "#",
-    title: "Weddings",
-    subtitle: "24 Products Available",
-  },
-];
+const categoryImages = [productOne, productTwo, productThree, productFour];
 
 const ProductCategory = () => {
+  const { categories } = useCategoriesTree();
+  const topCategories = Array.isArray(categories) ? categories : [];
+
+  const productItems = topCategories.map((category, index) => ({
+    image: categoryImages[index % categoryImages.length],
+    link: buildCategoryUrl(category.slug),
+    title: category.name,
+  }));
+
   return (
     <>
       <section className="bg-tg-bg pb-12 pt-10 dark:bg-dark-2 lg:pb-[90px] lg:pt-[60px]">
@@ -60,9 +46,6 @@ const ProductCategory = () => {
                   <h3 className="mb-1 text-xl font-semibold text-dark group-hover:text-primary dark:text-white md:text-2xl lg:text-xl xl:text-2xl">
                     {item.title}
                   </h3>
-                  <p className="text-base text-body-color dark:text-dark-6">
-                    {item.subtitle}
-                  </p>
                 </Link>
               </div>
             ))}

@@ -1,9 +1,32 @@
 import { Link } from "react-router-dom";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { buildCategoryUrl } from "../../utils/categoryTree";
 
-const FilterTopCat = ({ onPriceChange }) => {
+const FilterTopCat = ({ onPriceChange, categories = [] }) => {
   const [selectedPrice, setSelectedPrice] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
+
+  const categorySections = useMemo(() => {
+    if (!Array.isArray(categories) || categories.length === 0) return [];
+
+    return categories.map((category) => {
+      const children = Array.isArray(category.children) ? category.children : [];
+      const items = children.length
+        ? [
+            { name: `All ${category.name}`, url: buildCategoryUrl(category.slug) },
+            ...children.map((child) => ({
+              name: child.name,
+              url: buildCategoryUrl(category.slug, child.slug),
+            })),
+          ]
+        : [{ name: category.name, url: buildCategoryUrl(category.slug) }];
+
+      return {
+        title: category.name,
+        items,
+      };
+    });
+  }, [categories]);
 
   const handlePriceChange = (value) => {
     setSelectedPrice(value);
@@ -11,27 +34,6 @@ const FilterTopCat = ({ onPriceChange }) => {
       onPriceChange(value);
     }
   };
-
-  const occasions = [
-    { name: "Birthday", url: "/occasions/birthday" },
-    { name: "Sympathy", url: "/occasions/sympathy" },
-    { name: "Get Well", url: "/occasions/getwell" },
-    { name: "Congratulations", url: "/occasions/congrats" },
-    { name: "Anniversary", url: "/occasions/anniversary" },
-    { name: "Thank You", url: "/occasions/thankyou" },
-    { name: "New Baby", url: "/occasions/baby" },
-    { name: "Gifts", url: "/occasions/gifts" },
-    { name: "Wedding", url: "/occasions/wedding" },
-    { name: "House Plants", url: "/occasions/houseplants" },
-  ];
-
-  const holidays = [
-    { name: "Christmas", url: "/holidays/christmas" },
-    { name: "Valentine's Day", url: "/holidays/valentines" },
-    { name: "Easter", url: "/holidays/easter" },
-    { name: "Mother's Day", url: "/holidays/mday" },
-    { name: "Thanksgiving", url: "/holidays/thanksgiving" },
-  ];
 
   return (
     <>
@@ -136,39 +138,25 @@ const FilterTopCat = ({ onPriceChange }) => {
               </Link>
             </div>
 
-            {/* Occasions */}
-            <div className="mb-8">
-              <h4 className="text-sm font-semibold text-dark dark:text-white mb-3">Occasions</h4>
-              <div className="space-y-2">
-                {occasions.map((occasion, index) => (
-                  <Link
-                    key={index}
-                    to={occasion.url}
-                    className="block text-body-color dark:text-dark-6 hover:text-primary py-1"
-                    onClick={() => setFilterOpen(false)}
-                  >
-                    {occasion.name}
-                  </Link>
-                ))}
+            {categorySections.map((section) => (
+              <div key={section.title} className="mb-8">
+                <h4 className="text-sm font-semibold text-dark dark:text-white mb-3">
+                  {section.title}
+                </h4>
+                <div className="space-y-2">
+                  {section.items.map((item) => (
+                    <Link
+                      key={item.url}
+                      to={item.url}
+                      className="block text-body-color dark:text-dark-6 hover:text-primary py-1"
+                      onClick={() => setFilterOpen(false)}
+                    >
+                      {item.name}
+                    </Link>
+                  ))}
+                </div>
               </div>
-            </div>
-
-            {/* Holidays */}
-            <div className="mb-8">
-              <h4 className="text-sm font-semibold text-dark dark:text-white mb-3">Holidays</h4>
-              <div className="space-y-2">
-                {holidays.map((holiday, index) => (
-                  <Link
-                    key={index}
-                    to={holiday.url}
-                    className="block text-body-color dark:text-dark-6 hover:text-primary py-1"
-                    onClick={() => setFilterOpen(false)}
-                  >
-                    {holiday.name}
-                  </Link>
-                ))}
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       </div>

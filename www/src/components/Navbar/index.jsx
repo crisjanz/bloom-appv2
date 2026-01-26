@@ -5,67 +5,13 @@ import { Link } from "react-router-dom";
 import PropTypes from "prop-types";
 import WishListDropdown from "./WishListDropdown.jsx";
 import CartDropdown from "./CartDropdown.jsx";
-import { useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { useAuth } from "../../contexts/AuthContext.jsx";
 import { useCart } from "../../contexts/CartContext.jsx";
 import { getProducts } from "../../services/productService.js";
 import { useNavigate } from "react-router-dom";
-
-const navList = [
-  {
-    link: "/",
-    text: "Home",
-  },
-
-  {
-    link: "#",
-    text: "Shop",
-    submenuGroup: [
-      {
-        title: "Occasions",
-        link: "#",
-        groupItems: [
-          { text: "Birthday", link: "/occasions/birthday" },
-          { text: "Sympathy", link: "/occasions/sympathy" },
-          { text: "Get Well", link: "/occasions/getwell" },
-          { text: "Congrats", link: "/occasions/congrats" },
-          { text: "Anniversary", link: "/occasions/anniversary" },
-          { text: "Thank You", link: "/occasions/thankyou" },
-          { text: "New Baby", link: "/occasions/baby" },
-        ],
-      },
-      {
-        title: "Holidays",
-        link: "#",
-        groupItems: [
-          { text: "Christmas", link: "/holidays/christmas" },
-          { text: "Valentines", link: "/holidays/valentines" },
-          { text: "Easter", link: "/holidays/easter" },
-          { text: "Mother's Day", link: "/holidays/mday" },
-          { text: "Thanksgiving", link: "/holidays/thanksgiving" },
-        ],
-      },
-      {
-        title: "",
-        link: "#",
-        groupItems: [
-          { text: "Shop All", link: "/shop" },
-          { text: "Gifts", link: "/occasions/gifts" },
-          { text: "House Plants", link: "/occasions/houseplants" },
-          { text: "Wedding", link: "/occasions/wedding" },
-        ],
-      },
-    ],
-  },
-  {
-    link: "#",
-    text: "Accessories",
-  },
-  {
-    link: "/contact",
-    text: "Contact",
-  },
-];
+import useCategoriesTree from "../../hooks/useCategoriesTree.jsx";
+import { buildCategoryUrl } from "../../utils/categoryTree";
 
 const Navbar = () => {
   const [submenuOpen, setSubmenuOpen] = useState(false);
@@ -85,6 +31,51 @@ const Navbar = () => {
   const { isAuthenticated, customer, logout } = useAuth();
   const { getCartCount } = useCart();
   const navigate = useNavigate();
+  const { categories } = useCategoriesTree();
+
+  const shopGroups = useMemo(() => {
+    if (!Array.isArray(categories) || categories.length === 0) {
+      return [
+        {
+          title: "Shop",
+          link: "/shop",
+          groupItems: [{ text: "Shop All", link: "/shop" }],
+        },
+      ];
+    }
+
+    return categories.map((category) => {
+      const children = Array.isArray(category.children) ? category.children : [];
+      const items = children.length
+        ? [
+            { text: `All ${category.name}`, link: buildCategoryUrl(category.slug) },
+            ...children.map((child) => ({
+              text: child.name,
+              link: buildCategoryUrl(category.slug, child.slug),
+            })),
+          ]
+        : [{ text: category.name, link: buildCategoryUrl(category.slug) }];
+
+      return {
+        title: category.name,
+        link: buildCategoryUrl(category.slug),
+        groupItems: items,
+      };
+    });
+  }, [categories]);
+
+  const navList = useMemo(
+    () => [
+      { link: "/", text: "Home" },
+      {
+        link: "/shop",
+        text: "Shop",
+        submenuGroup: shopGroups,
+      },
+      { link: "/contact", text: "Contact" },
+    ],
+    [shopGroups]
+  );
 
   const handleSubmenuToggle = () => {
     setSubmenuOpen(!submenuOpen);
@@ -458,9 +449,16 @@ const Navbar = () => {
                         <div className="bg-gray-50 dark:bg-dark px-6 py-2">
                           {item.submenuGroup.map((group, groupIndex) => (
                             <div key={groupIndex} className="py-2">
-                              <h4 className="text-sm font-semibold text-dark dark:text-white mb-2">
+                              <Link
+                                to={group.link || "/shop"}
+                                onClick={() => {
+                                  setNavbarOpen(false);
+                                  setMobileSubmenuOpen(false);
+                                }}
+                                className="text-sm font-semibold text-dark dark:text-white mb-2 block hover:text-primary"
+                              >
                                 {group.title}
-                              </h4>
+                              </Link>
                               {group.groupItems.map((groupItem, itemIndex) => (
                                 <Link
                                   key={itemIndex}
@@ -562,9 +560,16 @@ const Navbar = () => {
                                           className="w-full px-4 lg:w-1/3"
                                         >
                                           <div>
-                                            <h3 className="text-dark mb-[14px] text-base font-semibold dark:text-white">
+                                            <Link
+                                              to={group.link || "/shop"}
+                                              onClick={() => {
+                                                setNavbarOpen(false);
+                                                setSubmenuOpen(false);
+                                              }}
+                                              className="text-dark mb-[14px] text-base font-semibold dark:text-white block hover:text-primary"
+                                            >
                                               {group.title}
-                                            </h3>
+                                            </Link>
 
                                             {group.groupItems.map(
                                               (groupItem, groupItemIndex) => (

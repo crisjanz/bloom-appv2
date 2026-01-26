@@ -3,6 +3,7 @@ import Home from "../pages/Home.jsx";
 import DefaultLayout from "../layouts/DefaultLayout.jsx";
 import Checkout from "../pages/Checkout.jsx";
 import Filters from "../pages/Filters.jsx";
+import CategoryPage from "../pages/CategoryPage.jsx";
 import OrderSummary from "../pages/OrderSummary.jsx";
 import ProductDetails from "../pages/ProductDetails.jsx";
 import ShoppingCart from "../pages/ShoppingCart.jsx";
@@ -17,24 +18,6 @@ import FAQ from "../pages/FAQ.jsx";
 import Terms from "../pages/Terms.jsx";
 import DriverRoute from "../pages/DriverRoute.jsx";
 
-// Occasion Pages
-import BirthdayFlowers from "../pages/occasions/Birthday.jsx";
-import WeddingFlowers from "../pages/occasions/WeddingFlowers.jsx";
-import SympathyFlowers from "../pages/occasions/SympathyFlowers.jsx";
-import GetWell from "../pages/occasions/GetWell.jsx";
-import Congrats from "../pages/occasions/Congrats.jsx";
-import Anniversary from "../pages/occasions/Anniversary.jsx";
-import ThankYou from "../pages/occasions/ThankYou.jsx";
-import Baby from "../pages/occasions/Baby.jsx";
-import Gifts from "../pages/occasions/Gifts.jsx";
-import HousePlants from "../pages/occasions/HousePlants.jsx";
-
-// Holiday Pages
-import Christmas from "../pages/holidays/Christmas.jsx";
-import Valentines from "../pages/holidays/Valentines.jsx";
-import Easter from "../pages/holidays/Easter.jsx";
-import MothersDay from "../pages/holidays/MothersDay.jsx";
-import Thanksgiving from "../pages/holidays/Thanksgiving.jsx";
 
 const Root = () => {
   return (
@@ -45,25 +28,8 @@ const Root = () => {
           <Route index element={<Home />} />
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/shop" element={<Filters />} />
-
-          {/* Occasion Pages */}
-          <Route path="/occasions/birthday" element={<BirthdayFlowers />} />
-          <Route path="/occasions/sympathy" element={<SympathyFlowers />} />
-          <Route path="/occasions/getwell" element={<GetWell />} />
-          <Route path="/occasions/congrats" element={<Congrats />} />
-          <Route path="/occasions/anniversary" element={<Anniversary />} />
-          <Route path="/occasions/thankyou" element={<ThankYou />} />
-          <Route path="/occasions/baby" element={<Baby />} />
-          <Route path="/occasions/gifts" element={<Gifts />} />
-          <Route path="/occasions/wedding" element={<WeddingFlowers />} />
-          <Route path="/occasions/houseplants" element={<HousePlants />} />
-
-          {/* Holiday Pages */}
-          <Route path="/holidays/christmas" element={<Christmas />} />
-          <Route path="/holidays/valentines" element={<Valentines />} />
-          <Route path="/holidays/easter" element={<Easter />} />
-          <Route path="/holidays/mday" element={<MothersDay />} />
-          <Route path="/holidays/thanksgiving" element={<Thanksgiving />} />
+          <Route path="/shop/:topSlug" element={<CategoryPage />} />
+          <Route path="/shop/:topSlug/:childSlug" element={<CategoryPage />} />
 
           <Route path="/order-summary" element={<OrderSummary />} />
           <Route path="/product-details" element={<ProductDetails />} />

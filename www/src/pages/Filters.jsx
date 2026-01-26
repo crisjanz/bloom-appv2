@@ -1,16 +1,18 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import Breadcrumb from "../components/Breadcrumb.jsx";
 import FilterTop from "../components/Filters/FilterTop.jsx";
 // ...existing code...
 import ProductGrid from "../components/Filters/ProductGrid.jsx";
+import useCategoriesTree from "../hooks/useCategoriesTree.jsx";
+import { flattenCategories } from "../utils/categoryTree";
 
 const Filters = () => {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [categoriesTree, setCategoriesTree] = useState([]);
   const [pendingCategoryParam, setPendingCategoryParam] = useState(null);
   const [searchParams, setSearchParams] = useSearchParams();
+  const { categories } = useCategoriesTree();
 
   const categoryParam = searchParams.get("category");
 
@@ -18,21 +20,10 @@ const Filters = () => {
     setPendingCategoryParam(categoryParam);
   }, [categoryParam]);
 
-  const flattenCategories = useCallback((tree) => {
-    const result = [];
-
-    const traverse = (nodes) => {
-      nodes.forEach((node) => {
-        result.push(node);
-        if (Array.isArray(node.children) && node.children.length > 0) {
-          traverse(node.children);
-        }
-      });
-    };
-
-    traverse(tree);
-    return result;
-  }, []);
+  const flatCategories = useMemo(
+    () => flattenCategories(categories),
+    [categories]
+  );
 
   useEffect(() => {
     if (!pendingCategoryParam) {
@@ -40,14 +31,13 @@ const Filters = () => {
       return;
     }
 
-    if (!categoriesTree.length) {
+    if (!flatCategories.length) {
       return;
     }
 
-    const flat = flattenCategories(categoriesTree);
     const lowerParam = pendingCategoryParam.toLowerCase();
     const matched =
-      flat.find(
+      flatCategories.find(
         (category) =>
           category.id === pendingCategoryParam ||
           category.slug === pendingCategoryParam ||
@@ -62,16 +52,11 @@ const Filters = () => {
       setSearchParams(params, { replace: true });
     }
   }, [
-    categoriesTree,
-    flattenCategories,
+    flatCategories,
     pendingCategoryParam,
     searchParams,
     setSearchParams,
   ]);
-
-  const handleCategoriesLoaded = useCallback((tree) => {
-    setCategoriesTree(tree);
-  }, []);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -99,12 +84,12 @@ const Filters = () => {
         <div className="container mx-auto px-4 pb-12">
           {/* Show FilterTop */}
           <div className="">
-            <FilterTop />
+            <FilterTop categories={categories} />
           </div>
          <div className="-mx-4 md-flex md-flex-wrap">
             {/* Products Grid */}
             <div className="w-full px-4 md-flex">
-              <ProductGrid selectedCategory={selectedCategory} />
+              <ProductGrid selectedCategoryIds={selectedCategory ? [selectedCategory] : null} />
             </div>
           </div>
         </div>

@@ -5,7 +5,12 @@ import { getProducts } from "../../services/productService";
 import { useCart } from "../../contexts/CartContext";
 import placeholderImage from "../../assets/ecom-images/products/product-carousel-02/image-01.jpg";
 
-const ProductGrid = ({ selectedCategory = null, searchQuery = "", priceRange = "" }) => {
+const ProductGrid = ({
+  selectedCategory = null,
+  selectedCategoryIds = null,
+  searchQuery = "",
+  priceRange = "",
+}) => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filteredProducts, setFilteredProducts] = useState([]);
@@ -32,9 +37,16 @@ const ProductGrid = ({ selectedCategory = null, searchQuery = "", priceRange = "
   useEffect(() => {
     let filtered = [...products];
 
+    const categoryIds =
+      Array.isArray(selectedCategoryIds) && selectedCategoryIds.length > 0
+        ? selectedCategoryIds
+        : selectedCategory
+          ? [selectedCategory]
+          : null;
+
     // Filter by category
-    if (selectedCategory) {
-      filtered = filtered.filter((p) => p.categoryId === selectedCategory);
+    if (categoryIds) {
+      filtered = filtered.filter((p) => categoryIds.includes(p.categoryId));
     } else {
       // When showing all products, hide add-ons (they only show in their specific categories)
       filtered = filtered.filter((p) => p.productType !== 'ADDON');
@@ -65,7 +77,7 @@ const ProductGrid = ({ selectedCategory = null, searchQuery = "", priceRange = "
     }
 
     setFilteredProducts(filtered);
-  }, [products, selectedCategory, searchQuery, priceRange]);
+  }, [products, selectedCategory, selectedCategoryIds, searchQuery, priceRange]);
 
   const handleAddToCart = (product) => {
     addToCart(product);

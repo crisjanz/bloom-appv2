@@ -1,49 +1,56 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import logo from "../../assets/images/logo/logo.png";
 import logoWhite from "../../assets/images/logo/logo-white.png";
 import paymentImage from "../../assets/ecom-images/footers/footer-04/payment.svg";
 import { Link } from "react-router-dom";
-
-const footerMenu = [
-  {
-    title: "Information",
-    items: [
-      { text: "About Us", link: "#" },
-      { text: "Order Tracking", link: "#" },
-      { text: "Contact Us", link: "/contact" },
-      { text: "FAQ", link: "/faq" },
-      { text: "Terms & Conditions", link: "/terms" },
-    ],
-  },
-  {
-    title: "Shop by Occasion",
-    items: [
-      { text: "Birthday", link: "/occasions/birthday" },
-      { text: "Sympathy", link: "/occasions/sympathy" },
-      { text: "Get Well", link: "/occasions/getwell" },
-      { text: "Congratulations", link: "/occasions/congrats" },
-      { text: "Anniversary", link: "/occasions/anniversary" },
-      { text: "Thank You", link: "/occasions/thankyou" },
-      { text: "New Baby", link: "/occasions/baby" },
-      { text: "Gifts", link: "/occasions/gifts" },
-      { text: "Wedding", link: "/occasions/wedding" },
-      { text: "House Plants", link: "/occasions/houseplants" },
-    ],
-  },
-  {
-    title: "Shop by Holiday",
-    items: [
-      { text: "Christmas", link: "/holidays/christmas" },
-      { text: "Valentine's Day", link: "/holidays/valentines" },
-      { text: "Easter", link: "/holidays/easter" },
-      { text: "Mother's Day", link: "/holidays/mday" },
-      { text: "Thanksgiving", link: "/holidays/thanksgiving" },
-    ],
-  },
-];
+import useCategoriesTree from "../../hooks/useCategoriesTree.jsx";
+import { buildCategoryUrl } from "../../utils/categoryTree";
 
 const Footer = () => {
   const [openSection, setOpenSection] = useState(null);
+  const { categories } = useCategoriesTree();
+
+  const footerMenu = useMemo(() => {
+    const infoSection = {
+      title: "Information",
+      items: [
+        { text: "About Us", link: "#" },
+        { text: "Order Tracking", link: "#" },
+        { text: "Contact Us", link: "/contact" },
+        { text: "FAQ", link: "/faq" },
+        { text: "Terms & Conditions", link: "/terms" },
+      ],
+    };
+
+    const categorySections = Array.isArray(categories)
+      ? categories.map((category) => {
+          const children = Array.isArray(category.children)
+            ? category.children
+            : [];
+          const items = children.length
+            ? [
+                {
+                  text: `All ${category.name}`,
+                  link: buildCategoryUrl(category.slug),
+                },
+                ...children.map((child) => ({
+                  text: child.name,
+                  link: buildCategoryUrl(category.slug, child.slug),
+                })),
+              ]
+            : [
+                {
+                  text: category.name,
+                  link: buildCategoryUrl(category.slug),
+                },
+              ];
+
+          return { title: category.name, items };
+        })
+      : [];
+
+    return [infoSection, ...categorySections];
+  }, [categories]);
 
   return (
     <>

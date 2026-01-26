@@ -8,17 +8,32 @@ const CategoryLayout = ({
   description,
   heroImage,
   categoryId,
-  categoryType = "occasion" // "occasion" or "holiday"
+  categoryIds,
+  categoryType = "occasion", // "occasion" or "holiday"
+  breadcrumbPath,
+  categories = [],
 }) => {
   const [priceRange, setPriceRange] = useState("");
 
-  const breadcrumbPath = [
-    { label: categoryType === "holiday" ? "Holidays" : "Occasions", url: "#" },
-  ];
+  const resolvedBreadcrumbPath =
+    breadcrumbPath ||
+    [
+      {
+        label: categoryType === "holiday" ? "Holidays" : "Occasions",
+        url: "#",
+      },
+    ];
+
+  const resolvedCategoryIds =
+    Array.isArray(categoryIds) && categoryIds.length > 0
+      ? categoryIds
+      : categoryId
+        ? [categoryId]
+        : null;
 
   return (
     <div className="bg-white dark:bg-dark min-h-screen">
-      <Breadcrumb pageName={title} path={breadcrumbPath} />
+      <Breadcrumb pageName={title} path={resolvedBreadcrumbPath} />
 
       {/* Hero Section */}
       <section className="relative w-full bg-white dark:bg-dark">
@@ -36,13 +51,13 @@ const CategoryLayout = ({
         <div className="container mx-auto px-4 py-2 xl:py-6">
           {/* Mobile: Filter above title */}
           <div className="mb-2 md:hidden">
-            <FilterTop onPriceChange={setPriceRange} />
+            <FilterTop onPriceChange={setPriceRange} categories={categories} />
           </div>
 
           {/* Desktop: Filter on left, title centered */}
           <div className="relative">
             <div className="hidden md:block absolute left-0 top-0">
-              <FilterTop onPriceChange={setPriceRange} />
+              <FilterTop onPriceChange={setPriceRange} categories={categories} />
             </div>
             <div className="max-w-3xl mx-auto text-center">
               <h1 className="text-4xl lg:text-5xl font-bold text-dark dark:text-white mb-4">
@@ -60,7 +75,7 @@ const CategoryLayout = ({
 
       {/* Products Grid */}
       <div className="container mx-auto px-4 pb-12">
-        <ProductGrid selectedCategory={categoryId} priceRange={priceRange} />
+        <ProductGrid selectedCategoryIds={resolvedCategoryIds} priceRange={priceRange} />
       </div>
     </div>
   );
