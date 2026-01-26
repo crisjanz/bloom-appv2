@@ -39,6 +39,8 @@ interface Product {
   images?: string[];
 }
 
+type VariantModalProduct = Product & { price: number };
+
 interface ProductsEditModalProps {
   products: OrderItem[];
   onChange: (products: OrderItem[]) => void;
@@ -61,7 +63,7 @@ const ProductsEditModal: React.FC<ProductsEditModalProps> = ({
   const [showSearch, setShowSearch] = useState(false);
   const [searching, setSearching] = useState(false);
   const [showVariantModal, setShowVariantModal] = useState(false);
-  const [selectedProductForVariants, setSelectedProductForVariants] = useState<Product | null>(null);
+  const [selectedProductForVariants, setSelectedProductForVariants] = useState<VariantModalProduct | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
