@@ -12,6 +12,7 @@ export interface FloranextOrderData {
   orderDate: string;
   sender: {
     name: string;
+    company?: string;
     address: string;
     city: string;
     province: string;
@@ -22,6 +23,7 @@ export interface FloranextOrderData {
   };
   recipient: {
     name: string;
+    company?: string;
     address: string;
     city: string;
     province: string;
@@ -293,8 +295,76 @@ export async function parseFloranextOrder(
     const jsonText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     const parsed: FloranextOrderData = JSON.parse(jsonText);
 
+    const normalizeCompanyAddress = <T extends { address: string; company?: string }>(contact: T): T => {
+      if (!contact?.address) {
+        return contact;
+      }
+
+      const addressText = contact.address.trim();
+      const lines = addressText
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+      if (lines.length < 2) {
+        const segments = addressText
+          .split(',')
+          .map((segment) => segment.trim())
+          .filter(Boolean);
+
+        if (segments.length < 2) {
+          return contact;
+        }
+
+        const [firstSegment, ...restSegments] = segments;
+        const restAddress = restSegments.join(', ');
+
+        if (!contact.company) {
+          const firstHasNumber = /\d/.test(firstSegment);
+          const restHasNumber = /\d/.test(restAddress);
+          if (!firstHasNumber && restHasNumber) {
+            return {
+              ...contact,
+              company: firstSegment,
+              address: restAddress,
+            } as T;
+          }
+        }
+
+        return {
+          ...contact,
+          address: segments.join(', '),
+        } as T;
+      }
+
+      const [firstLine, ...rest] = lines;
+      const restAddress = rest.join(' ');
+
+      if (!contact.company) {
+        const firstHasNumber = /\d/.test(firstLine);
+        const restHasNumber = /\d/.test(restAddress);
+        if (!firstHasNumber && restHasNumber) {
+          return {
+            ...contact,
+            company: firstLine,
+            address: restAddress,
+          } as T;
+        }
+      }
+
+      return {
+        ...contact,
+        address: lines.join(' '),
+      } as T;
+    };
+
+    const normalizedSender = normalizeCompanyAddress(parsed.sender);
+    const normalizedRecipient = normalizeCompanyAddress(parsed.recipient);
+
     return {
       ...parsed,
+      sender: normalizedSender,
+      recipient: normalizedRecipient,
       orderSource: 'FLORANEXT',
       isPrepaid: true,
     };
@@ -312,6 +382,8 @@ IMPORTANT PARSING RULES:
 3. DATES: Format as YYYY-MM-DD (e.g., "2026-01-29")
 4. PROVINCE: Use 2-letter code (e.g., "BC" not "British Columbia")
 5. ADDRESS: Parse city, province, postal code separately from street address
+   - If a company is listed on its own line between name and street address, store it in company
+   - Do NOT include the company in the street address
 6. PRODUCTS: Extract each line item with name, option (if shown like "Deluxe"), and Product ID if present
 
 REQUIRED FIELDS:
@@ -326,6 +398,8 @@ REQUIRED FIELDS:
 - Payment Method
 
 OPTIONAL FIELDS:
+- Sender company (line between name and address)
+- Recipient company (line between name and address)
 - Sender email
 - Delivery Instructions
 - Card Message
@@ -337,6 +411,7 @@ Return ONLY valid JSON in this exact format (no markdown, no explanation):
   "orderDate": "2026-01-26",
   "sender": {
     "name": "Leona Orchard",
+    "company": "",
     "address": "5653 Tatlow Road",
     "city": "Salmon Arm",
     "province": "BC",
@@ -347,6 +422,7 @@ Return ONLY valid JSON in this exact format (no markdown, no explanation):
   },
   "recipient": {
     "name": "Joann and Ron Kennedy",
+    "company": "",
     "address": "1292 Eaglet Cres.",
     "city": "Prince George",
     "province": "BC",

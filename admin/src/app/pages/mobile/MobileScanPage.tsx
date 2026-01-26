@@ -47,6 +47,7 @@ interface FloranextOrderData {
   orderDate: string;
   sender: {
     name: string;
+    company?: string;
     address: string;
     city: string;
     province: string;
@@ -57,6 +58,7 @@ interface FloranextOrderData {
   };
   recipient: {
     name: string;
+    company?: string;
     address: string;
     city: string;
     province: string;
@@ -461,6 +463,9 @@ export default function MobileScanPage() {
           <p className="font-medium text-gray-900 dark:text-white">{data.recipient.name}</p>
           {isDelivery && (
             <>
+              {data.recipient.company && (
+                <p className="text-sm text-gray-600 dark:text-gray-400">{data.recipient.company}</p>
+              )}
               <p className="text-sm text-gray-600 dark:text-gray-400">{data.recipient.address}</p>
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 {data.recipient.city}, {data.recipient.province} {data.recipient.postalCode}

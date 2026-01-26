@@ -4,6 +4,8 @@ import InputField from '@shared/ui/forms/input/InputField';
 import PhoneInput from '@shared/ui/forms/PhoneInput';
 import Select from '@shared/ui/forms/Select';
 import FormFooter from '@shared/ui/components/ui/form/FormFooter';
+import AddressAutocomplete from '@shared/ui/forms/AddressAutocomplete';
+import { ParsedAddress } from '@shared/utils/googlePlaces';
 
 interface RecipientEditModalProps {
   recipient: {
@@ -40,6 +42,18 @@ const RecipientEditModal: React.FC<RecipientEditModalProps> = ({
     { value: 'FUNERAL_HOME', label: 'Funeral Home' },
     { value: 'OTHER', label: 'Other' }
   ];
+
+  const handleAddressSelect = (parsedAddress: ParsedAddress) => {
+    onChange({
+      ...recipient,
+      address1: parsedAddress.address1,
+      address2: parsedAddress.address2 || '',
+      city: parsedAddress.city,
+      province: parsedAddress.province,
+      postalCode: parsedAddress.postalCode,
+      country: parsedAddress.country || recipient.country || 'CA'
+    });
+  };
 
   return (
     <div className="space-y-4">
@@ -78,11 +92,12 @@ const RecipientEditModal: React.FC<RecipientEditModalProps> = ({
         options={addressTypeOptions}
       />
 
-      <InputField
+      <AddressAutocomplete
         label="Address Line 1"
-        type="text"
         value={recipient.address1 || ''}
-        onChange={(e) => onChange({ ...recipient, address1: e.target.value })}
+        onChange={(value) => onChange({ ...recipient, address1: value })}
+        onAddressSelect={handleAddressSelect}
+        placeholder="Start typing an address"
       />
 
       <InputField

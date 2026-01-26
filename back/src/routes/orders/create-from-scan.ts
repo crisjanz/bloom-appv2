@@ -410,6 +410,7 @@ router.post('/create-from-floranext', async (req, res) => {
           data: {
             customerId: recipientCustomer.id,
             address1: orderData.recipient.address,
+            company: orderData.recipient.company || null,
             city: orderData.recipient.city,
             province: orderData.recipient.province,
             postalCode: orderData.recipient.postalCode,
