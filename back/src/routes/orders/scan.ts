@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import { PrismaClient } from '@prisma/client';
-import { parseOrderImage } from '../../services/gemini-ocr';
+import { parseOrderImage, parseFloranextOrder } from '../../services/gemini-ocr';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -113,6 +113,50 @@ router.post('/', upload.single('image'), async (req: Request, res: Response) => 
     return res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Failed to scan order',
+    });
+  }
+});
+
+/**
+ * POST /api/orders/scan/floranext
+ * Upload a Floranext web order email screenshot and extract structured data
+ */
+router.post('/floranext', upload.single('image'), async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image file provided' });
+    }
+
+    console.log('📸 Scanning Floranext order:', req.file.originalname);
+
+    // Parse the image using Gemini with Floranext-specific prompt
+    const orderData = await parseFloranextOrder(req.file.buffer);
+
+    console.log('✅ Floranext order parsed successfully:', orderData.orderNumber);
+
+    // Validate delivery address
+    const shouldValidateAddress = orderData.deliveryType === 'Delivery' && orderData.recipient?.address;
+    const addressValidation = shouldValidateAddress
+      ? await validateAddress({
+          address1: orderData.recipient.address,
+          city: orderData.recipient.city,
+          province: orderData.recipient.province,
+          postalCode: orderData.recipient.postalCode,
+          country: orderData.recipient.country,
+        })
+      : { valid: null };
+
+    return res.json({
+      success: true,
+      data: orderData,
+      addressValid: addressValidation.valid,
+    });
+  } catch (error) {
+    console.error('❌ Floranext scan error:', error);
+
+    return res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to scan Floranext order',
     });
   }
 });

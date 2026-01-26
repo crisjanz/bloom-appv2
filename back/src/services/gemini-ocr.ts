@@ -3,8 +3,55 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-export type ScanProvider = 'FTD' | 'DOORDASH';
+export type ScanProvider = 'FTD' | 'DOORDASH' | 'FLORANEXT';
 
+// Floranext web order structure (your own website orders)
+export interface FloranextOrderData {
+  orderNumber: string;
+  orderSource: 'FLORANEXT';
+  orderDate: string;
+  sender: {
+    name: string;
+    address: string;
+    city: string;
+    province: string;
+    postalCode: string;
+    country: string;
+    phone: string;
+    email?: string;
+  };
+  recipient: {
+    name: string;
+    address: string;
+    city: string;
+    province: string;
+    postalCode: string;
+    country: string;
+    phone: string;
+  };
+  deliveryDate: string;
+  deliveryType: string; // "Delivery" or "Pickup"
+  deliveryInstructions?: string;
+  cardMessage?: string;
+  products: Array<{
+    name: string;
+    description?: string;
+    productId?: string;
+    option?: string;
+    unitPrice: number;
+    quantity: number;
+  }>;
+  subtotal: number;
+  deliveryFee: number;
+  gst: number;
+  pst: number;
+  taxTotal: number;
+  grandTotal: number;
+  paymentMethod: string;
+  isPrepaid: boolean;
+}
+
+// Wire order structure (FTD, DoorDash)
 export interface ParsedOrderData {
   orderNumber: string;
   orderSource: ScanProvider;
@@ -205,9 +252,128 @@ Return ONLY valid JSON in this exact format (no markdown, no explanation):
 
 function normalizeProvider(provider?: string): ScanProvider {
   const normalized = (provider || 'FTD').toUpperCase();
-  if (normalized === 'FTD' || normalized === 'DOORDASH') {
+  if (normalized === 'FTD' || normalized === 'DOORDASH' || normalized === 'FLORANEXT') {
     return normalized as ScanProvider;
   }
 
   throw new Error(`Unsupported scan provider: ${provider}`);
 }
+
+/**
+ * Parse Floranext web order email/screenshot using Google Gemini Vision
+ */
+export async function parseFloranextOrder(
+  imageBuffer: Buffer
+): Promise<FloranextOrderData> {
+  const shopProfile = await prisma.shopProfile.findFirst();
+
+  if (!shopProfile?.googleGeminiApiKey) {
+    throw new Error('Gemini API key not configured in ShopProfile. Please add it in settings.');
+  }
+
+  const genAI = new GoogleGenerativeAI(shopProfile.googleGeminiApiKey);
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+  const base64Image = imageBuffer.toString('base64');
+
+  try {
+    const result = await model.generateContent([
+      FLORANEXT_PROMPT,
+      {
+        inlineData: {
+          data: base64Image,
+          mimeType: 'image/jpeg',
+        },
+      },
+    ]);
+
+    const response = await result.response;
+    const text = response.text();
+
+    const jsonText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const parsed: FloranextOrderData = JSON.parse(jsonText);
+
+    return {
+      ...parsed,
+      orderSource: 'FLORANEXT',
+      isPrepaid: true,
+    };
+  } catch (error) {
+    console.error('Floranext OCR Error:', error);
+    throw new Error(`Failed to parse Floranext order: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+const FLORANEXT_PROMPT = `You are parsing a Floranext web order confirmation email. Extract all order information into a structured JSON format.
+
+IMPORTANT PARSING RULES:
+1. PRICES: Extract as numbers without currency symbols (e.g., 120.00 not "CA$120.00")
+2. PHONE NUMBERS: Extract digits only (e.g., "2508335000" not "250-833-5000")
+3. DATES: Format as YYYY-MM-DD (e.g., "2026-01-29")
+4. PROVINCE: Use 2-letter code (e.g., "BC" not "British Columbia")
+5. ADDRESS: Parse city, province, postal code separately from street address
+6. PRODUCTS: Extract each line item with name, option (if shown like "Deluxe"), and Product ID if present
+
+REQUIRED FIELDS:
+- Order Number (from subject or header, e.g., "000004775")
+- Order Date (when placed)
+- Sender: name, address, city, province, postalCode, country, phone
+- Recipient: name, address, city, province, postalCode, country, phone
+- Delivery Date
+- Delivery Type ("Delivery" or "Pickup")
+- Products array with: name, description (if present), productId (if present), option (if present like "Deluxe"), unitPrice, quantity
+- Subtotal, Delivery Fee, GST, PST, Tax Total, Grand Total
+- Payment Method
+
+OPTIONAL FIELDS:
+- Sender email
+- Delivery Instructions
+- Card Message
+
+Return ONLY valid JSON in this exact format (no markdown, no explanation):
+{
+  "orderNumber": "000004775",
+  "orderSource": "FLORANEXT",
+  "orderDate": "2026-01-26",
+  "sender": {
+    "name": "Leona Orchard",
+    "address": "5653 Tatlow Road",
+    "city": "Salmon Arm",
+    "province": "BC",
+    "postalCode": "V1E2P8",
+    "country": "CA",
+    "phone": "2508335000",
+    "email": "kolokayaks@telus.net"
+  },
+  "recipient": {
+    "name": "Joann and Ron Kennedy",
+    "address": "1292 Eaglet Cres.",
+    "city": "Prince George",
+    "province": "BC",
+    "postalCode": "V2M4H5",
+    "country": "CA",
+    "phone": "2505644680"
+  },
+  "deliveryDate": "2026-01-29",
+  "deliveryType": "Delivery",
+  "deliveryInstructions": "",
+  "cardMessage": "Happy 60th. Enjoy your visit with your family.",
+  "products": [
+    {
+      "name": "Sunny Day Bouquet",
+      "description": "This vibrant spring bouquet combines sunny yellow lilies...",
+      "productId": "IYV-sunnyday",
+      "option": "Deluxe",
+      "unitPrice": 120.00,
+      "quantity": 1
+    }
+  ],
+  "subtotal": 120.00,
+  "deliveryFee": 10.00,
+  "gst": 6.50,
+  "pst": 8.40,
+  "taxTotal": 14.90,
+  "grandTotal": 144.90,
+  "paymentMethod": "Credit Card",
+  "isPrepaid": true
+}`;

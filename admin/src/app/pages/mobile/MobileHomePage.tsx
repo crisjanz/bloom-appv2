@@ -36,7 +36,7 @@ export default function MobileHomePage() {
                 Scan Order
               </h2>
               <p className="text-gray-600 dark:text-gray-400 mt-2">
-                Scan FTD wire orders
+                Wire orders & web orders
               </p>
             </div>
           </button>

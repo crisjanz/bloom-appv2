@@ -1,6 +1,6 @@
 import express from 'express';
 import { PrismaClient, OrderStatus, OrderExternalSource } from '@prisma/client';
-import { ParsedOrderData } from '../../services/gemini-ocr';
+import { ParsedOrderData, FloranextOrderData } from '../../services/gemini-ocr';
 import transactionService from '../../services/transactionService';
 
 const router = express.Router();
@@ -326,5 +326,192 @@ async function findOrCreateCustomer(data: {
   console.log(`👤 Created new customer: ${newCustomer.firstName} ${newCustomer.lastName}`);
   return newCustomer;
 }
+
+/**
+ * Create order from scanned Floranext web order
+ * POST /api/orders/create-from-floranext
+ */
+router.post('/create-from-floranext', async (req, res) => {
+  try {
+    const orderData: FloranextOrderData = req.body;
+
+    console.log(`📸 Creating order from Floranext web order: ${orderData.orderNumber}`);
+
+    // Check if order already exists
+    if (orderData.orderNumber) {
+      const existingOrder = await prisma.order.findFirst({
+        where: {
+          OR: [
+            { externalReference: orderData.orderNumber },
+            { externalReference: `FN-${orderData.orderNumber}` },
+          ],
+        },
+      });
+
+      if (existingOrder) {
+        return res.status(409).json({
+          success: false,
+          error: `Order ${orderData.orderNumber} already exists (Order #${existingOrder.orderNumber})`,
+          existingOrderId: existingOrder.id,
+          existingOrderNumber: existingOrder.orderNumber,
+        });
+      }
+    }
+
+    // 1. Parse sender name
+    const senderNameParts = orderData.sender.name.trim().split(/\s+/);
+    const senderFirstName = senderNameParts[0] || 'Web';
+    const senderLastName = senderNameParts.slice(1).join(' ') || 'Customer';
+
+    // 2. Find or create SENDER customer
+    const senderCustomer = await findOrCreateCustomer({
+      firstName: senderFirstName,
+      lastName: senderLastName,
+      phone: orderData.sender.phone,
+    });
+
+    // Update sender email if available
+    if (orderData.sender.email && !senderCustomer.email) {
+      await prisma.customer.update({
+        where: { id: senderCustomer.id },
+        data: { email: orderData.sender.email },
+      });
+    }
+
+    // 3. Parse recipient name
+    const recipientNameParts = orderData.recipient.name.trim().split(/\s+/);
+    const recipientFirstName = recipientNameParts[0] || 'Recipient';
+    const recipientLastName = recipientNameParts.slice(1).join(' ') || '';
+
+    // 4. Find or create RECIPIENT customer
+    const recipientCustomer = await findOrCreateCustomer({
+      firstName: recipientFirstName,
+      lastName: recipientLastName,
+      phone: orderData.recipient.phone,
+    });
+
+    // 5. Create/find delivery address for recipient
+    const isDelivery = orderData.deliveryType === 'Delivery';
+    let deliveryAddress = null;
+
+    if (isDelivery) {
+      deliveryAddress = await prisma.address.findFirst({
+        where: {
+          customerId: recipientCustomer.id,
+          address1: orderData.recipient.address,
+          city: orderData.recipient.city,
+          province: orderData.recipient.province,
+          postalCode: orderData.recipient.postalCode,
+        },
+      });
+
+      if (!deliveryAddress) {
+        deliveryAddress = await prisma.address.create({
+          data: {
+            customerId: recipientCustomer.id,
+            address1: orderData.recipient.address,
+            city: orderData.recipient.city,
+            province: orderData.recipient.province,
+            postalCode: orderData.recipient.postalCode,
+            country: orderData.recipient.country || 'CA',
+          },
+        });
+        console.log(`📍 Created new address for recipient ${recipientCustomer.id}`);
+      }
+    }
+
+    // 6. Calculate amounts (all in cents)
+    const subtotalCents = Math.round(orderData.subtotal * 100);
+    const deliveryFeeCents = Math.round(orderData.deliveryFee * 100);
+    const gstCents = Math.round(orderData.gst * 100);
+    const pstCents = Math.round(orderData.pst * 100);
+    const totalTaxCents = gstCents + pstCents;
+    const grandTotalCents = Math.round(orderData.grandTotal * 100);
+
+    // 7. Create order items from products
+    const orderItems = orderData.products.map((product) => ({
+      customName: product.option ? `${product.name} - ${product.option}` : product.name,
+      description: product.description || product.name,
+      unitPrice: Math.round(product.unitPrice * 100),
+      quantity: product.quantity,
+      rowTotal: Math.round(product.unitPrice * product.quantity * 100),
+    }));
+
+    // 8. Create order
+    const order = await prisma.order.create({
+      data: {
+        type: isDelivery ? 'DELIVERY' : 'PICKUP',
+        status: OrderStatus.PAID, // Web orders are pre-paid
+        orderSource: 'WEBSITE',
+        externalSource: OrderExternalSource.OTHER,
+        externalReference: `FN-${orderData.orderNumber}`,
+        customerId: senderCustomer.id,
+        recipientCustomerId: isDelivery ? recipientCustomer.id : null,
+        recipientName: isDelivery ? null : orderData.recipient.name,
+        deliveryAddressId: deliveryAddress?.id || null,
+        deliveryDate: orderData.deliveryDate ? new Date(orderData.deliveryDate + 'T00:00:00') : null,
+        cardMessage: orderData.cardMessage || '',
+        specialInstructions: orderData.deliveryInstructions || null,
+        deliveryFee: deliveryFeeCents,
+        paymentAmount: grandTotalCents,
+        totalTax: totalTaxCents,
+        orderItems: {
+          create: orderItems,
+        },
+      },
+      include: {
+        orderItems: true,
+        recipientCustomer: true,
+        deliveryAddress: true,
+      },
+    });
+
+    // 9. Create payment transaction
+    try {
+      const paymentTransaction = await transactionService.createTransaction({
+        customerId: senderCustomer.id,
+        employeeId: undefined,
+        channel: 'WEBSITE',
+        totalAmount: grandTotalCents,
+        taxAmount: totalTaxCents,
+        tipAmount: 0,
+        notes: `Floranext Web Order ${orderData.orderNumber}`,
+        receiptEmail: orderData.sender.email,
+        paymentMethods: [
+          {
+            type: 'EXTERNAL' as any,
+            provider: 'INTERNAL' as any,
+            amount: grandTotalCents,
+            providerTransactionId: `FN-${orderData.orderNumber}`,
+            providerMetadata: {
+              source: 'FLORANEXT',
+              paymentMethod: orderData.paymentMethod,
+              scannedOrder: true,
+            },
+          },
+        ],
+        orderIds: [order.id],
+      });
+
+      console.log(`✅ Created order #${order.orderNumber} and PT-${paymentTransaction.transactionNumber} from Floranext scan`);
+    } catch (error: any) {
+      console.error(`⚠️  Failed to create PT-transaction:`, error.message);
+    }
+
+    res.json({
+      success: true,
+      order: {
+        id: order.id,
+        orderNumber: order.orderNumber,
+      },
+    });
+  } catch (error: any) {
+    console.error('❌ Create from Floranext scan error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to create order from Floranext scan',
+    });
+  }
+});
 
 export default router;
