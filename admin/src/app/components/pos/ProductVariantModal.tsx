@@ -5,7 +5,7 @@ import { centsToDollars, dollarsToCents, formatCurrency } from '@shared/utils/cu
 type Variant = {
   id: string;
   name: string;
-  price: number;
+  price?: number;
   calculatedPrice?: number;
   priceDifference?: number;
   isDefault: boolean;
