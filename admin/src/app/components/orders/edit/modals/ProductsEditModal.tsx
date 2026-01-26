@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { SaveIcon, PlusIcon, TrashIcon } from '@shared/assets/icons';
 import { centsToDollars, formatCurrency, dollarsToCents } from '@shared/utils/currency';
 import { useApiClient } from '@shared/hooks/useApiClient';
+import ProductVariantModal from '@app/components/pos/ProductVariantModal';
 
 // Inline search icon since SearchIcon doesn't exist
 const SearchIcon = ({ className }: { className?: string }) => (
@@ -24,8 +25,18 @@ interface Product {
   id: string;
   name: string;
   description?: string;
-  price: number;
+  price?: number;
+  defaultPrice?: number;
   sku?: string;
+  variants?: Array<{
+    id: string;
+    name: string;
+    price?: number;
+    calculatedPrice?: number;
+    priceDifference?: number;
+    isDefault?: boolean;
+  }>;
+  images?: string[];
 }
 
 interface ProductsEditModalProps {
@@ -49,6 +60,8 @@ const ProductsEditModal: React.FC<ProductsEditModalProps> = ({
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [showSearch, setShowSearch] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [showVariantModal, setShowVariantModal] = useState(false);
+  const [selectedProductForVariants, setSelectedProductForVariants] = useState<Product | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -78,11 +91,11 @@ const ProductsEditModal: React.FC<ProductsEditModalProps> = ({
         const { data } = await apiClient.get(`/api/products/search?q=${encodeURIComponent(searchQuery)}`);
         if (Array.isArray(data)) {
           const products = data.map((p: any) => ({
-            id: p.id,
-            name: p.name,
-            description: p.description,
-            price: p.variants?.[0]?.price || p.price || 0,
-            sku: p.variants?.[0]?.sku || p.sku
+            ...p,
+            defaultPrice:
+              typeof p.defaultPrice === 'number'
+                ? p.defaultPrice
+                : p.variants?.find((v: any) => v.isDefault)?.calculatedPrice ?? p.price ?? 0,
           }));
           setSearchResults(products);
         }
@@ -154,16 +167,63 @@ const ProductsEditModal: React.FC<ProductsEditModalProps> = ({
     }));
   };
 
-  const addProductFromSearch = (product: Product) => {
+  const hasMultipleVariants = (product: Product) =>
+    Boolean(
+      product.variants &&
+      product.variants.length > 1 &&
+      product.variants.some((variant) => !variant.isDefault)
+    );
+
+  const resolveVariantPriceCents = (variant?: Product['variants'][number]) => {
+    if (!variant) return 0;
+
+    const displayPriceCents = (variant as any).displayPriceCents;
+    if (typeof displayPriceCents === 'number') {
+      return displayPriceCents;
+    }
+
+    if (typeof variant.calculatedPrice === 'number') {
+      return dollarsToCents(variant.calculatedPrice);
+    }
+
+    if (typeof variant.price === 'number') {
+      return Number.isInteger(variant.price) ? variant.price : dollarsToCents(variant.price);
+    }
+
+    return 0;
+  };
+
+  const resolveProductBasePriceCents = (product: Product) => {
+    if (typeof product.defaultPrice === 'number') {
+      return dollarsToCents(product.defaultPrice);
+    }
+
+    const defaultVariant = product.variants?.find((variant) => variant.isDefault);
+    if (defaultVariant) {
+      return resolveVariantPriceCents(defaultVariant);
+    }
+
+    if (typeof product.price === 'number') {
+      return Number.isInteger(product.price) ? product.price : dollarsToCents(product.price);
+    }
+
+    return 0;
+  };
+
+  const addProductFromSearch = (product: Product, selectedVariant?: Product['variants'][number]) => {
     const newId = `temp-${Date.now()}`;
+    const unitPrice = selectedVariant
+      ? resolveVariantPriceCents(selectedVariant)
+      : resolveProductBasePriceCents(product);
+    const customName = selectedVariant ? `${product.name} - ${selectedVariant.name}` : product.name;
     const newItem: OrderItem = {
       id: newId,
       productId: product.id,
-      customName: product.name,
+      customName,
       description: product.description,
-      unitPrice: product.price,
+      unitPrice,
       quantity: 1,
-      rowTotal: product.price
+      rowTotal: unitPrice
     };
     const updated = [...editingProducts, newItem];
     setEditingProducts(updated);
@@ -172,12 +232,20 @@ const ProductsEditModal: React.FC<ProductsEditModalProps> = ({
     // Set display value for new product
     setPriceDisplayValues(prev => ({
       ...prev,
-      [newId]: centsToDollars(product.price).toFixed(2)
+      [newId]: centsToDollars(unitPrice).toFixed(2)
     }));
 
     setSearchQuery('');
     setShowSearch(false);
     setSearchResults([]);
+  };
+
+  const handleVariantSelection = (variant: Product['variants'][number]) => {
+    if (selectedProductForVariants) {
+      addProductFromSearch(selectedProductForVariants, variant);
+    }
+    setShowVariantModal(false);
+    setSelectedProductForVariants(null);
   };
 
   const addCustomProduct = () => {
@@ -248,7 +316,18 @@ const ProductsEditModal: React.FC<ProductsEditModalProps> = ({
             {searchResults.map((product) => (
               <button
                 key={product.id}
-                onClick={() => addProductFromSearch(product)}
+                onClick={() => {
+                  if (hasMultipleVariants(product)) {
+                    setSelectedProductForVariants({
+                      ...product,
+                      price: product.defaultPrice ?? product.price ?? 0
+                    });
+                    setShowVariantModal(true);
+                    setShowSearch(false);
+                  } else {
+                    addProductFromSearch(product);
+                  }
+                }}
                 className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 flex justify-between items-center border-b border-gray-100 dark:border-gray-700 last:border-0"
               >
                 <div>
@@ -260,7 +339,9 @@ const ProductsEditModal: React.FC<ProductsEditModalProps> = ({
                   )}
                 </div>
                 <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                  {formatCurrency(product.price)}
+                  {hasMultipleVariants(product)
+                    ? `From ${formatCurrency(resolveProductBasePriceCents(product))}`
+                    : formatCurrency(resolveProductBasePriceCents(product))}
                 </span>
               </button>
             ))}
@@ -397,6 +478,16 @@ const ProductsEditModal: React.FC<ProductsEditModalProps> = ({
           )}
         </button>
       </div>
+
+      <ProductVariantModal
+        open={showVariantModal}
+        product={selectedProductForVariants}
+        onClose={() => {
+          setShowVariantModal(false);
+          setSelectedProductForVariants(null);
+        }}
+        onSelectVariant={handleVariantSelection}
+      />
     </div>
   );
 };

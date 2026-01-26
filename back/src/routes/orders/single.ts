@@ -17,7 +17,15 @@ router.get('/:id', async (req, res) => {
         customer: true,
         recipientCustomer: true,
         deliveryAddress: true,
-        orderItems: true,
+        orderItems: {
+          include: {
+            product: {
+              select: {
+                images: true
+              }
+            }
+          }
+        },
         employee: {
           select: {
             id: true,
