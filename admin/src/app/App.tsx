@@ -31,7 +31,6 @@ import CategoriesPage from "./pages/products/CategoriesPage";
 import CustomersPage from "./pages/customers/CustomersPage";
 import CustomerFormPage from "./pages/customers/CustomerFormPage";
 import DuplicatesPage from "./pages/customers/DuplicatesPage";
-import ViewProductPage from "./pages/products/ViewProductPage";
 import OrdersListPage from "./pages/orders/OrdersListPage";
 import OrderEditPage from "./pages/orders/OrderEditPage";
 import FulfillmentPage from "./pages/FulfillmentPage";
@@ -115,7 +114,6 @@ export default function App() {
             <Route path="products" element={<ProductsPage />} />
             <Route path="products/new" element={<NewProductPage />} />
             <Route path="products/edit/:id" element={<EditProductPage />} />
-            <Route path="products/view/:id" element={<ViewProductPage />} />
             <Route path="products/categories" element={<CategoriesPage />} />
             
             {/* Order routes */}

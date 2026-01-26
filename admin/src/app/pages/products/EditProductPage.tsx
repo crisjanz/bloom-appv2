@@ -88,7 +88,13 @@ const EditProductPage = () => {
       <div className="bg-whiten dark:bg-boxdark min-h-screen relative">
         <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
           <PageMeta title="Edit Product" />
-          <PageBreadcrumb pageTitle="Edit Product" />
+          <PageBreadcrumb
+            pageTitle="Edit Product"
+            customBreadcrumbs={[
+              { label: 'Products', path: '/products' },
+              { label: 'Edit Product', path: `/products/edit/${id}` },
+            ]}
+          />
           <div className="text-center mt-10">
             <p className="text-lg text-gray-600 dark:text-gray-400">Product not found.</p>
           </div>
@@ -101,7 +107,13 @@ const EditProductPage = () => {
     <div className="bg-whiten dark:bg-boxdark min-h-screen relative">
       <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
         <PageMeta title="Edit Product" />
-        <PageBreadcrumb pageTitle="Edit Product" />
+        <PageBreadcrumb
+          pageTitle="Edit Product"
+          customBreadcrumbs={[
+            { label: 'Products', path: '/products' },
+            { label: 'Edit Product', path: `/products/edit/${id}` },
+          ]}
+        />
         <div className="mt-6">
           <ProductForm initialData={product} onSubmit={handleSubmit} />
         </div>

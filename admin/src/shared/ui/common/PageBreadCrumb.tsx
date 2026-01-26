@@ -95,6 +95,15 @@ const PageBreadcrumb: React.FC<BreadcrumbProps> = ({ customBreadcrumbs, pageTitl
   }, [location.pathname, customBreadcrumbs, links, pageTitle]);
 
   const handleGoBack = () => {
+    if (customBreadcrumbs || links) {
+      if (breadcrumbItems.length > 1) {
+        navigate(breadcrumbItems[breadcrumbItems.length - 2].path);
+        return;
+      }
+      navigate('/');
+      return;
+    }
+
     // Go back one level in the URL hierarchy
     const pathSegments = location.pathname.split('/').filter(Boolean);
     
@@ -102,9 +111,10 @@ const PageBreadcrumb: React.FC<BreadcrumbProps> = ({ customBreadcrumbs, pageTitl
       // If we're at root level or one level deep, go to home
       navigate('/');
     } else {
-      // Remove the last segment and navigate to parent
-      const parentPath = '/' + pathSegments.slice(0, -1).join('/');
-      navigate(parentPath);
+      const previousSegment = pathSegments[pathSegments.length - 2];
+      const sliceCount = previousSegment === 'edit' && pathSegments.length > 2 ? 2 : 1;
+      const parentPath = '/' + pathSegments.slice(0, -sliceCount).join('/');
+      navigate(parentPath || '/');
     }
   };
 
