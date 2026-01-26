@@ -3,6 +3,7 @@ import multer from 'multer';
 import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { uploadToR2, deleteFromR2 } from '../utils/r2Client';
+import { generateUniqueSkus } from '../utils/skuGenerator';
 
 const upload = multer({ storage: multer.memoryStorage() });
 const router = Router();
@@ -521,21 +522,21 @@ const resolveVariantOptionValueIds = (
 const createProductVariants = async ({
   client,
   productId,
-  productSlug,
   basePriceCents,
   baseInventory,
   optionGroups,
   optionMap,
   variants,
+  existingSkuMap,
 }: {
   client: Prisma.TransactionClient;
   productId: string;
-  productSlug: string;
   basePriceCents: number;
   baseInventory: number;
   optionGroups: OptionGroupInput[];
   optionMap: Map<string, PersistedOptionGroup>;
   variants: VariantInput[];
+  existingSkuMap?: Map<string, string>; // variant name → existing SKU
 }) => {
   const impactingGroups = optionGroups.filter((group) => group.impactsVariants);
   const sanitizedVariants = Array.isArray(variants) ? variants : [];
@@ -545,7 +546,6 @@ const createProductVariants = async ({
     : [
         {
           name: 'Default',
-          sku: `${productSlug}-default`,
           priceDifference: 0,
           stockLevel: baseInventory,
           trackInventory: baseInventory > 0,
@@ -559,8 +559,16 @@ const createProductVariants = async ({
     defaultVariantIndex = 0;
   }
 
+  // Count how many new SKUs we need (variants without existing SKU)
+  const variantsNeedingNewSku = variantEntries.filter(
+    (v) => !existingSkuMap?.has(v.name || '')
+  );
+  const uniqueSkus = variantsNeedingNewSku.length > 0
+    ? await generateUniqueSkus(prisma, variantsNeedingNewSku.length)
+    : [];
+  let newSkuIndex = 0;
+
   const usedCombinationKeys = new Set<string>();
-  const usedSkus = new Set<string>();
 
   for (let index = 0; index < variantEntries.length; index += 1) {
     const variant = variantEntries[index];
@@ -596,24 +604,15 @@ const createProductVariants = async ({
       usedCombinationKeys.add(combinationKey);
     }
 
-    const baseSku =
-      variant.sku ||
-      `${productSlug}-${(variant.name || `variant-${index + 1}`)
-        .toLowerCase()
-        .replace(/\s+/g, '-')}`;
-
-    let finalSku = baseSku;
-    let dedupeCounter = 1;
-    while (usedSkus.has(finalSku)) {
-      finalSku = `${baseSku}-${dedupeCounter}`;
-      dedupeCounter += 1;
-    }
-    usedSkus.add(finalSku);
+    // Use existing SKU if available, otherwise use pre-generated unique SKU
+    const variantName = variant.name || `Variant ${index + 1}`;
+    const existingSku = existingSkuMap?.get(variantName);
+    const finalSku = existingSku || uniqueSkus[newSkuIndex++];
 
     await client.productVariant.create({
       data: {
         productId,
-        name: variant.name || `Variant ${index + 1}`,
+        name: variantName,
         sku: finalSku,
         price: priceCents,
         priceDifference: priceDifferenceCents,
@@ -645,10 +644,24 @@ router.get('/search', async (req, res) => {
   try {
     const products = await prisma.product.findMany({
       where: {
-        name: {
-          contains: q as string,
-          mode: 'insensitive',
-        },
+        OR: [
+          {
+            name: {
+              contains: q as string,
+              mode: 'insensitive',
+            },
+          },
+          {
+            variants: {
+              some: {
+                sku: {
+                  contains: q as string,
+                  mode: 'insensitive',
+                },
+              },
+            },
+          },
+        ],
       },
       include: {
         category: true,
@@ -941,7 +954,6 @@ router.post('/', upload.array('images'), async (req, res) => {
       await createProductVariants({
         client: tx,
         productId: createdProduct.id,
-        productSlug: createdProduct.slug,
         basePriceCents: basePrice,
         baseInventory,
         optionGroups: optionGroupInputs,
@@ -1323,6 +1335,15 @@ router.put('/:id', async (req, res) => {
     }
 
     const updatedProduct = await prisma.$transaction(async (tx) => {
+      // Capture existing variant SKUs before deletion (to preserve on update)
+      const existingVariants = await tx.productVariant.findMany({
+        where: { productId: id },
+        select: { name: true, sku: true },
+      });
+      const existingSkuMap = new Map(
+        existingVariants.map((v) => [v.name, v.sku])
+      );
+
       const existingOptionIds = await tx.variantOption.findMany({
         where: { variant: { productId: id } },
         select: {
@@ -1404,12 +1425,12 @@ router.put('/:id', async (req, res) => {
       await createProductVariants({
         client: tx,
         productId: updated.id,
-        productSlug: updated.slug,
         basePriceCents: basePrice,
         baseInventory,
         optionGroups: optionGroupInputs,
         optionMap,
         variants: variantInputs,
+        existingSkuMap,
       });
 
       if (resolvedProductType !== 'MAIN') {
