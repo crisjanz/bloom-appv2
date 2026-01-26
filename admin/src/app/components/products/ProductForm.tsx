@@ -35,7 +35,7 @@ type OptionGroup = {
 type Variant = {
   id: string;
   name: string;
-  sku: string;
+  sku?: string; // Manual SKU (optional, user-controlled)
   priceDifference: number; // in cents
   stockLevel: number;
   trackInventory: boolean;
@@ -419,14 +419,10 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
         const selectedTier = pricingTiers.find((t) => t.title === tierTitle) || baseTier;
         const tierFeaturedImage = selectedTier?.featuredImageUrl ?? null;
 
-        const fallbackSkuBase = `${productSlug}-${comboLabel
-          .toLowerCase()
-          .replace(/\s+/g, "-")}`;
-
         return {
           id: existing?.id || generateUUID(),
           name: comboLabel,
-          sku: existing?.sku || fallbackSkuBase,
+          sku: existing?.sku, // SKU generated/preserved by backend
           priceDifference,
           stockLevel:
             existing?.stockLevel ??

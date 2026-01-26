@@ -3,6 +3,7 @@ import InputField from "@shared/ui/forms/input/InputField";
 import ComponentCard from "@shared/ui/common/ComponentCard";
 import { Modal } from "@shared/ui/components/ui/modal";
 import { centsToDollars, dollarsToCents, formatCurrency, parseUserCurrency } from "@shared/utils/currency";
+import { generateSkuCode } from "@shared/utils/skuGenerator";
 
 // Simple UUID generator for browser compatibility
 const generateUUID = () => {
@@ -260,7 +261,7 @@ const PricingCard: FC<Props> = ({
       return {
         id: existingVariant?.id || generateUUID(),
         name,
-        sku: existingVariant?.sku || `${productSlug}-${name.toLowerCase().replace(/\s+/g, "-")}`,
+        sku: existingVariant?.sku || "",
         priceDifference: existingVariant?.priceDifference ?? priceDifferenceCents,
         stockLevel: existingVariant?.stockLevel || 0,
         trackInventory: existingVariant?.trackInventory ?? false,
@@ -653,13 +654,26 @@ const PricingCard: FC<Props> = ({
                       <tr key={variant.id} className="border-b dark:border-gray-600">
                         <td className="px-4 py-2">{variant.name}</td>
                         <td className="px-4 py-2">
-                          <InputField
-                            value={variant.sku}
-                            onChange={(e) =>
-                              updateVariant(variant.id, "sku", e.target.value)
-                            }
-                            placeholder="Optional"
-                          />
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 min-w-[160px]">
+                              <InputField
+                                value={variant.sku || ""}
+                                onChange={(e) =>
+                                  updateVariant(variant.id, "sku", e.target.value)
+                                }
+                                placeholder="Optional"
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updateVariant(variant.id, "sku", generateSkuCode())
+                              }
+                              className="whitespace-nowrap rounded-md border border-gray-300 px-2.5 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                            >
+                              Generate SKU
+                            </button>
+                          </div>
                         </td>
                         <td className="px-4 py-2">
                           <InputField

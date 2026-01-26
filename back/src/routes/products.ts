@@ -536,7 +536,7 @@ const createProductVariants = async ({
   optionGroups: OptionGroupInput[];
   optionMap: Map<string, PersistedOptionGroup>;
   variants: VariantInput[];
-  existingSkuMap?: Map<string, string>; // variant name → existing SKU
+  existingSkuMap?: Map<string, string>; // variant id → existing SKU
 }) => {
   const impactingGroups = optionGroups.filter((group) => group.impactsVariants);
   const sanitizedVariants = Array.isArray(variants) ? variants : [];
@@ -559,10 +559,18 @@ const createProductVariants = async ({
     defaultVariantIndex = 0;
   }
 
-  // Count how many new SKUs we need (variants without existing SKU)
-  const variantsNeedingNewSku = variantEntries.filter(
-    (v) => !existingSkuMap?.has(v.name || '')
-  );
+  const variantsNeedingNewSku = variantEntries.filter((variant) => {
+    const manualSku = typeof variant.sku === 'string' ? variant.sku.trim() : '';
+    if (manualSku) {
+      return false;
+    }
+
+    if (variant.id && existingSkuMap?.has(variant.id)) {
+      return false;
+    }
+
+    return true;
+  });
   const uniqueSkus = variantsNeedingNewSku.length > 0
     ? await generateUniqueSkus(prisma, variantsNeedingNewSku.length)
     : [];
@@ -604,10 +612,15 @@ const createProductVariants = async ({
       usedCombinationKeys.add(combinationKey);
     }
 
-    // Use existing SKU if available, otherwise use pre-generated unique SKU
     const variantName = variant.name || `Variant ${index + 1}`;
-    const existingSku = existingSkuMap?.get(variantName);
-    const finalSku = existingSku || uniqueSkus[newSkuIndex++];
+    const manualSku = typeof variant.sku === 'string' ? variant.sku.trim() : '';
+    const existingSku = variant.id ? existingSkuMap?.get(variant.id) : undefined;
+    let finalSku = manualSku || existingSku;
+
+    if (!finalSku) {
+      finalSku = uniqueSkus[newSkuIndex];
+      newSkuIndex += 1;
+    }
 
     await client.productVariant.create({
       data: {
@@ -1338,10 +1351,10 @@ router.put('/:id', async (req, res) => {
       // Capture existing variant SKUs before deletion (to preserve on update)
       const existingVariants = await tx.productVariant.findMany({
         where: { productId: id },
-        select: { name: true, sku: true },
+        select: { id: true, sku: true },
       });
       const existingSkuMap = new Map(
-        existingVariants.map((v) => [v.name, v.sku])
+        existingVariants.map((v) => [v.id, v.sku])
       );
 
       const existingOptionIds = await tx.variantOption.findMany({
