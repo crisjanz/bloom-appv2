@@ -8,7 +8,7 @@ type Variant = {
   price?: number;
   calculatedPrice?: number;
   priceDifference?: number;
-  isDefault: boolean;
+  isDefault?: boolean;
 };
 
 type Product = {
