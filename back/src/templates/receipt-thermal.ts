@@ -169,5 +169,7 @@ export async function buildThermalReceipt(order: any): Promise<Buffer> {
   printer.alignCenter();
   printer.println('Thank you for your order.');
 
+  printer.cut();
+
   return printer.getBuffer();
 }
