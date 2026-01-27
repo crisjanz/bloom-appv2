@@ -62,6 +62,7 @@ const FulfillmentPage: React.FC = () => {
   const [fulfillmentSaving, setFulfillmentSaving] = useState(false);
   const [fulfillmentError, setFulfillmentError] = useState<string | null>(null);
   const [fulfillmentSuccess, setFulfillmentSuccess] = useState<string | null>(null);
+  const [fulfillmentNotesByImage, setFulfillmentNotesByImage] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!fulfillmentImageFile) {
@@ -101,8 +102,9 @@ const FulfillmentPage: React.FC = () => {
       setOrder(data.order);
       setSelectedStatus(data.order.status);
 
-      // Determine product image source
-      await determineProductImage(data.order);
+      const notesMap = await loadFulfillmentNotes(data.order.id);
+      // Determine product image source (exclude fulfillment photos)
+      await determineProductImage(data.order, notesMap);
 
     } catch (error) {
       console.error('Error loading order:', error);
@@ -112,10 +114,58 @@ const FulfillmentPage: React.FC = () => {
     }
   };
 
-  const determineProductImage = async (order: Order) => {
+  const loadFulfillmentNotes = async (orderId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/${orderId}/communications`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        return;
+      }
+
+      const data = await response.json();
+      const notesMap: Record<string, string> = {};
+      const communications = Array.isArray(data?.communications) ? data.communications : [];
+
+      communications.forEach((comm: any) => {
+        if (typeof comm?.message !== 'string') return;
+        const noteMatch = comm.message.match(/^Fulfillment photo note \\| url:(.*?) \\| note:(.*)$/i);
+        const markerMatch = comm.message.match(/^Fulfillment photo \\| url:(.*)$/i);
+        if (noteMatch) {
+          const url = noteMatch[1].trim();
+          const note = noteMatch[2].trim();
+          if (url && notesMap[url] === undefined) {
+            notesMap[url] = note;
+          }
+          return;
+        }
+        if (markerMatch) {
+          const url = markerMatch[1].trim();
+          if (url && notesMap[url] === undefined) {
+            notesMap[url] = '';
+          }
+        }
+      });
+
+      setFulfillmentNotesByImage(notesMap);
+      return notesMap;
+    } catch (error) {
+      console.error('Error loading fulfillment notes:', error);
+      return {};
+    }
+  };
+
+  const determineProductImage = async (order: Order, fulfillmentNotes?: Record<string, string>) => {
+    const fulfillmentUrls = new Set(Object.keys(fulfillmentNotes || fulfillmentNotesByImage));
+    const filteredOrderImages = (order.images || []).filter((url) => !fulfillmentUrls.has(url));
+
     // First priority: Order-specific images (fetched/uploaded for this order)
-    if (order.images && order.images.length > 0) {
-      setProductImage(order.images[0]);
+    if (filteredOrderImages.length > 0) {
+      setProductImage(filteredOrderImages[0]);
       return;
     }
 
@@ -383,8 +433,8 @@ const FulfillmentPage: React.FC = () => {
         ? currentImages
         : [...currentImages, imageUrl];
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/${order.id}`, {
-        method: 'PATCH',
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/${order.id}/update`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -417,8 +467,8 @@ const FulfillmentPage: React.FC = () => {
         }
       });
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/${order.id}`, {
-        method: 'PATCH',
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/${order.id}/update`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -442,8 +492,8 @@ const FulfillmentPage: React.FC = () => {
       const token = localStorage.getItem('token');
       const updatedImages = (order.images || []).filter((url) => url !== imageUrl);
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/${order.id}`, {
-        method: 'PATCH',
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/${order.id}/update`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -454,6 +504,11 @@ const FulfillmentPage: React.FC = () => {
       if (!response.ok) throw new Error('Failed to remove image from order');
 
       setOrder({ ...order, images: updatedImages });
+      setFulfillmentNotesByImage((prev) => {
+        const next = { ...prev };
+        delete next[imageUrl];
+        return next;
+      });
     } catch (error) {
       console.error('Error removing image from order:', error);
       setFulfillmentError('Failed to remove image.');
@@ -476,6 +531,8 @@ const FulfillmentPage: React.FC = () => {
     try {
       const token = localStorage.getItem('token');
 
+      let uploadedImageUrls: string[] = [];
+
       if (fulfillmentImageFile) {
         const formData = new FormData();
         formData.append('images', fulfillmentImageFile);
@@ -494,28 +551,45 @@ const FulfillmentPage: React.FC = () => {
         }
 
         const uploadData = await uploadResponse.json();
-        const imageUrls = Array.isArray(uploadData?.imageUrls) ? uploadData.imageUrls : [];
-        if (imageUrls.length > 0) {
-          await saveImagesToOrder(imageUrls);
+        uploadedImageUrls = Array.isArray(uploadData?.imageUrls) ? uploadData.imageUrls : [];
+        if (uploadedImageUrls.length > 0) {
+          await saveImagesToOrder(uploadedImageUrls);
         }
       }
 
-      if (noteText) {
-        const noteResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/${order.id}/communications`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            type: 'NOTE',
-            message: `Fulfillment note: ${noteText}`
-          })
-        });
+      if (noteText || uploadedImageUrls.length > 0) {
+        const targets = uploadedImageUrls.length > 0 ? uploadedImageUrls : [''];
 
-        if (!noteResponse.ok) {
-          const errorData = await noteResponse.json().catch(() => ({}));
-          throw new Error(errorData?.error || 'Failed to save fulfillment note');
+        for (const imageUrl of targets) {
+          const message = imageUrl
+            ? noteText
+              ? `Fulfillment photo note | url:${imageUrl} | note:${noteText}`
+              : `Fulfillment photo | url:${imageUrl}`
+            : `Fulfillment note: ${noteText}`;
+
+          const noteResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/${order.id}/communications`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              type: 'NOTE',
+              message
+            })
+          });
+
+          if (!noteResponse.ok) {
+            const errorData = await noteResponse.json().catch(() => ({}));
+            throw new Error(errorData?.error || 'Failed to save fulfillment note');
+          }
+
+          if (imageUrl) {
+            setFulfillmentNotesByImage((prev) => ({
+              ...prev,
+              [imageUrl]: noteText
+            }));
+          }
         }
       }
 
@@ -875,22 +949,29 @@ const FulfillmentPage: React.FC = () => {
                         }
                       }}
                     >
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          removeImageFromOrder(imageUrl);
-                        }}
-                        className="absolute top-1 right-1 z-10 rounded-full bg-black/70 text-white w-6 h-6 flex items-center justify-center text-xs hover:bg-black/80"
-                        aria-label="Remove image"
-                      >
-                        ×
-                      </button>
-                      <img
-                        src={imageUrl}
-                        alt={`Fulfillment photo ${index + 1}`}
-                        className="h-28 w-full object-cover transition-transform group-hover:scale-105"
-                      />
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            removeImageFromOrder(imageUrl);
+                          }}
+                          className="absolute top-1 right-1 z-10 rounded-full bg-black/70 text-white w-6 h-6 flex items-center justify-center text-xs hover:bg-black/80"
+                          aria-label="Remove image"
+                        >
+                          ×
+                        </button>
+                        <img
+                          src={imageUrl}
+                          alt={`Fulfillment photo ${index + 1}`}
+                          className="h-28 w-full object-cover transition-transform group-hover:scale-105"
+                        />
+                      </div>
+                      {fulfillmentNotesByImage[imageUrl] && (
+                        <div className="px-2 py-2 text-xs text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800">
+                          {fulfillmentNotesByImage[imageUrl]}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
