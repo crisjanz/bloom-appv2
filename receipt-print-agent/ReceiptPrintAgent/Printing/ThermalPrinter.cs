@@ -50,19 +50,30 @@ public class ThermalPrinter
     public Task PrintTestAsync(string printerName)
     {
         var resolvedPrinter = ResolvePrinterName(printerName);
-        var lines = new List<string>
+
+        using var ms = new System.IO.MemoryStream();
+        // Star Line Mode: Initialize printer
+        ms.Write(new byte[] { 0x1B, 0x40 });
+        // Star Line Mode: Center align (ESC GS a 1)
+        ms.Write(new byte[] { 0x1B, 0x1D, 0x61, 0x01 });
+
+        var lines = new[]
         {
             "Bloom Receipt Agent",
             "Test Print",
-            $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}",
-            string.Empty,
+            DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+            "",
             "Printer OK",
-            string.Empty,
-            string.Empty
+            "",
+            ""
         };
+        var textBytes = Encoding.UTF8.GetBytes(string.Join("\n", lines));
+        ms.Write(textBytes);
 
-        var bytes = Encoding.UTF8.GetBytes(string.Join("\n", lines));
-        PrintRawBytes(resolvedPrinter, bytes, 1);
+        // Star Line Mode: Feed and cut (ESC d 3)
+        ms.Write(new byte[] { 0x1B, 0x64, 0x03 });
+
+        PrintRawBytes(resolvedPrinter, ms.ToArray(), 1);
         return Task.CompletedTask;
     }
 

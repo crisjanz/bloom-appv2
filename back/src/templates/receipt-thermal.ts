@@ -1,4 +1,4 @@
-import ThermalPrinter, { PrinterTypes } from 'node-thermal-printer';
+import { ThermalPrinter, PrinterTypes } from 'node-thermal-printer';
 import { formatCurrency, formatDateTime } from '../utils/pdfGenerator';
 import { PrismaClient } from '@prisma/client';
 
