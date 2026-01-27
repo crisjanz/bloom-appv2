@@ -133,8 +133,8 @@ const FulfillmentPage: React.FC = () => {
 
       communications.forEach((comm: any) => {
         if (typeof comm?.message !== 'string') return;
-        const noteMatch = comm.message.match(/^Fulfillment photo note \\| url:(.*?) \\| note:(.*)$/i);
-        const markerMatch = comm.message.match(/^Fulfillment photo \\| url:(.*)$/i);
+        const noteMatch = comm.message.match(/^Fulfillment photo note \| url:(.*?) \| note:(.*)$/i);
+        const markerMatch = comm.message.match(/^Fulfillment photo \| url:(.*)$/i);
         if (noteMatch) {
           const url = noteMatch[1].trim();
           const note = noteMatch[2].trim();
@@ -503,6 +503,22 @@ const FulfillmentPage: React.FC = () => {
 
       if (!response.ok) throw new Error('Failed to remove image from order');
 
+      // Delete from Cloudflare R2
+      try {
+        const url = new URL(imageUrl);
+        const key = url.pathname.startsWith('/') ? url.pathname.slice(1) : url.pathname;
+        await fetch(`${import.meta.env.VITE_API_URL}/api/images/delete`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ key })
+        });
+      } catch (r2Error) {
+        console.error('Failed to delete from R2:', r2Error);
+      }
+
       setOrder({ ...order, images: updatedImages });
       setFulfillmentNotesByImage((prev) => {
         const next = { ...prev };
@@ -552,9 +568,8 @@ const FulfillmentPage: React.FC = () => {
 
         const uploadData = await uploadResponse.json();
         uploadedImageUrls = Array.isArray(uploadData?.imageUrls) ? uploadData.imageUrls : [];
-        if (uploadedImageUrls.length > 0) {
-          await saveImagesToOrder(uploadedImageUrls);
-        }
+        // Fulfillment photos are tracked via communications only,
+        // NOT added to order.images (which is for product/design images)
       }
 
       if (noteText || uploadedImageUrls.length > 0) {
@@ -696,6 +711,10 @@ const FulfillmentPage: React.FC = () => {
     'COMPLETED',
     'CANCELLED'
   ];
+
+  const fulfillmentImages = (order?.images || []).filter(
+    (imageUrl) => fulfillmentNotesByImage[imageUrl] !== undefined
+  );
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-8">
@@ -930,13 +949,13 @@ const FulfillmentPage: React.FC = () => {
           )}
 
           <div className="space-y-4">
-            {order.images && order.images.length > 0 && (
+            {fulfillmentImages.length > 0 && (
               <div>
                 <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Saved photos
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {order.images.map((imageUrl, index) => (
+                  {fulfillmentImages.map((imageUrl, index) => (
                     <div
                       key={`${imageUrl}-${index}`}
                       onClick={() => window.open(imageUrl, '_blank')}
