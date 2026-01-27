@@ -121,43 +121,12 @@ export async function buildOrderTicketPdf(
   return generatePdfBuffer((doc) => {
     doc.font('Helvetica');
 
-    // Page border
-    doc.save();
-    doc.lineWidth(0.5);
-    doc.strokeColor('#c9c9c9');
-    doc.rect(0.5, 0.5, pageWidth - 1, pageHeight - 1).stroke();
-    doc.restore();
-
-    // Vertical line between left and right
-    doc.save();
-    doc.lineWidth(0.5);
-    doc.strokeColor('#c9c9c9');
-    doc.moveTo(leftWidth, 0).lineTo(leftWidth, pageHeight).stroke();
-    doc.restore();
-
-    // Horizontal divider for left side
-    doc.save();
-    doc.lineWidth(0.5);
-    doc.strokeColor('#c9c9c9');
-    doc.moveTo(0, topHeight).lineTo(leftWidth, topHeight).stroke();
-    doc.restore();
-
-    // Right side section dividers
-    for (let i = 1; i < 3; i += 1) {
-      const y = rightSectionHeight * i;
-      doc.save();
-      doc.lineWidth(0.5);
-      doc.strokeColor('#c9c9c9');
-      doc.moveTo(leftWidth, y).lineTo(pageWidth, y).stroke();
-      doc.restore();
-    }
-
     // Top left section (shop records)
     const leftContentX = padding;
     const leftContentWidth = leftWidth - padding * 2;
     let y = padding;
 
-    doc.font('Helvetica-Bold').fontSize(10);
+    doc.font('Helvetica-Bold').fontSize(12);
     doc.text(`Delivery Date: ${deliveryDateLabel}`, leftContentX, y, { width: leftContentWidth, align: 'left' });
     doc.text(`# ${orderNumber}`, leftContentX, y, { width: leftContentWidth, align: 'right' });
     y += 16;
@@ -320,7 +289,7 @@ export async function buildOrderTicketPdf(
 
     const headerWidth = driverContentWidth - (qrSize + 12);
 
-    doc.font('Helvetica-Bold').fontSize(10);
+    doc.font('Helvetica-Bold').fontSize(12);
     doc.text(`Delivery Date: ${deliveryDateLabel}`, driverContentX, driverY, { width: headerWidth, align: 'left' });
     doc.text(`Order # ${orderNumber}`, driverContentX, driverY, { width: headerWidth, align: 'right' });
     driverY += 16;
@@ -373,6 +342,7 @@ export async function buildOrderTicketPdf(
     const bottomCol1X = driverContentX;
     const bottomCol2X = driverContentX + bottomColWidth + bottomGap;
 
+    bottomRowY += 36; // push down 0.5 inch
     doc.font('Helvetica-Bold').fontSize(9).text('Delivery Instructions:', bottomCol1X, bottomRowY, { width: bottomColWidth });
     const instructionsY = doc.y + 2;
     doc.font('Helvetica').fontSize(9).text(order.specialInstructions || 'None', bottomCol1X, instructionsY, { width: bottomColWidth });
@@ -391,8 +361,8 @@ export async function buildOrderTicketPdf(
 
     // Section 1: Card message
     const cardSectionY = 0;
-    const cardMessage = (order.cardMessage || 'No card message').toUpperCase();
-    doc.font('Helvetica-Bold').fontSize(12);
+    const cardMessage = order.cardMessage || 'No card message';
+    doc.font('Times-Roman').fontSize(16);
     const cardHeight = doc.heightOfString(cardMessage, { width: rightTextWidth, align: 'center' });
     const cardY = cardSectionY + Math.max((rightSectionHeight - cardHeight) / 2, rightPadding);
     doc.text(cardMessage, rightX + rightPadding, cardY, { width: rightTextWidth, align: 'center' });

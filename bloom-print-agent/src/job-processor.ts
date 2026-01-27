@@ -152,7 +152,7 @@ export class JobProcessor {
         fs.writeFileSync(pdfPath, Buffer.from(base64Data, 'base64'));
 
         const copiesOption = options?.copies && options.copies > 1 ? `-# ${options.copies}` : '';
-        const trayOption = options?.printerTray ? `-o InputSlot=Tray${options.printerTray}` : '';
+        const trayOption = options?.printerTray ? `-o InputSlot=tray-${options.printerTray}` : '';
         const printCommand = `lpr ${copiesOption} ${trayOption} -P "${printerName}" "${pdfPath}"`;
 
         exec(printCommand, (error: any, stdout: any, stderr: any) => {
@@ -218,7 +218,7 @@ export class JobProcessor {
 
           // Use Mac's lpr command to actually print
           const copiesOption = options?.copies && options.copies > 1 ? `-# ${options.copies}` : '';
-          const trayOption = options?.printerTray ? `-o InputSlot=Tray${options.printerTray}` : '';
+          const trayOption = options?.printerTray ? `-o InputSlot=tray-${options.printerTray}` : '';
           const printCommand = `lpr ${copiesOption} ${trayOption} -P "${printerName}" "${pdfPath}"`;
 
           exec(printCommand, (error: any, stdout: any, stderr: any) => {
