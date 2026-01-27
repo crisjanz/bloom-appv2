@@ -37,7 +37,7 @@ export async function buildThermalReceipt(order: any): Promise<Buffer> {
   const storeSettings = await prisma.storeSettings.findFirst();
 
   const printer = new ThermalPrinter({
-    type: PrinterTypes.EPSON,
+    type: PrinterTypes.STAR,
     interface: 'tcp://127.0.0.1:0',
   });
 
