@@ -174,8 +174,9 @@ const OrderEditPage: React.FC = () => {
   const [refundModalOpen, setRefundModalOpen] = useState(false);
   const [refundTransactionNumber, setRefundTransactionNumber] = useState<string | null>(null);
 
-  // Receipt/Invoice modal state
-  const [receiptInvoiceModalOpen, setReceiptInvoiceModalOpen] = useState(false);
+  // Print/Email modal state
+  const [printModalOpen, setPrintModalOpen] = useState(false);
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
 
   // MIGRATION: Order auto-loads via useOrderManagement hook when id changes
   const handleUnreadCountsUpdated = useCallback(
@@ -691,7 +692,8 @@ const OrderEditPage: React.FC = () => {
         order={order}
         onStatusChange={handleStatusChange}
         onCancelRefund={handleCancelRefund}
-        onReceiptInvoice={() => setReceiptInvoiceModalOpen(true)}
+        onPrintOptions={() => setPrintModalOpen(true)}
+        onEmailOptions={() => setEmailModalOpen(true)}
         onContact={() => setCommunicationModalOpen(true)}
         unreadCount={unreadCount}
       />
@@ -833,12 +835,24 @@ const OrderEditPage: React.FC = () => {
         onRefundComplete={handleRefundComplete}
       />
 
-      {/* Receipt/Invoice Modal */}
+      {/* Print Options Modal */}
       <ReceiptInvoiceModal
-        isOpen={receiptInvoiceModalOpen}
-        onClose={() => setReceiptInvoiceModalOpen(false)}
+        isOpen={printModalOpen}
+        onClose={() => setPrintModalOpen(false)}
         orderId={order.id}
         orderNumber={order.orderNumber}
+        mode="print"
+        defaultEmail={order.customer?.email}
+      />
+
+      {/* Email Options Modal */}
+      <ReceiptInvoiceModal
+        isOpen={emailModalOpen}
+        onClose={() => setEmailModalOpen(false)}
+        orderId={order.id}
+        orderNumber={order.orderNumber}
+        mode="email"
+        defaultEmail={order.customer?.email}
       />
 
       <OrderCommunicationModal

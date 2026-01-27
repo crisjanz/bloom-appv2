@@ -10,7 +10,8 @@ interface OrderHeaderProps {
   order: Order;
   onStatusChange: (status: string) => void;
   onCancelRefund?: () => void;
-  onReceiptInvoice?: () => void;
+  onPrintOptions?: () => void;
+  onEmailOptions?: () => void;
   onContact?: () => void;
   unreadCount?: number;
 }
@@ -19,7 +20,8 @@ const OrderHeader: React.FC<OrderHeaderProps> = ({
   order,
   onStatusChange,
   onCancelRefund,
-  onReceiptInvoice,
+  onPrintOptions,
+  onEmailOptions,
   onContact,
   unreadCount
 }) => {
@@ -79,13 +81,22 @@ const OrderHeader: React.FC<OrderHeaderProps> = ({
               )}
             </button>
           )}
-          {onReceiptInvoice && (
+          {onPrintOptions && (
             <button
               type="button"
-              onClick={onReceiptInvoice}
+              onClick={onPrintOptions}
               className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
             >
-              Receipt/Invoice
+              Print
+            </button>
+          )}
+          {onEmailOptions && (
+            <button
+              type="button"
+              onClick={onEmailOptions}
+              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              Email
             </button>
           )}
           {canCancelRefund && (

@@ -39,7 +39,8 @@ router.post('/receipt/:orderId', async (req, res) => {
       return res.status(404).json({ error: 'Order not found' });
     }
 
-    const toEmail = order.customer?.email;
+    const requestedEmail = typeof req.body?.toEmail === 'string' ? req.body.toEmail.trim() : '';
+    const toEmail = requestedEmail || order.customer?.email;
     if (!toEmail) {
       return res.status(400).json({ error: 'Customer email is missing for this order' });
     }
@@ -81,7 +82,8 @@ router.post('/invoice/:orderId', async (req, res) => {
       return res.status(404).json({ error: 'Order not found' });
     }
 
-    const toEmail = order.customer?.email;
+    const requestedEmail = typeof req.body?.toEmail === 'string' ? req.body.toEmail.trim() : '';
+    const toEmail = requestedEmail || order.customer?.email;
     if (!toEmail) {
       return res.status(400).json({ error: 'Customer email is missing for this order' });
     }
