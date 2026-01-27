@@ -101,6 +101,19 @@ export default function DeliveryCard({
               </button>
             </div>
 
+            <div className="flex flex-wrap gap-1 mb-1">
+              {['♥', '♡', '★', '☆', '✿', '❀', '♪', '•', '~'].map((sym) => (
+                <button
+                  key={sym}
+                  type="button"
+                  onClick={() => setCardMessage(cardMessage + sym)}
+                  className="w-7 h-7 text-sm rounded border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                >
+                  {sym}
+                </button>
+              ))}
+            </div>
+
             <TextArea
               placeholder="Write your personal message here..."
               rows={6}
