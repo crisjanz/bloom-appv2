@@ -56,6 +56,26 @@ const FulfillmentPage: React.FC = () => {
   const [imageSearchResults, setImageSearchResults] = useState<any[]>([]);
   const [searchingImages, setSearchingImages] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState('');
+  const [fulfillmentNote, setFulfillmentNote] = useState('');
+  const [fulfillmentImageFile, setFulfillmentImageFile] = useState<File | null>(null);
+  const [fulfillmentPreviewUrl, setFulfillmentPreviewUrl] = useState<string | null>(null);
+  const [fulfillmentSaving, setFulfillmentSaving] = useState(false);
+  const [fulfillmentError, setFulfillmentError] = useState<string | null>(null);
+  const [fulfillmentSuccess, setFulfillmentSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!fulfillmentImageFile) {
+      setFulfillmentPreviewUrl(null);
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(fulfillmentImageFile);
+    setFulfillmentPreviewUrl(previewUrl);
+
+    return () => {
+      URL.revokeObjectURL(previewUrl);
+    };
+  }, [fulfillmentImageFile]);
 
   // Load order on mount
   useEffect(() => {
@@ -383,6 +403,133 @@ const FulfillmentPage: React.FC = () => {
     }
   };
 
+  const saveImagesToOrder = async (imageUrls: string[]) => {
+    if (!order || imageUrls.length === 0) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const currentImages = order.images || [];
+      const updatedImages = [...currentImages];
+
+      imageUrls.forEach((url) => {
+        if (!updatedImages.includes(url)) {
+          updatedImages.push(url);
+        }
+      });
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/${order.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ images: updatedImages })
+      });
+
+      if (!response.ok) throw new Error('Failed to save images to order');
+
+      setOrder({ ...order, images: updatedImages });
+    } catch (error) {
+      console.error('Error saving images to order:', error);
+      throw error;
+    }
+  };
+
+  const removeImageFromOrder = async (imageUrl: string) => {
+    if (!order) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const updatedImages = (order.images || []).filter((url) => url !== imageUrl);
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/${order.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ images: updatedImages })
+      });
+
+      if (!response.ok) throw new Error('Failed to remove image from order');
+
+      setOrder({ ...order, images: updatedImages });
+    } catch (error) {
+      console.error('Error removing image from order:', error);
+      setFulfillmentError('Failed to remove image.');
+    }
+  };
+
+  const handleFulfillmentSave = async () => {
+    if (!order) return;
+    const noteText = fulfillmentNote.trim();
+
+    if (!fulfillmentImageFile && !noteText) {
+      setFulfillmentError('Add a photo or a note before saving.');
+      return;
+    }
+
+    setFulfillmentSaving(true);
+    setFulfillmentError(null);
+    setFulfillmentSuccess(null);
+
+    try {
+      const token = localStorage.getItem('token');
+
+      if (fulfillmentImageFile) {
+        const formData = new FormData();
+        formData.append('images', fulfillmentImageFile);
+
+        const uploadResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/upload-images`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        });
+
+        if (!uploadResponse.ok) {
+          const errorData = await uploadResponse.json().catch(() => ({}));
+          throw new Error(errorData?.error || 'Failed to upload fulfillment image');
+        }
+
+        const uploadData = await uploadResponse.json();
+        const imageUrls = Array.isArray(uploadData?.imageUrls) ? uploadData.imageUrls : [];
+        if (imageUrls.length > 0) {
+          await saveImagesToOrder(imageUrls);
+        }
+      }
+
+      if (noteText) {
+        const noteResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/${order.id}/communications`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            type: 'NOTE',
+            message: `Fulfillment note: ${noteText}`
+          })
+        });
+
+        if (!noteResponse.ok) {
+          const errorData = await noteResponse.json().catch(() => ({}));
+          throw new Error(errorData?.error || 'Failed to save fulfillment note');
+        }
+      }
+
+      setFulfillmentNote('');
+      setFulfillmentImageFile(null);
+      setFulfillmentSuccess('Fulfillment details saved.');
+    } catch (error: any) {
+      console.error('Error saving fulfillment details:', error);
+      setFulfillmentError(error?.message || 'Failed to save fulfillment details');
+    } finally {
+      setFulfillmentSaving(false);
+    }
+  };
+
   const saveImageToLibrary = async (imageUrl: string, productCode?: string) => {
     const codeToUse = productCode || wireProductCode;
     if (!codeToUse) return;
@@ -659,7 +806,7 @@ const FulfillmentPage: React.FC = () => {
         </div>
 
         {/* Status Update */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             Update Status
           </h2>
@@ -688,6 +835,122 @@ const FulfillmentPage: React.FC = () => {
 
           <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
             Current Status: <span className="font-medium">{order.status.replace(/_/g, ' ')}</span>
+          </div>
+        </div>
+
+        {/* Fulfilled Arrangement */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Fulfilled Arrangement
+          </h2>
+
+          {fulfillmentError && (
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-200">
+              {fulfillmentError}
+            </div>
+          )}
+          {fulfillmentSuccess && (
+            <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 dark:border-green-800 dark:bg-green-900/20 dark:text-green-200">
+              {fulfillmentSuccess}
+            </div>
+          )}
+
+          <div className="space-y-4">
+            {order.images && order.images.length > 0 && (
+              <div>
+                <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Saved photos
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {order.images.map((imageUrl, index) => (
+                    <div
+                      key={`${imageUrl}-${index}`}
+                      onClick={() => window.open(imageUrl, '_blank')}
+                      className="group relative overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer"
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          window.open(imageUrl, '_blank');
+                        }
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          removeImageFromOrder(imageUrl);
+                        }}
+                        className="absolute top-1 right-1 z-10 rounded-full bg-black/70 text-white w-6 h-6 flex items-center justify-center text-xs hover:bg-black/80"
+                        aria-label="Remove image"
+                      >
+                        ×
+                      </button>
+                      <img
+                        src={imageUrl}
+                        alt={`Fulfillment photo ${index + 1}`}
+                        className="h-28 w-full object-cover transition-transform group-hover:scale-105"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Add photo
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                id="fulfillmentImageUpload"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null;
+                  setFulfillmentImageFile(file);
+                  setFulfillmentError(null);
+                  setFulfillmentSuccess(null);
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => document.getElementById('fulfillmentImageUpload')?.click()}
+                className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+              >
+                Choose Photo
+              </button>
+              {fulfillmentPreviewUrl && (
+                <div className="mt-4">
+                  <img
+                    src={fulfillmentPreviewUrl}
+                    alt="Fulfilled arrangement preview"
+                    className="w-full max-w-md rounded-lg border border-gray-200 dark:border-gray-700"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Note (optional)
+              </label>
+              <input
+                type="text"
+                value={fulfillmentNote}
+                onChange={(e) => setFulfillmentNote(e.target.value)}
+                placeholder="Short note about the arrangement..."
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={handleFulfillmentSave}
+              disabled={fulfillmentSaving}
+              className="w-full px-4 py-3 bg-brand-500 text-white rounded-lg hover:bg-brand-600 disabled:opacity-50 text-lg font-medium"
+            >
+              {fulfillmentSaving ? 'Saving...' : 'Save Fulfillment Details'}
+            </button>
           </div>
         </div>
       </div>
