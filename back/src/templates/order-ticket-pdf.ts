@@ -1,7 +1,9 @@
+import path from 'path';
 import { PrismaClient } from '@prisma/client';
 import { formatCurrency, formatDateTime, generatePdfBuffer } from '../utils/pdfGenerator';
 
 const prisma = new PrismaClient();
+const DEJAVU_SANS_OBLIQUE = path.join(__dirname, '..', 'assets', 'fonts', 'DejaVuSans-Oblique.ttf');
 
 const formatShortDate = (value: Date | string | null | undefined) => {
   if (!value) return 'TBD';
@@ -362,7 +364,8 @@ export async function buildOrderTicketPdf(
     // Section 1: Card message
     const cardSectionY = 0;
     const cardMessage = order.cardMessage || 'No card message';
-    doc.font('Times-Roman').fontSize(16);
+    doc.registerFont('DejaVuSansOblique', DEJAVU_SANS_OBLIQUE);
+    doc.font('DejaVuSansOblique').fontSize(14);
     const cardHeight = doc.heightOfString(cardMessage, { width: rightTextWidth, align: 'center' });
     const cardY = cardSectionY + Math.max((rightSectionHeight - cardHeight) / 2, rightPadding);
     doc.text(cardMessage, rightX + rightPadding, cardY, { width: rightTextWidth, align: 'center' });
