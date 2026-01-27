@@ -123,45 +123,32 @@ export async function buildOrderTicketPdf(
 
     // Page border
     doc.save();
-    doc.lineWidth(1);
+    doc.lineWidth(0.5);
     doc.strokeColor('#c9c9c9');
     doc.rect(0.5, 0.5, pageWidth - 1, pageHeight - 1).stroke();
     doc.restore();
 
-    // Vertical cut line between left and right
+    // Vertical line between left and right
     doc.save();
-    doc.strokeColor('#666');
-    doc.dash(6, { space: 4 });
+    doc.lineWidth(0.5);
+    doc.strokeColor('#c9c9c9');
     doc.moveTo(leftWidth, 0).lineTo(leftWidth, pageHeight).stroke();
-    doc.undash();
-    doc.restore();
-
-    doc.save();
-    doc.fillColor('#666').fontSize(8);
-    doc.text('CUT', leftWidth - 10, pageHeight / 2 - 4, { width: 20, align: 'center' });
     doc.restore();
 
     // Horizontal divider for left side
     doc.save();
-    doc.strokeColor('#666');
-    doc.dash(6, { space: 4 });
+    doc.lineWidth(0.5);
+    doc.strokeColor('#c9c9c9');
     doc.moveTo(0, topHeight).lineTo(leftWidth, topHeight).stroke();
-    doc.undash();
     doc.restore();
 
-    // Right side section dividers with fold line label
+    // Right side section dividers
     for (let i = 1; i < 3; i += 1) {
       const y = rightSectionHeight * i;
       doc.save();
-      doc.strokeColor('#999');
-      doc.dash(4, { space: 3 });
+      doc.lineWidth(0.5);
+      doc.strokeColor('#c9c9c9');
       doc.moveTo(leftWidth, y).lineTo(pageWidth, y).stroke();
-      doc.undash();
-      doc.restore();
-
-      doc.save();
-      doc.fillColor('#999').fontSize(7);
-      doc.text('FOLD LINE', leftWidth + rightWidth - 70, y - 12, { width: 60, align: 'right' });
       doc.restore();
     }
 
@@ -176,7 +163,7 @@ export async function buildOrderTicketPdf(
     y += 16;
 
     doc.save();
-    doc.lineWidth(2).strokeColor('#000');
+    doc.lineWidth(0.5).strokeColor('#000');
     doc.moveTo(leftContentX, y).lineTo(leftContentX + leftContentWidth, y).stroke();
     doc.restore();
     y += 10;
@@ -223,7 +210,7 @@ export async function buildOrderTicketPdf(
     y = Math.max(col1Y, col2Y) + 10;
 
     doc.save();
-    doc.lineWidth(2).strokeColor('#000');
+    doc.lineWidth(0.5).strokeColor('#000');
     doc.moveTo(leftContentX, y).lineTo(leftContentX + leftContentWidth, y).stroke();
     doc.restore();
     y += 10;
@@ -237,7 +224,7 @@ export async function buildOrderTicketPdf(
     const productWidth = leftContentWidth - summaryWidth - productGap;
 
     doc.save();
-    doc.lineWidth(2).strokeColor('#000');
+    doc.lineWidth(0.5).strokeColor('#000');
     doc.moveTo(productX - productGap / 2, detailsTop).lineTo(productX - productGap / 2, detailsBottom).stroke();
     doc.restore();
 
@@ -261,7 +248,7 @@ export async function buildOrderTicketPdf(
     });
 
     doc.save();
-    doc.lineWidth(2).strokeColor('#000');
+    doc.lineWidth(0.5).strokeColor('#000');
     doc.moveTo(summaryX, summaryY).lineTo(summaryX + summaryWidth - 8, summaryY).stroke();
     doc.restore();
     summaryY += 6;
@@ -339,7 +326,7 @@ export async function buildOrderTicketPdf(
     driverY += 16;
 
     doc.save();
-    doc.lineWidth(2).strokeColor('#000');
+    doc.lineWidth(0.5).strokeColor('#000');
     doc.moveTo(driverContentX, driverY).lineTo(driverContentX + headerWidth, driverY).stroke();
     doc.restore();
     driverY += 8;
@@ -393,7 +380,7 @@ export async function buildOrderTicketPdf(
     doc.font('Helvetica-Bold').fontSize(9).text('Signature:', bottomCol2X, bottomRowY, { width: bottomColWidth });
     const signatureLineY = bottomRowY + 24;
     doc.save();
-    doc.lineWidth(1.5).strokeColor('#000');
+    doc.lineWidth(0.5).strokeColor('#000');
     doc.moveTo(bottomCol2X, signatureLineY).lineTo(bottomCol2X + bottomColWidth, signatureLineY).stroke();
     doc.restore();
 
@@ -410,20 +397,7 @@ export async function buildOrderTicketPdf(
     const cardY = cardSectionY + Math.max((rightSectionHeight - cardHeight) / 2, rightPadding);
     doc.text(cardMessage, rightX + rightPadding, cardY, { width: rightTextWidth, align: 'center' });
 
-    // Section 2: Business info
-    const businessSectionY = rightSectionHeight;
-    doc.font('Helvetica-Bold').fontSize(16);
-    const nameHeight = doc.heightOfString(businessName, { width: rightTextWidth, align: 'center' });
-    doc.font('Helvetica').fontSize(9);
-    const detailsText = businessLines.join('\n');
-    const detailsHeight = doc.heightOfString(detailsText, { width: rightTextWidth, align: 'center' });
-    const businessBlockHeight = nameHeight + 6 + detailsHeight;
-    const businessY = businessSectionY + Math.max((rightSectionHeight - businessBlockHeight) / 2, rightPadding);
-
-    doc.font('Helvetica-Bold').fontSize(16);
-    doc.text(businessName, rightX + rightPadding, businessY, { width: rightTextWidth, align: 'center' });
-    doc.font('Helvetica').fontSize(9);
-    doc.text(detailsText, rightX + rightPadding, businessY + nameHeight + 6, { width: rightTextWidth, align: 'center' });
+    // Section 2: Blank (pre-printed on paper)
 
     // Section 3: Address label
     const labelSectionY = rightSectionHeight * 2;
