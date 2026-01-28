@@ -12,6 +12,7 @@ import {
   useCustomerSearch,
   useSelectedCustomer,
 } from "@domains/customers/hooks/useCustomerService.ts";
+import { useAuth } from "@app/contexts/AuthContext";
 import { useApiClient } from "@shared/hooks/useApiClient";
 import { useOrderState } from "@shared/hooks/useOrderState";
 import { getOrCreateGuestCustomer } from "@shared/utils/customerHelpers";
@@ -57,6 +58,7 @@ export default function TakeOrderPage({
         : order.customProducts,
     }));
   };
+  const { employee: authEmployee } = useAuth();
   const apiClient = useApiClient();
   const [draftSessionId, setDraftSessionId] = useState<string>(() => generateUUID());
   const [showDraftModal, setShowDraftModal] = useState(false);
@@ -228,7 +230,14 @@ export default function TakeOrderPage({
   useEffect(() => {
     fetch("/api/employees")
       .then((res) => res.json())
-      .then((data) => setEmployeeList(data))
+      .then((data) => {
+        setEmployeeList(data);
+        // Auto-select logged-in employee
+        if (!employee && authEmployee?.id) {
+          const match = data.find((e: any) => e.id === authEmployee.id);
+          if (match) setEmployee(match.id);
+        }
+      })
       .catch((err) => console.error("Failed to load employees:", err));
   }, []);
 
