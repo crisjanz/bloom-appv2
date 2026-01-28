@@ -11,7 +11,10 @@ export default function POSTabsCard() {
   const [selectedTab, setSelectedTab] = useState('tab1');
   const [saving, setSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
-  
+  const [searchFilter, setSearchFilter] = useState('');
+  const [hideAssigned, setHideAssigned] = useState(false);
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+
   const { products, refetch } = useProducts();
   const { tabs, loading, error, saveTabs, setTabs } = usePOSTabs();
 
@@ -60,6 +63,35 @@ export default function POSTabsCard() {
   };
 
   const currentTab = tabs.find(tab => tab.id === selectedTab);
+
+  // IDs assigned to OTHER tabs (not current)
+  const otherTabProductIds = new Set(
+    tabs.filter(t => t.id !== selectedTab).flatMap(t => t.productIds)
+  );
+
+  // Filter products by search + hide-assigned
+  const visibleProducts = products.filter(p => {
+    if (searchFilter && !p.name?.toLowerCase().includes(searchFilter.toLowerCase())) return false;
+    if (hideAssigned && otherTabProductIds.has(p.id) && !currentTab?.productIds.includes(p.id)) return false;
+    return true;
+  });
+
+  // Group by category
+  const grouped = visibleProducts.reduce<Record<string, any[]>>((acc, p) => {
+    const cat = p.category?.name || 'Uncategorized';
+    if (!acc[cat]) acc[cat] = [];
+    acc[cat].push(p);
+    return acc;
+  }, {});
+  const sortedCategories = Object.keys(grouped).sort();
+
+  const toggleCategory = (cat: string) => {
+    setCollapsedCategories(prev => {
+      const next = new Set(prev);
+      next.has(cat) ? next.delete(cat) : next.add(cat);
+      return next;
+    });
+  };
 
   if (loading) {
     return (
@@ -135,28 +167,78 @@ export default function POSTabsCard() {
             ))}
           </div>
 
-          {/* Product List */}
+          {/* Search & Filter Controls */}
+          <div className="flex items-center gap-4 mb-4">
+            <div className="flex-1">
+              <InputField
+                type="text"
+                placeholder="Search products..."
+                value={searchFilter}
+                onChange={(e) => setSearchFilter(e.target.value)}
+              />
+            </div>
+            <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap cursor-pointer">
+              <Checkbox
+                checked={hideAssigned}
+                onChange={(checked) => setHideAssigned(checked)}
+              />
+              Hide assigned to other tabs
+            </label>
+          </div>
+
+          {/* Product List - Grouped by Category */}
           <div className="max-h-96 overflow-y-auto border border-stroke dark:border-strokedark rounded-lg">
-            {products.length === 0 ? (
+            {visibleProducts.length === 0 ? (
               <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-                <p>No products available</p>
-                <p className="text-sm">Add products first to assign them to tabs</p>
+                <p>No products found</p>
+                <p className="text-sm">
+                  {searchFilter ? 'Try a different search term' : 'Add products first to assign them to tabs'}
+                </p>
               </div>
             ) : (
-              <div className="divide-y divide-stroke dark:divide-strokedark">
-                {products.map((product) => (
-                  <div key={product.id} className="p-4 flex items-center space-x-3">
-                    <Checkbox
-                      checked={currentTab?.productIds.includes(product.id) || false}
-                      onChange={(checked) => handleProductToggle(product.id, checked)}
-                      className="checked:bg-brand-500 checked:border-brand-500"
-                    />
-                    <div className="flex-1">
-                      <h4 className="font-medium text-black dark:text-white">{product.name}</h4>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        ${product.price.toFixed(2)} • {product.category?.name || 'No category'}
-                      </p>
-                    </div>
+              <div>
+                {sortedCategories.map((cat) => (
+                  <div key={cat}>
+                    {/* Category Header */}
+                    <button
+                      onClick={() => toggleCategory(cat)}
+                      className="w-full flex items-center justify-between px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border-b border-stroke dark:border-strokedark text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <span>{cat} ({grouped[cat].length})</span>
+                      <svg
+                        className={`w-4 h-4 transition-transform ${collapsedCategories.has(cat) ? '' : 'rotate-180'}`}
+                        fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    {/* Products in Category */}
+                    {!collapsedCategories.has(cat) && (
+                      <div className="divide-y divide-stroke dark:divide-strokedark">
+                        {grouped[cat].map((product: any) => {
+                          const isAssignedElsewhere = otherTabProductIds.has(product.id);
+                          return (
+                            <div key={product.id} className="px-4 py-3 flex items-center space-x-3">
+                              <Checkbox
+                                checked={currentTab?.productIds.includes(product.id) || false}
+                                onChange={(checked) => handleProductToggle(product.id, checked)}
+                              />
+                              <div className="flex-1">
+                                <h4 className="font-medium text-black dark:text-white text-sm">{product.name}</h4>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                  ${product.price.toFixed(2)}
+                                  {isAssignedElsewhere && (
+                                    <span className="ml-2 text-amber-500">
+                                      (in: {tabs.filter(t => t.id !== selectedTab && t.productIds.includes(product.id)).map(t => t.name).join(', ')})
+                                    </span>
+                                  )}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

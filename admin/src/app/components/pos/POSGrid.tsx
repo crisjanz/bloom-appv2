@@ -1,5 +1,6 @@
 // components/pos/POSGrid.tsx - Add fullscreen toggle
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useProductsEnhanced } from '@shared/hooks/useProductsNew';
 import { usePOSTabs } from '@shared/hooks/usePOSTabsNew';
 import ProductButton from './ProductButton';
@@ -13,6 +14,7 @@ type Props = {
 };
 
 export default function POSGrid({ onAddProduct, onShowCustomModal, onDeliveryOrder }: Props) {
+  const navigate = useNavigate();
   const { 
     products, 
     loading: productsLoading, 
@@ -73,8 +75,13 @@ export default function POSGrid({ onAddProduct, onShowCustomModal, onDeliveryOrd
     }
   };
 
-  // Products are already filtered by the domain hook
-  const filteredProducts = products;
+  // Filter by active tab's productIds
+  const filteredProducts = activeTab === 'all'
+    ? products
+    : products.filter(p => {
+        const tab = tabs.find(t => t.id === activeTab);
+        return tab?.productIds.includes(p.id);
+      });
 
   if (loading) {
     return (
@@ -110,14 +117,20 @@ export default function POSGrid({ onAddProduct, onShowCustomModal, onDeliveryOrd
           )}
           
           {/* Settings Icon */}
-          <button className="text-gray-600 dark:text-gray-400 hover:text-brand-500 transition-colors" title='Settings'>
+          <button
+            onClick={() => navigate('/settings/pos')}
+            className="text-gray-600 dark:text-gray-400 hover:text-brand-500 transition-colors"
+            title="POS Settings"
+          >
             <SettingsIcon className="w-8 h-8" />
           </button>
-          
-          {/* Back to Dashboard - Using GridIcon */}
+
+          {/* Back to Dashboard */}
           <button
-            onClick={() => window.location.href = '/'}
-            className="text-gray-600 dark:text-gray-400 hover:text-brand-500 transition-colors" title='Back to Dashboard'>
+            onClick={() => navigate('/')}
+            className="text-gray-600 dark:text-gray-400 hover:text-brand-500 transition-colors"
+            title="Back to Dashboard"
+          >
             <GridIcon className="w-8 h-8" />
           </button>
         </div>
