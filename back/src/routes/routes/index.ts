@@ -288,14 +288,20 @@ router.put('/:id/resequence', async (req, res) => {
     }
 
     await prisma.$transaction(async (tx) => {
-      await Promise.all(
-        payload.stopIds.map((stopId, index) =>
-          tx.routeStop.update({
-            where: { id: stopId },
-            data: { sequence: index + 1 }
-          })
-        )
-      );
+      // First pass: set all to high temporary values to avoid unique constraint conflicts
+      for (let i = 0; i < payload.stopIds.length; i++) {
+        await tx.routeStop.update({
+          where: { id: payload.stopIds[i] },
+          data: { sequence: 10000 + i }
+        });
+      }
+      // Second pass: set final sequence values
+      for (let i = 0; i < payload.stopIds.length; i++) {
+        await tx.routeStop.update({
+          where: { id: payload.stopIds[i] },
+          data: { sequence: i + 1 }
+        });
+      }
     });
 
     const updatedRoute = await prisma.route.findUniqueOrThrow({
