@@ -132,7 +132,7 @@ router.post('/create-from-scan', async (req, res) => {
         status: OrderStatus.PAID, // Wire-in orders are pre-paid
         orderSource: 'EXTERNAL',
         externalSource: resolvedSource,
-        externalReference: orderData.orderNumber,
+        externalReference: orderData.orderNumber || null,
         customerId: senderCustomer.id, // Sender florist is the customer
         recipientCustomerId: recipientCustomer.id,
         deliveryAddressId: deliveryAddress.id,
@@ -487,7 +487,7 @@ router.post('/create-from-floranext', async (req, res) => {
         status: OrderStatus.PAID, // Web orders are pre-paid
         orderSource: 'WEBSITE',
         externalSource: OrderExternalSource.OTHER,
-        externalReference: `FN-${orderData.orderNumber}`,
+        externalReference: orderData.orderNumber ? `FN-${orderData.orderNumber}` : null,
         customerId: senderCustomer.id,
         recipientCustomerId: isDelivery ? recipientCustomer.id : null,
         recipientName: isDelivery ? null : orderData.recipient.name,
@@ -521,14 +521,14 @@ router.post('/create-from-floranext', async (req, res) => {
         totalAmount: grandTotalCents,
         taxAmount: totalTaxCents,
         tipAmount: 0,
-        notes: `Floranext Web Order ${orderData.orderNumber}`,
+        notes: `Floranext Web Order ${orderData.orderNumber || 'N/A'}`,
         receiptEmail: orderData.sender.email,
         paymentMethods: [
           {
             type: 'EXTERNAL' as any,
             provider: 'INTERNAL' as any,
             amount: grandTotalCents,
-            providerTransactionId: `FN-${orderData.orderNumber}`,
+            providerTransactionId: orderData.orderNumber ? `FN-${orderData.orderNumber}` : `FN-SCAN-${Date.now()}`,
             providerMetadata: {
               source: 'FLORANEXT',
               paymentMethod: orderData.paymentMethod,
