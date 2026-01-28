@@ -104,6 +104,7 @@ export function useRoutes(date?: string) {
 
   return {
     routes,
+    setRoutes,
     loading,
     error,
     refresh: fetchRoutes,

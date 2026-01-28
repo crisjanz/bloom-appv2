@@ -27,7 +27,7 @@ export default function RouteBuilderPage() {
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
   const [drivers, setDrivers] = useState<Array<{ id: string; name: string }>>([]);
 
-  const { routes, loading: routesLoading, error: routesError, refresh, createRoute, resequenceStops, updateRoute, deleteRoute } =
+  const { routes, setRoutes, loading: routesLoading, error: routesError, refresh, createRoute, resequenceStops, updateRoute, deleteRoute } =
     useRoutes(selectedDate);
 
   // Initialize date once timezone is available
@@ -121,8 +121,8 @@ export default function RouteBuilderPage() {
   );
 
   const onDragEnd = useCallback(
-    async (result: DropResult) => {
-      const { destination, source, draggableId } = result;
+    (result: DropResult) => {
+      const { destination, source } = result;
       if (!destination) return;
 
       // Reorder within a route
@@ -130,20 +130,22 @@ export default function RouteBuilderPage() {
         const routeId = destination.droppableId;
         const route = routes.find((r) => r.id === routeId);
         if (!route) return;
+        if (source.index === destination.index) return;
 
-        const stopOrder = [...route.stops];
-        const [moved] = stopOrder.splice(source.index, 1);
-        stopOrder.splice(destination.index, 0, moved);
+        // 1. Update local state immediately (synchronous)
+        const newStops = [...route.stops];
+        const [moved] = newStops.splice(source.index, 1);
+        newStops.splice(destination.index, 0, moved);
+        const resequenced = newStops.map((s, i) => ({ ...s, sequence: i + 1 }));
 
-        try {
-          await resequenceStops(
-            routeId,
-            stopOrder.map((stop) => stop.id)
-          );
-        } catch (err) {
-          console.error('Resequence failed:', err);
-          await refresh();
-        }
+        setRoutes((prev) =>
+          prev.map((r) => (r.id === routeId ? { ...r, stops: resequenced } : r))
+        );
+
+        // 2. Persist to backend in background, revert on failure
+        resequenceStops(routeId, resequenced.map((s) => s.id)).catch(() => {
+          refresh();
+        });
         return;
       }
 
@@ -153,7 +155,7 @@ export default function RouteBuilderPage() {
         return;
       }
     },
-    [routes, resequenceStops, refresh]
+    [routes, setRoutes, resequenceStops, refresh]
   );
 
   const toggleOrderSelection = (orderId: string) => {
