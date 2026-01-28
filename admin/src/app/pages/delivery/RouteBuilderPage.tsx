@@ -135,11 +135,15 @@ export default function RouteBuilderPage() {
         const [moved] = stopOrder.splice(source.index, 1);
         stopOrder.splice(destination.index, 0, moved);
 
-        await resequenceStops(
-          routeId,
-          stopOrder.map((stop) => stop.id)
-        );
-        await refresh();
+        try {
+          await resequenceStops(
+            routeId,
+            stopOrder.map((stop) => stop.id)
+          );
+        } catch (err) {
+          console.error('Resequence failed:', err);
+          await refresh();
+        }
         return;
       }
 
