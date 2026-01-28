@@ -4,8 +4,6 @@ import { Modal } from '@shared/ui/components/ui/modal';
 import InputField from '@shared/ui/forms/input/InputField';
 import Select from '@shared/ui/forms/Select';
 import Label from '@shared/ui/forms/Label';
-import { useCategories } from '@shared/hooks/useCategories';
-
 type Props = {
   open: boolean;
   onClose: () => void;
@@ -13,29 +11,37 @@ type Props = {
     name: string;
     price: number;
     category?: string;
+    reportingCategoryId?: string;
   }) => void;
 };
 
 export default function CustomItemModal({ open, onClose, onConfirm }: Props) {
-  const [name, setName] = useState('');
+  const [name, setName] = useState('Item');
   const [price, setPrice] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedReportingCategory, setSelectedReportingCategory] = useState('');
+  const [reportingCategories, setReportingCategories] = useState<{ id: string; name: string }[]>([]);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  
-  // Fix: Use whatever your useCategories hook actually returns
-  // Check your useCategories.ts file and see if it returns 'refetch', 'fetchCategories', or auto-fetches
-  const { categories } = useCategories(); // Assuming it auto-fetches like useProducts
 
   useEffect(() => {
     if (open) {
-      // Remove fetchCategories() call since it likely auto-fetches
-      // Reset form when modal opens
-      setName('');
+      setName('Item');
       setPrice('');
-      setSelectedCategory('');
+      setSelectedReportingCategory(reportingCategories.length > 0 ? reportingCategories[0].id : '');
       setErrors({});
     }
   }, [open]);
+
+  useEffect(() => {
+    fetch('/api/settings/reporting-categories')
+      .then(r => r.json())
+      .then(data => {
+        if (data.categories) {
+          setReportingCategories(data.categories);
+          if (data.categories.length > 0) setSelectedReportingCategory(data.categories[0].id);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
@@ -65,25 +71,23 @@ export default function CustomItemModal({ open, onClose, onConfirm }: Props) {
     const customItem = {
       name: name.trim(),
       price: parseFloat(price),
-      category: selectedCategory || 'Custom Items'
+      reportingCategoryId: selectedReportingCategory || undefined
     };
 
     onConfirm(customItem);
   };
 
   const handleCancel = () => {
-    setName('');
+    setName('Item');
     setPrice('');
-    setSelectedCategory('');
+    setSelectedReportingCategory('');
     setErrors({});
     onClose();
   };
 
-  // Category options for select
-  const categoryOptions = [
-    { value: '', label: 'Select category (optional)' },
-    { value: 'Custom Items', label: 'Custom Items' },
-    ...categories.map(cat => ({ value: cat.name, label: cat.name }))
+  const reportingCategoryOptions = [
+    { value: '', label: 'Select reporting category (optional)' },
+    ...reportingCategories.map(cat => ({ value: cat.id, label: cat.name }))
   ];
 
   return (
@@ -110,7 +114,6 @@ export default function CustomItemModal({ open, onClose, onConfirm }: Props) {
               className={`focus:border-brand-500 focus:ring-brand-500/20 ${
                 errors.name ? 'border-red-500' : ''
               }`}
-              autoFocus
             />
             {errors.name && (
               <p className="text-red-500 text-sm mt-1">{errors.name}</p>
@@ -133,6 +136,7 @@ export default function CustomItemModal({ open, onClose, onConfirm }: Props) {
                 className={`pl-8 focus:border-brand-500 focus:ring-brand-500/20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
                   errors.price ? 'border-red-500' : ''
                 }`}
+                autoFocus
                 min="0"
                 step={0.01}
               />
@@ -142,13 +146,13 @@ export default function CustomItemModal({ open, onClose, onConfirm }: Props) {
             )}
           </div>
 
-          {/* Category */}
+          {/* Reporting Category */}
           <div>
-            <Label htmlFor="customItemCategory">Category</Label>
+            <Label htmlFor="customItemReportingCategory">Reporting Category</Label>
             <Select
-              options={categoryOptions}
-              value={selectedCategory}
-              onChange={(value) => setSelectedCategory(value)}
+              options={reportingCategoryOptions}
+              value={selectedReportingCategory}
+              onChange={(value) => setSelectedReportingCategory(value)}
             />
           </div>
 

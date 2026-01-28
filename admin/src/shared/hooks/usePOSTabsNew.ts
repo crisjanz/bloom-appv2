@@ -10,6 +10,7 @@ export interface POSTab {
 
 export const usePOSTabs = () => {
   const [tabs, setTabs] = useState<POSTab[]>([]);
+  const [defaultTab, setDefaultTab] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,6 +27,7 @@ export const usePOSTabs = () => {
       }
       
       setTabs(data.tabs);
+      setDefaultTab(data.defaultTab || 'all');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch tabs');
       console.error('Error fetching POS tabs:', err);
@@ -34,14 +36,14 @@ export const usePOSTabs = () => {
     }
   };
 
-  const saveTabs = async (newTabs: POSTab[]) => {
+  const saveTabs = async (newTabs: POSTab[], newDefaultTab?: string) => {
     try {
       const response = await fetch('/api/settings/pos-tabs', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ tabs: newTabs }),
+        body: JSON.stringify({ tabs: newTabs, defaultTab: newDefaultTab ?? defaultTab }),
       });
       
       const data = await response.json();
@@ -51,6 +53,7 @@ export const usePOSTabs = () => {
       }
       
       setTabs(newTabs);
+      if (newDefaultTab) setDefaultTab(newDefaultTab);
       return { success: true };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to save tabs';
@@ -66,6 +69,8 @@ export const usePOSTabs = () => {
 
   return {
     tabs,
+    defaultTab,
+    setDefaultTab,
     loading,
     error,
     fetchTabs,

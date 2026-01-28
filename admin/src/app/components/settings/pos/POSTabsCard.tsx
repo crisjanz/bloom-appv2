@@ -16,7 +16,7 @@ export default function POSTabsCard() {
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
 
   const { products, refetch } = useProducts();
-  const { tabs, loading, error, saveTabs, setTabs } = usePOSTabs();
+  const { tabs, defaultTab, setDefaultTab, loading, error, saveTabs, setTabs } = usePOSTabs();
 
   useEffect(() => {
     refetch();
@@ -52,7 +52,7 @@ export default function POSTabsCard() {
     setSaving(true);
     setSuccessMessage('');
     
-    const result = await saveTabs(tabs);
+    const result = await saveTabs(tabs, defaultTab);
     
     if (result.success) {
       setSuccessMessage('POS tab configuration saved successfully!');
@@ -144,6 +144,23 @@ export default function POSTabsCard() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Default Starting Tab */}
+        <div>
+          <Label htmlFor="default-tab">Default Starting Tab</Label>
+          <select
+            id="default-tab"
+            value={defaultTab}
+            onChange={(e) => setDefaultTab(e.target.value)}
+            className="mt-1 block w-full sm:w-64 rounded-lg border border-stroke dark:border-strokedark bg-white dark:bg-boxdark px-4 py-2.5 text-sm text-black dark:text-white focus:border-brand-500 focus:ring-brand-500/20"
+          >
+            <option value="all">All Products</option>
+            {tabs.map((tab) => (
+              <option key={tab.id} value={tab.id}>{tab.name}</option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">POS will open to this tab by default</p>
         </div>
 
         {/* Product Assignment */}

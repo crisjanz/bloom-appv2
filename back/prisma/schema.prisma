@@ -722,10 +722,11 @@ model GiftCardTransaction {
 }
 
 model POSSettings {
-  id        String   @id @default(cuid())
-  tabs      Json
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(cuid())
+  tabs       Json
+  defaultTab String?  @map("default_tab")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@map("pos_settings")
 }

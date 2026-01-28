@@ -25,12 +25,12 @@ export const getPOSTabs = async (req: Request, res: Response) => {
         { id: 'tab4', name: 'Tab 4', productIds: [], order: 4 },
       ];
       
-      return res.json({ success: true, tabs: defaultTabs });
+      return res.json({ success: true, tabs: defaultTabs, defaultTab: 'all' });
     }
 
     // Properly cast JSON to POSTab array
     const tabs = settings.tabs as unknown as POSTab[];
-    res.json({ success: true, tabs });
+    res.json({ success: true, tabs, defaultTab: settings.defaultTab || 'all' });
   } catch (error) {
     console.error('Error fetching POS tabs:', error);
     res.status(500).json({ 
@@ -43,7 +43,7 @@ export const getPOSTabs = async (req: Request, res: Response) => {
 // Save POS tab configuration
 export const savePOSTabs = async (req: Request, res: Response) => {
   try {
-    const { tabs }: { tabs: POSTab[] } = req.body;
+    const { tabs, defaultTab }: { tabs: POSTab[]; defaultTab?: string } = req.body;
 
     if (!tabs || !Array.isArray(tabs)) {
       return res.status(400).json({
@@ -70,13 +70,15 @@ export const savePOSTabs = async (req: Request, res: Response) => {
     // Save or update the settings
     const settings = await prisma.pOSSettings.upsert({
       where: { id: 'pos-settings' }, // Use a fixed ID since we only need one record
-      update: { 
-        tabs: tabs as unknown as any, // Properly cast for JSON field
+      update: {
+        tabs: tabs as unknown as any,
+        defaultTab: defaultTab || 'all',
         updatedAt: new Date()
       },
       create: {
         id: 'pos-settings',
-        tabs: tabs as unknown as any, // Properly cast for JSON field
+        tabs: tabs as unknown as any,
+        defaultTab: defaultTab || 'all',
         createdAt: new Date(),
         updatedAt: new Date()
       }

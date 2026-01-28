@@ -24,17 +24,18 @@ export default function POSGrid({ onAddProduct, onShowCustomModal, onDeliveryOrd
     updateSearchTerm,
     updateActiveTab
   } = useProductsEnhanced();
-  const { tabs, loading: tabsLoading } = usePOSTabs();
-  
+  const { tabs, defaultTab, loading: tabsLoading } = usePOSTabs();
+
   // Fullscreen state
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isPWA, setIsPWA] = useState(false);
 
+  // Set starting tab from settings
   useEffect(() => {
-    if (tabs.length > 0 && activeTab === 'all') {
-      // Keep 'all' as default
+    if (!tabsLoading && defaultTab && !activeTab) {
+      updateActiveTab(defaultTab);
     }
-  }, [tabs]);
+  }, [tabsLoading, defaultTab]);
 
   // Fullscreen detection
   useEffect(() => {
@@ -76,7 +77,7 @@ export default function POSGrid({ onAddProduct, onShowCustomModal, onDeliveryOrd
   };
 
   // Filter by active tab's productIds
-  const filteredProducts = activeTab === 'all'
+  const filteredProducts = (activeTab === 'all' || activeTab === '')
     ? products
     : products.filter(p => {
         const tab = tabs.find(t => t.id === activeTab);
