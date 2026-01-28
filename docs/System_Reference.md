@@ -14,19 +14,19 @@
 ## Architecture Overview
 - `admin/` — TailAdmin-based React SPA for POS, operations, and settings. Domain-driven folders under `src/domains` and `src/app`.
 - `back/` — Express API (`app.use('/api/...')`) with Prisma ORM (`back/prisma/schema.prisma`). Runs on Node 18+.
-- `www/` — TailGrids prototype for future e-commerce storefront (not yet wired to live APIs).
+- `www/` — TailGrids-based React SPA storefront, wired to live APIs (auth, product catalog, cart, checkout, gift cards, customer profiles, order history, discount validation, delivery scheduling).
 - Shared assets (`docs/`, `tailgrids/`, `Screenshot.png`, etc.) live at repo root.
 
 ### Key Backend Modules (`back/src`)
 - `routes/auth.ts` — Employee auth with JWT access + refresh tokens, password strength validation, and lockout counters.
 - `routes/customers.ts` & `routes/customersAuth.ts` — Customer CRUD, address/recipient management, and portal authentication.
 - `routes/orders/*` — Order list/detail, creation, draft saving, delivery board, and status management.
+- `routes/orders/scan.ts`, `routes/orders/create-from-scan.ts` — External order OCR intake and scan-to-order flow.
 - `routes/payment-transactions.ts` — Central PT ledger (captures, refunds, reporting).
 - `routes/discounts.ts` — Unified discount engine with validation + auto-apply.
 - `routes/gift-cards` — Endpoints for batch creation, activation, balance check, and redemption.
 - `routes/notifications`, `routes/email`, `routes/sms` — Notification endpoints; email/SMS services backed by SendGrid/Twilio helpers (see TODOs in notification domain for remaining wiring).
-- `routes/ftd/*` — Wire order ingestion, monitoring, and settings management.
-- `services/ftdMonitor.ts` — 4-minute polling loop with Puppeteer token refresh, syncs FTD → Bloom orders.
+- `services/gemini-ocr.ts` — Gemini Vision OCR for scan-to-order parsing.
 - `services/paymentSettingsService.ts` — Encrypts provider credentials with `CONFIG_ENCRYPTION_KEY` and masks values in API responses.
 - `services/paymentProviders/PaymentProviderFactory.ts` — Lazy-loads Stripe client from encrypted DB settings with cache + invalidation.
 - `utils/taxCalculator.ts`, `utils/notificationTriggers.ts` — Centralized tax computation and status notification triggers for reuse across order flows.
@@ -39,7 +39,7 @@
 - `domains/customers/*` — Hooks and services for phone/POS customer search, creation, and recipient management.
 - `domains/payments/hooks/usePaymentCalculations.ts` — Centralized totals, tax, discount calculations.
 - `domains/orders/hooks/useOrderPayments.ts` — Handles POS transfer, customer creation, and recipient address linkage before hitting `/api/orders/create`.
-- `app/pages/ftd/*` — FTD imports dashboard, approvals, and live feed.
+- `app/components/orders/ScanOrderModal.tsx` & `app/pages/mobile/MobileScanPage.tsx` — External order scan UI.
 
 ## Data & Schema Highlights
 - **60 Prisma models** (1,545 lines total in `back/prisma/schema.prisma`)
@@ -65,11 +65,11 @@
 ## Integrations & External Services
 - **Stripe** (`back/src/routes/stripe.ts`, `back/src/services/paymentProviders/PaymentProviderFactory.ts`): Payment intents, saved cards, refunds, webhook ingestion. Credentials are stored in `PaymentSettings` (encrypted via `CONFIG_ENCRYPTION_KEY`) and loaded lazily; `STRIPE_WEBHOOK_SECRET` is only needed for webhook verification.
 - **Square** (`back/src/routes/square.ts`, `back/src/services/squareService.ts`): Card payments, terminal flows, customer storage. Needs Square sandbox/live credentials.
-- **Twilio** (`back/src/services/smsService.ts`, `back/src/services/ftdNotification.ts`): SMS notifications; credentials stored in `EmailSettings` (encrypted auth token) and managed via Settings → Email & SMS with `CONFIG_ENCRYPTION_KEY` set.
-- **SendGrid** (`back/src/services/emailService.ts`, `back/src/services/ftdNotification.ts`): Email delivery; requires `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL`, `SENDGRID_FROM_NAME`.
+- **Twilio** (`back/src/services/smsService.ts`): SMS notifications; credentials stored in `EmailSettings` (encrypted auth token) and managed via Settings → Email & SMS with `CONFIG_ENCRYPTION_KEY` set.
+- **SendGrid** (`back/src/services/emailService.ts`): Email delivery; requires `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL`, `SENDGRID_FROM_NAME`.
 - **Cloudflare R2** (`back/src/utils/r2Client.ts`): Product & order image storage; expects R2 account, key, secret, bucket, and public URL env vars.
 - **Petals.ca** (`back/src/routes/wire-products.ts`): Wire product image fetching with automated R2 upload for FTD/Teleflora product library management.
-- **FTD Mercury** (`back/src/services/ftdAuthService.ts`): Browser automation for token refresh; requires `FTD_MERCURY_USERNAME`, `FTD_MERCURY_PASSWORD`. Set `DISABLE_FTD_AUTO_REFRESH=true` to run backend without automation (dev mode).
+- **Google Gemini** (`back/src/services/gemini-ocr.ts`): Vision OCR used for scan-to-order workflows.
 
 ## Print System Architecture
 - **Electron Print Agent** (`bloom-print-agent/`): Windows desktop application for auto-printing order tickets, delivery slips, and receipts to thermal and standard printers.

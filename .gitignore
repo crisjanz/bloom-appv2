@@ -5,10 +5,10 @@ dist/
 .DS_Store
 tailgrids
 back/scripts/
-
+render-sql-backup/
 # Documentation (internal use only)
 docs/
 Progress_Tracker.markdown
 Project_Summary.markdown
 .aider*
-/scripts/
+scripts/

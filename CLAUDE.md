@@ -59,7 +59,7 @@
 |------|------|-------------|
 | **Admin (frontend)** | `admin/src/` | TailAdmin-based React SPA for POS & operations. |
 | **Backend (API)** | `back/src/` | Express + Prisma API under `/api/*`. |
-| **Customer website** | `www/` | TailGrids prototype for future e-commerce. |
+| **Customer website** | `www/` | TailGrids-based React SPA storefront, wired to live APIs (auth, catalog, cart, checkout, gift cards, profiles). |
 | **Docs** | `/docs/` | All technical + planning documentation. |
 
 ---

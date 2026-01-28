@@ -56,7 +56,7 @@ Status markers: ✅ done · 🛠️ in progress · 🔜 planned · ⚠️ attent
 - 🔜 **Customer portal launch** — build UI on top of `/api/customers/me/*` endpoints for order history & profile edits.
 - 🔜 **Delivery operations board** — driver assignment, routing, and live updates on top of `/api/orders/delivery`.
 - 🔜 **Rate limiting & audit logs** — complement existing auth lockouts and capture changes to sensitive settings.
-- 🔜 **Website (TailGrids) go-live** — reuse admin domains for storefront catalogue + checkout (`www/`).
+- 🛠️ **Website (TailGrids) go-live** — storefront is largely built with live API integration (auth, catalog, cart, checkout, gift cards, profiles, order history, discount validation, delivery scheduling). Remaining: final QA, WebUser model migration, and customer-specific pricing integration (see `docs/FEATURE_PLANS/web-accounts-customer-pricing.md`).
 
 ## 📌 Notes & Follow-ups
 - TODOs across notification services highlight missing integrations; prioritize once Twilio/SendGrid credentials are stable.
