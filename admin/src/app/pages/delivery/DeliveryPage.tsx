@@ -325,25 +325,49 @@ const DeliveryPage: React.FC = () => {
       minDate: today,
       clickOpens: true,
       allowInput: false,
-      onChange: (selectedDates, dateStr) => {
-        if (selectedDates.length > 0 && allOrders) {
+      onChange: async (selectedDates, dateStr) => {
+        if (selectedDates.length > 0) {
           setSelectedDate(dateStr);
 
-          // Convert ISO date to YYYY-MM-DD for comparison
+          // Check if date is within pre-loaded range (today + 10 days)
+          const endDay = new Date();
+          endDay.setDate(endDay.getDate() + 10);
+          const endDayStr = getBusinessDateString(endDay);
+          const isInRange = dateStr <= endDayStr;
+
           const extractDate = (isoString: string) => {
             if (!isoString) return '';
             return isoString.split('T')[0];
           };
 
-          // Filter allOrders for the selected date
-          const filtered = {
-            forDelivery: allOrders.forDelivery?.filter((o: any) => extractDate(o.deliveryDate) === dateStr) || [],
-            forPickup: allOrders.forPickup?.filter((o: any) => extractDate(o.deliveryDate) === dateStr) || [],
-            completed: allOrders.completed?.filter((o: any) => extractDate(o.deliveryDate) === dateStr) || [],
-          };
+          let filtered;
+          if (isInRange && allOrders) {
+            // Use pre-loaded data
+            filtered = {
+              forDelivery: allOrders.forDelivery?.filter((o: any) => extractDate(o.deliveryDate) === dateStr) || [],
+              forPickup: allOrders.forPickup?.filter((o: any) => extractDate(o.deliveryDate) === dateStr) || [],
+              completed: allOrders.completed?.filter((o: any) => extractDate(o.deliveryDate) === dateStr) || [],
+            };
+          } else {
+            // Fetch from API for dates outside pre-loaded range
+            try {
+              setLoading(true);
+              const response = await fetch(`/api/orders/delivery?startDate=${dateStr}&endDate=${dateStr}`);
+              const data = await response.json();
+              if (data.success) {
+                filtered = data.orders;
+              } else {
+                filtered = { forDelivery: [], forPickup: [], completed: [] };
+              }
+            } catch {
+              filtered = { forDelivery: [], forPickup: [], completed: [] };
+            } finally {
+              setLoading(false);
+            }
+          }
           setDisplayData(filtered);
 
-          // Update active filter (custom date = 'future')
+          // Update active filter
           const todayStr = getBusinessDateString(new Date());
           const tomorrow = new Date();
           tomorrow.setDate(tomorrow.getDate() + 1);

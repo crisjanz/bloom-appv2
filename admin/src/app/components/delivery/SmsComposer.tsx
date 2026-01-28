@@ -29,7 +29,7 @@ export default function SmsComposer({
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
 
-  const confirmDeliveryTemplate = `Hi${recipientName ? ` ${recipientName}` : ''}! This is In Your Vase Flowers. We have flowers for you and need to confirm delivery details. Address: ${address || '[address]'}. Reply with best time and confirm address is correct.`;
+  const confirmDeliveryTemplate = `Hi${recipientName ? ` ${recipientName}` : ''}! This is In Your Vase Flowers. We have flowers for you! Please reply with:\n1. Is this address correct? ${address || '[address]'}\n2. What time works best for delivery?`;
 
   const templates = [
     {
