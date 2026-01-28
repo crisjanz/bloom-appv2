@@ -288,4 +288,61 @@ router.post('/route/stop/:stopId/deliver', async (req, res) => {
   }
 });
 
+/**
+ * PUT /api/driver/route/resequence
+ * Allow driver to reorder stops
+ */
+router.put('/route/resequence', async (req, res) => {
+  const { token } = req.query;
+
+  if (!token || typeof token !== 'string') {
+    return res.status(400).json({ error: 'Missing token' });
+  }
+
+  try {
+    verifyRouteToken(token as string);
+  } catch {
+    return res.status(403).json({ error: 'Invalid or expired token' });
+  }
+
+  try {
+    const { routeId, stopIds } = req.body;
+
+    if (!routeId || !Array.isArray(stopIds) || stopIds.length === 0) {
+      return res.status(400).json({ error: 'routeId and stopIds[] required' });
+    }
+
+    const route = await prisma.route.findUnique({
+      where: { id: routeId },
+      include: { stops: { select: { id: true }, orderBy: { sequence: 'asc' } } }
+    });
+
+    if (!route) {
+      return res.status(404).json({ error: 'Route not found' });
+    }
+
+    if (route.status === 'COMPLETED') {
+      return res.status(400).json({ error: 'Cannot resequence a completed route' });
+    }
+
+    if (stopIds.length !== route.stops.length) {
+      return res.status(400).json({ error: 'All stops must be provided' });
+    }
+
+    await prisma.$transaction(
+      stopIds.map((stopId: string, index: number) =>
+        prisma.routeStop.update({
+          where: { id: stopId },
+          data: { sequence: index + 1 }
+        })
+      )
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error resequencing driver route:', error);
+    res.status(500).json({ error: 'Failed to resequence' });
+  }
+});
+
 export default router;

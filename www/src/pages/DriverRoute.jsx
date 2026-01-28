@@ -103,10 +103,41 @@ export default function DriverRoute() {
 
   const stops = useMemo(() => {
     if (data?.type === 'route') {
-      return data.route.stops || [];
+      return [...(data.route.stops || [])].sort((a, b) => a.sequence - b.sequence);
     }
     return [];
   }, [data]);
+
+  const moveStop = useCallback(async (index, direction) => {
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= stops.length) return;
+
+    const newStops = [...stops];
+    const [moved] = newStops.splice(index, 1);
+    newStops.splice(newIndex, 0, moved);
+
+    // Update sequences locally
+    const updatedStops = newStops.map((s, i) => ({ ...s, sequence: i + 1 }));
+    setData(prev => ({
+      ...prev,
+      route: { ...prev.route, stops: updatedStops }
+    }));
+
+    // Save to backend
+    try {
+      await fetch(`${API_BASE}/driver/route/resequence?token=${encodeURIComponent(token)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          routeId: data.route.id,
+          stopIds: updatedStops.map(s => s.id)
+        })
+      });
+    } catch (err) {
+      console.error('Failed to save stop order:', err);
+      loadRoute(); // Revert on failure
+    }
+  }, [stops, data, token, loadRoute]);
 
   const mapItems = useMemo(() => {
     if (!data) return [];
@@ -311,39 +342,86 @@ export default function DriverRoute() {
           </div>
 
           <div className="p-4 space-y-3">
+            {/* Google Maps Navigation Button */}
+            {data.type === 'route' && stops.length > 0 && (
+              <button
+                onClick={() => {
+                  const pendingStops = stops.filter(s => s.status !== 'DELIVERED');
+                  if (pendingStops.length === 0) return;
+                  const destination = pendingStops[pendingStops.length - 1];
+                  const waypoints = pendingStops.slice(0, -1);
+                  const destAddr = destination.order?.address;
+                  const destQuery = destAddr ? `${destAddr.address1}, ${destAddr.city}, ${destAddr.province}` : '';
+                  const waypointQuery = waypoints
+                    .map(s => {
+                      const a = s.order?.address;
+                      return a ? `${a.address1}, ${a.city}, ${a.province}` : '';
+                    })
+                    .filter(Boolean)
+                    .join('|');
+                  const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destQuery)}${waypointQuery ? `&waypoints=${encodeURIComponent(waypointQuery)}` : ''}`;
+                  window.open(url, '_blank');
+                }}
+                className="w-full rounded-lg bg-blue-600 py-3 text-white font-semibold flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                Navigate Route in Google Maps
+              </button>
+            )}
+
             {data.type === 'route' ? (
-              stops.map((stop) => (
-                <button
-                  key={stop.id}
-                  onClick={() => setSelectedStop(stop)}
-                  className={`w-full rounded-lg border p-3 text-left shadow-sm transition ${
+              stops.map((stop, index) => (
+                <div key={stop.id} className={`rounded-lg border shadow-sm transition ${
                     stop.status === 'DELIVERED'
                       ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                      : 'border-gray-200 bg-white hover:border-gray-300'
+                      : 'border-gray-200 bg-white'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${
-                          stop.status === 'DELIVERED' ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-700'
-                        }`}
-                      >
-                        {stop.status === 'DELIVERED' ? '✓' : stop.sequence}
-                      </div>
-                      <div>
-                        <div className="font-semibold">Order #{stop.order?.orderNumber}</div>
-                        <div className="text-xs text-gray-600">
-                          {stop.order?.recipient?.firstName} {stop.order?.recipient?.lastName}
+                  <button
+                    onClick={() => setSelectedStop(stop)}
+                    className="w-full p-3 text-left"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${
+                            stop.status === 'DELIVERED' ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-700'
+                          }`}
+                        >
+                          {stop.status === 'DELIVERED' ? '✓' : stop.sequence}
                         </div>
-                        <div className="text-xs text-gray-500">
-                          {stop.order?.address?.address1}, {stop.order?.address?.city}
+                        <div>
+                          <div className="font-semibold">Order #{stop.order?.orderNumber}</div>
+                          <div className="text-xs text-gray-600">
+                            {stop.order?.recipient?.firstName} {stop.order?.recipient?.lastName}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {stop.order?.address?.address1}, {stop.order?.address?.city}
+                          </div>
                         </div>
                       </div>
+                      <span className="text-xs uppercase text-gray-500">{stop.status}</span>
                     </div>
-                    <span className="text-xs uppercase text-gray-500">{stop.status}</span>
-                  </div>
-                </button>
+                  </button>
+                  {stop.status !== 'DELIVERED' && stops.length > 1 && (
+                    <div className="flex border-t border-gray-100 divide-x divide-gray-100">
+                      <button
+                        onClick={() => moveStop(index, -1)}
+                        disabled={index === 0}
+                        className="flex-1 py-2 text-xs font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                      >
+                        Move Up
+                      </button>
+                      <button
+                        onClick={() => moveStop(index, 1)}
+                        disabled={index === stops.length - 1}
+                        className="flex-1 py-2 text-xs font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                      >
+                        Move Down
+                      </button>
+                    </div>
+                  )}
+                </div>
               ))
             ) : (
               <div className="rounded border border-gray-200 bg-white p-4 shadow-sm">
@@ -432,7 +510,13 @@ export default function DriverRoute() {
             )}
 
             <button
-              className="mt-3 w-full rounded-lg border border-gray-200 py-3 text-sm font-medium text-gray-700"
+              className="mt-3 w-full rounded-lg border border-blue-200 bg-blue-50 py-3 text-sm font-medium text-blue-700"
+              onClick={() => openGoogleMaps(selectedStop.order?.address)}
+            >
+              Get Directions
+            </button>
+            <button
+              className="mt-2 w-full rounded-lg border border-gray-200 py-3 text-sm font-medium text-gray-700"
               onClick={() => setSelectedStop(null)}
             >
               Close

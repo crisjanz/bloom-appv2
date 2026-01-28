@@ -272,8 +272,8 @@ router.put('/:id/resequence', async (req, res) => {
       return res.status(404).json({ error: 'Route not found' });
     }
 
-    if (route.status !== RouteStatus.PLANNED) {
-      return res.status(400).json({ error: 'Cannot resequence a route that has started' });
+    if (route.status === RouteStatus.COMPLETED) {
+      return res.status(400).json({ error: 'Cannot resequence a completed route' });
     }
 
     if (payload.stopIds.length !== route.stops.length) {
