@@ -131,6 +131,8 @@ router.get('/list', async (req, res) => {
         deliveryAddress: {
           select: {
             id: true,
+            firstName: true,
+            lastName: true,
             label: true,
             address1: true,
             address2: true,

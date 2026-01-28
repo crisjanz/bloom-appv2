@@ -544,7 +544,7 @@ export default function OrderCommunicationModal({
                     <SmsComposer
                       onSend={handleSmsSend}
                       defaultPhone={recipientPhone || customerPhone || ''}
-                      recipientName={order?.deliveryAddress?.firstName || order?.customer?.firstName}
+                      recipientName={order?.deliveryAddress?.firstName || order?.recipientCustomer?.firstName || order?.customer?.firstName}
                       address={order?.deliveryAddress ? `${order.deliveryAddress.address1}${order.deliveryAddress.address2 ? `, ${order.deliveryAddress.address2}` : ''}, ${order.deliveryAddress.city}` : undefined}
                       phoneOptions={phoneOptions}
                       variant="plain"
