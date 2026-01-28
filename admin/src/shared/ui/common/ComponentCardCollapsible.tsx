@@ -35,7 +35,18 @@ const ComponentCardCollapsible: React.FC<ComponentCardCollapsibleProps> = ({
       className={`rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] ${className}`}
     >
       {/* Card Header */}
-      <div className="flex justify-between items-center px-6 py-5">
+      <div
+        className="flex justify-between items-center px-6 py-5 cursor-pointer"
+        role="button"
+        tabIndex={0}
+        onClick={handleToggle}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            handleToggle();
+          }
+        }}
+      >
         <div>
           <h3 className="text-base font-medium text-gray-800 dark:text-white/90">
             {title}
@@ -47,7 +58,6 @@ const ComponentCardCollapsible: React.FC<ComponentCardCollapsibleProps> = ({
           )}
         </div>
         <span 
-          onClick={handleToggle}
           className="text-sm hover:underline font-medium cursor-pointer text-gray-600 dark:text-gray-300"
         >
           {visible ? "Hide" : "Show"}

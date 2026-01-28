@@ -1,5 +1,5 @@
 // pages/pos/POSPage.tsx - Local state cart with draft functionality
-import React, { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import POSLayout from '@app/components/pos/POSLayout';
 import POSGrid from '@app/components/pos/POSGrid';
 import POSCart from '@app/components/pos/POSCart';
@@ -7,14 +7,67 @@ import CustomItemModal from '@app/components/pos/CustomItemModal';
 import ProductVariantModal from '@app/components/pos/ProductVariantModal';
 import PaymentController from '@app/components/pos/payment/PaymentController';
 import TakeOrderOverlay from '@app/components/pos/TakeOrderOverlay';
+import { useApiClient } from '@shared/hooks/useApiClient';
 import { useTaxRates } from '@shared/hooks/useTaxRates';
-import { coerceCents, dollarsToCents } from '@shared/utils/currency';
+import { getOrCreateGuestCustomer } from '@shared/utils/customerHelpers';
+import { Modal } from '@shared/ui/components/ui/modal';
+import { centsToDollars, coerceCents, dollarsToCents, formatCurrency } from '@shared/utils/currency';
+import { deleteLocalDraft, getLocalDrafts, saveLocalDraft, LocalDraft } from '@shared/utils/posLocalDrafts';
+
+const AUTO_RESTORE_WINDOW_MS = 5 * 60 * 1000;
+
+const generateUUID = () => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
+const getCustomerLabel = (customer: any) => {
+  if (!customer) return 'No customer';
+  if (customer.name) return customer.name;
+  const fullName = [customer.firstName, customer.lastName].filter(Boolean).join(' ').trim();
+  return fullName || 'No customer';
+};
+
+const formatRelativeTime = (dateString: string) => {
+  const savedAt = new Date(dateString).getTime();
+  if (!Number.isFinite(savedAt)) return 'Unknown time';
+
+  const diffMs = Date.now() - savedAt;
+  if (diffMs < 60_000) return 'Just now';
+  const minutes = Math.floor(diffMs / 60_000);
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hr${hours === 1 ? '' : 's'} ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} day${days === 1 ? '' : 's'} ago`;
+
+  return new Date(dateString).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric'
+  });
+};
+
+const formatDraftDate = (dateString: string) => {
+  return new Date(dateString).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric'
+  });
+};
 
 export default function POSPage() {
   const [showCustomItemModal, setShowCustomItemModal] = useState(false);
   const [showVariantModal, setShowVariantModal] = useState(false);
   const [selectedProductForVariants, setSelectedProductForVariants] = useState(null);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const apiClient = useApiClient();
+  const [cartSessionId, setCartSessionId] = useState<string>(() => generateUUID());
+  const [localDrafts, setLocalDrafts] = useState<LocalDraft[]>([]);
+  const [draftToast, setDraftToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Get centralized tax rates
   const { individualTaxRates } = useTaxRates();
@@ -36,6 +89,20 @@ export default function POSPage() {
     return value >= 1000 ? Math.round(value) : dollarsToCents(value);
   };
 
+  const refreshLocalDrafts = useCallback(() => {
+    setLocalDrafts(getLocalDrafts());
+  }, []);
+
+  const showDraftToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
+    setDraftToast({ message, type });
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+    }
+    toastTimeoutRef.current = setTimeout(() => {
+      setDraftToast(null);
+    }, 3000);
+  }, []);
+
   // Check for automatic discounts when cart changes
   const checkAutomaticDiscounts = async (currentCartItems) => {
     try {
@@ -49,17 +116,13 @@ export default function POSPage() {
       
       console.log('🔍 Sending cart items to auto-discount API:', cartItemsForAPI);
       
-      const response = await fetch('/api/discounts/auto-apply', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          cartItems: cartItemsForAPI,
-          source: 'POS'
-        })
+      const response = await apiClient.post('/api/discounts/auto-apply', {
+        cartItems: cartItemsForAPI,
+        source: 'POS'
       });
 
-      if (response.ok) {
-        const result = await response.json();
+      if (response.status >= 200 && response.status < 300) {
+        const result = response.data || {};
         console.log('🎯 Auto discount response:', result);
         if (result.discounts && result.discounts.length > 0) {
           console.log('✅ Setting auto discounts:', result.discounts);
@@ -330,6 +393,27 @@ export default function POSPage() {
     setShowDeliveryOrder(false);
   };
 
+  useEffect(() => {
+    const drafts = getLocalDrafts();
+    if (drafts.length !== 1) return;
+
+    const [draft] = drafts;
+    const savedAt = new Date(draft.savedAt).getTime();
+    if (!Number.isFinite(savedAt) || Date.now() - savedAt > AUTO_RESTORE_WINDOW_MS) {
+      return;
+    }
+
+    setCartItems(draft.items || []);
+    setSelectedCustomer(draft.customer || null);
+    setAppliedDiscounts(draft.discounts || []);
+    setGiftCardDiscount(draft.giftCardDiscount || 0);
+    setCouponDiscount(draft.couponDiscount || { amount: 0 });
+    setAutoDiscounts([]);
+    setCartSessionId(draft.id);
+    deleteLocalDraft(draft.id);
+    checkAutomaticDiscounts(draft.items || []);
+  }, []);
+
   const handleUpdateQuantity = (productId, newQuantity) => {
     console.log('🔢 Updating quantity:', productId, newQuantity);
     
@@ -356,6 +440,8 @@ export default function POSPage() {
   const handlePaymentComplete = (transactionData) => {
     if (transactionData) {
       console.log('💳 Payment completed successfully!', transactionData);
+      deleteLocalDraft(cartSessionId);
+      setCartSessionId(generateUUID());
       // IMMEDIATELY clear cart and discounts to prevent double-charging
       setCartItems([]);
       setAppliedDiscounts([]);
@@ -369,6 +455,7 @@ export default function POSPage() {
       // This is called when user clicks "New Order" in OrderCompletionSummary
       setSelectedCustomer(null);
       setShowPaymentController(false);
+      setCartSessionId(generateUUID());
       console.log('✅ POS fully reset to empty state');
     }
   };
@@ -424,52 +511,66 @@ export default function POSPage() {
   // Draft functionality
   const handleSaveDraft = async () => {
     if (cartItems.length === 0) {
-      alert('Cart is empty, nothing to save as draft');
+      showDraftToast('Cart is empty, nothing to save as draft', 'error');
       return;
     }
 
     try {
+      let customerId = selectedCustomer?.id;
+      if (!customerId) {
+        customerId = await getOrCreateGuestCustomer();
+      }
+
       const orderData = {
-        type: 'DELIVERY', // Default to delivery, can be changed later
-        status: 'DRAFT',
-        customerId: selectedCustomer?.id || null,
-        employeeId: 'pos-employee', // TODO: Get actual employee ID
-        orderItems: cartItems.map(item => ({
-          customName: item.name,
-          unitPrice: item.customPrice ?? item.price ?? 0,
-          quantity: item.quantity
-        })),
-        cardMessage: 'POS Draft Order',
-        specialInstructions: `Draft saved from POS. Applied discounts: ${appliedDiscounts.length > 0 ? appliedDiscounts.map(d => d.description).join(', ') : 'None'}`
+        customerId,
+        orders: [
+          {
+            orderType: 'PICKUP',
+            deliveryFee: 0,
+            cardMessage: '',
+            deliveryInstructions: 'POS draft order',
+            deliveryDate: null,
+            deliveryTime: null,
+            customProducts: cartItems.map((item) => ({
+              description: item.name || item.customName || 'POS Item',
+              price: centsToDollars(item.customPrice ?? item.price ?? 0).toFixed(2),
+              qty: String(item.quantity ?? 1),
+              tax: item.isTaxable ?? true,
+            })),
+          },
+        ],
       };
 
-      const response = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orderData)
-      });
+      const response = await apiClient.post('/api/orders/save-draft', orderData);
+      if (response.status < 200 || response.status >= 300 || !response.data?.success) {
+        throw new Error(response.data?.error || 'Failed to save draft');
+      }
 
-      if (response.ok) {
-        const order = await response.json();
-        alert(`Draft saved as Order #${order.orderNumber}`);
-        
-        // Clear cart after saving
-        setCartItems([]);
-        setAppliedDiscounts([]);
-        setGiftCardDiscount(0);
-        setCouponDiscount({amount: 0});
-        setAutoDiscounts([]);
-        setSelectedCustomer(null);
-      } else {
-        throw new Error('Failed to save draft');
+      const savedDraft = response.data?.drafts?.[0];
+      const draftNumber = savedDraft?.orderNumber ?? savedDraft?.id ?? 'Draft';
+      showDraftToast(`Saved as Draft #${draftNumber}`);
+
+      deleteLocalDraft(cartSessionId);
+      setCartSessionId(generateUUID());
+
+      // Clear cart after saving
+      setCartItems([]);
+      setAppliedDiscounts([]);
+      setGiftCardDiscount(0);
+      setCouponDiscount({amount: 0});
+      setAutoDiscounts([]);
+      setSelectedCustomer(null);
+      if (showDraftModal) {
+        refreshLocalDrafts();
       }
     } catch (error) {
       console.error('Error saving draft:', error);
-      alert('Failed to save draft. Please try again.');
+      showDraftToast('Failed to save draft. Please try again.', 'error');
     }
   };
 
   const handleLoadDrafts = () => {
+    refreshLocalDrafts();
     setShowDraftModal(true);
   };
 
@@ -478,7 +579,7 @@ export default function POSPage() {
       console.log('Loading draft order:', order);
       
       // Convert order items back to cart format
-      const draftCartItems = order.orderItems.map((item, index) => ({
+      const draftCartItems = (order.orderItems || []).map((item, index) => ({
         id: `draft-${order.id}-${index}`,
         name: item.customName || `Item ${index + 1}`,
         price: item.unitPrice,
@@ -498,10 +599,19 @@ export default function POSPage() {
           firstName: order.customer.firstName,
           lastName: order.customer.lastName
         });
+      } else {
+        setSelectedCustomer(null);
       }
 
       // Load items into cart
       setCartItems(draftCartItems);
+      setAppliedDiscounts([]);
+      setGiftCardDiscount(0);
+      setCouponDiscount({ amount: 0 });
+      setAutoDiscounts([]);
+      setCartSessionId(generateUUID());
+
+      checkAutomaticDiscounts(draftCartItems);
       
       // Close modal
       setShowDraftModal(false);
@@ -509,11 +619,37 @@ export default function POSPage() {
       console.log(`✅ Loaded draft order #${order.orderNumber} with ${draftCartItems.length} items`);
     } catch (error) {
       console.error('Error loading draft:', error);
-      alert('Failed to load draft. Please try again.');
+      showDraftToast('Failed to load draft. Please try again.', 'error');
     }
   };
 
+  const handleLoadLocalDraft = (draft: LocalDraft) => {
+    setCartItems(draft.items || []);
+    setSelectedCustomer(draft.customer || null);
+    setAppliedDiscounts(draft.discounts || []);
+    setGiftCardDiscount(draft.giftCardDiscount || 0);
+    setCouponDiscount(draft.couponDiscount || { amount: 0 });
+    setAutoDiscounts([]);
+    setCartSessionId(draft.id);
+    deleteLocalDraft(draft.id);
+    checkAutomaticDiscounts(draft.items || []);
+    setShowDraftModal(false);
+    refreshLocalDrafts();
+  };
+
+  const handleDeleteLocalDraft = (draftId: string) => {
+    deleteLocalDraft(draftId);
+    refreshLocalDrafts();
+  };
+
+  useEffect(() => {
+    if (showDraftModal) {
+      refreshLocalDrafts();
+    }
+  }, [showDraftModal, refreshLocalDrafts]);
+
   // Calculate total with discounts and tax
+  const itemCount = cartItems.reduce((sum, item) => sum + (item.quantity ?? 1), 0);
   const subtotal = cartItems.reduce((sum, item) => {
     const itemPrice = item.customPrice ?? item.price;
     return sum + itemPrice * item.quantity;
@@ -542,6 +678,51 @@ export default function POSPage() {
   const taxTotal = Math.round(discountedTaxableSubtotal * (combinedTaxRate / 100));
   const calculatedTotal = discountedSubtotal + taxTotal;
 
+  useEffect(() => {
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+
+    autoSaveTimeoutRef.current = setTimeout(() => {
+      if (cartItems.length > 0) {
+        saveLocalDraft({
+          id: cartSessionId,
+          items: cartItems,
+          customer: selectedCustomer,
+          discounts: appliedDiscounts,
+          giftCardDiscount,
+          couponDiscount,
+          savedAt: new Date().toISOString(),
+          itemCount,
+          totalCents: calculatedTotal,
+        });
+      } else {
+        deleteLocalDraft(cartSessionId);
+      }
+
+      if (showDraftModal) {
+        refreshLocalDrafts();
+      }
+    }, 1000);
+
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
+  }, [
+    cartItems,
+    selectedCustomer,
+    appliedDiscounts,
+    giftCardDiscount,
+    couponDiscount,
+    cartSessionId,
+    itemCount,
+    calculatedTotal,
+    showDraftModal,
+    refreshLocalDrafts,
+  ]);
+
   console.log('📊 Current cart state:', cartItems);
   console.log('💰 Pricing breakdown:', {
     subtotal: subtotal.toFixed(2),
@@ -553,6 +734,15 @@ export default function POSPage() {
 
   return (
     <POSLayout>
+      {draftToast && (
+        <div
+          className={`fixed right-6 top-6 z-[120] rounded-xl px-4 py-3 text-sm font-medium text-white shadow-lg ${
+            draftToast.type === 'success' ? 'bg-green-600' : 'bg-red-600'
+          }`}
+        >
+          {draftToast.message}
+        </div>
+      )}
       <div className="flex h-full bg-gray-50 dark:bg-gray-900">
         <div className="w-[62.5%]">
           {showPaymentController ? (
@@ -624,95 +814,252 @@ export default function POSPage() {
       />
 
       {/* Draft Modal */}
-      {showDraftModal && (
-        <DraftModal
-          onClose={() => setShowDraftModal(false)}
-          onLoadDraft={handleLoadDraft}
-        />
-      )}
+      <DraftModal
+        isOpen={showDraftModal}
+        onClose={() => setShowDraftModal(false)}
+        localDrafts={localDrafts}
+        onLoadLocalDraft={handleLoadLocalDraft}
+        onDeleteLocalDraft={handleDeleteLocalDraft}
+        onLoadDraft={handleLoadDraft}
+        onNotify={showDraftToast}
+      />
     </POSLayout>
   );
 }
 
-// Draft Modal Component
-function DraftModal({ onClose, onLoadDraft }) {
-  const [drafts, setDrafts] = useState([]);
-  const [loading, setLoading] = useState(true);
+type DraftModalProps = {
+  isOpen: boolean;
+  onClose: () => void;
+  localDrafts: LocalDraft[];
+  onLoadLocalDraft: (draft: LocalDraft) => void;
+  onDeleteLocalDraft: (draftId: string) => void;
+  onLoadDraft: (order: any) => void;
+  onNotify?: (message: string, type?: 'success' | 'error') => void;
+};
 
-  React.useEffect(() => {
+function DraftModal({
+  isOpen,
+  onClose,
+  localDrafts,
+  onLoadLocalDraft,
+  onDeleteLocalDraft,
+  onLoadDraft,
+  onNotify,
+}: DraftModalProps) {
+  const apiClient = useApiClient();
+  const [drafts, setDrafts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let isMounted = true;
+    setLoading(true);
+    setError(null);
+
     const fetchDrafts = async () => {
       try {
-        const response = await fetch('/api/orders?status=DRAFT&limit=20');
-        if (response.ok) {
-          const data = await response.json();
-          setDrafts(data.orders || []);
+        const response = await apiClient.get('/api/orders/list?status=DRAFT&limit=20');
+        if (!isMounted) return;
+
+        if (response.status >= 200 && response.status < 300) {
+          setDrafts(response.data?.data || response.data?.orders || []);
+        } else {
+          setError('Failed to load saved drafts.');
+          setDrafts([]);
         }
       } catch (error) {
+        if (!isMounted) return;
         console.error('Error fetching drafts:', error);
+        setError('Failed to load saved drafts.');
+        setDrafts([]);
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     fetchDrafts();
-  }, []);
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    return () => {
+      isMounted = false;
+    };
+  }, [apiClient, isOpen]);
+
+  const sortedLocalDrafts = [...localDrafts].sort((a, b) => {
+    const timeA = new Date(a.savedAt).getTime();
+    const timeB = new Date(b.savedAt).getTime();
+    const safeA = Number.isFinite(timeA) ? timeA : 0;
+    const safeB = Number.isFinite(timeB) ? timeB : 0;
+    return safeB - safeA;
+  });
+
+  const getDraftItemCount = (draft: LocalDraft) => {
+    if (Number.isFinite(draft.itemCount)) return draft.itemCount;
+    if (Array.isArray(draft.items)) {
+      return draft.items.reduce((sum, item) => sum + (item.quantity ?? 1), 0);
+    }
+    return 0;
+  };
+
+  const getDraftTotal = (draft: LocalDraft) => {
+    if (Number.isFinite(draft.totalCents)) return draft.totalCents;
+    if (Array.isArray(draft.items)) {
+      return draft.items.reduce((sum, item) => {
+        const price = item.customPrice ?? item.price ?? 0;
+        return sum + price * (item.quantity ?? 1);
+      }, 0);
+    }
+    return 0;
+  };
+
+  const handleDeleteDbDraft = async (draftId: string) => {
+    try {
+      setDeletingId(draftId);
+      const response = await apiClient.delete(`/api/orders/${draftId}/draft`);
+      if (response.status < 200 || response.status >= 300) {
+        throw new Error(response.data?.error || 'Failed to delete draft');
+      }
+      setDrafts((prev) => prev.filter((draft) => draft.id !== draftId));
+      onNotify?.('Draft deleted');
+    } catch (error) {
+      console.error('Error deleting draft:', error);
+      setError('Failed to delete draft.');
+      onNotify?.('Failed to delete draft.', 'error');
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100]">
-      <div className="bg-white dark:bg-boxdark rounded-lg shadow-xl max-w-md w-full mx-4 max-h-96">
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Load Draft Order</h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        
-        <div className="p-4 max-h-64 overflow-y-auto">
-          {loading ? (
-            <div className="text-center py-4 text-gray-500">Loading drafts...</div>
-          ) : drafts.length === 0 ? (
-            <div className="text-center py-4 text-gray-500">No draft orders found</div>
-          ) : (
-            <div className="space-y-2">
-              {drafts.map((draft) => (
-                <button
-                  key={draft.id}
-                  onClick={() => onLoadDraft(draft)}
-                  className="w-full text-left p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
+    <Modal isOpen={isOpen} onClose={onClose} className="max-w-xl w-full">
+      <div className="p-6">
+        <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Load Draft</h3>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          Auto-saved carts stay on this device. Saved drafts are stored in the database.
+        </p>
+
+        <div className="mt-6 max-h-[60vh] space-y-6 overflow-y-auto pr-1">
+          <div>
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+              Local Drafts (auto-saved)
+            </div>
+            {sortedLocalDrafts.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-gray-200 px-4 py-3 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                No local drafts found.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {sortedLocalDrafts.map((draft) => (
+                  <div
+                    key={draft.id}
+                    className="flex items-stretch gap-2 rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
+                  >
+                    <button
+                      onClick={() => onLoadLocalDraft(draft)}
+                      className="flex-1 p-3 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-750"
+                    >
                       <div className="font-medium text-gray-900 dark:text-white">
-                        Order #{draft.orderNumber}
+                        {getDraftItemCount(draft)} items • {formatCurrency(getDraftTotal(draft))}
                       </div>
                       <div className="text-sm text-gray-500 dark:text-gray-400">
-                        {draft.customer ? `${draft.customer.firstName} ${draft.customer.lastName}` : 'No customer'}
+                        {getCustomerLabel(draft.customer)} • {formatRelativeTime(draft.savedAt)}
                       </div>
-                    </div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
-                      {formatDate(draft.createdAt)}
-                    </div>
+                    </button>
+                    <button
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onDeleteLocalDraft(draft.id);
+                      }}
+                      className="mr-2 mt-2 h-9 w-9 rounded-lg border border-gray-200 text-gray-400 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-500 dark:border-gray-700 dark:hover:border-red-500/30 dark:hover:bg-red-500/10"
+                      aria-label="Delete local draft"
+                    >
+                      <svg className="mx-auto h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m1 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"
+                        />
+                      </svg>
+                    </button>
                   </div>
-                </button>
-              ))}
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+              Saved Drafts (database)
             </div>
-          )}
+            {loading ? (
+              <div className="rounded-xl border border-dashed border-gray-200 px-4 py-3 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                Loading drafts...
+              </div>
+            ) : error ? (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
+                {error}
+              </div>
+            ) : drafts.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-gray-200 px-4 py-3 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                No saved drafts found.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {drafts.map((draft) => (
+                  <div
+                    key={draft.id}
+                    className="flex items-stretch gap-2 rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
+                  >
+                    <button
+                      onClick={() => onLoadDraft(draft)}
+                      className="flex-1 p-3 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-750"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="font-medium text-gray-900 dark:text-white">
+                            Draft #{draft.orderNumber ?? draft.id}
+                          </div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">
+                            {draft.customer
+                              ? `${draft.customer.firstName} ${draft.customer.lastName}`
+                              : 'No customer'}
+                          </div>
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {draft.createdAt ? formatDraftDate(draft.createdAt) : ''}
+                        </div>
+                      </div>
+                    </button>
+                    <button
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleDeleteDbDraft(draft.id);
+                      }}
+                      disabled={deletingId === draft.id}
+                      className="mr-2 mt-2 h-9 w-9 rounded-lg border border-gray-200 text-gray-400 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:hover:border-red-500/30 dark:hover:bg-red-500/10"
+                      aria-label="Delete saved draft"
+                    >
+                      <svg className="mx-auto h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m1 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

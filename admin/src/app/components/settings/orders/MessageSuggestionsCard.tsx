@@ -100,7 +100,18 @@ export default function MessageSuggestionsCard() {
   return (
     <div className="p-0">
       <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-        <div className="flex justify-between items-center px-6 py-5">
+        <div
+          className="flex justify-between items-center px-6 py-5 cursor-pointer"
+          role="button"
+          tabIndex={0}
+          onClick={() => setIsCardBodyVisible(!isCardBodyVisible)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              setIsCardBodyVisible(!isCardBodyVisible);
+            }
+          }}
+        >
           <div>
             <h3 className="text-base font-medium text-gray-800 dark:text-white/90">
               Message Suggestions
@@ -109,9 +120,8 @@ export default function MessageSuggestionsCard() {
               Manage predefined messages for orders
             </p>
           </div>
-          <span 
-            onClick={() => setIsCardBodyVisible(!isCardBodyVisible)}
-            className="text-sm hover:underline font-medium cursor-pointer text-gray-600 dark:text-gray-300"
+          <span
+            className="text-sm hover:underline font-medium text-gray-600 dark:text-gray-300"
           >
             {isCardBodyVisible ? "Hide" : "Show"}
           </span>

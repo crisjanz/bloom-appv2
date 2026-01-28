@@ -34,11 +34,25 @@ model WebUser {
 
 ### Extend: `Discount`
 ```prisma
-// Add nullable field
-customerId   String?
-customer     Customer? @relation(fields: [customerId], references: [id])
+// Add nullable fields
+customerId        String?
+customer          Customer? @relation(fields: [customerId], references: [id])
+periodLimit       Int?              // Max uses per period (e.g., 4)
+periodType        PeriodType?       // WEEKLY | MONTHLY | YEARLY
 ```
-When `customerId` is set, discount only applies to that customer.
+- When `customerId` is set, discount only applies to that customer.
+- When `periodLimit` + `periodType` are set, usage is capped per time window.
+  - Example: `periodLimit: 4, periodType: MONTHLY` → 4 free bud vases/month.
+  - Checked against `DiscountUsage.usedAt` within the current period.
+  - Resets automatically each period (no cron needed — just query the window).
+
+```prisma
+enum PeriodType {
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+```
 
 ### Extend: `Customer`
 ```prisma

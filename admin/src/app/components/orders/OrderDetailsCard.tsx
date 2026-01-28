@@ -1,5 +1,5 @@
 // src/components/orders/OrderDetailsCard.tsx
-import { FC, useState, useEffect } from "react";
+import { FC, useEffect } from "react";
 import Select from "@shared/ui/forms/Select";
 
 type Employee = {
@@ -21,7 +21,9 @@ type Props = {
   employeeList: Employee[];
   orderSource?: OrderSourceType;
   setOrderSource?: (val: OrderSourceType) => void;
-  onSaveDraft?: (draftData: any) => void;
+  onSaveDraft?: () => void;
+  onLoadDrafts?: () => void;
+  isSavingDraft?: boolean;
   formData?: any;
 };
 
@@ -32,83 +34,12 @@ const OrderDetailsCard: FC<Props> = ({
   orderSource = "phone",
   setOrderSource,
   onSaveDraft,
+  onLoadDrafts,
+  isSavingDraft = false,
   formData,
 }) => {
-  const [isSavingDraft, setIsSavingDraft] = useState(false);
-  const [savedDrafts, setSavedDrafts] = useState<any[]>([]);
-  const [showDraftsList, setShowDraftsList] = useState(false);
-
-  // Load drafts from localStorage on mount
-  useEffect(() => {
-    const drafts = localStorage.getItem("orderDrafts");
-    if (drafts) {
-      setSavedDrafts(JSON.parse(drafts));
-    }
-  }, []);
-
   const handleSaveDraft = () => {
-    const draftName = prompt("Enter a name for this draft:");
-    if (!draftName) return;
-
-    setIsSavingDraft(true);
-
-    const draft = {
-      id: `draft-${Date.now()}`,
-      name: draftName,
-      date: new Date().toISOString(),
-      employee: employee,
-      orderSource: orderSource,
-      data: formData || {},
-    };
-
-    const existingDrafts = JSON.parse(
-      localStorage.getItem("orderDrafts") || "[]",
-    );
-    const updatedDrafts = [...existingDrafts, draft];
-    localStorage.setItem("orderDrafts", JSON.stringify(updatedDrafts));
-    setSavedDrafts(updatedDrafts);
-
-    if (onSaveDraft) {
-      onSaveDraft(draft);
-    }
-
-    setIsSavingDraft(false);
-    alert("Draft saved successfully!");
-  };
-
-  const normalizeOrderSource = (source?: string): OrderSourceType | undefined => {
-    if (!source) return undefined;
-    if (source === "wirein" || source === "wireout") return "external";
-    return source as OrderSourceType;
-  };
-
-  const handleLoadDraft = (draftId: string) => {
-    const draft = savedDrafts.find((d) => d.id === draftId);
-    if (!draft) return;
-
-    if (draft.employee) {
-      setEmployee(draft.employee);
-    }
-
-    if (draft.orderSource && setOrderSource) {
-      const normalizedSource = normalizeOrderSource(draft.orderSource);
-      if (normalizedSource) {
-        setOrderSource(normalizedSource);
-      }
-    }
-
-    if (onSaveDraft && draft.data) {
-      onSaveDraft(draft.data);
-    }
-
-    setShowDraftsList(false);
-    alert(`Draft "${draft.name}" loaded!`);
-  };
-
-  const handleDeleteDraft = (draftId: string) => {
-    const updatedDrafts = savedDrafts.filter((d) => d.id !== draftId);
-    localStorage.setItem("orderDrafts", JSON.stringify(updatedDrafts));
-    setSavedDrafts(updatedDrafts);
+    onSaveDraft?.();
   };
 
   useEffect(() => {
@@ -178,7 +109,7 @@ const OrderDetailsCard: FC<Props> = ({
           </button>
 
           <button
-            onClick={() => setShowDraftsList(!showDraftsList)}
+            onClick={onLoadDrafts}
             className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 transition-all"
           >
             <svg
@@ -194,40 +125,10 @@ const OrderDetailsCard: FC<Props> = ({
                 d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
               />
             </svg>
-            Load ({savedDrafts.length})
+            Load Drafts
           </button>
         </div>
       </div>
-
-      {/* Drafts List - Compact */}
-      {showDraftsList && savedDrafts.length > 0 && (
-        <div className="mt-3 rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
-          <div className="space-y-1.5">
-            {savedDrafts.map((draft) => (
-              <div
-                key={draft.id}
-                className="flex items-center justify-between p-2 bg-white dark:bg-gray-700 rounded text-sm"
-              >
-                <span className="font-medium">{draft.name}</span>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleLoadDraft(draft.id)}
-                    className="text-brand-500 hover:underline"
-                  >
-                    Load
-                  </button>
-                  <button
-                    onClick={() => handleDeleteDraft(draft.id)}
-                    className="text-red-500 hover:underline"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 };

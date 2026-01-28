@@ -306,4 +306,42 @@ router.put('/:id/update', async (req, res) => {
   }
 });
 
+// Delete draft order (hard delete)
+router.delete('/:id/draft', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const existing = await prisma.order.findUnique({
+      where: { id },
+      select: { id: true, status: true }
+    });
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    if (existing.status !== OrderStatus.DRAFT) {
+      return res.status(400).json({ error: 'Only draft orders can be deleted' });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.orderItem.deleteMany({ where: { orderId: id } });
+      await tx.orderCommunication.deleteMany({ where: { orderId: id } });
+      await tx.orderPayment.deleteMany({ where: { orderId: id } });
+      await tx.orderRefund.deleteMany({ where: { orderId: id } });
+      await tx.routeStop.deleteMany({ where: { orderId: id } });
+      await tx.printJob.deleteMany({ where: { orderId: id } });
+      await tx.order.delete({ where: { id } });
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting draft order:', error);
+    res.status(500).json({
+      error: 'Failed to delete draft order',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 export default router;
