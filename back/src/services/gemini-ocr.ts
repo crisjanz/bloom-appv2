@@ -387,7 +387,7 @@ IMPORTANT PARSING RULES:
 6. PRODUCTS: Extract each line item with name, option (if shown like "Deluxe"), and Product ID if present
 
 REQUIRED FIELDS:
-- Order Number (from subject or header, e.g., "000004775")
+- Order Number (from subject or header). If no order number is visible, use "" (empty string)
 - Order Date (when placed)
 - Sender: name, address, city, province, postalCode, country, phone
 - Recipient: name, address, city, province, postalCode, country, phone
@@ -406,7 +406,7 @@ OPTIONAL FIELDS:
 
 Return ONLY valid JSON in this exact format (no markdown, no explanation):
 {
-  "orderNumber": "000004775",
+  "orderNumber": "WEB-99999",
   "orderSource": "FLORANEXT",
   "orderDate": "2026-01-26",
   "sender": {
