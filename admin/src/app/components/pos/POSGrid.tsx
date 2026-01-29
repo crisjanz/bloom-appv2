@@ -245,7 +245,7 @@ export default function POSGrid({ onAddProduct, onShowCustomModal, onDeliveryOrd
             </div>
 
             {/* Text area - Fixed centered */}
-            <div className="bg-white dark:bg-boxdark h-16 flex flex-col justify-center items-center px-2">
+            <div className="bg-white dark:bg-boxdark h-14 flex flex-col justify-center items-center px-2">
               <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 group-hover:text-brand-500 transition-colors text-center leading-tight mb-1">
                 Add Custom
               </div>

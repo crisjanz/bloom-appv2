@@ -43,6 +43,8 @@ Status markers: ✅ done · 🛠️ in progress · 🔜 planned · ⚠️ attent
 - ✅ Admin UI: Pricing tiers now capture featured image per variant via dropdown + preview.
 - ✅ Customer Website: Product gallery reorders images so the selected variant's photo shows first.
 
+- ✅ **POS auto-save drafts (2026-01-28)** — Auto-save POS and TakeOrder carts to localStorage on changes (debounced). Unified draft modal showing both local auto-saved drafts and DB-saved drafts with visual distinction. Local drafts auto-purge after 10 days. DB drafts save without name prompt (auto-numbered). Includes POS tab filtering fix, default starting tab setting, custom item modal with reporting categories, and profile page wired to auth context. (`admin/src/shared/utils/posLocalDrafts.ts`, `admin/src/shared/utils/takeOrderLocalDrafts.ts`, `admin/src/app/pages/pos/POSPage.tsx`, `admin/src/app/pages/orders/TakeOrderPage.tsx`, `admin/src/app/components/orders/TakeOrderDraftModal.tsx`, `admin/src/app/components/pos/POSCartSummary.tsx`, `admin/src/app/components/settings/pos/POSTabsCard.tsx`).
+
 ## 🛠️ In Progress / Needs QA
 - 🛠️ **Split payments settlement** — UI is wired; needs backend distribution of PT lines and change logging (`admin/src/app/components/pos/payment/SplitPaymentView.tsx`, `back/src/routes/payment-transactions.ts`).
 - 🛠️ **Notification domain wiring** — `/api/notifications/*` endpoints still rely on placeholder repositories (`admin/src/domains/notifications/services/NotificationService.ts`).

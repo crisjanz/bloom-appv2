@@ -75,7 +75,7 @@ export default function ProductButton({ product, onClick }: Props) {
       </div>
 
       {/* Product Info - Fixed height and centered */}
-      <div className="bg-white dark:bg-boxdark h-16 flex flex-col justify-center items-center px-2">
+      <div className="bg-white dark:bg-boxdark h-12 flex flex-col justify-top items-center px-2">
         <div className="text-xs font-semibold text-black dark:text-white group-hover:text-brand-500 transition-colors text-center leading-tight mb-1 line-clamp-2">
           {displayName}
         </div>
