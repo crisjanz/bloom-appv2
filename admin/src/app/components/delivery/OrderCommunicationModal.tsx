@@ -268,7 +268,9 @@ export default function OrderCommunicationModal({
   useCommunicationsSocket(handleSocketEvent, isOpen);
 
   const customerPhone = order?.customer?.phone;
-  const recipientPhone = order?.deliveryAddress?.phone || order?.recipientCustomer?.phone;
+  const addressPhone = order?.deliveryAddress?.phone;
+  const recipientCustomerPhone = order?.recipientCustomer?.phone;
+  const recipientPhone = addressPhone || recipientCustomerPhone;
   const phoneOptions = useMemo(() => {
     const options: Array<{ label: string; value: string }> = [];
 
@@ -279,10 +281,17 @@ export default function OrderCommunicationModal({
       });
     }
 
-    if (recipientPhone) {
+    if (addressPhone) {
       options.push({
-        label: `Recipient • ${formatPhoneDisplay(recipientPhone)}`,
-        value: recipientPhone
+        label: `Recipient (Address) • ${formatPhoneDisplay(addressPhone)}`,
+        value: addressPhone
+      });
+    }
+
+    if (recipientCustomerPhone && recipientCustomerPhone !== addressPhone) {
+      options.push({
+        label: `Recipient • ${formatPhoneDisplay(recipientCustomerPhone)}`,
+        value: recipientCustomerPhone
       });
     }
 
