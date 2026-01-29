@@ -216,7 +216,7 @@ export default function POSGrid({ onAddProduct, onShowCustomModal, onDeliveryOrd
       </div>
 
       {/* Product Grid - Fixed button sizes with dynamic spacing */}
-      <div className="flex-1 px-6 overflow-y-auto pos-scrollbar">
+      <div className="flex-1 px-6 pt-2 overflow-y-auto pos-scrollbar">
         <div 
           className="grid pb-6"
           style={{
