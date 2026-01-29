@@ -268,7 +268,7 @@ export default function OrderCommunicationModal({
   useCommunicationsSocket(handleSocketEvent, isOpen);
 
   const customerPhone = order?.customer?.phone;
-  const recipientPhone = order?.deliveryAddress?.phone;
+  const recipientPhone = order?.deliveryAddress?.phone || order?.recipientCustomer?.phone;
   const phoneOptions = useMemo(() => {
     const options: Array<{ label: string; value: string }> = [];
 
