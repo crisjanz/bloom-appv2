@@ -64,25 +64,57 @@ router.post('/webhook', express.urlencoded({ extended: false }), async (req, res
     }
 
     const phoneCandidates = buildPhoneCandidates(normalizedPhone);
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    // Find ALL matching orders (for logging), then pick most recent
+    // Strategy 1: Find orders where we recently sent an SMS to this phone (most reliable)
+    const recentOutboundMatch = await prisma.orderCommunication.findFirst({
+      where: {
+        type: CommunicationType.SMS_SENT,
+        recipient: { in: phoneCandidates },
+        createdAt: { gte: thirtyDaysAgo }
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { orderId: true, order: { select: { id: true, orderNumber: true } } }
+    });
+
+    // Strategy 2: Match by phone on order/customer/address (within 30 days)
     const matchingOrders = await prisma.order.findMany({
       where: {
-        createdAt: { gte: sevenDaysAgo },
         OR: [
-          { deliveryAddress: { phone: { in: phoneCandidates } } },
-          { customer: { phone: { in: phoneCandidates } } },
-          { additionalPhones: { hasSome: phoneCandidates } }
-        ]
+          { createdAt: { gte: thirtyDaysAgo } },
+          { deliveryDate: { gte: thirtyDaysAgo } }
+        ],
+        AND: {
+          OR: [
+            { deliveryAddress: { phone: { in: phoneCandidates } } },
+            { customer: { phone: { in: phoneCandidates } } },
+            { recipientCustomer: { phone: { in: phoneCandidates } } },
+            { additionalPhones: { hasSome: phoneCandidates } }
+          ]
+        }
       },
       orderBy: { createdAt: 'desc' },
       select: { id: true, orderNumber: true }
     });
 
+    // Prefer outbound SMS match, then fall back to phone match
+    if (recentOutboundMatch?.order) {
+      const alreadyInList = matchingOrders.some(o => o.id === recentOutboundMatch.order.id);
+      if (!alreadyInList) {
+        matchingOrders.unshift(recentOutboundMatch.order);
+      } else {
+        // Move it to front
+        const idx = matchingOrders.findIndex(o => o.id === recentOutboundMatch.order.id);
+        if (idx > 0) {
+          const [item] = matchingOrders.splice(idx, 1);
+          matchingOrders.unshift(item);
+        }
+      }
+    }
+
     if (matchingOrders.length === 0) {
-      console.warn('No matching order found for incoming SMS', normalizedPhone);
+      console.warn('No matching order found for incoming SMS', normalizedPhone, 'candidates:', phoneCandidates, 'outbound match:', recentOutboundMatch?.order?.orderNumber ?? 'none');
       return res.type('text/xml').send('<Response/>');
     }
 

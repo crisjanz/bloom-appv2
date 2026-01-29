@@ -351,7 +351,7 @@ export default function OrderCommunicationModal({
               <div>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Recipient</p>
                 <p className="font-medium text-gray-900 dark:text-white">
-                  {order?.deliveryAddress?.firstName} {order?.deliveryAddress?.lastName}
+                  {order?.deliveryAddress?.firstName || order?.recipientCustomer?.firstName} {order?.deliveryAddress?.lastName || order?.recipientCustomer?.lastName}
                 </p>
                 {recipientPhone && (
                   <p className="text-sm text-gray-600 dark:text-gray-400">
