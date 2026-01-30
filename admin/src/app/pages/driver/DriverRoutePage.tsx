@@ -194,13 +194,11 @@ export default function DriverRoutePage() {
         route: { ...data.route, stops: updatedStops }
       });
 
+      // Use the same proven endpoint as admin RouteBuilder
       try {
         const { status, data: responseData } = await apiClient.put(
-          `/api/driver/route/resequence?token=${encodeURIComponent(token)}`,
-          {
-            routeId,
-            stopIds: updatedStops.map((stop) => stop.id)
-          }
+          `/api/routes/${routeId}/resequence`,
+          { stopIds: updatedStops.map((stop) => stop.id) }
         );
 
         if (status >= 400) {
@@ -211,7 +209,7 @@ export default function DriverRoutePage() {
         loadRoute();
       }
     },
-    [apiClient, data, token, loadRoute]
+    [apiClient, data, loadRoute]
   );
 
   const mapItems = useMemo(() => {
