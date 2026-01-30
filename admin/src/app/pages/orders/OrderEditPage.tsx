@@ -687,7 +687,8 @@ const OrderEditPage: React.FC = () => {
   return (
     <div className="p-6">
       <PageBreadcrumb />
-      
+
+      <div className="max-w-4xl mx-auto">
       <OrderHeader
         order={order}
         onStatusChange={handleStatusChange}
@@ -704,6 +705,7 @@ const OrderEditPage: React.FC = () => {
           onEdit={openModal} 
         />
       </ComponentCard>
+      </div>
 
       {/* Main Edit Modal */}
       <Modal
