@@ -2,6 +2,7 @@ import express from 'express';
 import type Stripe from 'stripe';
 import { PaymentProvider, PrismaClient } from '@prisma/client';
 import paymentProviderFactory from '../services/paymentProviders/PaymentProviderFactory';
+import { getSettingsRecord } from '../services/paymentSettingsService';
 import providerCustomerService from '../services/providerCustomerService';
 
 const router = express.Router();
@@ -138,6 +139,24 @@ async function resolveStripePaymentMethodId(
 
   return paymentMethods.data[0]?.id;
 }
+
+/**
+ * Get Stripe publishable key (public, no auth required)
+ * GET /api/stripe/public-key
+ */
+router.get('/public-key', async (_req, res) => {
+  try {
+    const settings = await getSettingsRecord();
+    const publicKey = settings?.stripePublicKey;
+    if (!publicKey) {
+      return res.status(404).json({ error: 'Stripe publishable key not configured' });
+    }
+    res.json({ publicKey });
+  } catch (error) {
+    console.error('Failed to fetch Stripe public key:', error);
+    res.status(500).json({ error: 'Failed to fetch Stripe public key' });
+  }
+});
 
 /**
  * Create a payment intent

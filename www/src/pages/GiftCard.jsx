@@ -13,8 +13,16 @@ import {
   purchaseDigitalGiftCard,
 } from "../services/giftCardService.js";
 
-const STRIPE_PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || "";
-const stripePromise = STRIPE_PUBLISHABLE_KEY ? loadStripe(STRIPE_PUBLISHABLE_KEY) : null;
+const API_URL = import.meta.env.VITE_API_URL || "";
+
+async function fetchStripePublicKey() {
+  const res = await fetch(`${API_URL}/api/stripe/public-key`);
+  if (!res.ok) return null;
+  const { publicKey } = await res.json();
+  return publicKey ? loadStripe(publicKey) : null;
+}
+
+const stripePromise = fetchStripePublicKey();
 
 const MIN_AMOUNT = 25;
 const MAX_AMOUNT = 300;
@@ -559,19 +567,6 @@ SuccessModal.propTypes = {
 };
 
 const GiftCard = () => {
-  if (!stripePromise) {
-    return (
-      <>
-        <Breadcrumb pageName="Digital Gift Cards" />
-        <section className="bg-slate-50 py-16">
-          <div className="container mx-auto max-w-2xl text-center text-red-600">
-            Stripe publishable key is not configured. Add VITE_STRIPE_PUBLISHABLE_KEY to your environment.
-          </div>
-        </section>
-      </>
-    );
-  }
-
   return (
     <Elements stripe={stripePromise} options={{ appearance: { theme: "stripe" } }}>
       <GiftCardContent />
