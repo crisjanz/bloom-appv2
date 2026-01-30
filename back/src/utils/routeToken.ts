@@ -52,7 +52,11 @@ export function verifyRouteToken(token: string): { orderId: string } {
 }
 
 export function buildRouteViewUrl(token: string): string {
-  const baseUrl = (process.env.PUBLIC_URL || 'https://hellobloom.ca').replace(/\/$/, '');
+  const baseUrl = (
+    process.env.ADMIN_PUBLIC_URL ||
+    process.env.PUBLIC_URL ||
+    'https://admin.hellobloom.ca'
+  ).replace(/\/$/, '');
 
   return `${baseUrl}/driver/route?token=${encodeURIComponent(token)}`;
 }

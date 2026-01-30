@@ -17,14 +17,12 @@ import GiftCardBalance from "../pages/GiftCardBalance.jsx";
 import GiftCardEmailPreview from "../pages/GiftCardEmailPreview.jsx";
 import FAQ from "../pages/FAQ.jsx";
 import Terms from "../pages/Terms.jsx";
-import DriverRoute from "../pages/DriverRoute.jsx";
 
 
 const Root = () => {
   return (
     <>
       <Routes>
-        <Route path="/driver/route" element={<DriverRoute />} />
         <Route path="/" element={<DefaultLayout />}>
           <Route index element={<Home />} />
           <Route path="/checkout" element={<Checkout />} />

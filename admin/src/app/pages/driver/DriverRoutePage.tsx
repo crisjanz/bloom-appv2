@@ -2,20 +2,80 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api';
 import SignaturePad from 'react-signature-canvas';
+import { useApiClient } from '@shared/hooks/useApiClient';
+import { CheckCircleIcon } from '@shared/assets/icons';
+import { Modal } from '@shared/ui/components/ui/modal';
+import InputField from '@shared/ui/forms/input/InputField';
+import TextArea from '@shared/ui/forms/input/TextArea';
+
+type Address = {
+  address1?: string;
+  city?: string;
+  province?: string;
+  postalCode?: string;
+  country?: string;
+  latitude?: number;
+  longitude?: number;
+};
+
+type Recipient = {
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+};
+
+type RouteStop = {
+  id: string;
+  sequence: number;
+  status: string;
+  order?: {
+    orderNumber?: string;
+    recipient?: Recipient;
+    address?: Address;
+  };
+};
+
+type RouteViewResponse = {
+  type: 'route';
+  order: {
+    id: string;
+    orderNumber: string;
+    deliveryTime?: string;
+    recipient: Recipient;
+    address: Address;
+  };
+  route: {
+    id: string;
+    name?: string | null;
+    status?: string;
+    driver?: {
+      name: string;
+      phone?: string;
+    } | null;
+    stops: RouteStop[];
+  };
+};
+
+type StandaloneViewResponse = {
+  type: 'standalone';
+  order: {
+    id: string;
+    orderNumber: string;
+    deliveryTime?: string;
+    deliveryDate?: string;
+    recipient: Recipient;
+    address: Address;
+  };
+};
+
+type DriverRouteResponse = RouteViewResponse | StandaloneViewResponse;
+
+type StopCoordinate = { lat: number; lng: number };
 
 const mapContainerStyle = { width: '100%', height: '220px' };
-const defaultCenter = { lat: 53.9171, lng: -122.7497 }; // Prince George, BC
+const defaultCenter = { lat: 53.9171, lng: -122.7497 };
 
-function normalizeApiBaseUrl(baseUrl) {
-  if (!baseUrl) return '';
-  const trimmed = baseUrl.replace(/\/$/, '');
-  return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
-}
-
-const DEFAULT_API_BASE = import.meta.env.DEV ? '/api' : 'https://api.hellobloom.ca/api';
-const API_BASE = normalizeApiBaseUrl(import.meta.env.VITE_API_URL || DEFAULT_API_BASE);
-
-function formatGeocodeAddress(address) {
+function formatGeocodeAddress(address?: Address) {
   if (!address) return '';
 
   const parts = [address.address1, address.city, address.province, address.postalCode].filter(Boolean);
@@ -25,19 +85,20 @@ function formatGeocodeAddress(address) {
   return base.toLowerCase().includes('canada') ? base : `${base}, Canada`;
 }
 
-export default function DriverRoute() {
+export default function DriverRoutePage() {
+  const apiClient = useApiClient();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token') || '';
 
-  const [data, setData] = useState(null);
+  const [data, setData] = useState<DriverRouteResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [selectedStop, setSelectedStop] = useState(null);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedStop, setSelectedStop] = useState<RouteStop | null>(null);
   const [driverNotes, setDriverNotes] = useState('');
   const [recipientName, setRecipientName] = useState('');
-  const sigPadRef = useRef(null);
-  const mapRef = useRef(null);
-  const [stopCoordinates, setStopCoordinates] = useState({});
+  const sigPadRef = useRef<SignaturePad | null>(null);
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const [stopCoordinates, setStopCoordinates] = useState<Record<string, StopCoordinate>>({});
 
   const { isLoaded: mapsLoaded } = useJsApiLoader({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''
@@ -53,41 +114,44 @@ export default function DriverRoute() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/driver/route?token=${encodeURIComponent(token)}`);
-      const body = await res.json();
-      if (!res.ok) {
-        throw new Error(body?.error || 'Failed to load route');
+      const { data: responseData, status } = await apiClient.get(
+        `/api/driver/route?token=${encodeURIComponent(token)}`
+      );
+
+      if (status >= 400) {
+        throw new Error(responseData?.error || 'Failed to load route');
       }
-      setData(body);
+
+      setData(responseData as DriverRouteResponse);
     } catch (err) {
       console.error(err);
-      setError(err?.message || 'Failed to load route');
+      setError(err instanceof Error ? err.message : 'Failed to load route');
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [apiClient, token]);
 
   useEffect(() => {
     loadRoute();
   }, [loadRoute]);
 
   const handleMarkDelivered = useCallback(
-    async (stopId) => {
+    async (stopId: string) => {
       const signatureDataUrl = sigPadRef.current?.toDataURL('image/png');
       try {
-        const res = await fetch(`${API_BASE}/driver/route/stop/${stopId}/deliver`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+        const { data: responseData, status } = await apiClient.post(
+          `/api/driver/route/stop/${stopId}/deliver`,
+          {
             driverNotes: driverNotes || undefined,
             signatureDataUrl: signatureDataUrl || undefined,
             recipientName: recipientName || undefined
-          })
-        });
-        if (!res.ok) {
-          const body = await res.json();
-          throw new Error(body?.error || 'Failed to mark delivered');
+          }
+        );
+
+        if (status >= 400) {
+          throw new Error(responseData?.error || 'Failed to mark delivered');
         }
+
         setSelectedStop(null);
         setDriverNotes('');
         setRecipientName('');
@@ -95,49 +159,58 @@ export default function DriverRoute() {
         await loadRoute();
       } catch (err) {
         console.error(err);
-        alert(err?.message || 'Failed to mark delivered');
+        alert(err instanceof Error ? err.message : 'Failed to mark delivered');
       }
     },
-    [driverNotes, recipientName, loadRoute]
+    [apiClient, driverNotes, recipientName, loadRoute]
   );
 
-  const stops = useMemo(() => {
+  const stops = useMemo<RouteStop[]>(() => {
     if (data?.type === 'route') {
       return [...(data.route.stops || [])].sort((a, b) => a.sequence - b.sequence);
     }
     return [];
   }, [data]);
 
-  const moveStop = useCallback(async (index, direction) => {
-    const newIndex = index + direction;
-    if (newIndex < 0 || newIndex >= stops.length) return;
+  const moveStop = useCallback(
+    async (index: number, direction: number) => {
+      if (!data || data.type !== 'route') return;
 
-    const newStops = [...stops];
-    const [moved] = newStops.splice(index, 1);
-    newStops.splice(newIndex, 0, moved);
+      const newIndex = index + direction;
+      if (newIndex < 0 || newIndex >= stops.length) return;
 
-    // Update sequences locally
-    const updatedStops = newStops.map((s, i) => ({ ...s, sequence: i + 1 }));
-    setData(prev => ({
-      ...prev,
-      route: { ...prev.route, stops: updatedStops }
-    }));
+      const newStops = [...stops];
+      const [moved] = newStops.splice(index, 1);
+      newStops.splice(newIndex, 0, moved);
 
-    // Save to backend
-    try {
-      await fetch(`${API_BASE}/driver/route/resequence?token=${encodeURIComponent(token)}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          routeId: data.route.id,
-          stopIds: updatedStops.map(s => s.id)
-        })
+      const updatedStops = newStops.map((stop, i) => ({ ...stop, sequence: i + 1 }));
+      setData((prev) => {
+        if (!prev || prev.type !== 'route') return prev;
+        return {
+          ...prev,
+          route: { ...prev.route, stops: updatedStops }
+        };
       });
-    } catch (err) {
-      console.error('Failed to save stop order:', err);
-      loadRoute(); // Revert on failure
-    }
-  }, [stops, data, token, loadRoute]);
+
+      try {
+        const { status, data: responseData } = await apiClient.put(
+          `/api/driver/route/resequence?token=${encodeURIComponent(token)}`,
+          {
+            routeId: data.route.id,
+            stopIds: updatedStops.map((stop) => stop.id)
+          }
+        );
+
+        if (status >= 400) {
+          throw new Error(responseData?.error || 'Failed to save stop order');
+        }
+      } catch (err) {
+        console.error('Failed to save stop order:', err);
+        loadRoute();
+      }
+    },
+    [apiClient, data, stops, token, loadRoute]
+  );
 
   const mapItems = useMemo(() => {
     if (!data) return [];
@@ -180,7 +253,7 @@ export default function DriverRoute() {
 
         return null;
       })
-      .filter(Boolean);
+      .filter(Boolean) as Array<{ id: string; label: string; position: StopCoordinate }>;
   }, [mapItems, stopCoordinates]);
 
   const currentCenter = useMemo(() => {
@@ -193,14 +266,14 @@ export default function DriverRoute() {
   useEffect(() => {
     if (!mapsLoaded || mapItems.length === 0) return;
 
-    const google = window.google;
-    if (!google?.maps?.Geocoder) return;
+    const googleRef = window.google;
+    if (!googleRef?.maps?.Geocoder) return;
 
     let cancelled = false;
-    const geocoder = new google.maps.Geocoder();
+    const geocoder = new googleRef.maps.Geocoder();
 
-    const geocodeOne = (address) => {
-      return new Promise((resolve, reject) => {
+    const geocodeOne = (address: string) =>
+      new Promise<google.maps.GeocoderResult>((resolve, reject) => {
         geocoder.geocode(
           {
             address,
@@ -216,17 +289,15 @@ export default function DriverRoute() {
           }
         );
       });
-    };
 
     const run = async () => {
-      const updates = {};
+      const updates: Record<string, StopCoordinate> = {};
 
       for (const item of mapItems) {
         if (cancelled) return;
         if (stopCoordinates[item.id]) continue;
 
-        const address = item.address;
-        const addressStr = formatGeocodeAddress(address);
+        const addressStr = formatGeocodeAddress(item.address);
         if (!addressStr) continue;
 
         try {
@@ -256,10 +327,11 @@ export default function DriverRoute() {
 
   useEffect(() => {
     if (!mapsLoaded || !mapRef.current || markers.length === 0) return;
-    const google = window.google;
-    if (!google?.maps?.LatLngBounds) return;
 
-    const bounds = new google.maps.LatLngBounds();
+    const googleRef = window.google;
+    if (!googleRef?.maps?.LatLngBounds) return;
+
+    const bounds = new googleRef.maps.LatLngBounds();
     markers.forEach((marker) => bounds.extend(marker.position));
 
     mapRef.current.fitBounds(bounds, 48);
@@ -269,7 +341,7 @@ export default function DriverRoute() {
     }
   }, [mapsLoaded, markers]);
 
-  const openGoogleMaps = (address) => {
+  const openGoogleMaps = (address?: Address) => {
     if (!address) return;
     const query = encodeURIComponent(
       `${address.address1 || ''}, ${address.city || ''}${address.province ? ', ' + address.province : ''}`
@@ -280,7 +352,7 @@ export default function DriverRoute() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-700">Loading route…</div>
+        <div className="text-gray-700">Loading route...</div>
       </div>
     );
   }
@@ -337,50 +409,58 @@ export default function DriverRoute() {
                 ))}
               </GoogleMap>
             ) : (
-              <div className="flex h-full items-center justify-center text-sm text-gray-500">Loading map…</div>
+              <div className="flex h-full items-center justify-center text-sm text-gray-500">Loading map...</div>
             )}
           </div>
 
           <div className="p-4 space-y-3">
-            {/* Google Maps Navigation Button */}
             {data.type === 'route' && stops.length > 0 && (
               <button
                 onClick={() => {
-                  const pendingStops = stops.filter(s => s.status !== 'DELIVERED');
+                  const pendingStops = stops.filter((stop) => stop.status !== 'DELIVERED');
                   if (pendingStops.length === 0) return;
                   const destination = pendingStops[pendingStops.length - 1];
                   const waypoints = pendingStops.slice(0, -1);
                   const destAddr = destination.order?.address;
                   const destQuery = destAddr ? `${destAddr.address1}, ${destAddr.city}, ${destAddr.province}` : '';
                   const waypointQuery = waypoints
-                    .map(s => {
-                      const a = s.order?.address;
-                      return a ? `${a.address1}, ${a.city}, ${a.province}` : '';
+                    .map((stop) => {
+                      const address = stop.order?.address;
+                      return address ? `${address.address1}, ${address.city}, ${address.province}` : '';
                     })
                     .filter(Boolean)
                     .join('|');
-                  const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destQuery)}${waypointQuery ? `&waypoints=${encodeURIComponent(waypointQuery)}` : ''}`;
+                  const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destQuery)}${
+                    waypointQuery ? `&waypoints=${encodeURIComponent(waypointQuery)}` : ''
+                  }`;
                   window.open(url, '_blank');
                 }}
                 className="w-full rounded-lg bg-blue-600 py-3 text-white font-semibold flex items-center justify-center gap-2"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                  />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
                 Navigate Route in Google Maps
               </button>
             )}
 
             {data.type === 'route' ? (
               stops.map((stop, index) => (
-                <div key={stop.id} className={`rounded-lg border shadow-sm transition ${
+                <div
+                  key={stop.id}
+                  className={`rounded-lg border shadow-sm transition ${
                     stop.status === 'DELIVERED'
                       ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
                       : 'border-gray-200 bg-white'
                   }`}
                 >
-                  <button
-                    onClick={() => setSelectedStop(stop)}
-                    className="w-full p-3 text-left"
-                  >
+                  <button onClick={() => setSelectedStop(stop)} className="w-full p-3 text-left">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div
@@ -388,7 +468,11 @@ export default function DriverRoute() {
                             stop.status === 'DELIVERED' ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-700'
                           }`}
                         >
-                          {stop.status === 'DELIVERED' ? '✓' : stop.sequence}
+                          {stop.status === 'DELIVERED' ? (
+                            <CheckCircleIcon className="h-4 w-4" />
+                          ) : (
+                            stop.sequence
+                          )}
                         </div>
                         <div>
                           <div className="font-semibold">Order #{stop.order?.orderNumber}</div>
@@ -448,21 +532,24 @@ export default function DriverRoute() {
         </div>
       </div>
 
-      {selectedStop && (
-        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/50 px-4">
-          <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-lg">
+      <Modal
+        isOpen={Boolean(selectedStop)}
+        onClose={() => setSelectedStop(null)}
+        className="max-w-md mx-4"
+      >
+        {selectedStop && (
+          <div className="p-5">
             <h2 className="text-lg font-semibold mb-3">Order #{selectedStop.order?.orderNumber}</h2>
             <div className="text-sm text-gray-700 mb-3">
               {selectedStop.order?.recipient?.firstName} {selectedStop.order?.recipient?.lastName}
             </div>
             <div className="text-xs text-gray-500 mb-4">
-              {selectedStop.order?.address?.address1}, {selectedStop.order?.address?.city},{' '}
-              {selectedStop.order?.address?.province}
+              {selectedStop.order?.address?.address1}, {selectedStop.order?.address?.city}, {selectedStop.order?.address?.province}
             </div>
 
             {selectedStop.status !== 'DELIVERED' && (
               <>
-                <div className="mb-3">
+                <div className="mb-4">
                   <p className="text-sm font-medium mb-2">Signature</p>
                   <div className="overflow-hidden rounded border">
                     <SignaturePad
@@ -480,21 +567,21 @@ export default function DriverRoute() {
                 </div>
 
                 <div className="mb-3">
-                  <label className="text-sm font-medium text-gray-700">Recipient Name (optional)</label>
-                  <input
-                    value={recipientName}
-                    onChange={(e) => setRecipientName(e.target.value)}
-                    className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                  <InputField
+                    id="recipientName"
+                    label="Recipient Name (optional)"
+                    value={recipientName || ''}
+                    onChange={(event) => setRecipientName(event.target.value)}
                     placeholder="Recipient name"
                   />
                 </div>
 
                 <div className="mb-3">
-                  <label className="text-sm font-medium text-gray-700">Notes (optional)</label>
-                  <textarea
-                    value={driverNotes}
-                    onChange={(e) => setDriverNotes(e.target.value)}
-                    className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                  <TextArea
+                    id="driverNotes"
+                    label="Notes (optional)"
+                    value={driverNotes || ''}
+                    onChange={(value) => setDriverNotes(value)}
                     rows={3}
                     placeholder="Add delivery notes"
                   />
@@ -522,8 +609,8 @@ export default function DriverRoute() {
               Close
             </button>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   );
 }

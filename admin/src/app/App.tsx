@@ -68,6 +68,7 @@ import MobileFulfillmentPage from "./pages/mobile/MobileFulfillmentPage";
 import MobileDeliveryPage from "./pages/mobile/MobileDeliveryPage";
 import MobileRedirect from "./components/MobileRedirect";
 import ExternalOrdersPage from "./pages/orders/ExternalOrdersPage";
+import DriverRoutePage from "./pages/driver/DriverRoutePage";
 
 export default function App() {
   return (
@@ -92,6 +93,7 @@ export default function App() {
 
           {/* Fulfillment - OUTSIDE AppLayout for fullscreen iPad view */}
           <Route path="/fulfillment/:id" element={<FulfillmentPage />} />
+          <Route path="/driver/route" element={<DriverRoutePage />} />
 
           {/* Main dashboard layout */}
           <Route path="/" element={<ProtectedRoute requiredRoles={[EmployeeType.ADMIN]}><MobileRedirect><AppLayout /></MobileRedirect></ProtectedRoute>}>
