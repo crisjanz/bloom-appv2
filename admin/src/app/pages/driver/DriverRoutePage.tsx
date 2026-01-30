@@ -173,30 +173,38 @@ export default function DriverRoutePage() {
   }, [data]);
 
   const moveStop = useCallback(
-    async (index: number, direction: number) => {
-      if (!data || data.type !== 'route') return;
+    async (stopId: string, direction: number) => {
+      let updatedStops: RouteStop[] = [];
+      let routeId = '';
 
-      const newIndex = index + direction;
-      if (newIndex < 0 || newIndex >= stops.length) return;
-
-      const newStops = [...stops];
-      const [moved] = newStops.splice(index, 1);
-      newStops.splice(newIndex, 0, moved);
-
-      const updatedStops = newStops.map((stop, i) => ({ ...stop, sequence: i + 1 }));
       setData((prev) => {
         if (!prev || prev.type !== 'route') return prev;
+
+        const sorted = [...prev.route.stops].sort((a, b) => a.sequence - b.sequence);
+        const index = sorted.findIndex((s) => s.id === stopId);
+        const newIndex = index + direction;
+        if (index < 0 || newIndex < 0 || newIndex >= sorted.length) return prev;
+
+        const reordered = [...sorted];
+        const [moved] = reordered.splice(index, 1);
+        reordered.splice(newIndex, 0, moved);
+
+        updatedStops = reordered.map((stop, i) => ({ ...stop, sequence: i + 1 }));
+        routeId = prev.route.id;
+
         return {
           ...prev,
           route: { ...prev.route, stops: updatedStops }
         };
       });
 
+      if (updatedStops.length === 0 || !routeId) return;
+
       try {
         const { status, data: responseData } = await apiClient.put(
           `/api/driver/route/resequence?token=${encodeURIComponent(token)}`,
           {
-            routeId: data.route.id,
+            routeId,
             stopIds: updatedStops.map((stop) => stop.id)
           }
         );
@@ -209,7 +217,7 @@ export default function DriverRoutePage() {
         loadRoute();
       }
     },
-    [apiClient, data, stops, token, loadRoute]
+    [apiClient, token, loadRoute]
   );
 
   const mapItems = useMemo(() => {
@@ -490,14 +498,14 @@ export default function DriverRoutePage() {
                   {stop.status !== 'DELIVERED' && stops.length > 1 && (
                     <div className="flex border-t border-gray-100 divide-x divide-gray-100">
                       <button
-                        onClick={() => moveStop(index, -1)}
+                        onClick={() => moveStop(stop.id, -1)}
                         disabled={index === 0}
                         className="flex-1 py-2 text-xs font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
                       >
                         Move Up
                       </button>
                       <button
-                        onClick={() => moveStop(index, 1)}
+                        onClick={() => moveStop(stop.id, 1)}
                         disabled={index === stops.length - 1}
                         className="flex-1 py-2 text-xs font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
                       >
