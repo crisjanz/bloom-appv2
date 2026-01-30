@@ -233,18 +233,28 @@ router.get('/by-product/:productId', async (req, res) => {
   const { productId } = req.params;
 
   try {
+    // Get explicitly assigned groups
     const assignments = await prisma.productAddOnGroup.findMany({
       where: { productId },
       select: { groupId: true },
     });
 
-    if (assignments.length === 0) {
+    const assignedGroupIds = assignments.map((a) => a.groupId);
+
+    // Get default groups (available to all products)
+    const defaultGroups = await prisma.addOnGroup.findMany({
+      where: { isDefault: true },
+      select: { id: true },
+    });
+
+    const defaultGroupIds = defaultGroups.map((g) => g.id);
+
+    // Merge and deduplicate
+    const groupIds = Array.from(new Set([...assignedGroupIds, ...defaultGroupIds]));
+
+    if (groupIds.length === 0) {
       return res.json([]);
     }
-
-    const groupIds = Array.from(
-      new Set(assignments.map((assignment) => assignment.groupId))
-    );
 
     const groups = await Promise.all(
       groupIds.map((groupId) => loadGroupPayload(groupId, true))
