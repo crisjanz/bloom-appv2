@@ -174,31 +174,25 @@ export default function DriverRoutePage() {
 
   const moveStop = useCallback(
     async (stopId: string, direction: number) => {
-      let updatedStops: RouteStop[] = [];
-      let routeId = '';
+      if (!data || data.type !== 'route') return;
 
-      setData((prev) => {
-        if (!prev || prev.type !== 'route') return prev;
+      const sorted = [...data.route.stops].sort((a, b) => a.sequence - b.sequence);
+      const index = sorted.findIndex((s) => s.id === stopId);
+      const newIndex = index + direction;
+      if (index < 0 || newIndex < 0 || newIndex >= sorted.length) return;
 
-        const sorted = [...prev.route.stops].sort((a, b) => a.sequence - b.sequence);
-        const index = sorted.findIndex((s) => s.id === stopId);
-        const newIndex = index + direction;
-        if (index < 0 || newIndex < 0 || newIndex >= sorted.length) return prev;
+      const reordered = [...sorted];
+      const [moved] = reordered.splice(index, 1);
+      reordered.splice(newIndex, 0, moved);
 
-        const reordered = [...sorted];
-        const [moved] = reordered.splice(index, 1);
-        reordered.splice(newIndex, 0, moved);
+      const updatedStops = reordered.map((stop, i) => ({ ...stop, sequence: i + 1 }));
+      const routeId = data.route.id;
 
-        updatedStops = reordered.map((stop, i) => ({ ...stop, sequence: i + 1 }));
-        routeId = prev.route.id;
-
-        return {
-          ...prev,
-          route: { ...prev.route, stops: updatedStops }
-        };
+      // Optimistic UI update
+      setData({
+        ...data,
+        route: { ...data.route, stops: updatedStops }
       });
-
-      if (updatedStops.length === 0 || !routeId) return;
 
       try {
         const { status, data: responseData } = await apiClient.put(
@@ -217,7 +211,7 @@ export default function DriverRoutePage() {
         loadRoute();
       }
     },
-    [apiClient, token, loadRoute]
+    [apiClient, data, token, loadRoute]
   );
 
   const mapItems = useMemo(() => {
