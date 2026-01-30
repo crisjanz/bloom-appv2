@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useCart } from "../../contexts/CartContext";
 import DeliveryDatePicker from "../DeliveryDatePicker";
 import AddOns from "./AddOns";
+import { isProductOutOfStock, isVariantOutOfStock } from "../../utils/stockUtils";
 
 const buildCartItemKey = (productId, variantId) => (
   `${productId}-${variantId || "base"}`
@@ -336,38 +337,36 @@ const DetailsBox = ({ product, onVariantChange = null }) => {
       </h2>
 
       {/* 2. Availability */}
-      <div className="mb-4 flex items-center">
-        <div className="flex items-center">
-          <span className="pr-2">
-            <svg
-              width={20}
-              height={20}
-              viewBox="0 0 20 20"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <g clipPath="url(#clip0_1031_24115)">
-                <path
-                  d="M10 0.5625C4.78125 0.5625 0.5625 4.78125 0.5625 10C0.5625 15.2188 4.78125 19.4688 10 19.4688C15.2188 19.4688 19.4688 15.2188 19.4688 10C19.4688 4.78125 15.2188 0.5625 10 0.5625ZM10 18.0625C5.5625 18.0625 1.96875 14.4375 1.96875 10C1.96875 5.5625 5.5625 1.96875 10 1.96875C14.4375 1.96875 18.0625 5.59375 18.0625 10.0312C18.0625 14.4375 14.4375 18.0625 10 18.0625Z"
-                  fill="#22AD5C"
-                />
-                <path
-                  d="M12.6874 7.09368L8.96868 10.7187L7.28118 9.06243C6.99993 8.78118 6.56243 8.81243 6.28118 9.06243C5.99993 9.34368 6.03118 9.78118 6.28118 10.0624L8.28118 11.9999C8.46868 12.1874 8.71868 12.2812 8.96868 12.2812C9.21868 12.2812 9.46868 12.1874 9.65618 11.9999L13.6874 8.12493C13.9687 7.84368 13.9687 7.40618 13.6874 7.12493C13.4062 6.84368 12.9687 6.84368 12.6874 7.09368Z"
-                  fill="#22AD5C"
-                />
-              </g>
-              <defs>
-                <clipPath id="clip0_1031_24115">
-                  <rect width={20} height={20} fill="white" />
-                </clipPath>
-              </defs>
-            </svg>
-          </span>
-          <span className="text-base font-medium text-dark dark:text-white">
-            {product.isActive ? 'Available' : 'Out of Stock'}
-          </span>
-        </div>
-      </div>
+      {(() => {
+        const outOfStock = isProductOutOfStock(product);
+        const variantOOS = selectedVariant ? isVariantOutOfStock(selectedVariant) : outOfStock;
+        const soldOut = outOfStock || variantOOS;
+        return (
+          <div className="mb-4 flex items-center">
+            <div className="flex items-center">
+              <span className="pr-2">
+                {soldOut ? (
+                  <svg width={20} height={20} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="10" cy="10" r="9" stroke="#EF4444" strokeWidth="2" fill="none" />
+                    <path d="M6.5 6.5L13.5 13.5M13.5 6.5L6.5 13.5" stroke="#EF4444" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+                ) : (
+                  <svg width={20} height={20} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <g clipPath="url(#clip0_1031_24115)">
+                      <path d="M10 0.5625C4.78125 0.5625 0.5625 4.78125 0.5625 10C0.5625 15.2188 4.78125 19.4688 10 19.4688C15.2188 19.4688 19.4688 15.2188 19.4688 10C19.4688 4.78125 15.2188 0.5625 10 0.5625ZM10 18.0625C5.5625 18.0625 1.96875 14.4375 1.96875 10C1.96875 5.5625 5.5625 1.96875 10 1.96875C14.4375 1.96875 18.0625 5.59375 18.0625 10.0312C18.0625 14.4375 14.4375 18.0625 10 18.0625Z" fill="#22AD5C" />
+                      <path d="M12.6874 7.09368L8.96868 10.7187L7.28118 9.06243C6.99993 8.78118 6.56243 8.81243 6.28118 9.06243C5.99993 9.34368 6.03118 9.78118 6.28118 10.0624L8.28118 11.9999C8.46868 12.1874 8.71868 12.2812 8.96868 12.2812C9.21868 12.2812 9.46868 12.1874 9.65618 11.9999L13.6874 8.12493C13.9687 7.84368 13.9687 7.40618 13.6874 7.12493C13.4062 6.84368 12.9687 6.84368 12.6874 7.09368Z" fill="#22AD5C" />
+                    </g>
+                    <defs><clipPath id="clip0_1031_24115"><rect width={20} height={20} fill="white" /></clipPath></defs>
+                  </svg>
+                )}
+              </span>
+              <span className={`text-base font-medium ${soldOut ? 'text-red-500' : 'text-dark dark:text-white'}`}>
+                {soldOut ? 'Sold Out' : 'Available'}
+              </span>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* 3. Price */}
       <div className="mb-4">
@@ -577,13 +576,18 @@ const DetailsBox = ({ product, onVariantChange = null }) => {
           </span>
         </div>
 
-        <button
-          onClick={handleAddToCart}
-          disabled={!product.isActive}
-          className="flex flex-1 md:flex-auto items-center justify-center rounded-md bg-primary px-10 py-[13px] text-center text-base font-medium text-white hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Add to Cart
-        </button>
+        {(() => {
+          const soldOut = isProductOutOfStock(product) || (selectedVariant ? isVariantOutOfStock(selectedVariant) : false);
+          return (
+            <button
+              onClick={handleAddToCart}
+              disabled={!product.isActive || soldOut}
+              className="flex flex-1 md:flex-auto items-center justify-center rounded-md bg-primary px-10 py-[13px] text-center text-base font-medium text-white hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {soldOut ? 'Sold Out' : 'Add to Cart'}
+            </button>
+          );
+        })()}
       </div>
 
       {/* Mobile Upsell Bottom Sheet */}

@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { getProducts } from "../../services/productService";
 import { useCart } from "../../contexts/CartContext";
 import placeholderImage from "../../assets/ecom-images/products/product-carousel-02/image-01.jpg";
+import { isProductOutOfStock } from "../../utils/stockUtils";
 
 const ProductGrid = ({
   selectedCategory = null,
@@ -131,11 +132,15 @@ const ProductGrid = ({
                 alt={product.name}
                 className="w-full aspect-square object-cover rounded"
               />
-              {product.showOnHomepage && (
+              {isProductOutOfStock(product) ? (
+                <span className="absolute top-1 left-1 px-2 py-0.5 text-xs font-semibold text-white rounded bg-red-500">
+                  Sold Out
+                </span>
+              ) : product.showOnHomepage ? (
                 <span className="absolute top-1 left-1 px-2 py-0.5 text-xs font-semibold text-white rounded bg-secondary">
                   Featured
                 </span>
-              )}
+              ) : null}
             </div>
             <h3 className="text-sm font-medium text-dark dark:text-white mb-1 line-clamp-2">
               {product.name}
@@ -157,9 +162,13 @@ const ProductGrid = ({
                   <img
                     src={product.images?.[0] || placeholderImage}
                     alt={product.name}
-                    className="w-full aspect-square object-cover"
+                    className={`w-full aspect-square object-cover${isProductOutOfStock(product) ? ' opacity-60' : ''}`}
                   />
-
+                  {isProductOutOfStock(product) && (
+                    <span className="absolute top-2 left-2 px-2.5 py-1 text-xs font-semibold text-white rounded bg-red-500">
+                      Sold Out
+                    </span>
+                  )}
                 </div>
               </Link>
               <div className="px-5 pt-3 pb-8 text-center">
