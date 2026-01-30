@@ -62,6 +62,9 @@ export interface Order extends DomainEntity {
   internalNotes?: string
   occasion?: string
 
+  // Media
+  images?: string[]
+
   // Customer information snapshot (for historical records)
   customerSnapshot: CustomerSnapshot
   

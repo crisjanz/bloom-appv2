@@ -1,11 +1,12 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { formatCurrency } from '../../utils/currency';
 
 const prisma = new PrismaClient();
 
 interface ActivateRequest {
   cardNumber: string;
-  amount: number;
+  amount: number; // Amount in cents
   purchasedBy?: string;
   employeeId?: string;
   orderId?: string;
@@ -20,14 +21,15 @@ export const activateCard = async (req: Request, res: Response) => {
       employeeId, 
       orderId 
     }: ActivateRequest = req.body;
+    const amountCents = Number.isFinite(Number(amount)) ? Math.round(Number(amount)) : NaN;
 
-    if (!cardNumber || !amount) {
+    if (!cardNumber || !Number.isFinite(amountCents)) {
       return res.status(400).json({
         error: 'Card number and amount are required'
       });
     }
 
-    if (amount < 10 || amount > 1000) {
+    if (amountCents < 1000 || amountCents > 100000) {
       return res.status(400).json({
         error: 'Amount must be between $10 and $1000'
       });
@@ -57,8 +59,8 @@ export const activateCard = async (req: Request, res: Response) => {
         where: { cardNumber: cardNumber.toUpperCase() },
         data: {
           status: 'ACTIVE',
-          initialValue: amount,
-          currentBalance: amount,
+          initialValue: amountCents,
+          currentBalance: amountCents,
           purchasedBy
         }
       });
@@ -68,9 +70,9 @@ export const activateCard = async (req: Request, res: Response) => {
         data: {
           giftCardId: updatedCard.id,
           type: 'ACTIVATION',
-          amount: amount,
-          balanceAfter: amount,
-          notes: `Card activated with $${amount}`,
+          amount: amountCents,
+          balanceAfter: amountCents,
+          notes: `Card activated with ${formatCurrency(amountCents)}`,
           employeeId,
           orderId
         }
@@ -81,7 +83,7 @@ export const activateCard = async (req: Request, res: Response) => {
 
     return res.json({
       success: true,
-      message: `Gift card activated with $${amount.toFixed(2)}`,
+      message: `Gift card activated with ${formatCurrency(amountCents)}`,
       card: {
         cardNumber: result.updatedCard.cardNumber,
         balance: result.updatedCard.currentBalance,

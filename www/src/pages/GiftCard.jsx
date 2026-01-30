@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import PropTypes from "prop-types";
 import { Elements, CardElement } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
@@ -299,6 +300,12 @@ const GiftCardContent = () => {
             <p className="mt-3 text-base text-slate-600">
               Choose an amount, add a heartfelt note, and we&apos;ll email a beautifully designed digital gift card
               instantly.
+            </p>
+            <p className="mt-2 text-sm text-slate-500">
+              Already have a gift card?{" "}
+              <Link to="/gift-cards/balance" className="font-semibold text-emerald-600 hover:text-emerald-700">
+                Check your balance
+              </Link>
             </p>
           </div>
 

@@ -113,7 +113,7 @@ const mapDomainOrderToFrontend = (domainOrder: DomainOrder): Order => {
       rowTotal: item.totalPrice?.amount ?? (item.unitPrice.amount * item.quantity),
     })),
     orderSource: domainOrder.orderSource,
-    images: [], // TODO: Map domain images
+    images: domainOrder.images || [],
     taxBreakdown: domainOrder.taxBreakdown.map(tax => ({
       name: tax.taxType,
       amount: tax.taxAmount?.amount || 0,

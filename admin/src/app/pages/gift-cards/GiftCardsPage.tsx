@@ -1,12 +1,16 @@
-import { useEffect, useState } from "react";
-import { fetchGiftCards } from "@shared/legacy-services/giftCardService";
+import { useCallback, useEffect, useState } from "react";
 import { useBusinessTimezone } from "@shared/hooks/useBusinessTimezone";
+import { useApiClient } from "@shared/hooks/useApiClient";
 import StandardTable, { ColumnDef } from "@shared/ui/components/ui/table/StandardTable";
 import ComponentCard from "@shared/ui/common/ComponentCard";
 import PageBreadcrumb from "@shared/ui/common/PageBreadCrumb";
 import InputField from "@shared/ui/forms/input/InputField";
 import Select from "@shared/ui/forms/Select";
 import { getGiftCardStatusColor } from "@shared/utils/statusColors";
+import { formatCurrency } from "@shared/utils/currency";
+import FormError from "@shared/ui/components/ui/form/FormError";
+import CreateBatchModal from "@app/components/gift-cards/CreateBatchModal";
+import GiftCardDetailModal from "@app/components/gift-cards/GiftCardDetailModal";
 
 // Inline SVG icons
 const EyeIcon = ({ className = '' }: { className?: string }) => (
@@ -33,6 +37,7 @@ type GiftCard = {
 
 export default function GiftCardsPage() {
   const { formatDate: formatBusinessDate, loading: timezoneLoading } = useBusinessTimezone();
+  const apiClient = useApiClient();
   const [giftCards, setGiftCards] = useState<GiftCard[]>([]);
   const [filteredCards, setFilteredCards] = useState<GiftCard[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -40,15 +45,18 @@ export default function GiftCardsPage() {
   const [typeFilter, setTypeFilter] = useState("ALL");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showCreateBatchModal, setShowCreateBatchModal] = useState(false);
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [batchNotice, setBatchNotice] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadGiftCards();
-  }, []);
-
-  const loadGiftCards = async () => {
+  const loadGiftCards = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await fetchGiftCards();
+      const { data, status } = await apiClient.get("/api/gift-cards");
+      if (status >= 400) {
+        throw new Error(data?.error || "Failed to load gift cards");
+      }
       setGiftCards(data.cards || []);
       setFilteredCards(data.cards || []);
     } catch (err) {
@@ -57,7 +65,11 @@ export default function GiftCardsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiClient]);
+
+  useEffect(() => {
+    loadGiftCards();
+  }, [loadGiftCards]);
 
   useEffect(() => {
     let filtered = giftCards.filter((card) => {
@@ -75,37 +87,14 @@ export default function GiftCardsPage() {
     setFilteredCards(filtered);
   }, [searchTerm, statusFilter, typeFilter, giftCards]);
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
-
   const formatDate = (dateString: string) => {
     if (timezoneLoading) return dateString;
     return formatBusinessDate(new Date(dateString));
   };
 
   const handleViewDetails = (card: GiftCard) => {
-    alert(`Gift Card Details:\n\nCard: ${card.cardNumber}\nStatus: ${card.status}\nBalance: ${formatCurrency(card.currentBalance)}\nType: ${card.type}\n\n(Full details modal coming soon)`);
-  };
-
-  const handleTransactionHistory = (card: GiftCard) => {
-    alert(`Transaction History for ${card.cardNumber}:\n\n(Transaction history feature coming soon)`);
-  };
-
-  const handleDeactivateCard = async (card: GiftCard) => {
-    if (confirm(`Are you sure you want to deactivate gift card ${card.cardNumber}?`)) {
-      try {
-        // TODO: Implement deactivation API call
-        alert(`Gift card ${card.cardNumber} would be deactivated (API integration needed)`);
-        // After successful deactivation, reload the list
-        // loadGiftCards();
-      } catch (error) {
-        alert('Failed to deactivate gift card');
-      }
-    }
+    setSelectedCardId(card.id);
+    setShowDetailModal(true);
   };
 
   // Define table columns
@@ -234,15 +223,22 @@ export default function GiftCardsPage() {
           </p>
         </div>
         <button
-          onClick={loadGiftCards}
+          onClick={() => setShowCreateBatchModal(true)}
           className="inline-flex items-center px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-lg transition-colors"
         >
           + Create Batch
         </button>
       </div>
 
+      {batchNotice && (
+        <div className="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          {batchNotice}
+        </div>
+      )}
+
       {/* Card with Filters + Table */}
       <ComponentCard>
+        {error && <FormError error={error} />}
         {/* Filters */}
         <div className="space-y-4 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -292,6 +288,25 @@ export default function GiftCardsPage() {
           }}
         />
       </ComponentCard>
+
+      <CreateBatchModal
+        open={showCreateBatchModal}
+        onClose={() => setShowCreateBatchModal(false)}
+        onSuccess={(count) => {
+          setBatchNotice(`Created ${count} gift card${count === 1 ? "" : "s"}.`);
+          loadGiftCards();
+        }}
+      />
+
+      <GiftCardDetailModal
+        open={showDetailModal}
+        cardId={selectedCardId}
+        onClose={() => {
+          setShowDetailModal(false);
+          setSelectedCardId(null);
+        }}
+        onCardUpdated={loadGiftCards}
+      />
     </div>
   );
 }

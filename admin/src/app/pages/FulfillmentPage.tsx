@@ -62,7 +62,7 @@ const FulfillmentPage: React.FC = () => {
   const [fulfillmentSaving, setFulfillmentSaving] = useState(false);
   const [fulfillmentError, setFulfillmentError] = useState<string | null>(null);
   const [fulfillmentSuccess, setFulfillmentSuccess] = useState<string | null>(null);
-  const [fulfillmentNotesByImage, setFulfillmentNotesByImage] = useState<Record<string, string>>({});
+  const [fulfillmentNotes, setFulfillmentNotes] = useState<string[]>([]);
 
   useEffect(() => {
     if (!fulfillmentImageFile) {
@@ -102,9 +102,9 @@ const FulfillmentPage: React.FC = () => {
       setOrder(data.order);
       setSelectedStatus(data.order.status);
 
-      const notesMap = await loadFulfillmentNotes(data.order.id);
-      // Determine product image source (exclude fulfillment photos)
-      await determineProductImage(data.order, notesMap);
+      await loadFulfillmentNotes(data.order.id);
+      // Determine product image source
+      await determineProductImage(data.order);
 
     } catch (error) {
       console.error('Error loading order:', error);
@@ -124,48 +124,47 @@ const FulfillmentPage: React.FC = () => {
       });
 
       if (!response.ok) {
-        return;
+        setFulfillmentNotes([]);
+        return [];
       }
 
       const data = await response.json();
-      const notesMap: Record<string, string> = {};
+      const notes: string[] = [];
       const communications = Array.isArray(data?.communications) ? data.communications : [];
 
       communications.forEach((comm: any) => {
         if (typeof comm?.message !== 'string') return;
-        const noteMatch = comm.message.match(/^Fulfillment photo note \| url:(.*?) \| note:(.*)$/i);
-        const markerMatch = comm.message.match(/^Fulfillment photo \| url:(.*)$/i);
+        const message = comm.message.trim();
+        const noteMatch = message.match(/^Fulfillment photo note \| url:.*? \| note:(.*)$/i);
+        const noteOnlyMatch = message.match(/^Fulfillment note:\s*(.*)$/i);
+
         if (noteMatch) {
-          const url = noteMatch[1].trim();
-          const note = noteMatch[2].trim();
-          if (url && notesMap[url] === undefined) {
-            notesMap[url] = note;
-          }
+          const note = noteMatch[1]?.trim();
+          if (note) notes.push(note);
           return;
         }
-        if (markerMatch) {
-          const url = markerMatch[1].trim();
-          if (url && notesMap[url] === undefined) {
-            notesMap[url] = '';
-          }
+
+        if (noteOnlyMatch) {
+          const note = noteOnlyMatch[1]?.trim();
+          if (note) notes.push(note);
         }
       });
 
-      setFulfillmentNotesByImage(notesMap);
-      return notesMap;
+      setFulfillmentNotes(notes);
+      return notes;
     } catch (error) {
       console.error('Error loading fulfillment notes:', error);
-      return {};
+      setFulfillmentNotes([]);
+      return [];
     }
   };
 
-  const determineProductImage = async (order: Order, fulfillmentNotes?: Record<string, string>) => {
-    const fulfillmentUrls = new Set(Object.keys(fulfillmentNotes || fulfillmentNotesByImage));
-    const filteredOrderImages = (order.images || []).filter((url) => !fulfillmentUrls.has(url));
+  const determineProductImage = async (order: Order) => {
+    const orderImages = order.images || [];
 
     // First priority: Order-specific images (fetched/uploaded for this order)
-    if (filteredOrderImages.length > 0) {
-      setProductImage(filteredOrderImages[0]);
+    if (orderImages.length > 0) {
+      setProductImage(orderImages[0]);
       return;
     }
 
@@ -223,7 +222,7 @@ const FulfillmentPage: React.FC = () => {
       }
     }
 
-    // Third priority: Wire-in product - check WireProductLibrary
+    // Fourth priority: Wire-in product - check WireProductLibrary
     const firstItem = order.orderItems[0];
     const searchText = firstItem.description || firstItem.customName || '';
     if (searchText) {
@@ -520,11 +519,6 @@ const FulfillmentPage: React.FC = () => {
       }
 
       setOrder({ ...order, images: updatedImages });
-      setFulfillmentNotesByImage((prev) => {
-        const next = { ...prev };
-        delete next[imageUrl];
-        return next;
-      });
     } catch (error) {
       console.error('Error removing image from order:', error);
       setFulfillmentError('Failed to remove image.');
@@ -568,44 +562,32 @@ const FulfillmentPage: React.FC = () => {
 
         const uploadData = await uploadResponse.json();
         uploadedImageUrls = Array.isArray(uploadData?.imageUrls) ? uploadData.imageUrls : [];
-        // Fulfillment photos are tracked via communications only,
-        // NOT added to order.images (which is for product/design images)
+        if (uploadedImageUrls.length > 0) {
+          await saveImagesToOrder(uploadedImageUrls);
+        }
       }
 
-      if (noteText || uploadedImageUrls.length > 0) {
-        const targets = uploadedImageUrls.length > 0 ? uploadedImageUrls : [''];
+      if (noteText) {
+        const message = `Fulfillment note: ${noteText}`;
 
-        for (const imageUrl of targets) {
-          const message = imageUrl
-            ? noteText
-              ? `Fulfillment photo note | url:${imageUrl} | note:${noteText}`
-              : `Fulfillment photo | url:${imageUrl}`
-            : `Fulfillment note: ${noteText}`;
+        const noteResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/${order.id}/communications`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            type: 'NOTE',
+            message
+          })
+        });
 
-          const noteResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/${order.id}/communications`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              type: 'NOTE',
-              message
-            })
-          });
-
-          if (!noteResponse.ok) {
-            const errorData = await noteResponse.json().catch(() => ({}));
-            throw new Error(errorData?.error || 'Failed to save fulfillment note');
-          }
-
-          if (imageUrl) {
-            setFulfillmentNotesByImage((prev) => ({
-              ...prev,
-              [imageUrl]: noteText
-            }));
-          }
+        if (!noteResponse.ok) {
+          const errorData = await noteResponse.json().catch(() => ({}));
+          throw new Error(errorData?.error || 'Failed to save fulfillment note');
         }
+
+        setFulfillmentNotes((prev) => [noteText, ...prev]);
       }
 
       setFulfillmentNote('');
@@ -712,9 +694,7 @@ const FulfillmentPage: React.FC = () => {
     'CANCELLED'
   ];
 
-  const fulfillmentImages = (order?.images || []).filter(
-    (imageUrl) => fulfillmentNotesByImage[imageUrl] !== undefined
-  );
+  const orderImages = order?.images || [];
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-8">
@@ -949,13 +929,13 @@ const FulfillmentPage: React.FC = () => {
           )}
 
           <div className="space-y-4">
-            {fulfillmentImages.length > 0 && (
+            {orderImages.length > 0 && (
               <div>
                 <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Saved photos
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {fulfillmentImages.map((imageUrl, index) => (
+                  {orderImages.map((imageUrl, index) => (
                     <div
                       key={`${imageUrl}-${index}`}
                       onClick={() => window.open(imageUrl, '_blank')}
@@ -986,11 +966,23 @@ const FulfillmentPage: React.FC = () => {
                           className="h-28 w-full object-cover transition-transform group-hover:scale-105"
                         />
                       </div>
-                      {fulfillmentNotesByImage[imageUrl] && (
-                        <div className="px-2 py-2 text-xs text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800">
-                          {fulfillmentNotesByImage[imageUrl]}
-                        </div>
-                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {fulfillmentNotes.length > 0 && (
+              <div>
+                <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Fulfillment notes
+                </div>
+                <div className="space-y-2">
+                  {fulfillmentNotes.map((note, index) => (
+                    <div
+                      key={`${note}-${index}`}
+                      className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                    >
+                      {note}
                     </div>
                   ))}
                 </div>

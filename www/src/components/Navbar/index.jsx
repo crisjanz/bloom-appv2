@@ -56,6 +56,14 @@ const Navbar = () => {
           ]
         : [{ text: category.name, link: buildCategoryUrl(category.slug) }];
 
+      const isGiftsCategory =
+        category.slug?.toLowerCase() === "gifts" || category.name?.toLowerCase() === "gifts";
+      const hasGiftCardsLink = items.some((item) => item.link === "/gift-cards");
+
+      if (isGiftsCategory && !hasGiftCardsLink) {
+        items.push({ text: "Gift Cards", link: "/gift-cards" });
+      }
+
       return {
         title: category.name,
         link: buildCategoryUrl(category.slug),

@@ -18,7 +18,7 @@ export interface GiftCardTransaction {
   id: string;
   giftCardId: string;
   orderId?: string;
-  type: 'PURCHASE' | 'REDEMPTION' | 'REFUND' | 'ACTIVATION';
+  type: 'PURCHASE' | 'REDEMPTION' | 'REFUND' | 'ACTIVATION' | 'ADJUSTMENT' | 'DEACTIVATION';
   amount: number;
   balanceAfter: number;
   notes?: string;

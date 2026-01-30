@@ -199,6 +199,7 @@ export class OrderRepository extends BaseRepository<Order> {
       cardMessage: backendOrder.cardMessage,
       specialInstructions: backendOrder.specialInstructions,
       occasion: backendOrder.occasion,
+      images: backendOrder.images || [],
       customerSnapshot
     } as Order
   }

@@ -1,8 +1,14 @@
 import api from "./api";
 
+const dollarsToCents = (value) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 0;
+  return Math.round(parsed * 100);
+};
+
 export async function createDigitalGiftCardPaymentIntent({ amount, purchaser, recipient }) {
   const payload = {
-    amount,
+    amount: dollarsToCents(amount),
     currency: "cad",
     customerEmail: purchaser.email,
     customerName: purchaser.name,
@@ -25,7 +31,7 @@ export async function purchaseDigitalGiftCard({ amount, recipient, purchaser, me
     purchasedBy: purchaser.name,
     cards: [
       {
-        amount,
+        amount: dollarsToCents(amount),
         type: "DIGITAL",
         recipientEmail: recipient.email,
         recipientName: recipient.name,

@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { formatCurrency } from '../../utils/currency';
 import { emailService } from '../../services/emailService';
 
 const prisma = new PrismaClient();
@@ -7,7 +8,7 @@ const prisma = new PrismaClient();
 interface PurchaseRequest {
   cards: Array<{
     cardNumber?: string; // For physical cards (preprinted)
-    amount: number;
+    amount: number; // Amount in cents
     type: 'PHYSICAL' | 'DIGITAL';
     recipientEmail?: string; // For digital cards
     recipientName?: string;
@@ -65,9 +66,16 @@ export const purchaseCards = async (req: Request, res: Response) => {
       });
     }
 
+    const minAmountCents = 2500;
+    const maxAmountCents = 30000;
+    const normalizedCards = cards.map((card) => ({
+      ...card,
+      amountCents: Number.isFinite(Number(card.amount)) ? Math.round(Number(card.amount)) : NaN
+    }));
+
     // Validate each card
-    for (const card of cards) {
-      if (!card.amount || card.amount < 25 || card.amount > 300) {
+    for (const card of normalizedCards) {
+      if (!Number.isFinite(card.amountCents) || card.amountCents < minAmountCents || card.amountCents > maxAmountCents) {
         return res.status(400).json({
           error: 'Each card amount must be between $25 and $300'
         });
@@ -92,7 +100,7 @@ export const purchaseCards = async (req: Request, res: Response) => {
 
     // Process each card in a transaction
     await prisma.$transaction(async (tx) => {
-      for (const cardData of cards) {
+      for (const cardData of normalizedCards) {
         let cardNumber = cardData.cardNumber;
         let existingCard = null;
 
@@ -115,8 +123,8 @@ export const purchaseCards = async (req: Request, res: Response) => {
             where: { cardNumber: cardNumber.toUpperCase() },
             data: {
               status: 'ACTIVE',
-              initialValue: cardData.amount,
-              currentBalance: cardData.amount,
+              initialValue: cardData.amountCents,
+              currentBalance: cardData.amountCents,
               purchasedBy,
               recipientEmail: cardData.recipientEmail,
               recipientName: cardData.recipientName,
@@ -136,8 +144,8 @@ export const purchaseCards = async (req: Request, res: Response) => {
               cardNumber,
               type: cardData.type,
               status: 'ACTIVE',
-              initialValue: cardData.amount,
-              currentBalance: cardData.amount,
+              initialValue: cardData.amountCents,
+              currentBalance: cardData.amountCents,
               purchasedBy,
               recipientEmail: cardData.recipientEmail,
               recipientName: cardData.recipientName,
@@ -153,9 +161,9 @@ export const purchaseCards = async (req: Request, res: Response) => {
           data: {
             giftCardId: existingCard?.id || (await tx.giftCard.findUnique({ where: { cardNumber } }))!.id,
             type: 'PURCHASE',
-            amount: cardData.amount,
-            balanceAfter: cardData.amount,
-            notes: `Gift card purchased for $${cardData.amount}`,
+            amount: cardData.amountCents,
+            balanceAfter: cardData.amountCents,
+            notes: `Gift card purchased for ${formatCurrency(cardData.amountCents)}`,
             employeeId,
             orderId
           }
@@ -163,7 +171,7 @@ export const purchaseCards = async (req: Request, res: Response) => {
 
         purchasedCards.push({
           cardNumber,
-          amount: cardData.amount,
+          amount: cardData.amountCents,
           type: cardData.type,
           recipientEmail: cardData.recipientEmail,
           recipientName: cardData.recipientName,
@@ -182,7 +190,7 @@ export const purchaseCards = async (req: Request, res: Response) => {
             recipientEmail: card.recipientEmail,
             recipientName: card.recipientName || 'Gift Card Recipient',
             giftCardNumber: card.cardNumber,
-            amount: card.amount,
+            amount: card.amount / 100,
             purchaserName: purchasedBy,
             message: card.message,
             redeemUrl: 'https://bloomflowershop.com' // Update when website is live

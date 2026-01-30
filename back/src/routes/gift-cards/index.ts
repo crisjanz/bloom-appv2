@@ -5,12 +5,16 @@ import { checkBalance } from './check';
 import { redeemCard } from './redeem';
 import { getGiftCards, getGiftCard } from './list';
 import { purchaseCards } from './purchase';
+import { deactivateCard } from './deactivate';
+import { adjustBalance } from './adjust';
 
 const router = Router();
 
 // Admin operations
 router.post('/batch', createBatch);           // Generate batch of inactive cards
 router.get('/', getGiftCards);               // List all cards (admin)
+router.patch('/:id/deactivate', deactivateCard); // Deactivate a card
+router.post('/:id/adjust', adjustBalance);       // Adjust card balance
 router.get('/:id', getGiftCard);             // Get single card details
 
 // Card operations
