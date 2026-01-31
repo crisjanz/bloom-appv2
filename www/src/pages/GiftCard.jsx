@@ -13,7 +13,12 @@ import {
   purchaseDigitalGiftCard,
 } from "../services/giftCardService.js";
 
-const stripePromise = fetch("/api/stripe/public-key")
+const rawApiUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+const API_BASE = rawApiUrl
+  ? (rawApiUrl.endsWith('/api') ? rawApiUrl : `${rawApiUrl}/api`)
+  : '/api';
+
+const stripePromise = fetch(`${API_BASE}/stripe/public-key`)
   .then((res) => (res.ok ? res.json() : null))
   .then((data) => (data?.publicKey ? loadStripe(data.publicKey) : null))
   .catch(() => null);
