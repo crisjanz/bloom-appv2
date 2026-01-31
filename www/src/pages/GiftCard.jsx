@@ -13,10 +13,8 @@ import {
   purchaseDigitalGiftCard,
 } from "../services/giftCardService.js";
 
-const API_URL = import.meta.env.VITE_API_URL || "";
-
 async function fetchStripePublicKey() {
-  const res = await fetch(`${API_URL}/api/stripe/public-key`);
+  const res = await fetch("/api/stripe/public-key");
   if (!res.ok) return null;
   const { publicKey } = await res.json();
   return publicKey ? loadStripe(publicKey) : null;
