@@ -311,7 +311,7 @@ const GiftCardContent = () => {
             </p>
             <p className="mt-2 text-sm text-slate-500">
               Already have a gift card?{" "}
-              <Link to="/gift-cards/balance" className="font-semibold text-emerald-600 hover:text-emerald-700">
+              <Link to="/gift-cards/balance" className="font-semibold text-primary hover:text-primary-dark">
                 Check your balance
               </Link>
             </p>
@@ -325,9 +325,9 @@ const GiftCardContent = () => {
                   <div
                     className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold transition ${
                       currentStep === step
-                        ? "bg-emerald-500 text-white"
+                        ? "bg-primary text-white"
                         : currentStep > step
-                        ? "bg-emerald-100 text-emerald-600"
+                        ? "bg-primary/15 text-primary-dark"
                         : "bg-slate-200 text-slate-500"
                     }`}
                   >
@@ -336,7 +336,7 @@ const GiftCardContent = () => {
                   {step < 3 && (
                     <div
                       className={`h-0.5 w-12 transition sm:w-24 ${
-                        currentStep > step ? "bg-emerald-500" : "bg-slate-200"
+                        currentStep > step ? "bg-primary" : "bg-slate-200"
                       }`}
                     />
                   )}
@@ -368,7 +368,7 @@ const GiftCardContent = () => {
                 <button
                   type="button"
                   onClick={handleContinueStep1}
-                  className="rounded-xl bg-emerald-500 px-8 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-emerald-600"
+                  className="rounded-xl bg-primary px-8 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-primary-dark"
                 >
                   Continue
                 </button>
@@ -399,7 +399,7 @@ const GiftCardContent = () => {
                 <button
                   type="button"
                   onClick={handleContinueStep2}
-                  className="rounded-xl bg-emerald-500 px-8 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-emerald-600"
+                  className="rounded-xl bg-primary px-8 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-primary-dark"
                 >
                   Continue
                 </button>
@@ -415,17 +415,20 @@ const GiftCardContent = () => {
                 <h3 className="mb-4 text-lg font-semibold text-slate-900">Gift card preview</h3>
 
                 {/* Decorative Gift Card */}
-                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-600 p-8 text-white shadow-xl">
-                  {/* Decorative circles */}
-                  <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10"></div>
-                  <div className="absolute -bottom-12 -left-12 h-40 w-40 rounded-full bg-white/10"></div>
+                <div className="relative overflow-hidden rounded-2xl bg-[#0f0a2e] p-8 text-white shadow-xl">
+                  {/* Blurred color blobs */}
+                  <div className="absolute -left-20 -top-20 h-72 w-72 rounded-full bg-[#e8643c] opacity-80 blur-[80px]"></div>
+                  <div className="absolute -right-10 -top-10 h-64 w-64 rounded-full bg-[#f4456e] opacity-75 blur-[70px]"></div>
+                  <div className="absolute -bottom-16 -left-10 h-80 w-80 rounded-full bg-[#0c1445] opacity-90 blur-[60px]"></div>
+                  <div className="absolute bottom-0 right-10 h-48 w-48 rounded-full bg-[#8b6cc1] opacity-50 blur-[70px]"></div>
+                  <div className="absolute left-1/3 top-1/4 h-56 w-56 rounded-full bg-[#f09060] opacity-60 blur-[80px]"></div>
 
                   <div className="relative z-10">
                     <div className="mb-6">
-                      <p className="text-sm font-medium uppercase tracking-wider text-emerald-100">
+                      <p className="text-sm font-medium uppercase tracking-wider text-white/70">
                         Bloom Flower Shop
                       </p>
-                      <p className="mt-1 text-xs text-emerald-100">Gift Card</p>
+                      <p className="mt-1 text-xs text-white/70">Gift Card</p>
                     </div>
 
                     <div className="mb-8">
@@ -434,7 +437,7 @@ const GiftCardContent = () => {
 
                     <div className="space-y-3">
                       <div>
-                        <p className="text-xs font-medium uppercase tracking-wider text-emerald-100">
+                        <p className="text-xs font-medium uppercase tracking-wider text-white/70">
                           To
                         </p>
                         <p className="mt-1 text-xl font-semibold">{recipient.name}</p>
@@ -447,7 +450,7 @@ const GiftCardContent = () => {
                       )}
 
                       <div>
-                        <p className="text-xs font-medium uppercase tracking-wider text-emerald-100">
+                        <p className="text-xs font-medium uppercase tracking-wider text-white/70">
                           From
                         </p>
                         <p className="mt-1 text-lg font-medium">{purchaser.name}</p>
@@ -524,7 +527,7 @@ const SuccessModal = ({ details, onClose }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
       <div className="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-2xl">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/15 text-primary">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.5 12.75l6 6 9-13.5" />
           </svg>
@@ -541,7 +544,7 @@ const SuccessModal = ({ details, onClose }) => {
         <button
           type="button"
           onClick={onClose}
-          className="mt-6 inline-flex items-center justify-center rounded-xl bg-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-600"
+          className="mt-6 inline-flex items-center justify-center rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-dark"
         >
           Close
         </button>

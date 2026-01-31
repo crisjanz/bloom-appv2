@@ -63,7 +63,7 @@ const GiftCardBalance = () => {
                   value={cardNumber}
                   onChange={(event) => setCardNumber(event.target.value.toUpperCase())}
                   placeholder="GC-XXXX-XXXX"
-                  className="mt-2 w-full rounded-lg border border-slate-200 px-4 py-3 text-base text-slate-900 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                  className="mt-2 w-full rounded-lg border border-slate-200 px-4 py-3 text-base text-slate-900 focus:border-primary-light focus:outline-none focus:ring-2 focus:ring-primary/15"
                 />
               </div>
 
@@ -72,19 +72,19 @@ const GiftCardBalance = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="flex w-full items-center justify-center rounded-xl bg-emerald-500 px-6 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-emerald-200"
+                className="flex w-full items-center justify-center rounded-xl bg-primary px-6 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:bg-primary/30"
               >
                 {loading ? "Checking..." : "Check Balance"}
               </button>
             </form>
 
             {result?.valid && (
-              <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-                <p className="text-sm text-emerald-700">Current balance</p>
-                <p className="mt-1 text-2xl font-semibold text-emerald-800">
+              <div className="mt-6 rounded-xl border border-primary/25 bg-primary/10 p-4">
+                <p className="text-sm text-primary-dark">Current balance</p>
+                <p className="mt-1 text-2xl font-semibold text-primary-dark">
                   {formatCurrency(result.balance)}
                 </p>
-                <p className="mt-2 text-xs text-emerald-700">
+                <p className="mt-2 text-xs text-primary-dark">
                   Status: {result.status}
                 </p>
               </div>

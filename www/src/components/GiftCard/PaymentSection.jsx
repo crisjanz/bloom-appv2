@@ -56,7 +56,7 @@ const PaymentSection = ({ amount, disabled = false, loading = false, error, onSu
       <button
         type="submit"
         disabled={!stripe || !elements || disabled || loading}
-        className="flex w-full items-center justify-center rounded-xl bg-emerald-500 px-6 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-emerald-200"
+        className="flex w-full items-center justify-center rounded-xl bg-primary px-6 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:bg-primary/30"
       >
         {loading ? "Processing..." : `Send gift card – ${formattedAmount}`}
       </button>

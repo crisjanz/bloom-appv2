@@ -48,8 +48,8 @@ const AmountSelector = ({
               onClick={() => handlePresetClick(amount)}
               className={`rounded-xl border px-4 py-3 text-left transition ${
                 isSelected
-                  ? "border-emerald-500 bg-emerald-50 text-emerald-700"
-                  : "border-slate-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
+                  ? "border-primary bg-primary/10 text-primary-dark"
+                  : "border-slate-200 bg-white text-slate-700 hover:border-primary-light hover:bg-primary/10"
               } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
             >
               <span className="text-base font-semibold">{formatCurrency(amount)}</span>
@@ -75,7 +75,7 @@ const AmountSelector = ({
             disabled={disabled}
             onChange={handleCustomChange}
             placeholder={`Enter amount (${min}-${max})`}
-            className="w-full rounded-lg border border-slate-200 px-4 py-2 font-semibold text-slate-900 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+            className="w-full rounded-lg border border-slate-200 px-4 py-2 font-semibold text-slate-900 focus:border-primary-light focus:outline-none focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-slate-50"
           />
         </div>
         {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}

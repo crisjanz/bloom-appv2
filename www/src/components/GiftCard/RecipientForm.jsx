@@ -37,7 +37,7 @@ const RecipientForm = ({
               onChange={handleRecipientChange}
               disabled={disabled}
               placeholder="e.g. Alex Bloom"
-              className="mt-1 w-full rounded-lg border border-slate-200 px-4 py-2 text-slate-900 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+              className="mt-1 w-full rounded-lg border border-slate-200 px-4 py-2 text-slate-900 focus:border-primary-light focus:outline-none focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-slate-50"
             />
             {errors?.recipient?.name ? <p className="mt-2 text-sm text-red-600">{errors.recipient.name}</p> : null}
           </div>
@@ -54,7 +54,7 @@ const RecipientForm = ({
               onChange={handleRecipientChange}
               disabled={disabled}
               placeholder="alex@example.com"
-              className="mt-1 w-full rounded-lg border border-slate-200 px-4 py-2 text-slate-900 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+              className="mt-1 w-full rounded-lg border border-slate-200 px-4 py-2 text-slate-900 focus:border-primary-light focus:outline-none focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-slate-50"
             />
             {errors?.recipient?.email ? <p className="mt-2 text-sm text-red-600">{errors.recipient.email}</p> : null}
           </div>
@@ -71,7 +71,7 @@ const RecipientForm = ({
               onChange={handleRecipientChange}
               disabled={disabled}
               placeholder="Write a short note to include with the email."
-              className="mt-1 w-full rounded-lg border border-slate-200 px-4 py-2 text-slate-900 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+              className="mt-1 w-full rounded-lg border border-slate-200 px-4 py-2 text-slate-900 focus:border-primary-light focus:outline-none focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-slate-50"
             />
             <div className="mt-1 flex justify-between text-xs text-slate-400">
               <span>Max 250 characters</span>
@@ -101,7 +101,7 @@ const RecipientForm = ({
               onChange={handlePurchaserChange}
               disabled={disabled}
               placeholder="Your full name"
-              className="mt-1 w-full rounded-lg border border-slate-200 px-4 py-2 text-slate-900 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+              className="mt-1 w-full rounded-lg border border-slate-200 px-4 py-2 text-slate-900 focus:border-primary-light focus:outline-none focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-slate-50"
             />
             {errors?.purchaser?.name ? <p className="mt-2 text-sm text-red-600">{errors.purchaser.name}</p> : null}
           </div>
@@ -118,7 +118,7 @@ const RecipientForm = ({
               onChange={handlePurchaserChange}
               disabled={disabled}
               placeholder="you@example.com"
-              className="mt-1 w-full rounded-lg border border-slate-200 px-4 py-2 text-slate-900 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+              className="mt-1 w-full rounded-lg border border-slate-200 px-4 py-2 text-slate-900 focus:border-primary-light focus:outline-none focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-slate-50"
             />
             {errors?.purchaser?.email ? <p className="mt-2 text-sm text-red-600">{errors.purchaser.email}</p> : null}
           </div>
