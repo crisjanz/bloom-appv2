@@ -45,12 +45,30 @@
 - What library validates backend requests?
 - Answer: `Zod` with `.parse()` method
 
+### Pre-Implementation Contract (Required — Answer Before Coding)
+
+Provide a short implementation contract (bullets):
+- **Goals → Changes mapping**: Map each Goal to the specific code changes/files.
+- **Files to touch (exact paths)**: List every file you will create/modify.
+- **Backend surface area**: Endpoints to add/modify + where they are registered.
+- **DB/migrations**: Prisma schema changes + migration name you will run.
+- **UI standards confirmation**: Confirm you will follow shared UI patterns (StandardTable/DatePicker/shared Modal + form components) and `value={x || ''}`.
+- **Unknowns / questions**: If anything is ambiguous, ask now — do not start coding.
+
 ### Critical Don'ts
 ❌ Use `fetch()` directly → Use `useApiClient` hook
 ❌ Store prices as floats → Use integers in cents
 ❌ Skip cascade deletes → Add `onDelete: Cascade`
 ❌ Forget route registration → Register in `/back/src/index.ts`
 ❌ Skip migrations → Run `npx prisma migrate dev --name feature_name`
+
+### Frontend/UI Critical Don'ts (Project Standards)
+❌ Build custom tables / table HTML → Use `StandardTable`
+❌ Use `<input type="date">` → Use `DatePicker` from `@shared/ui/forms/date-picker`
+❌ Use raw `<input>`, `<select>`, `<textarea>` → Use shared form components (`InputField`, `Select`, `Label`, etc.)
+❌ Create custom modals/overlays (`fixed inset-0 ...`) → Use shared `Modal` from `@shared/ui/components/ui/modal`
+❌ Allow null/undefined input values → Always use `value={x || ''}`
+❌ Use emojis in user-facing UI → Use Heroicons / existing icon library from `@shared/assets/icons`
 
 ---
 
@@ -264,6 +282,14 @@ Component Mount → useResource()
 
 After completing implementation:
 
+### Plan-to-Diff Verification (Required)
+
+Before claiming the feature is done, provide:
+- **Success Criteria → Evidence mapping**: For each Success Criterion, point to the exact file/component/route where it is satisfied.
+- **Tests run**: List the exact commands you ran and the results.
+- **Checklist audit**: Note any checklist items you skipped and why.
+- **Git push**: Do **NOT** run `git push` automatically — ask Cris for confirmation.
+
 1. **Verify:**
    - All success criteria met
    - Documentation updated
@@ -275,5 +301,5 @@ After completing implementation:
 
 3. **Deploy:**
    - Commit with message: "feat: [feature description]"
-   - Push to trigger deployment
+   - Push to trigger deployment (ask for confirmation first)
    - Verify in staging environment

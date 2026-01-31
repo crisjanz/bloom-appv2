@@ -6,9 +6,9 @@ dist/
 tailgrids
 back/scripts/
 render-sql-backup/
-# Documentation (internal use only)
-docs/
-Progress_Tracker.markdown
-Project_Summary.markdown
+# Documentation
+# (Tracked in git so feature plans + implementation guides stay consistent across machines)
+# If you need private notes, prefer putting them under docs/private/ and ignoring that subfolder.
+# docs/private/
 .aider*
 scripts/
