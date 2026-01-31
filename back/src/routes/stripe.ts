@@ -168,6 +168,7 @@ router.post('/payment-intent', async (req, res) => {
       amount,
       currency = 'cad',
       customerId,
+      bloomCustomerId,
       customerEmail,
       customerPhone,
       customerName,
@@ -197,14 +198,32 @@ router.post('/payment-intent', async (req, res) => {
     const stripe = await paymentProviderFactory.getStripeClient();
 
     let resolvedCustomerId = customerId;
-    if ((customerPhone || customerEmail) && !resolvedCustomerId) {
-      const customer = await stripe.customers.create({
-        email: customerEmail,
+    if (bloomCustomerId && !resolvedCustomerId) {
+      const result = await providerCustomerService.getOrCreateStripeCustomer(bloomCustomerId, {
+        email: customerEmail || '',
         name: customerName || customerEmail?.split('@')[0] || 'Customer',
         phone: customerPhone,
       });
-      resolvedCustomerId = customer.id;
-      console.log(`✅ Created Stripe customer: ${resolvedCustomerId} for ${customerPhone || customerEmail}`);
+      resolvedCustomerId = result.stripeCustomerId;
+      console.log(`${result.isNew ? '✅ Created' : '♻️ Reused'} Stripe customer: ${resolvedCustomerId} for ${customerPhone || customerEmail}`);
+    } else if ((customerPhone || customerEmail) && !resolvedCustomerId) {
+      if (customerEmail) {
+        const existing = await stripe.customers.list({ email: customerEmail, limit: 1 });
+        if (existing.data.length > 0) {
+          resolvedCustomerId = existing.data[0].id;
+          console.log(`♻️ Reused Stripe customer: ${resolvedCustomerId} for ${customerEmail}`);
+        }
+      }
+
+      if (!resolvedCustomerId) {
+        const customer = await stripe.customers.create({
+          email: customerEmail,
+          name: customerName || customerEmail?.split('@')[0] || 'Customer',
+          phone: customerPhone,
+        });
+        resolvedCustomerId = customer.id;
+        console.log(`✅ Created Stripe customer: ${resolvedCustomerId} for ${customerPhone || customerEmail}`);
+      }
     }
 
     const paymentIntent = await stripe.paymentIntents.create({

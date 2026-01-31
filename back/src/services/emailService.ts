@@ -2,7 +2,11 @@ import fs from 'fs';
 import path from 'path';
 import sgMail from '@sendgrid/mail';
 import nodemailer from 'nodemailer';
+import { PrismaClient } from '@prisma/client';
 import { emailSettingsService } from './emailSettingsService';
+import { buildGiftCardReceiptEmail, type GiftCardReceiptTemplateData } from '../templates/email/gift-card-receipt-email';
+
+const prisma = new PrismaClient();
 
 interface EmailOptions {
   to: string;
@@ -29,6 +33,21 @@ interface GiftCardEmailData {
   message?: string;
   redeemUrl?: string;
 }
+
+interface StoreEmailInfo {
+  storeName: string;
+  storeEmail?: string;
+  storePhone?: string;
+  storeAddress?: string;
+  logoUrl?: string;
+}
+
+type GiftCardReceiptEmailData = {
+  purchaserEmail: string;
+  purchaserName: string;
+  cards: GiftCardReceiptTemplateData['cards'];
+  totalAmount: number;
+};
 
 interface ReceiptEmailData {
   customerName: string;
@@ -157,13 +176,14 @@ class EmailService {
    */
   async sendGiftCardEmail(data: GiftCardEmailData): Promise<boolean> {
     try {
+      const storeInfo = await this.getStoreInfo();
       // For now, use custom HTML. Later we'll create SendGrid templates
-      const html = this.generateGiftCardHTML(data);
+      const html = this.generateGiftCardHTML(data, storeInfo);
       
       return await this.sendEmail({
         to: data.recipientEmail,
-        subject: `🌸 You've received a gift card from Bloom Flower Shop!`,
-        html: html
+        subject: `You've received a gift card from ${storeInfo.storeName}!`,
+        html
       });
     } catch (error) {
       console.error('❌ Failed to send gift card email:', error);
@@ -185,6 +205,33 @@ class EmailService {
       });
     } catch (error) {
       console.error('❌ Failed to send receipt email:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Send gift card receipt email
+   */
+  async sendGiftCardReceiptEmail(data: GiftCardReceiptEmailData): Promise<boolean> {
+    try {
+      const storeInfo = await this.getStoreInfo();
+      const html = buildGiftCardReceiptEmail({
+        storeName: storeInfo.storeName,
+        storeEmail: storeInfo.storeEmail,
+        storePhone: storeInfo.storePhone,
+        storeAddress: storeInfo.storeAddress,
+        purchaserName: data.purchaserName,
+        cards: data.cards,
+        totalAmount: data.totalAmount,
+      });
+
+      return await this.sendEmail({
+        to: data.purchaserEmail,
+        subject: `${storeInfo.storeName} gift card receipt - $${data.totalAmount.toFixed(2)}`,
+        html
+      });
+    } catch (error) {
+      console.error('❌ Failed to send gift card receipt email:', error);
       return false;
     }
   }
@@ -213,23 +260,33 @@ class EmailService {
   /**
    * Generate gift card HTML email
    */
-  private generateGiftCardHTML(data: GiftCardEmailData): string {
+  private generateGiftCardHTML(data: GiftCardEmailData, storeInfo: StoreEmailInfo): string {
     const template = this.getGiftCardTemplate();
+    const storeContactLines = [
+      storeInfo.storePhone ? `Phone: ${storeInfo.storePhone}` : null,
+      storeInfo.storeEmail || null,
+      storeInfo.storeAddress || null,
+    ].filter(Boolean);
+    const storeContactHtml = storeContactLines
+      .map((line) => `<p style="color:#999;font-size:12px;margin:4px 0;">${line}</p>`)
+      .join('');
+    const logoHtml = storeInfo.logoUrl
+      ? `<img src="${storeInfo.logoUrl}" alt="${storeInfo.storeName} logo" style="max-width:160px; max-height:60px; object-fit:contain;" />`
+      : `<h1 style="color: #111827; font-size: 28px; margin: 0;">${storeInfo.storeName}</h1>`;
 
     if (template) {
-      const purchaserSection = data.purchaserName
-        ? `
+      const purchaserName = data.purchaserName || 'A friend';
+      const purchaserSection = `
         <p style="color:#666;font-size:16px;margin:10px 0;">
           You've received this gift card from
-          <strong>${data.purchaserName}</strong>
+          <strong>${purchaserName}</strong>
         </p>
-      `
-        : '';
+      `;
 
       const messageSection = data.message
         ? `
         <div
-          style="background:#f8f8f8;border-left:4px solid #597485;padding:15px;margin:20px 0;text-align:left;"
+          style="background:#f8f8f8;border-left:4px solid #111827;padding:15px;margin:20px 0;text-align:left;"
         >
           <p style="color:#333;font-style:italic;margin:0;font-size:16px;">"${data.message}"</p>
         </div>
@@ -240,8 +297,8 @@ class EmailService {
         ? `
         <a
           href="${data.redeemUrl}"
-          style="display:inline-block;background-color:#597485;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:bold;"
-        >Start Shopping</a>
+          style="display:inline-block;background-color:#111827;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:bold;"
+        >Shop now</a>
       `
         : '';
 
@@ -251,7 +308,13 @@ class EmailService {
         '{{amount}}': data.amount.toFixed(2),
         '{{purchaserSection}}': purchaserSection,
         '{{messageSection}}': messageSection,
-        '{{redeemButton}}': redeemButton
+        '{{redeemButton}}': redeemButton,
+        '{{storeName}}': storeInfo.storeName,
+        '{{storeEmail}}': storeInfo.storeEmail || '',
+        '{{storePhone}}': storeInfo.storePhone || '',
+        '{{storeAddress}}': storeInfo.storeAddress || '',
+        '{{storeContact}}': storeContactHtml,
+        '{{logoHtml}}': logoHtml,
       };
 
       let html = template;
@@ -268,76 +331,64 @@ class EmailService {
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Gift Card from Bloom Flower Shop</title>
+          <title>Gift Card from ${storeInfo.storeName}</title>
         </head>
-        <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f9f9f9;">
+        <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f8f8f8;">
           <div style="max-width: 600px; margin: 0 auto; background-color: white; padding: 40px;">
-            
-            <!-- Header -->
+
             <div style="text-align: center; margin-bottom: 30px;">
-              <h1 style="color: #597485; font-size: 32px; margin: 0;">🌸 Bloom Flower Shop</h1>
-              <p style="color: #666; font-size: 18px; margin: 10px 0 0 0;">Digital Gift Card</p>
+              ${logoHtml}
+              <p style="color: #6b7280; font-size: 16px; margin: 10px 0 0 0;">Digital Gift Card</p>
             </div>
 
-            <!-- Gift Card -->
-            <div style="background: linear-gradient(135deg, #597485 0%, #4e6575 100%); border-radius: 15px; padding: 30px; text-align: center; margin: 30px 0; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-              <div style="background: white; border-radius: 10px; padding: 25px; margin: 10px 0;">
-                <h2 style="color: #597485; font-family: monospace; font-size: 24px; margin: 0 0 15px 0; letter-spacing: 2px;">
-                  ${data.giftCardNumber}
-                </h2>
-                <p style="color: #597485; font-size: 36px; font-weight: bold; margin: 0;">
-                  $${data.amount.toFixed(2)}
-                </p>
+            <div style="background: #0f0a2e; border-radius: 18px; padding: 28px; color: white;">
+              <div style="height: 6px; border-radius: 999px; background: linear-gradient(90deg, #e8643c 0%, #f4456e 50%, #8b6cc1 100%); margin-bottom: 20px;"></div>
+              <div style="font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: rgba(255,255,255,0.6);">${storeInfo.storeName}</div>
+              <div style="font-size: 42px; font-weight: 700; margin: 12px 0 18px;">$${data.amount.toFixed(2)}</div>
+
+              <div style="margin-bottom: 16px;">
+                <div style="font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: rgba(255,255,255,0.6);">To</div>
+                <div style="font-size: 20px; font-weight: 600;">${data.recipientName || 'Gift Card Recipient'}</div>
+              </div>
+
+              ${data.message ? `
+                <div style="background: rgba(255,255,255,0.12); border-radius: 12px; padding: 12px; margin-bottom: 16px; font-style: italic; line-height: 1.5;">
+                  "${data.message}"
+                </div>
+              ` : ''}
+
+              <div>
+                <div style="font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: rgba(255,255,255,0.6);">From</div>
+                <div style="font-size: 18px; font-weight: 500;">${data.purchaserName || 'A friend'}</div>
+              </div>
+
+              <div style="margin-top: 20px; background: rgba(255,255,255,0.15); border-radius: 12px; padding: 12px; text-align: center;">
+                <div style="font-family: monospace; letter-spacing: 2px; font-size: 18px;">${data.giftCardNumber}</div>
+                <div style="margin-top: 6px; font-size: 12px; color: rgba(255,255,255,0.7);">Gift card code</div>
               </div>
             </div>
 
-            <!-- Recipient Info -->
-            <div style="text-align: center; margin: 30px 0;">
-              <h3 style="color: #333; font-size: 20px; margin: 0 0 10px 0;">
-                Dear ${data.recipientName},
-              </h3>
-              ${data.purchaserName ? `
-                <p style="color: #666; font-size: 16px; margin: 10px 0;">
-                  You've received this gift card from <strong>${data.purchaserName}</strong>
-                </p>
-              ` : ''}
-              ${data.message ? `
-                <div style="background: #f8f8f8; border-left: 4px solid #597485; padding: 15px; margin: 20px 0; text-align: left;">
-                  <p style="color: #333; font-style: italic; margin: 0; font-size: 16px;">
-                    "${data.message}"
-                  </p>
-                </div>
-              ` : ''}
-            </div>
-
-            <!-- How to Use -->
-            <div style="background: #f8f8f8; border-radius: 10px; padding: 25px; margin: 30px 0;">
-              <h3 style="color: #597485; font-size: 18px; margin: 0 0 15px 0; text-align: center;">
-                How to Use Your Gift Card
-              </h3>
-              <ul style="color: #666; line-height: 1.6; margin: 0; padding-left: 20px;">
-                <li>Present this card number when placing an order</li>
+            <div style="background: #f8f8f8; border-radius: 12px; padding: 20px; margin: 24px 0;">
+              <h3 style="color: #0f0a2e; font-size: 16px; margin: 0 0 12px 0;">How to use your gift card</h3>
+              <ul style="color: #4b5563; line-height: 1.6; margin: 0; padding-left: 20px;">
+                <li>Enter the gift card code during checkout</li>
                 <li>Use online, in-store, or over the phone</li>
-                <li>No expiration date - never expires!</li>
-                <li>Remaining balance stays on your card</li>
+                <li>No expiration date</li>
+                <li>Remaining balance stays on the card</li>
               </ul>
             </div>
 
-            <!-- CTA Button -->
             ${data.redeemUrl ? `
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${data.redeemUrl}" style="background: #597485; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">
-                  Shop Now 🌸
+              <div style="text-align: center; margin: 20px 0 10px;">
+                <a href="${data.redeemUrl}" style="background: #111827; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; display: inline-block;">
+                  Shop now
                 </a>
               </div>
             ` : ''}
 
-            <!-- Footer -->
-            <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee;">
-              <p style="color: #999; font-size: 14px; margin: 5px 0;">
-                Questions? Contact us at Bloom Flower Shop
-              </p>
-              <p style="color: #999; font-size: 12px; margin: 5px 0;">
+            <div style="text-align: center; margin-top: 32px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+              ${storeContactHtml || `<p style="color:#999;font-size:12px;margin:4px 0;">${storeInfo.storeName}</p>`}
+              <p style="color:#b0b0b0; font-size: 11px; margin: 6px 0 0;">
                 This digital gift card was sent from our secure system.
               </p>
             </div>
@@ -346,6 +397,34 @@ class EmailService {
         </body>
       </html>
     `;
+  }
+
+  private async getStoreInfo(): Promise<StoreEmailInfo> {
+    try {
+      const settings = await prisma.storeSettings.findFirst();
+      const storeName = (settings?.storeName || '').trim() || 'Flower Shop';
+      const storeEmail = (settings?.email || '').trim() || undefined;
+      const storePhone = (settings?.phone || '').trim() || undefined;
+      const addressLine = (settings?.address || '').trim();
+      const cityLine = [settings?.city, settings?.state, settings?.zipCode]
+        .filter(Boolean)
+        .join(', ');
+      const storeAddress = [addressLine, cityLine].filter(Boolean).join(', ') || undefined;
+      const logoUrl = (settings?.logoUrl || '').trim() || undefined;
+
+      return {
+        storeName,
+        storeEmail,
+        storePhone,
+        storeAddress,
+        logoUrl,
+      };
+    } catch (error) {
+      console.error('❌ Failed to load store settings for email:', error);
+      return {
+        storeName: 'Flower Shop',
+      };
+    }
   }
 
   private getGiftCardTemplate(): string | null {

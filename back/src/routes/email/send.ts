@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { emailService } from '../../services/emailService';
-import { buildReceiptPdf } from '../../templates/receipt-pdf';
 import { buildInvoicePdf } from '../../templates/invoice-pdf';
 import { buildReceiptEmail } from '../../templates/email/receipt-email';
 import { buildInvoiceEmail } from '../../templates/email/invoice-email';
@@ -45,21 +44,12 @@ router.post('/receipt/:orderId', async (req, res) => {
       return res.status(400).json({ error: 'Customer email is missing for this order' });
     }
 
-    const pdfBuffer = await buildReceiptPdf(order);
     const html = buildReceiptEmail(order);
-    const filename = `receipt-${order.orderNumber ?? order.id}.pdf`;
 
     const success = await emailService.sendEmail({
       to: toEmail,
       subject: `Your receipt from Bloom Flowers (${order.orderNumber ?? order.id})`,
       html,
-      attachments: [
-        {
-          filename,
-          content: pdfBuffer,
-          contentType: 'application/pdf',
-        },
-      ],
     });
 
     if (!success) {

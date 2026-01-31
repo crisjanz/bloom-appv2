@@ -15,8 +15,10 @@ interface PurchaseRequest {
     message?: string;
   }>;
   purchasedBy?: string;
+  purchaserEmail?: string;
   employeeId?: string;
   orderId?: string;
+  bloomCustomerId?: string;
 }
 
 // Generate random card number like "GC-X7K9-M3R8"
@@ -56,6 +58,7 @@ export const purchaseCards = async (req: Request, res: Response) => {
     const { 
       cards, 
       purchasedBy, 
+      purchaserEmail,
       employeeId, 
       orderId 
     }: PurchaseRequest = req.body;
@@ -205,6 +208,27 @@ export const purchaseCards = async (req: Request, res: Response) => {
           console.error('❌ Error sending digital gift card email:', error);
           // Don't fail the whole purchase if email fails
         }
+      }
+    }
+
+    // 📧 Send receipt email to purchaser
+    if (purchaserEmail && purchasedCards.length > 0) {
+      try {
+        const totalAmountCents = purchasedCards.reduce((sum, card) => sum + card.amount, 0);
+        await emailService.sendGiftCardReceiptEmail({
+          purchaserEmail,
+          purchaserName: purchasedBy || 'Customer',
+          cards: purchasedCards.map((card) => ({
+            recipientName: card.recipientName || 'Gift Card Recipient',
+            recipientEmail: card.recipientEmail,
+            amount: card.amount / 100,
+            cardNumber: card.cardNumber,
+          })),
+          totalAmount: totalAmountCents / 100,
+        });
+        console.log('✅ Gift card receipt sent to purchaser:', purchaserEmail);
+      } catch (error) {
+        console.error('❌ Error sending gift card receipt to purchaser:', error);
       }
     }
 

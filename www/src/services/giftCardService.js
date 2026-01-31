@@ -6,13 +6,21 @@ const dollarsToCents = (value) => {
   return Math.round(parsed * 100);
 };
 
-export async function createDigitalGiftCardPaymentIntent({ amount, purchaser, recipient }) {
+export async function createDigitalGiftCardPaymentIntent({
+  amount,
+  purchaser,
+  recipient,
+  bloomCustomerId,
+  storeName,
+}) {
+  const resolvedStoreName = (storeName || "").trim() || "Flower Shop";
   const payload = {
     amount: dollarsToCents(amount),
     currency: "cad",
+    bloomCustomerId,
     customerEmail: purchaser.email,
     customerName: purchaser.name,
-    description: `Bloom Flower Shop digital gift card for ${purchaser.name || "guest"}`,
+    description: `${resolvedStoreName} digital gift card for ${purchaser.name || "guest"}`,
     metadata: {
       purchaseType: "gift-card",
       giftCardMode: "digital",
@@ -26,9 +34,11 @@ export async function createDigitalGiftCardPaymentIntent({ amount, purchaser, re
   return api.post("/stripe/payment-intent", payload);
 }
 
-export async function purchaseDigitalGiftCard({ amount, recipient, purchaser, message }) {
+export async function purchaseDigitalGiftCard({ amount, recipient, purchaser, message, bloomCustomerId }) {
   const payload = {
     purchasedBy: purchaser.name,
+    purchaserEmail: purchaser.email,
+    bloomCustomerId,
     cards: [
       {
         amount: dollarsToCents(amount),

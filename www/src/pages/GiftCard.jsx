@@ -12,6 +12,7 @@ import {
   createDigitalGiftCardPaymentIntent,
   purchaseDigitalGiftCard,
 } from "../services/giftCardService.js";
+import { getStoreInfo } from "../services/storeInfoService.js";
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 const API_BASE = rawApiUrl
@@ -29,6 +30,7 @@ const MESSAGE_MAX_LENGTH = 250;
 
 const GiftCardContent = () => {
   const { customer } = useAuth();
+  const [storeInfo, setStoreInfo] = useState(null);
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedAmount, setSelectedAmount] = useState(100);
   const [customAmount, setCustomAmount] = useState("");
@@ -51,6 +53,21 @@ const GiftCardContent = () => {
   const [successDetails, setSuccessDetails] = useState(null);
 
   useEffect(() => {
+    let isMounted = true;
+    getStoreInfo()
+      .then((data) => {
+        if (isMounted) {
+          setStoreInfo(data);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!customer) return;
     setPurchaser((prev) => {
       const next = { ...prev };
@@ -63,6 +80,8 @@ const GiftCardContent = () => {
       return next;
     });
   }, [customer]);
+
+  const storeName = (storeInfo?.storeName || "").trim() || "Flower Shop";
 
   const amount = useMemo(() => {
     if (customAmount !== "") {
@@ -250,6 +269,8 @@ const GiftCardContent = () => {
         amount,
         purchaser: trimmedPurchaser,
         recipient: trimmedRecipient,
+        bloomCustomerId: customer?.id || null,
+        storeName,
       });
 
       const confirmation = await stripe.confirmCardPayment(paymentIntent.clientSecret, {
@@ -271,6 +292,7 @@ const GiftCardContent = () => {
         recipient: trimmedRecipient,
         purchaser: trimmedPurchaser,
         message: trimmedRecipient.message,
+        bloomCustomerId: customer?.id || null,
       });
 
       cardElement.clear();
@@ -425,7 +447,7 @@ const GiftCardContent = () => {
                   <div className="relative z-10">
                     <div className="mb-6">
                       <p className="text-sm font-medium uppercase tracking-wider text-white/70">
-                        Bloom Flower Shop
+                        {storeName}
                       </p>
                       <p className="mt-1 text-xs text-white/70">Gift Card</p>
                     </div>
