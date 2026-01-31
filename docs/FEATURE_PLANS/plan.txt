@@ -1,0 +1,367 @@
+ 🎯 Dashboard Upgrade Plan - Refined
+
+  Executive Summary
+
+  Transform the placeholder dashboard into a real-time operations center showing:
+  - Daily sales & revenue (what you're making today)
+  - Order fulfillment (what needs to go out the door)
+  - Customer insights (who's buying and when)
+  - Product performance (what's selling)
+
+  ---
+  📊 Phase 1: Data Discovery & Metrics Definition
+
+  Available Data Sources (from your existing DB):
+
+  Based on your Prisma schema and routes:
+
+  Orders Data:
+  - Order table: status, total, delivery date, customer info
+  - OrderItem: products, quantities, prices
+  - OrderStatus: DRAFT, CONFIRMED, PREPARING, OUT_FOR_DELIVERY, DELIVERED, CANCELLED
+
+  Payment Data:
+  - PaymentTransaction: amount (cents), type, status, timestamp
+  - Payment types: CASH, CARD, GIFT_CARD, FTD, etc.
+
+  Customer Data:
+  - Customer: total customers, new signups, repeat buyers
+  - CustomerRecipient: relationship tracking
+
+  Product Data:
+  - Product: inventory, pricing
+  - AddOnGroup & AddOn: add-on sales
+
+  ---
+  🎨 Proposed Dashboard Layout
+
+  Row 1: Key Metrics (4 Cards)
+
+  ┌─────────────┬─────────────┬─────────────┬─────────────┐
+  │  Today's    │   Orders    │  Deliveries │   New       │
+  │  Revenue    │   Pending   │   Today     │   Customers │
+  │             │             │             │             │
+  │  $1,247.50  │     23      │     18      │      5      │
+  │  ↑ +15%     │   🔴 3 late │  ✅ On time │  This week  │
+  └─────────────┴─────────────┴─────────────┴─────────────┘
+
+  Row 2: Revenue Trends (2 Charts)
+
+  ┌──────────────────────────────┬──────────────────────────┐
+  │  7-Day Revenue Trend         │  Payment Mix Today       │
+  │  (Line Chart)                │  (Donut Chart)           │
+  │                              │                          │
+  │  Shows daily gross revenue   │  Cash: 40%               │
+  │  with comparison to last     │  Card: 45%               │
+  │  week                        │  Gift Card: 15%          │
+  └──────────────────────────────┴──────────────────────────┘
+
+  Row 3: Operations & Products
+
+  ┌──────────────────────────────┬──────────────────────────┐
+  │  Top 5 Products This Week    │  Order Status Breakdown  │
+  │  (Bar Chart)                 │  (Stacked Bar)           │
+  │                              │                          │
+  │  1. Red Roses Bouquet: 45    │  Preparing: 12           │
+  │  2. Mixed Arrangement: 32    │  Out for Delivery: 8     │
+  │  3. Orchid Plant: 28         │  Delivered: 156          │
+  └──────────────────────────────┴──────────────────────────┘
+
+  Row 4: Alerts & Quick Actions
+
+  ┌──────────────────────────────────────────────────────────┐
+  │  ⚠️ Alerts                                                │
+  │  • 3 orders scheduled for today not yet OUT_FOR_DELIVERY │
+  │  • 2 draft orders from yesterday need attention          │
+  │  • 5 customers waiting for delivery confirmation         │
+  └──────────────────────────────────────────────────────────┘
+
+  ---
+  🔧 Detailed Metrics Specification
+
+  1. Today's Revenue Card
+
+  Data Source:
+  // Query payment transactions for today
+  SELECT SUM(amount) FROM PaymentTransaction
+  WHERE createdAt >= today
+  AND status = 'COMPLETED'
+
+  Display:
+  - Main number: Total revenue (cents → dollars)
+  - Comparison: vs. yesterday or same day last week
+  - Trend indicator: ↑ green if higher, ↓ red if lower
+
+  SQL Equivalent:
+  -- Today
+  SELECT SUM(amount) / 100 as revenue_dollars
+  FROM "PaymentTransaction"
+  WHERE DATE(created_at) = CURRENT_DATE
+  AND status = 'COMPLETED'
+
+  -- Yesterday for comparison
+  SELECT SUM(amount) / 100 as revenue_dollars
+  FROM "PaymentTransaction"
+  WHERE DATE(created_at) = CURRENT_DATE - 1
+  AND status = 'COMPLETED'
+
+  ---
+  2. Orders Pending Card
+
+  Data Source:
+  // Count orders in active states
+  SELECT COUNT(*) FROM Order
+  WHERE status IN ('CONFIRMED', 'PREPARING')
+  AND delivery_date <= today + 3 days
+
+  Display:
+  - Main number: Count of pending orders
+  - Alert: Highlight if delivery date < today (overdue)
+  - Breakdown: "3 for today, 8 for tomorrow"
+
+  ---
+  3. Deliveries Today Card
+
+  Data Source:
+  // Orders scheduled for delivery today
+  SELECT COUNT(*), status FROM Order
+  WHERE DATE(delivery_date) = today
+  GROUP BY status
+
+  Display:
+  - Main number: Total deliveries scheduled
+  - Status breakdown:
+    - ✅ Delivered: 12
+    - 🚚 Out for delivery: 4
+    - ⚠️ Not started: 2
+
+  ---
+  4. New Customers Card
+
+  Data Source:
+  // Customers created this week
+  SELECT COUNT(*) FROM Customer
+  WHERE created_at >= start_of_week
+
+  Display:
+  - Main number: New signups this week
+  - Trend: Weekly growth percentage
+
+  ---
+  📈 Chart Library Recommendation
+
+  Use Recharts (already lightweight, React-friendly):
+
+  npm install recharts
+
+  Why Recharts:
+  - ✅ Built for React
+  - ✅ Responsive by default
+  - ✅ Dark mode support
+  - ✅ Small bundle size
+  - ✅ TypeScript support
+
+  Example Line Chart:
+  import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+
+  const data = [
+    { day: 'Mon', revenue: 1250 },
+    { day: 'Tue', revenue: 980 },
+    { day: 'Wed', revenue: 1450 },
+    // ...
+  ];
+
+  <LineChart data={data}>
+    <XAxis dataKey="day" />
+    <YAxis />
+    <CartesianGrid strokeDasharray="3 3" />
+    <Line type="monotone" dataKey="revenue" stroke="#597485" />
+    <Tooltip />
+  </LineChart>
+
+  ---
+  🏗️ Implementation Plan
+
+  Phase 1: Backend - Dashboard Aggregation API (4-6 hours)
+
+  File: /back/src/routes/dashboard.ts
+
+  Endpoints to create:
+
+  // GET /api/dashboard/metrics
+  // Returns all KPI numbers for top row cards
+  {
+    todayRevenue: { amount: 124750, percentChange: 15 },
+    ordersPending: { count: 23, overdue: 3 },
+    deliveriesToday: { total: 18, byStatus: {...} },
+    newCustomers: { week: 5, month: 23 }
+  }
+
+  // GET /api/dashboard/revenue-trend?days=7
+  // Returns daily revenue for chart
+  [
+    { date: '2025-01-27', revenue: 125000 },
+    { date: '2025-01-28', revenue: 98000 },
+    // ...
+  ]
+
+  // GET /api/dashboard/top-products?days=7
+  // Returns best-selling products
+  [
+    { productId: 'xxx', name: 'Red Roses', quantity: 45, revenue: 225000 },
+    // ...
+  ]
+
+  // GET /api/dashboard/alerts
+  // Returns actionable alerts
+  [
+    { type: 'late_delivery', count: 3, message: '...' },
+    // ...
+  ]
+
+  Implementation Pattern:
+  router.get('/metrics', async (req, res) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const [todayRevenue, yesterdayRevenue, pendingOrders] = await Promise.all([
+      prisma.paymentTransaction.aggregate({
+        where: {
+          createdAt: { gte: today },
+          status: 'COMPLETED'
+        },
+        _sum: { amount: true }
+      }),
+      // ... more queries
+    ]);
+
+    res.json({
+      todayRevenue: {
+        amount: todayRevenue._sum.amount || 0,
+        percentChange: calculateChange(todayRevenue, yesterdayRevenue)
+      },
+      // ...
+    });
+  });
+
+  ---
+  Phase 2: Frontend - Custom Hooks (3-4 hours)
+
+  File: /admin/src/shared/hooks/useDashboard.ts
+
+  export function useDashboardMetrics() {
+    const apiClient = useApiClient();
+    const [metrics, setMetrics] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+      const fetchMetrics = async () => {
+        const data = await apiClient.get('/api/dashboard/metrics');
+        setMetrics(data.data);
+        setLoading(false);
+      };
+      fetchMetrics();
+
+      // Refresh every 5 minutes
+      const interval = setInterval(fetchMetrics, 5 * 60 * 1000);
+      return () => clearInterval(interval);
+    }, []);
+
+    return { metrics, loading };
+  }
+
+  ---
+  Phase 3: Frontend - Dashboard UI (6-8 hours)
+
+  File: /admin/src/app/pages/Dashboard/Home.tsx
+
+  Replace placeholder widgets with:
+
+  1. Metric Cards Component:
+  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <MetricCard
+      title="Today's Revenue"
+      value={formatCurrency(metrics.todayRevenue.amount)}
+      change={metrics.todayRevenue.percentChange}
+      trend={metrics.todayRevenue.percentChange > 0 ? 'up' : 'down'}
+    />
+    {/* More cards */}
+  </div>
+
+  2. Chart Components:
+  <RevenueTrendChart data={revenueTrend} />
+  <TopProductsChart data={topProducts} />
+  <OrderStatusChart data={orderStatus} />
+
+  3. Alerts Component:
+  <AlertsPanel alerts={alerts} />
+
+  ---
+  Phase 4: Polish & Optimization (2-3 hours)
+
+  - ✅ Add loading skeletons
+  - ✅ Error handling & retry logic
+  - ✅ Dark mode for all charts
+  - ✅ Responsive breakpoints
+  - ✅ Date range filters (Today / Week / Month toggle)
+  - ✅ Click-through links (e.g., "23 pending" → Orders page filtered)
+
+  ---
+  📊 Proposed Metrics Priority (MVP)
+
+  Must-Have (Week 1):
+
+  1. ✅ Today's Revenue
+  2. ✅ Orders Pending
+  3. ✅ Deliveries Today
+  4. ✅ 7-Day Revenue Trend Chart
+
+  Nice-to-Have (Week 2):
+
+  5. ✅ New Customers
+  6. ✅ Top Products Chart
+  7. ✅ Payment Mix Chart
+  8. ✅ Alerts Panel
+
+  Future Enhancements:
+
+  9. 📅 Calendar view of deliveries
+  10. 💰 Profit margins (if cost data available)
+  11. 📍 Delivery route map
+  12. 📞 Customer contact stats
+  13. 🎁 Gift card usage trends
+
+  ---
+  ⏱️ Time Estimates
+
+  | Phase | Task                   | Hours       |
+  |-------|------------------------|-------------|
+  | 1     | Backend API endpoints  | 4-6         |
+  | 2     | Frontend hooks & state | 3-4         |
+  | 3     | UI components & charts | 6-8         |
+  | 4     | Polish & testing       | 2-3         |
+  | Total | MVP Dashboard          | 15-21 hours |
+
+  ---
+  🎯 Success Criteria
+
+  Dashboard is complete when:
+  - ✅ Shows real data, not placeholders
+  - ✅ Updates automatically (5-minute refresh)
+  - ✅ All numbers match manual queries
+  - ✅ Cents→dollars conversion is correct
+  - ✅ Works in dark mode
+  - ✅ Responsive on mobile/tablet
+  - ✅ Loading states don't flicker
+  - ✅ Clicking metrics navigates to detail pages
+
+  ---
+  🚀 Next Steps
+
+  1. Review & Approve this plan
+  2. Choose MVP scope (which metrics to build first)
+  3. Wireframe approval (I can create mockups)
+  4. Implementation (I'll build it step-by-step with you)
+
+  Should I proceed with building the MVP dashboard? I recommend starting with the 4 metric cards + revenue trend chart (Phase 1 + part of
+  Phase 3) as a proof-of-concept.

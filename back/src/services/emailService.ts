@@ -276,19 +276,14 @@ class EmailService {
 
     if (template) {
       const purchaserName = data.purchaserName || 'A friend';
-      const purchaserSection = `
-        <p style="color:#666;font-size:16px;margin:10px 0;">
-          You've received this gift card from
-          <strong>${purchaserName}</strong>
-        </p>
-      `;
+      const purchaserSection = purchaserName;
 
       const messageSection = data.message
         ? `
         <div
-          style="background:#f8f8f8;border-left:4px solid #111827;padding:15px;margin:20px 0;text-align:left;"
+          style="background: rgba(255,255,255,0.12); border-radius: 12px; padding: 12px; margin-bottom: 16px; font-style: italic; line-height: 1.5;"
         >
-          <p style="color:#333;font-style:italic;margin:0;font-size:16px;">"${data.message}"</p>
+          "${data.message}"
         </div>
       `
         : '';
@@ -433,11 +428,20 @@ class EmailService {
     }
 
     try {
-      const templatePath = path.resolve(process.cwd(), 'templates', 'gift-card-email.html');
-      this.giftCardTemplateCache = fs.readFileSync(templatePath, 'utf-8');
+      const templatePaths = [
+        path.resolve(process.cwd(), 'templates', 'gift-card-email.html'),
+        path.resolve(process.cwd(), '..', 'templates', 'gift-card-email.html'),
+      ];
+      const resolvedPath = templatePaths.find((candidate) => fs.existsSync(candidate));
+
+      if (!resolvedPath) {
+        throw new Error('Gift card template not found');
+      }
+
+      this.giftCardTemplateCache = fs.readFileSync(resolvedPath, 'utf-8');
     } catch (error) {
       if (!this.warnedMissingGiftCardTemplate) {
-        console.warn('Gift card email template not found at templates/gift-card-email.html. Using default HTML.');
+        console.warn('Gift card email template not found. Using default HTML.');
         this.warnedMissingGiftCardTemplate = true;
       }
       this.giftCardTemplateCache = null;

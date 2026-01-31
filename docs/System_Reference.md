@@ -90,7 +90,7 @@
   - Assign drivers (Employee with DRIVER role)
   - Status tracking: PLANNED → IN_PROGRESS → COMPLETED
 - **Admin Route Builder** (`admin/src/app/pages/delivery/RouteBuilderPage.tsx`): Drag-and-drop interface for building and managing routes
-- **Driver Interface** (www/src/pages/DriverRoute.jsx`): Public driver view with HMAC-signed token-based access (30-day expiry)
+- **Driver Interface** (`admin/src/app/pages/driver/DriverRoutePage.tsx`): Public driver view with HMAC-signed token-based access (30-day expiry)
   - No authentication required - uses time-limited signed tokens
   - Displays all route stops with suggested shortest-distance sequence
   - Driver has freedom to choose delivery order (suggestions not enforced)
