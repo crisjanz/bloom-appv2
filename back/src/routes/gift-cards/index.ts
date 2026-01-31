@@ -7,6 +7,7 @@ import { getGiftCards, getGiftCard } from './list';
 import { purchaseCards } from './purchase';
 import { deactivateCard } from './deactivate';
 import { adjustBalance } from './adjust';
+import { resendGiftCardEmail } from './resend';
 
 const router = Router();
 
@@ -15,6 +16,7 @@ router.post('/batch', createBatch);           // Generate batch of inactive card
 router.get('/', getGiftCards);               // List all cards (admin)
 router.patch('/:id/deactivate', deactivateCard); // Deactivate a card
 router.post('/:id/adjust', adjustBalance);       // Adjust card balance
+router.post('/:id/resend', resendGiftCardEmail); // Resend digital GC email to recipient
 router.get('/:id', getGiftCard);             // Get single card details
 
 // Card operations

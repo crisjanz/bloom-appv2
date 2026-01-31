@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Modal } from "@shared/ui/components/ui/modal";
 import FormError from "@shared/ui/components/ui/form/FormError";
-import FormFooter from "@shared/ui/components/ui/form/FormFooter";
 import InputField from "@shared/ui/forms/input/InputField";
-import Label from "@shared/ui/forms/Label";
 import StandardTable, { ColumnDef } from "@shared/ui/components/ui/table/StandardTable";
 import { useApiClient } from "@shared/hooks/useApiClient";
 import { useBusinessTimezone } from "@shared/hooks/useBusinessTimezone";
@@ -65,6 +63,7 @@ export default function GiftCardDetailModal({ open, cardId, onClose, onCardUpdat
   const [adjustNotes, setAdjustNotes] = useState("");
   const [isAdjusting, setIsAdjusting] = useState(false);
   const [isDeactivating, setIsDeactivating] = useState(false);
+  const [isResending, setIsResending] = useState(false);
 
   const formatDate = useCallback((value?: string | null) => {
     if (!value) return "—";
@@ -130,6 +129,25 @@ export default function GiftCardDetailModal({ open, cardId, onClose, onCardUpdat
       setActionError(err instanceof Error ? err.message : "Failed to deactivate gift card");
     } finally {
       setIsDeactivating(false);
+    }
+  };
+
+  const handleResendEmail = async () => {
+    if (!card || !card.recipientEmail) return;
+    setIsResending(true);
+    setActionError(null);
+    setActionSuccess(null);
+
+    try {
+      const { data, status } = await apiClient.post(`/api/gift-cards/${card.id}/resend`);
+      if (status >= 400) {
+        throw new Error(data?.error || "Failed to resend gift card email");
+      }
+      setActionSuccess(`Gift card email resent to ${card.recipientEmail}`);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to resend email");
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -226,17 +244,12 @@ export default function GiftCardDetailModal({ open, cardId, onClose, onCardUpdat
   );
 
   return (
-    <Modal isOpen={open} onClose={onClose} className="max-w-5xl">
-      <div className="p-6 space-y-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Gift Card Details</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              View balances, transactions, and manage card status.
-            </p>
-          </div>
+    <Modal isOpen={open} onClose={onClose} className="max-w-3xl max-h-[85vh] overflow-y-auto">
+      <div className="p-5 space-y-4">
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Gift Card Details</h2>
           {card && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <span className={`text-2xl leading-none ${getGiftCardStatusColor(card.status)}`}>•</span>
               <span className={`text-sm font-medium ${getGiftCardStatusColor(card.status)}`}>
                 {statusLabels[card.status] || card.status}
@@ -258,73 +271,50 @@ export default function GiftCardDetailModal({ open, cardId, onClose, onCardUpdat
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
           </div>
         ) : (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="rounded-lg border border-stroke dark:border-strokedark bg-white dark:bg-boxdark p-4 space-y-2">
-                <div>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="rounded-lg border border-stroke dark:border-strokedark bg-white dark:bg-boxdark p-3 space-y-2">
+                <div className="flex items-baseline justify-between">
                   <span className="text-xs text-gray-500 dark:text-gray-400">Card Number</span>
-                  <div className="mt-1 text-sm font-mono text-gray-900 dark:text-white">{card.cardNumber}</div>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">{card.type}</span>
                 </div>
-                <div>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">Type</span>
-                  <div className="mt-1 text-sm text-gray-900 dark:text-white">{card.type}</div>
+                <div className="text-sm font-mono text-gray-900 dark:text-white">{card.cardNumber}</div>
+                <div className="flex gap-4 text-xs text-gray-500 dark:text-gray-400">
+                  <span>Created {formatDate(card.createdAt)}</span>
+                  <span>{card.expirationDate ? `Exp ${formatDate(card.expirationDate)}` : "No expiration"}</span>
                 </div>
-                <div>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">Created</span>
-                  <div className="mt-1 text-sm text-gray-900 dark:text-white">{formatDate(card.createdAt)}</div>
-                </div>
-                <div>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">Expiration</span>
-                  <div className="mt-1 text-sm text-gray-900 dark:text-white">
-                    {card.expirationDate ? formatDate(card.expirationDate) : "No expiration"}
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-stroke dark:border-strokedark bg-white dark:bg-boxdark p-4 space-y-2">
-                <div>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">Initial Value</span>
-                  <div className="mt-1 text-lg font-semibold text-gray-900 dark:text-white">
-                    {formatCurrency(card.initialValue)}
-                  </div>
-                </div>
-                <div>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">Current Balance</span>
-                  <div className="mt-1 text-2xl font-semibold text-brand-500">
-                    {formatCurrency(card.currentBalance)}
-                  </div>
-                </div>
-                <div>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">Purchased By</span>
-                  <div className="mt-1 text-sm text-gray-900 dark:text-white">
-                    {card.purchasedBy || "—"}
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-stroke dark:border-strokedark bg-white dark:bg-boxdark p-4 space-y-2">
-                <div>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">Recipient</span>
-                  <div className="mt-1 text-sm text-gray-900 dark:text-white">
-                    {card.recipientName || "—"}
-                  </div>
+                {card.purchasedBy && (
                   <div className="text-xs text-gray-500 dark:text-gray-400">
-                    {card.recipientEmail || ""}
+                    Purchased by {card.purchasedBy}
                   </div>
+                )}
+              </div>
+
+              <div className="rounded-lg border border-stroke dark:border-strokedark bg-white dark:bg-boxdark p-3 space-y-1">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Balance</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">of {formatCurrency(card.initialValue)}</span>
                 </div>
-                <div>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">Message</span>
-                  <div className="mt-1 text-sm text-gray-900 dark:text-white">
-                    {card.message || "—"}
+                <div className="text-xl font-semibold text-brand-500">
+                  {formatCurrency(card.currentBalance)}
+                </div>
+                {(card.recipientName || card.recipientEmail) && (
+                  <div className="pt-1 border-t border-stroke dark:border-strokedark">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">Recipient: </span>
+                    <span className="text-sm text-gray-900 dark:text-white">{card.recipientName || card.recipientEmail}</span>
+                    {card.recipientName && card.recipientEmail && (
+                      <div className="text-xs text-gray-500 dark:text-gray-400">{card.recipientEmail}</div>
+                    )}
                   </div>
-                </div>
+                )}
+                {card.message && (
+                  <div className="text-xs text-gray-500 dark:text-gray-400 italic">"{card.message}"</div>
+                )}
               </div>
             </div>
 
-            <div className="rounded-lg border border-stroke dark:border-strokedark bg-white dark:bg-boxdark p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Transaction History</h3>
-              </div>
+            <div className="rounded-lg border border-stroke dark:border-strokedark bg-white dark:bg-boxdark p-3">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Transactions</h3>
               <StandardTable
                 columns={transactionColumns}
                 data={card.transactions || []}
@@ -332,55 +322,62 @@ export default function GiftCardDetailModal({ open, cardId, onClose, onCardUpdat
               />
             </div>
 
-            <div className="rounded-lg border border-stroke dark:border-strokedark bg-white dark:bg-boxdark p-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Admin Actions</h3>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Adjust balances or deactivate cards.</p>
+            <div className="rounded-lg border border-stroke dark:border-strokedark bg-white dark:bg-boxdark p-3 space-y-3">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Actions</h3>
+
+              <div className="flex items-end gap-3">
+                <div className="flex-1">
+                  <InputField
+                    label="Adjust Balance"
+                    type="number"
+                    step="0.01"
+                    placeholder="e.g. -10.00 or 25.00"
+                    value={adjustAmount || ""}
+                    onChange={(e) => setAdjustAmount(e.target.value)}
+                  />
                 </div>
+                <div className="flex-1">
+                  <InputField
+                    label="Notes"
+                    placeholder="Reason (optional)"
+                    value={adjustNotes || ""}
+                    onChange={(e) => setAdjustNotes(e.target.value)}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAdjustBalance}
+                  disabled={isAdjusting || !adjustAmount}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-3 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-60 whitespace-nowrap"
+                >
+                  <SaveIcon className="w-4 h-4" />
+                  {isAdjusting ? "Applying..." : "Apply"}
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1 border-t border-stroke dark:border-strokedark">
+                {card.type === "DIGITAL" && card.recipientEmail && (
+                  <button
+                    type="button"
+                    onClick={handleResendEmail}
+                    disabled={isResending}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isResending ? "Sending..." : "Resend to Recipient"}
+                  </button>
+                )}
                 {card.status === "ACTIVE" && (
                   <button
                     type="button"
                     onClick={handleDeactivate}
                     disabled={isDeactivating}
-                    className="inline-flex items-center gap-2 rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-red-500 px-3 py-2 text-sm font-medium text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60 ml-auto"
                   >
                     <TrashBinIcon className="h-4 w-4" />
                     {isDeactivating ? "Deactivating..." : "Deactivate"}
                   </button>
                 )}
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <InputField
-                  label="Adjustment Amount"
-                  type="number"
-                  step="0.01"
-                  placeholder="e.g. -10.00 or 25.00"
-                  value={adjustAmount || ""}
-                  onChange={(e) => setAdjustAmount(e.target.value)}
-                />
-
-                <div className="md:col-span-2">
-                  <Label htmlFor="adjust-notes">Notes</Label>
-                  <textarea
-                    id="adjust-notes"
-                    rows={3}
-                    value={adjustNotes || ""}
-                    onChange={(e) => setAdjustNotes(e.target.value)}
-                    className="w-full rounded border-[1.5px] border-stroke bg-transparent px-5 py-3 text-sm text-black outline-none transition focus:border-brand-500 dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-brand-500"
-                    placeholder="Optional reason for adjustment"
-                  />
-                </div>
-              </div>
-
-              <FormFooter
-                onSubmit={handleAdjustBalance}
-                submitting={isAdjusting}
-                submitText="Apply Adjustment"
-                submitIcon={<SaveIcon className="w-4 h-4" />}
-                submitDisabled={!adjustAmount}
-              />
             </div>
           </div>
         )}
