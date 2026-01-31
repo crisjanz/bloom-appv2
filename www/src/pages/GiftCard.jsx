@@ -13,14 +13,10 @@ import {
   purchaseDigitalGiftCard,
 } from "../services/giftCardService.js";
 
-async function fetchStripePublicKey() {
-  const res = await fetch("/api/stripe/public-key");
-  if (!res.ok) return null;
-  const { publicKey } = await res.json();
-  return publicKey ? loadStripe(publicKey) : null;
-}
-
-const stripePromise = fetchStripePublicKey();
+const stripePromise = fetch("/api/stripe/public-key")
+  .then((res) => (res.ok ? res.json() : null))
+  .then((data) => (data?.publicKey ? loadStripe(data.publicKey) : null))
+  .catch(() => null);
 
 const MIN_AMOUNT = 25;
 const MAX_AMOUNT = 300;
