@@ -122,7 +122,8 @@ const RefundModal = ({ isOpen, transactionNumber, onClose, onRefundComplete }: R
       value: `${method.type}:${method.provider}:${method.id ?? index}`,
       label: `${method.type} (${method.provider})`,
       methodType: method.type,
-      provider: method.provider
+      provider: method.provider,
+      providerTransactionId: method.providerTransactionId
     }));
 
     options.push(
@@ -249,7 +250,8 @@ const RefundModal = ({ isOpen, transactionNumber, onClose, onRefundComplete }: R
               paymentMethodType: method.methodType,
               provider: method.provider,
               amount: totalRefundAmount,
-              status: "manual"
+              providerTransactionId: method.providerTransactionId,
+              status: method.provider === "STRIPE" && method.methodType === "CARD" ? "pending" : "manual"
             }
           ]
         })

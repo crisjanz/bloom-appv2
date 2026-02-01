@@ -203,6 +203,7 @@ Each variant can optionally reference one of the product's images via `featuredI
 
 ### Refunds & External Providers
 - ✅ POST `/api/refunds` — process a refund with order allocations.
+  - Stripe card refunds require `refundMethods[].providerTransactionId` (Stripe paymentIntentId).
 - ✅ GET `/api/refunds/:refundNumber` — refund detail with methods + order breakdown.
 - ✅ GET `/api/external-providers` — list active external providers.
 - ✅ POST `/api/external-providers` — create external provider.

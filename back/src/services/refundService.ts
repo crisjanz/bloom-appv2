@@ -1,5 +1,6 @@
 import prisma from '../lib/prisma';
 import { Prisma } from '@prisma/client';
+import paymentProviderFactory from './paymentProviders/PaymentProviderFactory';
 
 interface RefundItemBreakdown {
   orderItemId: string;
@@ -35,6 +36,7 @@ interface ProcessRefundData {
       | 'OFFLINE';
     provider: 'STRIPE' | 'SQUARE' | 'INTERNAL';
     amount: number;
+    providerTransactionId?: string;
     providerRefundId?: string;
     status?: string;
   }[];
@@ -42,6 +44,41 @@ interface ProcessRefundData {
 
 class RefundService {
   async processRefund(data: ProcessRefundData) {
+    const shouldProcessStripe = data.refundMethods.some(
+      (method) =>
+        method.provider === 'STRIPE' &&
+        method.paymentMethodType === 'CARD' &&
+        !method.providerRefundId
+    );
+    const stripe = shouldProcessStripe ? await paymentProviderFactory.getStripeClient() : null;
+
+    const refundMethods = await Promise.all(
+      data.refundMethods.map(async (method) => {
+        if (
+          method.provider === 'STRIPE' &&
+          method.paymentMethodType === 'CARD' &&
+          !method.providerRefundId
+        ) {
+          if (!method.providerTransactionId) {
+            throw new Error('Stripe refund requires providerTransactionId');
+          }
+
+          const stripeRefund = await stripe!.refunds.create({
+            payment_intent: method.providerTransactionId,
+            amount: Math.round(method.amount)
+          });
+
+          return {
+            ...method,
+            providerRefundId: stripeRefund.id,
+            status: stripeRefund.status || method.status
+          };
+        }
+
+        return method;
+      })
+    );
+
     return await prisma.$transaction(async (tx) => {
       const refundNumber = await this.generateRefundNumber(tx);
 
@@ -60,7 +97,7 @@ class RefundService {
       });
 
       await Promise.all(
-        data.refundMethods.map((method) =>
+        refundMethods.map((method) =>
           tx.refundMethod.create({
             data: {
               refundId: refund.id,
