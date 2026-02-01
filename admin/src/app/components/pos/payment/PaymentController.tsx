@@ -502,7 +502,10 @@ const PaymentController: FC<Props> = ({
   };
 
   const finalizeFromModal = (payload: PaymentPayload, rowNote?: string) => {
-    if (!paymentModals.modalContext) return;
+    if (!paymentModals.modalContext) {
+      console.error('❌ finalizeFromModal called but modalContext is null');
+      return;
+    }
 
     if (paymentModals.modalContext.mode === 'split' && paymentModals.modalContext.rowId) {
       const amount = Math.round(paymentModals.modalContext.amount);
@@ -1011,14 +1014,17 @@ const handleCardComplete = (data: {
                     onClick={async () => {
                       try {
                         // Reassign orders to matched customer
+                        console.log('🔗 Linking to customer:', c.id, 'orders:', pendingCompletion?.completedOrderIds, 'transaction:', pendingCompletion?.transaction?.id);
                         if (pendingCompletion?.completedOrderIds) {
                           for (const orderId of pendingCompletion.completedOrderIds) {
-                            await apiClient.put(`/api/orders/${orderId}/update`, { customerId: c.id });
+                            const res = await apiClient.put(`/api/orders/${orderId}/update`, { customerId: c.id });
+                            console.log('🔗 Order update response:', orderId, res.status, res.data);
                           }
                         }
                         // Reassign transaction to matched customer
                         if (pendingCompletion?.transaction?.id) {
-                          await apiClient.put(`/api/payment-transactions/${pendingCompletion.transaction.id}`, { customerId: c.id });
+                          const res = await apiClient.put(`/api/payment-transactions/${pendingCompletion.transaction.id}`, { customerId: c.id });
+                          console.log('🔗 Transaction update response:', res.status, res.data);
                         }
                         paymentState.showNotification('success', `Order linked to ${c.firstName || 'customer'}.`, 3000);
                       } catch (err) {
