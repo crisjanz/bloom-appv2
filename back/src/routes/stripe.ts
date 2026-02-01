@@ -23,6 +23,88 @@ type StripeOrderPaymentInfo = {
   cardBrand?: string | null;
 };
 
+const buildStripeCustomerName = (customerName?: string, customerEmail?: string) => {
+  if (customerName && customerName.trim().length > 0) {
+    return customerName;
+  }
+  if (customerEmail) {
+    return customerEmail.split('@')[0] || 'Customer';
+  }
+  return 'Customer';
+};
+
+const refreshStripeCustomerLink = async ({
+  stripe,
+  bloomCustomerId,
+  customerEmail,
+  customerName,
+  customerPhone,
+}: {
+  stripe: Stripe;
+  bloomCustomerId: string;
+  customerEmail?: string;
+  customerName?: string;
+  customerPhone?: string;
+}) => {
+  const stripeCustomer = await stripe.customers.create({
+    email: customerEmail,
+    name: buildStripeCustomerName(customerName, customerEmail),
+    phone: customerPhone,
+    metadata: {
+      bloomCustomerId,
+    },
+  });
+
+  const existing = await prisma.providerCustomer.findFirst({
+    where: {
+      customerId: bloomCustomerId,
+      provider: PaymentProvider.STRIPE,
+      isActive: true,
+    },
+    orderBy: [
+      { isPrimary: 'desc' },
+      { createdAt: 'asc' },
+    ],
+  });
+
+  if (existing) {
+    await prisma.providerCustomer.update({
+      where: { id: existing.id },
+      data: {
+        providerCustomerId: stripeCustomer.id,
+        providerEmail: stripeCustomer.email || existing.providerEmail,
+        providerMetadata: stripeCustomer,
+        isActive: true,
+        isPrimary: true,
+        lastSyncAt: new Date(),
+      },
+    });
+    await prisma.providerCustomer.updateMany({
+      where: {
+        customerId: bloomCustomerId,
+        provider: PaymentProvider.STRIPE,
+        id: { not: existing.id },
+      },
+      data: { isPrimary: false },
+    });
+  } else {
+    await prisma.providerCustomer.create({
+      data: {
+        customerId: bloomCustomerId,
+        provider: PaymentProvider.STRIPE,
+        providerCustomerId: stripeCustomer.id,
+        providerEmail: stripeCustomer.email || undefined,
+        providerMetadata: stripeCustomer,
+        isActive: true,
+        isPrimary: true,
+        lastSyncAt: new Date(),
+      },
+    });
+  }
+
+  return stripeCustomer.id;
+};
+
 const resolvePaymentMetadata = (metadata: any) => {
   if (!metadata || typeof metadata !== 'object') {
     return {};
@@ -274,16 +356,52 @@ router.post('/terminal/process-payment', async (req, res) => {
       }
     }
 
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amountInCents,
-      currency,
-      customer: resolvedCustomerId,
-      description: `Bloom Flower Shop - POS ${orderIdList.join(', ')}`.trim(),
-      metadata: metadataPayload,
-      automatic_payment_methods: { enabled: true },
-      receipt_email: customerEmail,
-      setup_future_usage: resolvedCustomerId ? 'off_session' : undefined,
-    });
+    let paymentIntent: Stripe.PaymentIntent;
+    try {
+      paymentIntent = await stripe.paymentIntents.create({
+        amount: amountInCents,
+        currency,
+        customer: resolvedCustomerId,
+        description: `Bloom Flower Shop - POS ${orderIdList.join(', ')}`.trim(),
+        metadata: metadataPayload,
+        automatic_payment_methods: { enabled: true },
+        receipt_email: customerEmail,
+        setup_future_usage: resolvedCustomerId ? 'off_session' : undefined,
+      });
+    } catch (error: any) {
+      if (error?.code === 'resource_missing' && error?.param === 'customer') {
+        if (bloomCustomerId) {
+          const refreshedCustomerId = await refreshStripeCustomerLink({
+            stripe,
+            bloomCustomerId,
+            customerEmail,
+            customerName,
+            customerPhone,
+          });
+          resolvedCustomerId = refreshedCustomerId;
+        } else {
+          const stripeCustomer = await stripe.customers.create({
+            email: customerEmail,
+            name: buildStripeCustomerName(customerName, customerEmail),
+            phone: customerPhone,
+          });
+          resolvedCustomerId = stripeCustomer.id;
+        }
+
+        paymentIntent = await stripe.paymentIntents.create({
+          amount: amountInCents,
+          currency,
+          customer: resolvedCustomerId,
+          description: `Bloom Flower Shop - POS ${orderIdList.join(', ')}`.trim(),
+          metadata: metadataPayload,
+          automatic_payment_methods: { enabled: true },
+          receipt_email: customerEmail,
+          setup_future_usage: resolvedCustomerId ? 'off_session' : undefined,
+        });
+      } else {
+        throw error;
+      }
+    }
 
     await stripe.terminal.readers.processPaymentIntent(readerId, {
       payment_intent: paymentIntent.id,
@@ -474,16 +592,52 @@ router.post('/payment-intent', async (req, res) => {
       }
     }
 
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amountInCents,
-      currency,
-      customer: resolvedCustomerId,
-      description: description || `Bloom Flower Shop - Order${orderIdList.length > 1 ? 's' : ''} ${orderIdList.join(', ')}`,
-      metadata: metadataPayload,
-      automatic_payment_methods: { enabled: true },
-      receipt_email: customerEmail,
-      setup_future_usage: resolvedCustomerId ? 'off_session' : undefined,
-    });
+    let paymentIntent: Stripe.PaymentIntent;
+    try {
+      paymentIntent = await stripe.paymentIntents.create({
+        amount: amountInCents,
+        currency,
+        customer: resolvedCustomerId,
+        description: description || `Bloom Flower Shop - Order${orderIdList.length > 1 ? 's' : ''} ${orderIdList.join(', ')}`,
+        metadata: metadataPayload,
+        automatic_payment_methods: { enabled: true },
+        receipt_email: customerEmail,
+        setup_future_usage: resolvedCustomerId ? 'off_session' : undefined,
+      });
+    } catch (error: any) {
+      if (error?.code === 'resource_missing' && error?.param === 'customer') {
+        if (bloomCustomerId) {
+          const refreshedCustomerId = await refreshStripeCustomerLink({
+            stripe,
+            bloomCustomerId,
+            customerEmail,
+            customerName,
+            customerPhone,
+          });
+          resolvedCustomerId = refreshedCustomerId;
+        } else {
+          const stripeCustomer = await stripe.customers.create({
+            email: customerEmail,
+            name: buildStripeCustomerName(customerName, customerEmail),
+            phone: customerPhone,
+          });
+          resolvedCustomerId = stripeCustomer.id;
+        }
+
+        paymentIntent = await stripe.paymentIntents.create({
+          amount: amountInCents,
+          currency,
+          customer: resolvedCustomerId,
+          description: description || `Bloom Flower Shop - Order${orderIdList.length > 1 ? 's' : ''} ${orderIdList.join(', ')}`,
+          metadata: metadataPayload,
+          automatic_payment_methods: { enabled: true },
+          receipt_email: customerEmail,
+          setup_future_usage: resolvedCustomerId ? 'off_session' : undefined,
+        });
+      } else {
+        throw error;
+      }
+    }
 
     console.log(
       `✅ Stripe PaymentIntent created: ${paymentIntent.id} for $${(amountInCents / 100).toFixed(2)}`
