@@ -410,11 +410,15 @@ router.put('/:id/update', async (req, res) => {
       }
 
       // Update the order with any changes
+      console.log(`📝 Order update for ${id}: keys=${JSON.stringify(Object.keys(orderUpdateData))}, data=${JSON.stringify(orderUpdateData)}`);
       if (Object.keys(orderUpdateData).length > 0) {
-        await tx.order.update({
+        const updated = await tx.order.update({
           where: { id },
           data: orderUpdateData
         });
+        console.log(`✅ Order ${id} updated, new customerId=${updated.customerId}`);
+      } else {
+        console.log(`⚠️ Order ${id}: no update data, skipping`);
       }
 
       // Return the updated order with all relations

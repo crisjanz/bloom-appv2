@@ -25,6 +25,7 @@ router.post("/match", async (req, res) => {
     const customers = matches
       .map((m) => m.customer)
       .filter(Boolean)
+      .filter((c) => !(c!.firstName === 'Walk-in' && c!.lastName === 'Customer'))
       .map((c) => ({
         id: c!.id,
         firstName: c!.firstName,

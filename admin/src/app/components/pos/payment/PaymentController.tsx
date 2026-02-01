@@ -224,16 +224,6 @@ const PaymentController: FC<Props> = ({
     completedOrderIds: string[];
     transaction: any;
   } | null>(null);
-  const [guestCustomerId, setGuestCustomerId] = useState<string | null>(null);
-
-  // Eagerly resolve guest customer ID so it's available for card fingerprint storage
-  useEffect(() => {
-    if (!customer?.id) {
-      getOrCreateGuestCustomer().then(setGuestCustomerId).catch(() => {});
-    } else {
-      setGuestCustomerId(null);
-    }
-  }, [customer?.id]);
 
   // Coupon validation hook
   const {
@@ -925,7 +915,7 @@ const handleCardComplete = (data: {
           total={paymentModals.modalContext?.amount ?? total}
           cardType="credit"
           orderIds={orderIds}
-          bloomCustomerId={customer?.id ?? guestCustomerId ?? undefined}
+          bloomCustomerId={customer?.id ?? undefined}
           customerEmail={customer?.email ?? undefined}
           customerPhone={customer?.phone ?? undefined}
           customerName={customerDisplayName}
