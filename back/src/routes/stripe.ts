@@ -682,7 +682,7 @@ router.post('/payment-intent/:id/confirm', async (req, res) => {
     const paymentIntent = await stripe.paymentIntents.confirm(id, confirmData);
 
     const detailedIntent = await stripe.paymentIntents.retrieve(paymentIntent.id, {
-      expand: ['latest_charge.payment_method_details.card']
+      expand: ['latest_charge']
     });
 
     const charge: any = detailedIntent.latest_charge && typeof detailedIntent.latest_charge === 'object'
@@ -701,6 +701,8 @@ router.post('/payment-intent/:id/confirm', async (req, res) => {
         : detailedIntent.payment_method?.id;
     const stripeCustomerId =
       typeof detailedIntent.customer === 'string' ? detailedIntent.customer : undefined;
+
+    console.log(`🔑 Card confirm details: fingerprint=${fingerprint}, last4=${last4}, bloomCustomerId=${bloomCustomerId}`);
 
     if (fingerprint && bloomCustomerId) {
       const existing = await prisma.customerPaymentMethod.findFirst({
