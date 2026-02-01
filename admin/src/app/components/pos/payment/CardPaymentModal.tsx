@@ -283,10 +283,12 @@ export default function CardPaymentModal({
     }
   };
 
-  // Load saved cards when entering manual mode
+  // Load saved cards when entering manual mode, clear when no customer
   useEffect(() => {
     if (viewMode === 'manual' && (customerEmail || customerPhone || bloomCustomerId)) {
       loadSavedCards();
+    } else {
+      setSavedCards([]);
     }
   }, [viewMode, customerEmail, customerPhone, bloomCustomerId]);
 
