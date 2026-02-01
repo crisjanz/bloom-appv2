@@ -218,6 +218,12 @@ const PaymentController: FC<Props> = ({
   } | null>(null);
   const [fingerprintMatchError, setFingerprintMatchError] = useState<string | null>(null);
   const [isMatchingFingerprint, setIsMatchingFingerprint] = useState(false);
+  const [pendingCompletion, setPendingCompletion] = useState<{
+    completion: CompletionData;
+    payments: PaymentPayload[];
+    completedOrderIds: string[];
+    transaction: any;
+  } | null>(null);
 
   // Coupon validation hook
   const {
@@ -391,6 +397,40 @@ const PaymentController: FC<Props> = ({
     );
   };
 
+  const finishCompletion = async (completion: CompletionData, payments: PaymentPayload[], completedOrderIds: string[], transaction: any) => {
+    paymentState.completePayment(completion, payments);
+    paymentModals.setShowAdjustments(false);
+    transactionSubmission.setPendingFinalization(null);
+    setView('selection');
+
+    if (paymentState.quickActions.emailReceipt) {
+      paymentModals.setShowNotificationModal(true);
+    }
+    if (paymentState.quickActions.printReceipt) {
+      try {
+        const settingsResponse = await apiClient.get('/api/print-settings');
+        if (settingsResponse.status < 400 && settingsResponse.data?.receiptsDestination === 'browser') {
+          for (const id of completedOrderIds) {
+            const printResponse = await apiClient.post(`/api/print/receipt/${id}`);
+            if (printResponse.status < 400 && printResponse.data?.action === 'browser-print' && printResponse.data?.pdfUrl) {
+              window.open(printResponse.data.pdfUrl, '_blank');
+            }
+          }
+        }
+      } catch (printError) {
+        console.error('Failed to trigger receipt print:', printError);
+      }
+    }
+
+    onComplete({
+      transactionNumber: transaction.transactionNumber,
+      transactionId: transaction.id,
+      totalAmount: completion.totalAmount,
+      customerId: customer?.id,
+      orderIds,
+    });
+  };
+
   const submitTransaction = async (payments: PaymentPayload[]) => {
     if (paymentState.isProcessing) return;
     paymentState.setProcessing(true);
@@ -418,7 +458,6 @@ const PaymentController: FC<Props> = ({
 
       const { transaction, activatedGiftCards } = result.data;
       const fingerprintFromPayment = payments.find((p) => p.metadata?.cardFingerprint)?.metadata?.cardFingerprint;
-      console.log('🔑 Fingerprint check:', { fingerprintFromPayment, hasCustomer: !!customer?.id, payments: payments.map(p => ({ method: p.method, fingerprint: p.metadata?.cardFingerprint })) });
       if (!customer?.id && fingerprintFromPayment) {
         await fetchFingerprintMatches(fingerprintFromPayment);
       }
@@ -440,37 +479,13 @@ const PaymentController: FC<Props> = ({
         completedOrders: transformCartToOrders(cartItems, customerDisplayName),
       };
 
-      paymentState.completePayment(completion, payments);
-      paymentModals.setShowAdjustments(false);
-      transactionSubmission.setPendingFinalization(null);
-      setView('selection');
-
-      if (paymentState.quickActions.emailReceipt) {
-        paymentModals.setShowNotificationModal(true);
-      }
-      if (paymentState.quickActions.printReceipt) {
-        try {
-          const settingsResponse = await apiClient.get('/api/print-settings');
-          if (settingsResponse.status < 400 && settingsResponse.data?.receiptsDestination === 'browser') {
-            for (const id of completedOrderIds) {
-              const printResponse = await apiClient.post(`/api/print/receipt/${id}`);
-              if (printResponse.status < 400 && printResponse.data?.action === 'browser-print' && printResponse.data?.pdfUrl) {
-                window.open(printResponse.data.pdfUrl, '_blank');
-              }
-            }
-          }
-        } catch (printError) {
-          console.error('Failed to trigger receipt print:', printError);
-        }
+      // If fingerprint matches found, defer completion until user dismisses the modal
+      if (fingerprintMatches) {
+        setPendingCompletion({ completion, payments, completedOrderIds, transaction });
+        return;
       }
 
-      onComplete({
-        transactionNumber: transaction.transactionNumber,
-        transactionId: transaction.id,
-        totalAmount: completion.totalAmount,
-        customerId: customer?.id,
-        orderIds,
-      });
+      await finishCompletion(completion, payments, completedOrderIds, transaction);
     } catch (processingError) {
       console.error('Payment processing failed:', processingError);
       paymentState.setPaymentError(
@@ -960,7 +975,13 @@ const handleCardComplete = (data: {
 
         <Modal
           isOpen={Boolean(fingerprintMatches)}
-          onClose={() => setFingerprintMatches(null)}
+          onClose={() => {
+            setFingerprintMatches(null);
+            if (pendingCompletion) {
+              finishCompletion(pendingCompletion.completion, pendingCompletion.payments, pendingCompletion.completedOrderIds, pendingCompletion.transaction);
+              setPendingCompletion(null);
+            }
+          }}
           className="max-w-xl"
         >
           <div className="p-6">
@@ -987,6 +1008,10 @@ const handleCardComplete = (data: {
                     onClick={() => {
                       paymentState.showNotification('success', `Ask customer about ${c.firstName || 'this contact'}.`, 3000);
                       setFingerprintMatches(null);
+                      if (pendingCompletion) {
+                        finishCompletion(pendingCompletion.completion, pendingCompletion.payments, pendingCompletion.completedOrderIds, pendingCompletion.transaction);
+                        setPendingCompletion(null);
+                      }
                     }}
                   >
                     Ask to link
@@ -1001,7 +1026,13 @@ const handleCardComplete = (data: {
               <button
                 type="button"
                 className="rounded-md border border-stroke px-3 py-2 text-sm font-semibold text-gray-700 dark:text-white dark:border-strokedark"
-                onClick={() => setFingerprintMatches(null)}
+                onClick={() => {
+                  setFingerprintMatches(null);
+                  if (pendingCompletion) {
+                    finishCompletion(pendingCompletion.completion, pendingCompletion.payments, pendingCompletion.completedOrderIds, pendingCompletion.transaction);
+                    setPendingCompletion(null);
+                  }
+                }}
               >
                 Close
               </button>
