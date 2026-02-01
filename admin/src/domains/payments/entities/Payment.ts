@@ -385,6 +385,7 @@ export interface PaymentMethodResult {
     cardBrand?: string
     authCode?: string
     transactionId: string
+    cardFingerprint?: string
   }
 }
 
