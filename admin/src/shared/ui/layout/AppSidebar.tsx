@@ -98,6 +98,11 @@ const navItems: NavItem[] = [
     path: "/gift-cards",
   },
   {
+    name: "Gift QR",
+    icon: <MailIcon />,
+    path: "/marketing/birthday-gifts",
+  },
+  {
     name: "Reports",
     icon: <PieChartIcon />,
     path: "/reports/sales",

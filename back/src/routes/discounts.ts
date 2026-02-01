@@ -22,6 +22,28 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Get gift QR discounts (latest first)
+router.get('/qr', async (req, res) => {
+  try {
+    const limitRaw = parseInt(req.query.limit?.toString() || '100', 10);
+    const limit = Math.min(Math.max(limitRaw || 100, 1), 200);
+
+    const discounts = await prisma.discount.findMany({
+      where: {
+        name: 'Gift QR',
+        triggerType: 'COUPON_CODE'
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit
+    });
+
+    res.json(discounts);
+  } catch (error) {
+    console.error('Failed to fetch gift QR discounts:', error);
+    res.status(500).json({ error: 'Failed to fetch gift QR discounts' });
+  }
+});
+
 // Get single discount
 router.get('/:id', async (req, res) => {
   try {

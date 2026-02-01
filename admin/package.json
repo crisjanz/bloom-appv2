@@ -37,6 +37,7 @@
     "react-router-dom": "^7.6.1",
     "react-signature-canvas": "^1.1.0-alpha.2",
     "recharts": "^3.3.0",
+    "qrcode": "^1.5.4",
     "swiper": "^11.2.3",
     "tailwind-merge": "^3.0.1"
   },

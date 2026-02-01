@@ -170,6 +170,7 @@ Each variant can optionally reference one of the product's images via `featuredI
 ## Discounts & Pricing
 - ✅ GET `/api/discounts` — list unified discount rules (`back/src/routes/discounts.ts`)
 - ✅ GET `/api/discounts/:id` — discount detail.
+- ✅ GET `/api/discounts/qr` — list gift QR coupon discounts (latest first).
 - ✅ POST `/api/discounts` — create discount scenario.
 - ✅ PUT `/api/discounts/:id` — replace discount configuration.
 - ✅ PATCH `/api/discounts/:id` — partial update (toggles, scheduling).

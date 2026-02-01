@@ -60,6 +60,33 @@ const saveGiftSchema = z
     },
   );
 
+const saveCouponSchema = z
+  .object({
+    code: z.string().min(1),
+    firstName: z.string().min(1),
+    lastName: z.string().min(1),
+    contactType: z.enum(["email", "sms"]),
+    email: z.string().email().optional(),
+    phone: z.string().optional(),
+    consent: z.boolean(),
+    birthdayMonth: z.number().int().min(1).max(12).optional(),
+    birthdayDay: z.number().int().min(1).max(31).optional(),
+    birthdayYear: z.number().int().min(1900).max(2100).nullable().optional(),
+  })
+  .refine((data) => data.consent === true, {
+    message: "Consent is required to save the gift",
+    path: ["consent"],
+  })
+  .refine(
+    (data) =>
+      (data.contactType === "email" && data.email) ||
+      (data.contactType === "sms" && data.phone),
+    {
+      message: "Provide a contact for the selected contact type",
+      path: ["contactType"],
+    },
+  );
+
 router.post("/birthday/create", async (req, res) => {
   try {
     const { orderId, recipientName, percentOff, expiresInDays } =
@@ -246,6 +273,87 @@ router.post("/birthday/:token/save", async (req, res) => {
     });
   } catch (error) {
     console.error("Failed to save birthday gift:", error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.errors.map((e) => e.message).join(", ") });
+    }
+    return res.status(500).json({ error: "Failed to save gift" });
+  }
+});
+
+router.post("/coupon/save", async (req, res) => {
+  try {
+    const payload = saveCouponSchema.parse(req.body);
+    const code = payload.code.trim().toUpperCase();
+
+    const discount = await prisma.discount.findFirst({
+      where: { code, enabled: true }
+    });
+
+    if (!discount) {
+      return res.status(404).json({ error: "Coupon not found" });
+    }
+
+    const cleanPhone =
+      payload.phone
+        ?.replace(/[^\d+]/g, "")
+        .replace(/^1(\d{10})$/, "$1") || null;
+
+    const existingCustomer = payload.email
+      ? await prisma.customer.findUnique({
+          where: { email: payload.email.toLowerCase() },
+        })
+      : cleanPhone
+        ? await prisma.customer.findFirst({
+            where: { phone: cleanPhone },
+          })
+        : null;
+
+    const birthdayOptIn = Boolean(payload.birthdayMonth && payload.birthdayDay);
+
+    const customer = existingCustomer
+      ? await prisma.customer.update({
+          where: { id: existingCustomer.id },
+          data: {
+            firstName: payload.firstName,
+            lastName: payload.lastName,
+            ...(payload.email ? { email: payload.email.toLowerCase() } : {}),
+            ...(cleanPhone ? { phone: cleanPhone } : {}),
+            ...(birthdayOptIn
+              ? {
+                  birthdayOptIn: true,
+                  birthdayMonth: payload.birthdayMonth,
+                  birthdayDay: payload.birthdayDay,
+                  birthdayYear: payload.birthdayYear ?? null,
+                  birthdayUpdatedAt: new Date(),
+                }
+              : {}),
+          },
+        })
+      : await prisma.customer.create({
+          data: {
+            firstName: payload.firstName,
+            lastName: payload.lastName,
+            email: payload.email?.toLowerCase() ?? null,
+            phone: cleanPhone,
+            ...(birthdayOptIn
+              ? {
+                  birthdayOptIn: true,
+                  birthdayMonth: payload.birthdayMonth,
+                  birthdayDay: payload.birthdayDay,
+                  birthdayYear: payload.birthdayYear ?? null,
+                  birthdayUpdatedAt: new Date(),
+                }
+              : {}),
+          },
+        });
+
+    return res.json({
+      success: true,
+      customerId: customer.id,
+      message: "Saved for later.",
+    });
+  } catch (error) {
+    console.error("Failed to save coupon:", error);
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors.map((e) => e.message).join(", ") });
     }

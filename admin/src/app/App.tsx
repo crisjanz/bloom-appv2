@@ -69,6 +69,7 @@ import MobileDeliveryPage from "./pages/mobile/MobileDeliveryPage";
 import MobileRedirect from "./components/MobileRedirect";
 import ExternalOrdersPage from "./pages/orders/ExternalOrdersPage";
 import DriverRoutePage from "./pages/driver/DriverRoutePage";
+import BirthdayGiftsPage from "./pages/marketing/BirthdayGiftsPage";
 
 export default function App() {
   return (
@@ -156,6 +157,9 @@ export default function App() {
             <Route path="reports/sales" element={<SalesReportPage />} />
             <Route path="reports/tax-export" element={<TaxExportPage />} />
             <Route path="reports/transactions" element={<TransactionsReportPage />} />
+
+            {/* Marketing / Campaigns */}
+            <Route path="marketing/birthday-gifts" element={<BirthdayGiftsPage />} />
 
             {/* Settings routes */}
             <Route path="settings" element={<SettingsIndexPage />} />
