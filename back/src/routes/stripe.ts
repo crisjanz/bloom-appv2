@@ -976,10 +976,31 @@ router.post('/customer/payment-methods', async (req, res) => {
     }
 
     const stripe = await paymentProviderFactory.getStripeClient();
-    const paymentMethods = await stripe.paymentMethods.list({
-      customer: providerCustomer.providerCustomerId,
-      type: 'card',
-    });
+    let paymentMethods: Stripe.Response<Stripe.ApiList<Stripe.PaymentMethod>>;
+    try {
+      paymentMethods = await stripe.paymentMethods.list({
+        customer: providerCustomer.providerCustomerId,
+        type: 'card',
+      });
+    } catch (error: any) {
+      if (error?.code === 'resource_missing' && error?.param === 'customer') {
+        console.warn(`⚠️ Stripe customer missing: ${providerCustomer.providerCustomerId}. Deactivating link.`);
+        await prisma.providerCustomer.update({
+          where: { id: providerCustomer.id },
+          data: {
+            isActive: false,
+            isPrimary: false,
+            lastSyncAt: new Date(),
+          },
+        });
+        return res.json({
+          success: true,
+          customer,
+          paymentMethods: [],
+        });
+      }
+      throw error;
+    }
 
     res.json({
       success: true,
