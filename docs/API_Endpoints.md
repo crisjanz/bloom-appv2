@@ -187,6 +187,9 @@ Each variant can optionally reference one of the product's images via `featuredI
 - ✅ POST `/api/gift-cards/activate` — legacy activation support.
 - ✅ POST `/api/gift-cards/check` — balance lookup.
 - ✅ POST `/api/gift-cards/redeem` — redeem balance toward payment.
+- ✅ POST `/api/gifts/birthday/create` — create birthday recipient gift token + coupon for an order.
+- ✅ GET `/api/gifts/birthday/:token` — public landing payload for birthday gift token.
+- ✅ POST `/api/gifts/birthday/:token/save` — public save-for-later flow (collect birthday/contact with consent).
 
 - ✅ POST `/api/payment-transactions` — record payment transaction (`back/src/routes/payment-transactions.ts`)
 - ✅ GET `/api/payment-transactions` — list transactions with filters.
@@ -271,6 +274,7 @@ Each variant can optionally reference one of the product's images via `featuredI
 - ✅ POST `/api/square/customer/payment-methods` — list saved cards.
 - ✅ POST `/api/square/payment/saved-card` — charge saved card.
 - ✅ GET `/api/square/health` — Square diagnostics.
+- ✅ POST `/api/customer-payment-methods/match` — find possible customers by card fingerprint (Stripe).
 
 ## Settings & Configuration
 - ✅ GET `/api/settings/store-info` — fetch business info (`back/src/routes/settings/store-info.ts`)

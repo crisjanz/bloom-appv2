@@ -19,6 +19,9 @@ interface PaymentIntentResponse {
   clientSecret: string;
   paymentIntentId: string;
   amount: number;
+  cardFingerprint?: string;
+  cardLast4?: string;
+  cardBrand?: string;
   error?: string;
 }
 

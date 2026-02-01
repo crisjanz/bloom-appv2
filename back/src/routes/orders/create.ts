@@ -39,6 +39,24 @@ router.post('/create', async (req, res) => {
       });
     }
 
+    const orderWithBirthday = orders.find((order: any) => order.birthdayOptIn !== undefined);
+    if (orderWithBirthday && orderWithBirthday.birthdayOptIn) {
+      if (!orderWithBirthday.birthdayMonth || !orderWithBirthday.birthdayDay) {
+        return res.status(400).json({ error: 'Birthday month and day are required when opting in' });
+      }
+
+      await prisma.customer.update({
+        where: { id: customerId },
+        data: {
+          birthdayOptIn: true,
+          birthdayMonth: orderWithBirthday.birthdayMonth,
+          birthdayDay: orderWithBirthday.birthdayDay,
+          birthdayYear: orderWithBirthday.birthdayYear ?? null,
+          birthdayUpdatedAt: new Date(),
+        }
+      });
+    }
+
     const createdOrders = [];
     const printActions: Array<Record<string, any>> = [];
 
@@ -253,6 +271,25 @@ router.post('/save-draft', async (req, res) => {
     if (!customerId || !orders || !Array.isArray(orders)) {
       return res.status(400).json({ 
         error: 'customerId and orders array are required' 
+      });
+    }
+
+    const orderWithBirthday = orders.find((order: any) => order.birthdayOptIn !== undefined);
+
+    if (orderWithBirthday && orderWithBirthday.birthdayOptIn) {
+      if (!orderWithBirthday.birthdayMonth || !orderWithBirthday.birthdayDay) {
+        return res.status(400).json({ error: 'Birthday month and day are required when opting in' });
+      }
+
+      await prisma.customer.update({
+        where: { id: customerId },
+        data: {
+          birthdayOptIn: true,
+          birthdayMonth: orderWithBirthday.birthdayMonth,
+          birthdayDay: orderWithBirthday.birthdayDay,
+          birthdayYear: orderWithBirthday.birthdayYear ?? null,
+          birthdayUpdatedAt: new Date(),
+        }
       });
     }
 

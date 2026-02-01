@@ -32,6 +32,7 @@ import {
   HomeIcon,
   TruckIcon,
 } from '@shared/assets/icons';
+import { Modal } from '@shared/ui/components/ui/modal';
 
 type Props = {
   open: boolean;
@@ -211,6 +212,12 @@ const PaymentController: FC<Props> = ({
   const splitPayment = useSplitPayment(total);
   const transactionSubmission = useTransactionSubmission();
   const apiClient = useApiClient();
+  const [fingerprintMatches, setFingerprintMatches] = useState<{
+    fingerprint: string;
+    candidates: Array<{ id: string; firstName?: string; lastName?: string; email?: string; phone?: string }>;
+  } | null>(null);
+  const [fingerprintMatchError, setFingerprintMatchError] = useState<string | null>(null);
+  const [isMatchingFingerprint, setIsMatchingFingerprint] = useState(false);
 
   // Coupon validation hook
   const {
@@ -354,6 +361,24 @@ const PaymentController: FC<Props> = ({
     paymentModals.closeModal();
   };
 
+  const fetchFingerprintMatches = async (fingerprint: string) => {
+    try {
+      setIsMatchingFingerprint(true);
+      setFingerprintMatchError(null);
+      const response = await apiClient.post('/api/customer-payment-methods/match', {
+        cardFingerprint: fingerprint,
+      });
+      const matches = response.data?.matches || [];
+      if (matches.length > 0) {
+        setFingerprintMatches({ fingerprint, candidates: matches });
+      }
+    } catch (err: any) {
+      setFingerprintMatchError(err?.message || 'Failed to check fingerprint matches');
+    } finally {
+      setIsMatchingFingerprint(false);
+    }
+  };
+
   // normalizePayments is now in paymentHelpers
 
   const attemptFinalize = (payments: PaymentPayload[]) => {
@@ -392,6 +417,10 @@ const PaymentController: FC<Props> = ({
       }
 
       const { transaction, activatedGiftCards } = result.data;
+      const fingerprintFromPayment = payments.find((p) => p.metadata?.cardFingerprint)?.metadata?.cardFingerprint;
+      if (!customer?.id && fingerprintFromPayment) {
+        await fetchFingerprintMatches(fingerprintFromPayment);
+      }
       const completedOrderIds = result.data?.orderIds || orderIds || [];
 
       if (activatedGiftCards && activatedGiftCards.length > 0) {
@@ -484,29 +513,31 @@ const PaymentController: FC<Props> = ({
     );
   };
 
-  const handleCardComplete = (data: {
-    method: string;
-    transactionId?: string;
-    paymentIntentId?: string;
-    cardLast4?: string;
-    cardBrand?: string;
-  }) => {
-    if (!paymentModals.modalContext) return;
-    finalizeFromModal(
-      {
-        method: 'credit',
-        amount: paymentModals.modalContext.amount,
-        metadata: {
-          provider: 'stripe',
-          transactionId: data.transactionId,
-          paymentIntentId: data.paymentIntentId,
-          cardLast4: data.cardLast4,
-          cardBrand: data.cardBrand,
-        },
+const handleCardComplete = (data: {
+  method: string;
+  transactionId?: string;
+  paymentIntentId?: string;
+  cardLast4?: string;
+  cardBrand?: string;
+  cardFingerprint?: string;
+}) => {
+  if (!paymentModals.modalContext) return;
+  finalizeFromModal(
+    {
+      method: 'credit',
+      amount: paymentModals.modalContext.amount,
+      metadata: {
+        provider: 'stripe',
+        transactionId: data.transactionId,
+        paymentIntentId: data.paymentIntentId,
+        cardLast4: data.cardLast4,
+        cardBrand: data.cardBrand,
+        cardFingerprint: data.cardFingerprint,
       },
-      `Stripe ${data.transactionId ? `• ${data.transactionId}` : ''}`,
-    );
-  };
+    },
+    `Stripe ${data.transactionId ? `• ${data.transactionId}` : ''}`,
+  );
+};
 
   const handleManualComplete = (method: 'house_account' | 'cod' | 'check', data: { reference?: string }) => {
     if (!paymentModals.modalContext) return;
@@ -924,6 +955,63 @@ const PaymentController: FC<Props> = ({
             {paymentState.notificationStatus.message}
           </div>
         )}
+
+        <Modal
+          isOpen={Boolean(fingerprintMatches)}
+          onClose={() => setFingerprintMatches(null)}
+          className="max-w-xl"
+        >
+          <div className="p-6">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">
+              Possible customer match
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+              This card fingerprint was seen before. Confirm with the customer if this is their account.
+            </p>
+            {fingerprintMatches?.candidates?.map((c) => (
+              <div key={c.id} className="mb-3 rounded border border-stroke/70 p-3 dark:border-strokedark">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-semibold text-gray-900 dark:text-white">
+                      {`${c.firstName || ''} ${c.lastName || ''}`.trim() || 'Unknown name'}
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                      {c.email || '—'} · {c.phone || '—'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="rounded-md bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary/90"
+                    onClick={() => {
+                      paymentState.showNotification('success', `Ask customer about ${c.firstName || 'this contact'}.`, 3000);
+                      setFingerprintMatches(null);
+                    }}
+                  >
+                    Ask to link
+                  </button>
+                </div>
+              </div>
+            ))}
+            {fingerprintMatches && fingerprintMatches.candidates.length === 0 && (
+              <p className="text-sm text-gray-600 dark:text-gray-300">No matches found.</p>
+            )}
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-md border border-stroke px-3 py-2 text-sm font-semibold text-gray-700 dark:text-white dark:border-strokedark"
+                onClick={() => setFingerprintMatches(null)}
+              >
+                Close
+              </button>
+            </div>
+            {fingerprintMatchError && (
+              <p className="text-sm text-red-500 mt-3">{fingerprintMatchError}</p>
+            )}
+            {isMatchingFingerprint && (
+              <p className="text-sm text-gray-500 mt-3">Checking for matches…</p>
+            )}
+          </div>
+        </Modal>
       </div>
 
       <AdjustmentsModal

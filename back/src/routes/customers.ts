@@ -187,12 +187,39 @@ router.get("/", async (req, res) => {
 
 // POST new customer
 router.post("/", async (req, res) => {
-  const { firstName, lastName, email, phone, notes } = req.body;
+  const {
+    firstName,
+    lastName,
+    email,
+    phone,
+    notes,
+    birthdayOptIn,
+    birthdayMonth,
+    birthdayDay,
+    birthdayYear,
+  } = req.body;
   const cleanEmail = email?.trim().toLowerCase() || null;
   const cleanPhone = phone?.trim() || null;
   const cleanNotes = notes?.trim() || null;
-  
+
   try {
+    if (birthdayOptIn) {
+      if (!birthdayMonth || !birthdayDay) {
+        return res.status(400).json({ error: "Birthday month and day are required when opting in" });
+      }
+    }
+
+    const birthdayData =
+      birthdayOptIn
+        ? {
+            birthdayOptIn: true,
+            birthdayMonth,
+            birthdayDay,
+            birthdayYear: birthdayYear ?? null,
+            birthdayUpdatedAt: new Date(),
+          }
+        : {};
+
     const created = await prisma.customer.create({
       data: {
         firstName: firstName.trim(),
@@ -200,9 +227,10 @@ router.post("/", async (req, res) => {
         email: cleanEmail,
         phone: cleanPhone,
         notes: cleanNotes,
+        ...birthdayData,
       },
     });
-    
+
     res.status(201).json(created);
   } catch (err) {
     console.error("Failed to create customer:", (err as any)?.message || err);
@@ -213,7 +241,18 @@ router.post("/", async (req, res) => {
 // PUT update customer
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
-  const { firstName, lastName, email, phone, notes, homeAddress } = req.body;
+  const {
+    firstName,
+    lastName,
+    email,
+    phone,
+    notes,
+    homeAddress,
+    birthdayOptIn,
+    birthdayMonth,
+    birthdayDay,
+    birthdayYear,
+  } = req.body;
 
   try {
     let addressIdToUse: string | null = null;
@@ -249,14 +288,39 @@ router.put('/:id', async (req, res) => {
       }
     }
 
+    const updateData: any = {
+      firstName,
+      lastName,
+      email,
+      phone,
+      notes,
+    };
+
+    if (birthdayOptIn === true) {
+      if (!birthdayMonth || !birthdayDay) {
+        return res.status(400).json({ error: "Birthday month and day are required when opting in" });
+      }
+      Object.assign(updateData, {
+        birthdayOptIn: true,
+        birthdayMonth,
+        birthdayDay,
+        birthdayYear: birthdayYear ?? null,
+        birthdayUpdatedAt: new Date(),
+      });
+    } else if (birthdayOptIn === false) {
+      Object.assign(updateData, {
+        birthdayOptIn: false,
+        birthdayMonth: null,
+        birthdayDay: null,
+        birthdayYear: null,
+        birthdayUpdatedAt: new Date(),
+      });
+    }
+
     const updatedCustomer = await prisma.customer.update({
       where: { id },
       data: {
-        firstName,
-        lastName,
-        email,
-        phone,
-        notes,
+        ...updateData,
         ...(addressIdToUse && {
           homeAddress: { connect: { id: addressIdToUse } },
         }),

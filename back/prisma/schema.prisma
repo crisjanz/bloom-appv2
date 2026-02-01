@@ -185,6 +185,11 @@ model Customer {
   phone               String?
   phoneLabel          String?              @default("Mobile")
   phoneNumbers        Json                 @default("[]")
+  birthdayMonth       Int?
+  birthdayDay         Int?
+  birthdayYear        Int?
+  birthdayOptIn       Boolean              @default(false)
+  birthdayUpdatedAt   DateTime?
   notes               String?
   homeAddressId       String?              @unique
   password            String?
@@ -201,6 +206,8 @@ model Customer {
   events              Event[]
   paymentTransactions PaymentTransaction[]
   providerCustomers   ProviderCustomer[]
+  giftTokensRedeemed  GiftToken[]          @relation("RedeemedGiftTokens")
+  paymentMethods      CustomerPaymentMethod[]
 
   @@index([phone])
   @@index([firstName, lastName])
@@ -293,6 +300,7 @@ model Order {
   recipientCustomer   Customer?            @relation("RecipientOrders", fields: [recipientCustomerId], references: [id])
   orderItems          OrderItem[]
   printJobs           PrintJob[]
+  giftTokens          GiftToken[]
   routeStop           RouteStop?           @relation("RouteStopOrder")
   communications      OrderCommunication[]
   orderPayments       OrderPayment[]
@@ -403,6 +411,7 @@ model Coupon {
   updatedAt            DateTime      @updatedAt
   usages               CouponUsage[]
   orders               Order[]
+  giftTokens           GiftToken[]
 }
 
 model CouponUsage {
@@ -414,6 +423,28 @@ model CouponUsage {
   source     String
   usedAt     DateTime @default(now())
   coupon     Coupon   @relation(fields: [couponId], references: [id])
+}
+
+model GiftToken {
+  id                    String           @id @default(uuid())
+  token                 String           @unique
+  type                  GiftTokenType    @default(BIRTHDAY_RECIPIENT_GIFT)
+  status                GiftTokenStatus  @default(ACTIVE)
+  expiresAt             DateTime?
+  issuedForOrderId      String?
+  issuedForOrder        Order?           @relation(fields: [issuedForOrderId], references: [id])
+  issuedToRecipientName String?
+  redeemedAt            DateTime?
+  redeemedByCustomerId  String?
+  redeemedByCustomer    Customer?        @relation("RedeemedGiftTokens", fields: [redeemedByCustomerId], references: [id])
+  couponId              String?
+  coupon                Coupon?          @relation(fields: [couponId], references: [id])
+  metadata              Json?
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+
+  @@index([token])
+  @@index([status])
 }
 
 model Discount {
@@ -974,6 +1005,24 @@ model ProviderCustomer {
   @@map("provider_customers")
 }
 
+model CustomerPaymentMethod {
+  id                    String   @id @default(uuid())
+  customerId            String
+  customer              Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  stripePaymentMethodId String?
+  stripeCustomerId      String?
+  cardFingerprint       String
+  last4                 String
+  brand                 String
+  expMonth              Int
+  expYear               Int
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([cardFingerprint])
+  @@index([customerId])
+}
+
 model Event {
   id                String         @id @default(uuid())
   eventNumber       Int            @unique @default(autoincrement())
@@ -1336,4 +1385,16 @@ enum EventPaymentStatus {
   RECEIVED
   FAILED
   REFUNDED
+}
+
+enum GiftTokenType {
+  BIRTHDAY_RECIPIENT_GIFT
+}
+
+enum GiftTokenStatus {
+  ACTIVE
+  CLAIMED
+  REDEEMED
+  EXPIRED
+  REVOKED
 }

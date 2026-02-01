@@ -194,6 +194,9 @@ router.post('/payment-intent', async (req, res) => {
       metadataPayload.orderIds = orderIdList.join(',');
       metadataPayload.source = 'bloom-flower-shop';
     }
+    if (bloomCustomerId) {
+      metadataPayload.bloomCustomerId = bloomCustomerId;
+    }
 
     const stripe = await paymentProviderFactory.getStripeClient();
 
@@ -275,10 +278,69 @@ router.post('/payment-intent/:id/confirm', async (req, res) => {
 
     const paymentIntent = await stripe.paymentIntents.confirm(id, confirmData);
 
+    const detailedIntent = await stripe.paymentIntents.retrieve(paymentIntent.id, {
+      expand: ['latest_charge.payment_method_details.card']
+    });
+
+    const charge: any = detailedIntent.latest_charge && typeof detailedIntent.latest_charge === 'object'
+      ? detailedIntent.latest_charge
+      : null;
+
+    const fingerprint = charge?.payment_method_details?.card?.fingerprint as string | undefined;
+    const last4 = charge?.payment_method_details?.card?.last4 as string | undefined;
+    const brand = charge?.payment_method_details?.card?.brand as string | undefined;
+    const expMonth = charge?.payment_method_details?.card?.exp_month as number | undefined;
+    const expYear = charge?.payment_method_details?.card?.exp_year as number | undefined;
+    const bloomCustomerId = (detailedIntent.metadata as any)?.bloomCustomerId as string | undefined;
+    const stripePaymentMethodId =
+      typeof detailedIntent.payment_method === 'string'
+        ? detailedIntent.payment_method
+        : detailedIntent.payment_method?.id;
+    const stripeCustomerId =
+      typeof detailedIntent.customer === 'string' ? detailedIntent.customer : undefined;
+
+    if (fingerprint && bloomCustomerId) {
+      const existing = await prisma.customerPaymentMethod.findFirst({
+        where: { customerId: bloomCustomerId, cardFingerprint: fingerprint }
+      });
+
+      if (existing) {
+        await prisma.customerPaymentMethod.update({
+          where: { id: existing.id },
+          data: {
+            stripePaymentMethodId: stripePaymentMethodId ?? existing.stripePaymentMethodId,
+            stripeCustomerId: stripeCustomerId ?? existing.stripeCustomerId,
+            last4: last4 ?? existing.last4,
+            brand: brand ?? existing.brand,
+            expMonth: expMonth ?? existing.expMonth,
+            expYear: expYear ?? existing.expYear
+          }
+        });
+      } else {
+        await prisma.customerPaymentMethod.create({
+          data: {
+            customerId: bloomCustomerId,
+            stripePaymentMethodId,
+            stripeCustomerId,
+            cardFingerprint: fingerprint,
+            last4: last4 ?? '',
+            brand: brand ?? 'card',
+            expMonth: expMonth ?? 0,
+            expYear: expYear ?? 0
+          }
+        });
+      }
+    }
+
     res.json({
       success: true,
       status: paymentIntent.status,
       paymentIntentId: paymentIntent.id,
+      cardFingerprint: fingerprint,
+      cardLast4: last4,
+      cardBrand: brand,
+      stripePaymentMethodId,
+      stripeCustomerId
     });
 
   } catch (error) {

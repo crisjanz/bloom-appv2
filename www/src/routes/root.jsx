@@ -17,6 +17,7 @@ import GiftCardBalance from "../pages/GiftCardBalance.jsx";
 import GiftCardEmailPreview from "../pages/GiftCardEmailPreview.jsx";
 import FAQ from "../pages/FAQ.jsx";
 import Terms from "../pages/Terms.jsx";
+import BirthdayGift from "../pages/BirthdayGift.jsx";
 
 
 const Root = () => {
@@ -41,6 +42,7 @@ const Root = () => {
           <Route path="/gift-cards" element={<GiftCard />} />
           <Route path="/gift-cards/balance" element={<GiftCardBalance />} />
           <Route path="/gift-card-email-preview" element={<GiftCardEmailPreview />} />
+          <Route path="/birthday-gift/:token" element={<BirthdayGift />} />
           <Route path="/faq" element={<FAQ />} />
           <Route path="/terms" element={<Terms />} />
         </Route>

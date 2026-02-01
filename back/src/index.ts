@@ -63,6 +63,8 @@ import wireProductsRouter from './routes/wire-products';
 import routesRouter from './routes/routes';
 import driverRouteViewRouter from './routes/driver/route-view';
 import driverQRRouter from './routes/driver/qr-code';
+import giftsRouter from './routes/gifts';
+import customerPaymentMethodsRouter from './routes/customer-payment-methods';
 import { printService } from './services/printService';
 import { setCommunicationsWebSocketServer } from './services/communicationsSocketService';
 
@@ -244,6 +246,8 @@ app.use('/api/routes', routesRouter);
 app.use('/api/driver', driverRouteViewRouter);
 app.use('/api/driver', driverQRRouter);
 app.use('/api/wire-products', wireProductsRouter);
+app.use('/api/gifts', giftsRouter);
+app.use('/api/customer-payment-methods', customerPaymentMethodsRouter);
 
 // Use noServer mode for multiple WebSocket endpoints
 const wss = new WebSocketServer({ noServer: true });

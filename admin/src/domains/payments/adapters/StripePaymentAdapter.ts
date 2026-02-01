@@ -65,8 +65,9 @@ export class StripePaymentAdapter implements IPaymentAdapter {
       )
 
       // Extract card details from confirmation result
-      const cardLast4 = confirmResult.payment_method?.card?.last4 || '****'
-      const cardBrand = confirmResult.payment_method?.card?.brand || 'unknown'
+      const cardLast4 = confirmResult.cardLast4 || confirmResult.payment_method?.card?.last4 || '****'
+      const cardBrand = confirmResult.cardBrand || confirmResult.payment_method?.card?.brand || 'unknown'
+      const cardFingerprint = confirmResult.cardFingerprint
 
       return {
         type: paymentMethod.type,
@@ -83,7 +84,8 @@ export class StripePaymentAdapter implements IPaymentAdapter {
           cardLast4,
           cardBrand,
           authCode: confirmResult.charges?.data?.[0]?.authorization_code || 'AUTH_PENDING',
-          transactionId: confirmResult.id
+          transactionId: confirmResult.id,
+          cardFingerprint
         } : undefined
       }
     } catch (error) {

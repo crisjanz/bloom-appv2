@@ -14,6 +14,7 @@ import {
 } from "../services/checkoutService.js";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import CreateAccountModal from "../components/CreateAccountModal.jsx";
+import BirthdayOptIn from "../components/Checkouts/BirthdayOptIn.jsx";
 
 const DELIVERY_FEE = 15;
 const TAX_RATE = 0.12;
@@ -107,6 +108,12 @@ const Checkout = () => {
     recipient: {},
     customer: {},
     payment: {},
+  });
+  const [birthday, setBirthday] = useState({
+    optIn: false,
+    month: "",
+    day: "",
+    year: "",
   });
   const [activeStep, setActiveStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -284,6 +291,19 @@ const Checkout = () => {
     }));
   };
 
+  const handleBirthdayToggle = (checked) => {
+    setBirthday((prev) => ({
+      ...prev,
+      optIn: checked,
+      // reset values if toggled off
+      ...(checked ? {} : { month: "", day: "", year: "" }),
+    }));
+  };
+
+  const handleBirthdayChange = (field, value) => {
+    setBirthday((prev) => ({ ...prev, [field]: value }));
+  };
+
   const handlePaymentChange = (event) => {
     const { name, value, type, checked } = event.target;
     setPayment((prev) => ({
@@ -352,6 +372,10 @@ const Checkout = () => {
     if (!customer.lastName.trim()) errors.lastName = "Last name is required";
     if (!customer.email.trim()) errors.email = "Email is required";
     if (!customer.phone.trim()) errors.phone = "Phone number is required";
+    if (birthday.optIn) {
+      if (!birthday.month) errors.birthdayMonth = "Select month";
+      if (!birthday.day) errors.birthdayDay = "Select day";
+    }
     return errors;
   };
 
@@ -429,12 +453,21 @@ const Checkout = () => {
     setIsSubmitting(true);
 
     try {
+      const birthdayPayload = birthday.optIn
+        ? {
+            birthdayOptIn: true,
+            birthdayMonth: Number(birthday.month),
+            birthdayDay: Number(birthday.day),
+            birthdayYear: birthday.year ? Number(birthday.year) : null,
+          }
+        : {};
+
       // Use existing customer ID if logged in, otherwise create new customer
       let buyerId;
       if (authCustomer?.id) {
         buyerId = authCustomer.id;
       } else {
-        const buyer = await createCustomer(sanitizeCustomerPayload(customer));
+        const buyer = await createCustomer(sanitizeCustomerPayload(customer, birthdayPayload));
         buyerId = buyer.id;
       }
 
@@ -468,13 +501,16 @@ const Checkout = () => {
       } else {
         // Creating new recipient
         const recipientCustomer = await createCustomer(
-          sanitizeCustomerPayload({
-            firstName: recipient.firstName,
-            lastName: recipient.lastName,
-            email: recipient.email,
-            phone: recipient.phone,
-            notes: "Website recipient",
-          }),
+          sanitizeCustomerPayload(
+            {
+              firstName: recipient.firstName,
+              lastName: recipient.lastName,
+              email: recipient.email,
+              phone: recipient.phone,
+              notes: "Website recipient",
+            },
+            birthdayPayload,
+          ),
         );
         recipientCustomerId = recipientCustomer.id;
 
@@ -522,6 +558,7 @@ const Checkout = () => {
         deliveryDate,
         deliveryFee,
         customProducts,
+        ...birthdayPayload,
       });
 
       setOrderResult({
@@ -536,6 +573,12 @@ const Checkout = () => {
       setRecipient(initialRecipient);
       setCustomer(initialCustomer);
       setPayment(initialPayment);
+      setBirthday({
+        optIn: false,
+        month: "",
+        day: "",
+        year: "",
+      });
       clearCoupon();
       setSelectedSavedRecipientOption("new");
       setRecipientWasAutofilled(false);
@@ -613,6 +656,9 @@ const Checkout = () => {
         customer={customer}
         customerErrors={formErrors.customer}
         onCustomerChange={handleCustomerChange}
+        birthday={birthday}
+        onBirthdayToggle={handleBirthdayToggle}
+        onBirthdayChange={handleBirthdayChange}
         payment={payment}
         paymentErrors={formErrors.payment}
         onPaymentChange={handlePaymentChange}
@@ -641,14 +687,14 @@ const Checkout = () => {
         submitError={submitError}
         instructionPresets={instructionPresets}
         hasSubmitError={Boolean(submitError)}
-      savedRecipientOptions={savedRecipientOptions}
-      savedRecipientsLoading={savedRecipientsLoading}
-      savedRecipientsError={savedRecipientsError}
-      selectedRecipientOption={selectedSavedRecipientOption}
-      onSelectSavedRecipient={handleSelectSavedRecipient}
-      isNewRecipient={isNewRecipient}
-      onAddressAutocompleteSelect={handleAddressAutocompleteSelect}
-      recipientModifiedAfterAutofill={recipientWasAutofilled}
+        savedRecipientOptions={savedRecipientOptions}
+        savedRecipientsLoading={savedRecipientsLoading}
+        savedRecipientsError={savedRecipientsError}
+        selectedRecipientOption={selectedSavedRecipientOption}
+        onSelectSavedRecipient={handleSelectSavedRecipient}
+        isNewRecipient={isNewRecipient}
+        onAddressAutocompleteSelect={handleAddressAutocompleteSelect}
+        recipientModifiedAfterAutofill={recipientWasAutofilled}
       />
       <section className="hidden bg-white pb-12 pt-10 dark:bg-dark lg:pb-16 lg:pt-16 md:block">
         <div className="container mx-auto">
@@ -731,11 +777,14 @@ const Checkout = () => {
                   open={activeStep === 2}
                   onToggle={() => setActiveStep(activeStep === 2 ? 0 : 2)}
                 >
-                  <CustomerForm
-                    data={customer}
-                    onChange={handleCustomerChange}
-                    errors={formErrors.customer}
-                  />
+                <CustomerForm
+                  data={customer}
+                  onChange={handleCustomerChange}
+                  errors={formErrors.customer}
+                  birthday={birthday}
+                  onBirthdayToggle={handleBirthdayToggle}
+                  onBirthdayChange={handleBirthdayChange}
+                />
                   <div className="mt-6 flex flex-wrap gap-3 px-3">
                     <button
                       type="button"
@@ -832,6 +881,9 @@ const MobileCheckout = ({
   customer,
   customerErrors,
   onCustomerChange,
+  birthday,
+  onBirthdayToggle,
+  onBirthdayChange,
   payment,
   paymentErrors,
   onPaymentChange,
@@ -898,11 +950,14 @@ const MobileCheckout = ({
           open={activeStep === 2}
           onToggle={() => setActiveStep(activeStep === 2 ? 0 : 2)}
         >
-          <MobileCustomerForm
-            data={customer}
-            errors={customerErrors}
-            onChange={onCustomerChange}
-          />
+        <MobileCustomerForm
+          data={customer}
+          errors={customerErrors}
+          onChange={onCustomerChange}
+          birthday={birthday}
+          onBirthdayToggle={onBirthdayToggle}
+          onBirthdayChange={onBirthdayChange}
+        />
           <MobileStepActions
             primaryLabel="Save & Continue"
             onPrimary={() => advanceStep(2)}
@@ -989,6 +1044,9 @@ MobileCheckout.propTypes = {
   customer: PropTypes.object.isRequired,
   customerErrors: PropTypes.object.isRequired,
   onCustomerChange: PropTypes.func.isRequired,
+  birthday: PropTypes.object.isRequired,
+  onBirthdayToggle: PropTypes.func.isRequired,
+  onBirthdayChange: PropTypes.func.isRequired,
   payment: PropTypes.object.isRequired,
   paymentErrors: PropTypes.object.isRequired,
   onPaymentChange: PropTypes.func.isRequired,
@@ -1313,7 +1371,7 @@ MobileRecipientForm.propTypes = {
   recipientModifiedAfterAutofill: PropTypes.bool.isRequired,
 };
 
-const MobileCustomerForm = ({ data, errors, onChange }) => (
+const MobileCustomerForm = ({ data, errors, onChange, birthday, onBirthdayToggle, onBirthdayChange }) => (
   <div className="space-y-0">
     <MobileSectionHeader>Your Information</MobileSectionHeader>
     <div className="bg-white dark:bg-dark-2">
@@ -1321,6 +1379,15 @@ const MobileCustomerForm = ({ data, errors, onChange }) => (
       <MobileInput label="Last Name" name="lastName" value={data.lastName} onChange={onChange} error={errors.lastName} placeholder="Smith" required />
       <MobileInput label="Email" type="email" name="email" value={data.email} onChange={onChange} error={errors.email} placeholder="sarah@example.com" required />
       <MobileInput label="Phone" name="phone" value={data.phone} onChange={onChange} error={errors.phone} placeholder="(604) 555-5678" required />
+      <div className="border-t border-stroke/30 px-4 py-3 dark:border-dark-3/30">
+        <BirthdayOptIn
+          value={birthday}
+          onToggle={onBirthdayToggle}
+          onChange={onBirthdayChange}
+          errors={errors}
+          compact
+        />
+      </div>
       <div className="border-t border-stroke/30 px-4 py-3 dark:border-dark-3/30">
         <label className="flex items-center gap-3 text-sm text-body-color dark:text-dark-6">
           <input
@@ -1341,6 +1408,9 @@ MobileCustomerForm.propTypes = {
   data: PropTypes.object.isRequired,
   errors: PropTypes.object.isRequired,
   onChange: PropTypes.func.isRequired,
+  birthday: PropTypes.object.isRequired,
+  onBirthdayToggle: PropTypes.func.isRequired,
+  onBirthdayChange: PropTypes.func.isRequired,
 };
 
 const MobilePaymentForm = ({
@@ -2400,7 +2470,7 @@ RecipientForm.propTypes = {
   recipientModifiedAfterAutofill: PropTypes.bool.isRequired,
 };
 
-const CustomerForm = ({ data, onChange, errors }) => (
+const CustomerForm = ({ data, onChange, errors, birthday, onBirthdayToggle, onBirthdayChange }) => (
   <>
     <InputGroup
       labelTitle="First Name"
@@ -2442,6 +2512,14 @@ const CustomerForm = ({ data, onChange, errors }) => (
       error={errors.phone}
       required
     />
+    <div className="px-3">
+      <BirthdayOptIn
+        value={birthday}
+        onToggle={onBirthdayToggle}
+        onChange={onBirthdayChange}
+        errors={errors}
+      />
+    </div>
     <CheckboxGroup
       labelTitle="Save my information for future orders"
       name="saveCustomer"
@@ -2455,6 +2533,9 @@ CustomerForm.propTypes = {
   data: PropTypes.object.isRequired,
   onChange: PropTypes.func.isRequired,
   errors: PropTypes.object.isRequired,
+  birthday: PropTypes.object.isRequired,
+  onBirthdayToggle: PropTypes.func.isRequired,
+  onBirthdayChange: PropTypes.func.isRequired,
 };
 
 const PaymentForm = ({
@@ -2910,12 +2991,13 @@ SuccessCard.propTypes = {
   }).isRequired,
 };
 
-const sanitizeCustomerPayload = (payload) => ({
+const sanitizeCustomerPayload = (payload, birthdayPayload = {}) => ({
   firstName: payload.firstName.trim(),
   lastName: payload.lastName.trim(),
   email: payload.email?.trim().toLowerCase() || null,
   phone: payload.phone?.trim() || null,
   notes: payload.notes || null,
+  ...birthdayPayload,
 });
 
 export default Checkout;
