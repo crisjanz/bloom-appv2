@@ -1,6 +1,6 @@
 # Bloom API Surface
 
-**Last audited:** 2026-01-17
+**Last audited:** 2026-02-01
 **Source:** `back/src`
 
 ## Diagnostics
@@ -74,6 +74,7 @@
 - ✅ GET `/api/orders/:id` — order detail with related entities (`back/src/routes/orders/single.ts`)
 - ✅ POST `/api/orders/create` — finalize paid orders and trigger notifications (`back/src/routes/orders/create.ts`)
 - ✅ POST `/api/orders/save-draft` — persist multi-order drafts (`back/src/routes/orders/create.ts`)
+  - Optional: `paymentIntentId`, `paymentStatus` to finalize as PAID and update Stripe description.
 - ✅ PUT `/api/orders/:id/update` — update order metadata, recipient links, totals (`back/src/routes/orders/update.ts`)
 - ✅ POST `/api/orders/upload-images` — attach order images (`back/src/routes/orders/upload.ts`)
 - ✅ GET `/api/orders/delivery` — delivery board filtered by date/range (`back/src/routes/orders/delivery.ts`)
@@ -185,6 +186,7 @@ Each variant can optionally reference one of the product's images via `featuredI
 - ✅ PATCH `/api/gift-cards/:id/deactivate` — deactivate an active card.
 - ✅ POST `/api/gift-cards/:id/adjust` — admin balance adjustment (amount in cents).
 - ✅ POST `/api/gift-cards/purchase` — purchase/activate cards (physical & digital).
+  - Optional: `paymentIntentId`; creates a PAID `Order` when `orderId` not provided and updates Stripe description.
 - ✅ POST `/api/gift-cards/activate` — legacy activation support.
 - ✅ POST `/api/gift-cards/check` — balance lookup.
 - ✅ POST `/api/gift-cards/redeem` — redeem balance toward payment.

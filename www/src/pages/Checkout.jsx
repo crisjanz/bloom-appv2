@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import PropTypes from "prop-types";
 import { Link } from "react-router-dom";
+import { CardElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
+import { loadStripe } from "@stripe/stripe-js";
 import Breadcrumb from "../components/Breadcrumb.jsx";
 import DeliveryDatePicker from "../components/DeliveryDatePicker.jsx";
 import AddressAutocomplete from "../components/AddressAutocomplete.jsx";
@@ -8,6 +10,7 @@ import { useCart } from "../contexts/CartContext.jsx";
 import {
   createCustomer,
   createCustomerAddress,
+  createCheckoutPaymentIntent,
   createOrderDraft,
   linkRecipientToCustomer,
   getSavedRecipients,
@@ -16,8 +19,58 @@ import { useAuth } from "../contexts/AuthContext.jsx";
 import CreateAccountModal from "../components/CreateAccountModal.jsx";
 import BirthdayOptIn from "../components/Checkouts/BirthdayOptIn.jsx";
 
+const rawApiUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+const API_BASE = rawApiUrl
+  ? (rawApiUrl.endsWith('/api') ? rawApiUrl : `${rawApiUrl}/api`)
+  : '/api';
+
+const stripePromise = fetch(`${API_BASE}/stripe/public-key`)
+  .then((res) => (res.ok ? res.json() : null))
+  .then((data) => (data?.publicKey ? loadStripe(data.publicKey) : null))
+  .catch(() => null);
+
 const DELIVERY_FEE = 15;
 const TAX_RATE = 0.12;
+
+const CARD_ELEMENT_OPTIONS = {
+  style: {
+    base: {
+      color: "#111827",
+      fontFamily: '"Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      fontSize: "16px",
+      "::placeholder": {
+        color: "#94a3b8",
+      },
+    },
+    invalid: {
+      color: "#dc2626",
+    },
+  },
+};
+
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(max-width: 767px)").matches;
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const media = window.matchMedia("(max-width: 767px)");
+    const handleChange = (event) => setIsMobile(event.matches);
+
+    handleChange(media);
+    if (media.addEventListener) {
+      media.addEventListener("change", handleChange);
+      return () => media.removeEventListener("change", handleChange);
+    }
+
+    media.addListener(handleChange);
+    return () => media.removeListener(handleChange);
+  }, []);
+
+  return isMobile;
+};
 
 const provinceOptions = [
   "BC",
@@ -39,24 +92,6 @@ const instructionPresets = [
   "Leave at the door if no answer",
   "Please call on arrival",
   "Gate code 1234",
-];
-
-const PAYMENT_OPTIONS = [
-  {
-    id: "CARD",
-    title: "Pay with card",
-    description: "Secure checkout — we’ll send you a secure payment link.",
-  },
-  {
-    id: "PHONE",
-    title: "Call me for payment",
-    description: "We’ll reach out to confirm details and collect payment.",
-  },
-  {
-    id: "IN_STORE",
-    title: "Pay on pickup",
-    description: "Reserve now and pay when you pick up in studio.",
-  },
 ];
 
 const initialRecipient = {
@@ -87,7 +122,10 @@ const initialPayment = {
   agreeToTerms: true,
 };
 
-const Checkout = () => {
+const CheckoutContent = () => {
+  const stripe = useStripe();
+  const elements = useElements();
+  const isMobile = useIsMobile();
   const {
     cart,
     deliveryDate,
@@ -118,6 +156,7 @@ const Checkout = () => {
   const [activeStep, setActiveStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
+  const [cardError, setCardError] = useState("");
   const [orderResult, setOrderResult] = useState(null);
   const [showCreateAccountModal, setShowCreateAccountModal] = useState(false);
   const [lastOrderEmail, setLastOrderEmail] = useState("");
@@ -312,6 +351,16 @@ const Checkout = () => {
     }));
   };
 
+  const handleCardChange = (event) => {
+    if (event?.error?.message) {
+      setCardError(event.error.message);
+      return;
+    }
+    if (cardError) {
+      setCardError("");
+    }
+  };
+
   const applySavedRecipientFields = useCallback((optionMeta) => {
     if (!optionMeta?.recipient) return;
     const { recipient: savedRecipientRecord, address } = optionMeta;
@@ -381,7 +430,6 @@ const Checkout = () => {
 
   const validatePayment = () => {
     const errors = {};
-    if (!payment.method) errors.method = "Choose a payment method";
     if (!payment.agreeToTerms) errors.agreeToTerms = "Please agree to the terms";
     if (!cart.length) errors.cart = "Your cart is empty";
     return errors;
@@ -449,7 +497,21 @@ const Checkout = () => {
       return;
     }
 
+    if (!stripe || !elements) {
+      setActiveStep(3);
+      setSubmitError("Payment system is still loading. Please try again.");
+      return;
+    }
+
+    const cardElement = elements.getElement(CardElement);
+    if (!cardElement) {
+      setActiveStep(3);
+      setSubmitError("Add your card details to continue.");
+      return;
+    }
+
     setSubmitError(null);
+    setCardError("");
     setIsSubmitting(true);
 
     try {
@@ -461,13 +523,14 @@ const Checkout = () => {
             birthdayYear: birthday.year ? Number(birthday.year) : null,
           }
         : {};
+      const buyerPayload = sanitizeCustomerPayload(customer, birthdayPayload);
 
       // Use existing customer ID if logged in, otherwise create new customer
       let buyerId;
       if (authCustomer?.id) {
         buyerId = authCustomer.id;
       } else {
-        const buyer = await createCustomer(sanitizeCustomerPayload(customer, birthdayPayload));
+        const buyer = await createCustomer(buyerPayload);
         buyerId = buyer.id;
       }
 
@@ -541,6 +604,37 @@ const Checkout = () => {
         }
       }
 
+      const amountInCents = Math.round(estimatedTotal * 100);
+      if (!Number.isFinite(amountInCents) || amountInCents <= 0) {
+        throw new Error("Invalid order total. Please refresh and try again.");
+      }
+
+      const paymentIntent = await createCheckoutPaymentIntent({
+        amountInCents,
+        customer: buyerPayload,
+        bloomCustomerId: buyerId,
+      });
+
+      const confirmation = await stripe.confirmCardPayment(paymentIntent.clientSecret, {
+        payment_method: {
+          card: cardElement,
+          billing_details: {
+            name: [buyerPayload.firstName, buyerPayload.lastName].filter(Boolean).join(" ") || undefined,
+            email: buyerPayload.email || undefined,
+            phone: buyerPayload.phone || undefined,
+          },
+        },
+      });
+
+      if (confirmation.error) {
+        setCardError(confirmation.error.message || "Payment was not completed.");
+        throw new Error(confirmation.error.message || "Payment was not completed.");
+      }
+
+      if (!confirmation.paymentIntent || confirmation.paymentIntent.status !== "succeeded") {
+        throw new Error("Payment was not completed.");
+      }
+
       const customProducts = cart.map((item) => ({
         description: item.name,
         price: Number(item.price).toFixed(2),
@@ -558,8 +652,12 @@ const Checkout = () => {
         deliveryDate,
         deliveryFee,
         customProducts,
+        paymentIntentId: paymentIntent.paymentIntentId,
+        paymentStatus: confirmation.paymentIntent?.status || null,
         ...birthdayPayload,
       });
+
+      cardElement.clear();
 
       setOrderResult({
         drafts: draftOrder.drafts,
@@ -573,6 +671,7 @@ const Checkout = () => {
       setRecipient(initialRecipient);
       setCustomer(initialCustomer);
       setPayment(initialPayment);
+      setCardError("");
       setBirthday({
         optIn: false,
         month: "",
@@ -637,66 +736,70 @@ const Checkout = () => {
         savedRecipientsLoading={savedRecipientsLoading}
         hasSavedRecipients={savedRecipientsAvailable}
       />
-      <MobileCheckout
-        activeStep={activeStep}
-        setActiveStep={setActiveStep}
-        recipient={recipient}
-        recipientErrors={formErrors.recipient}
-        onRecipientChange={handleRecipientChange}
-        deliveryDate={deliveryDate}
-        onDateChange={setDeliveryDate}
-        onRecipientPreset={(preset) =>
-          setRecipient((prev) => ({
-            ...prev,
-            deliveryInstructions: prev.deliveryInstructions
-              ? `${prev.deliveryInstructions}\n${preset}`
-              : preset,
-          }))
-        }
-        customer={customer}
-        customerErrors={formErrors.customer}
-        onCustomerChange={handleCustomerChange}
-        birthday={birthday}
-        onBirthdayToggle={handleBirthdayToggle}
-        onBirthdayChange={handleBirthdayChange}
-        payment={payment}
-        paymentErrors={formErrors.payment}
-        onPaymentChange={handlePaymentChange}
-        advanceStep={advanceStep}
-        goBack={goBack}
-        cart={cart}
-        cartCount={cartCount}
-        subtotal={subtotal}
-        deliveryFee={deliveryFee}
-        tax={estimatedTax}
-        total={estimatedTotal}
-        discountAmount={discountAmount}
-        couponFreeShipping={couponFreeShipping}
-        formatCurrency={formatCurrency}
-        formatDate={formatDate}
-        coupon={coupon}
-        couponInput={couponInput}
-        onCouponInputChange={setCouponInput}
-        couponMessage={couponMessage}
-        couponError={couponError}
-        onApplyCoupon={handleCouponSubmit}
-        onRemoveCoupon={handleRemoveCoupon}
-        applyingCoupon={applyingCoupon}
-        onPlaceOrder={handlePlaceOrder}
-        isSubmitting={isSubmitting}
-        submitError={submitError}
-        instructionPresets={instructionPresets}
-        hasSubmitError={Boolean(submitError)}
-        savedRecipientOptions={savedRecipientOptions}
-        savedRecipientsLoading={savedRecipientsLoading}
-        savedRecipientsError={savedRecipientsError}
-        selectedRecipientOption={selectedSavedRecipientOption}
-        onSelectSavedRecipient={handleSelectSavedRecipient}
-        isNewRecipient={isNewRecipient}
-        onAddressAutocompleteSelect={handleAddressAutocompleteSelect}
-        recipientModifiedAfterAutofill={recipientWasAutofilled}
-      />
-      <section className="hidden bg-white pb-12 pt-10 dark:bg-dark lg:pb-16 lg:pt-16 md:block">
+      {isMobile ? (
+        <MobileCheckout
+          activeStep={activeStep}
+          setActiveStep={setActiveStep}
+          recipient={recipient}
+          recipientErrors={formErrors.recipient}
+          onRecipientChange={handleRecipientChange}
+          deliveryDate={deliveryDate}
+          onDateChange={setDeliveryDate}
+          onRecipientPreset={(preset) =>
+            setRecipient((prev) => ({
+              ...prev,
+              deliveryInstructions: prev.deliveryInstructions
+                ? `${prev.deliveryInstructions}\n${preset}`
+                : preset,
+            }))
+          }
+          customer={customer}
+          customerErrors={formErrors.customer}
+          onCustomerChange={handleCustomerChange}
+          birthday={birthday}
+          onBirthdayToggle={handleBirthdayToggle}
+          onBirthdayChange={handleBirthdayChange}
+          payment={payment}
+          paymentErrors={formErrors.payment}
+          onPaymentChange={handlePaymentChange}
+          cardError={cardError}
+          onCardChange={handleCardChange}
+          advanceStep={advanceStep}
+          goBack={goBack}
+          cart={cart}
+          cartCount={cartCount}
+          subtotal={subtotal}
+          deliveryFee={deliveryFee}
+          tax={estimatedTax}
+          total={estimatedTotal}
+          discountAmount={discountAmount}
+          couponFreeShipping={couponFreeShipping}
+          formatCurrency={formatCurrency}
+          formatDate={formatDate}
+          coupon={coupon}
+          couponInput={couponInput}
+          onCouponInputChange={setCouponInput}
+          couponMessage={couponMessage}
+          couponError={couponError}
+          onApplyCoupon={handleCouponSubmit}
+          onRemoveCoupon={handleRemoveCoupon}
+          applyingCoupon={applyingCoupon}
+          onPlaceOrder={handlePlaceOrder}
+          isSubmitting={isSubmitting}
+          submitError={submitError}
+          instructionPresets={instructionPresets}
+          hasSubmitError={Boolean(submitError)}
+          savedRecipientOptions={savedRecipientOptions}
+          savedRecipientsLoading={savedRecipientsLoading}
+          savedRecipientsError={savedRecipientsError}
+          selectedRecipientOption={selectedSavedRecipientOption}
+          onSelectSavedRecipient={handleSelectSavedRecipient}
+          isNewRecipient={isNewRecipient}
+          onAddressAutocompleteSelect={handleAddressAutocompleteSelect}
+          recipientModifiedAfterAutofill={recipientWasAutofilled}
+        />
+      ) : (
+        <section className="hidden bg-white pb-12 pt-10 dark:bg-dark lg:pb-16 lg:pt-16 md:block">
         <div className="container mx-auto">
           <div className="-mx-4 flex flex-wrap">
             <div className="w-full px-4 lg:w-5/12 xl:w-4/12">
@@ -813,6 +916,8 @@ const Checkout = () => {
                     data={payment}
                     onChange={handlePaymentChange}
                     errors={formErrors.payment}
+                    cardError={cardError}
+                    onCardChange={handleCardChange}
                     cart={cart}
                     formatCurrency={formatCurrency}
                     deliveryDateLabel={formatDate(deliveryDate)}
@@ -856,6 +961,7 @@ const Checkout = () => {
           </div>
         </div>
       </section>
+      )}
     </>
   );
 };
@@ -887,6 +993,8 @@ const MobileCheckout = ({
   payment,
   paymentErrors,
   onPaymentChange,
+  cardError,
+  onCardChange,
   advanceStep,
   goBack,
   cart,
@@ -977,6 +1085,8 @@ const MobileCheckout = ({
             data={payment}
             errors={paymentErrors}
             onChange={onPaymentChange}
+            cardError={cardError}
+            onCardChange={onCardChange}
             cart={cart}
             formatCurrency={formatCurrency}
             coupon={coupon}
@@ -1050,6 +1160,8 @@ MobileCheckout.propTypes = {
   payment: PropTypes.object.isRequired,
   paymentErrors: PropTypes.object.isRequired,
   onPaymentChange: PropTypes.func.isRequired,
+  cardError: PropTypes.string.isRequired,
+  onCardChange: PropTypes.func.isRequired,
   advanceStep: PropTypes.func.isRequired,
   goBack: PropTypes.func.isRequired,
   cart: PropTypes.array.isRequired,
@@ -1417,6 +1529,8 @@ const MobilePaymentForm = ({
   data,
   errors,
   onChange,
+  cardError,
+  onCardChange,
   cart,
   formatCurrency,
   coupon,
@@ -1471,30 +1585,15 @@ const MobilePaymentForm = ({
       )}
     </div>
 
-    <MobileSectionHeader>Payment Method</MobileSectionHeader>
+    <MobileSectionHeader>Payment Details</MobileSectionHeader>
     <div className="space-y-3 bg-white px-4 py-4 dark:bg-dark-2">
-      {PAYMENT_OPTIONS.map((option) => (
-        <label
-          key={option.id}
-          className={`flex cursor-pointer flex-col gap-1 rounded-lg border px-4 py-3 text-sm ${
-            data.method === option.id ? "border-primary bg-primary/5" : "border-stroke/60"
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            <input
-              type="radio"
-              name="method"
-              value={option.id}
-              checked={data.method === option.id}
-              onChange={onChange}
-              className="text-primary focus:ring-primary"
-            />
-            <span className="font-semibold text-dark dark:text-white">{option.title}</span>
-          </div>
-          <p className="text-body-color dark:text-dark-6">{option.description}</p>
-        </label>
-      ))}
-      {errors.method && <p className="text-red-500 text-xs">{errors.method}</p>}
+      <p className="text-sm text-body-color dark:text-dark-6">
+        Secure checkout powered by Stripe.
+      </p>
+      <div className="rounded-md border border-stroke bg-white px-4 py-3 dark:border-dark-3 dark:bg-dark">
+        <CardElement options={CARD_ELEMENT_OPTIONS} onChange={onCardChange} />
+      </div>
+      {cardError && <p className="text-red-500 text-xs">{cardError}</p>}
     </div>
 
     <MobileSectionHeader>Additional Notes</MobileSectionHeader>
@@ -1577,6 +1676,8 @@ MobilePaymentForm.propTypes = {
   data: PropTypes.object.isRequired,
   errors: PropTypes.object.isRequired,
   onChange: PropTypes.func.isRequired,
+  cardError: PropTypes.string.isRequired,
+  onCardChange: PropTypes.func.isRequired,
   cart: PropTypes.array.isRequired,
   formatCurrency: PropTypes.func.isRequired,
   coupon: PropTypes.object,
@@ -2542,6 +2643,8 @@ const PaymentForm = ({
   data,
   onChange,
   errors,
+  cardError,
+  onCardChange,
   cart,
   formatCurrency,
   deliveryDateLabel,
@@ -2554,30 +2657,16 @@ const PaymentForm = ({
   return (
     <>
       <div className="w-full px-3">
-        <div className="space-y-4">
-          {PAYMENT_OPTIONS.map((option) => (
-            <label
-              key={option.id}
-              className={`border-stroke flex cursor-pointer items-start gap-4 rounded-md border px-5 py-[18px] transition dark:border-dark-3 ${
-                data.method === option.id ? "border-primary bg-primary/10 dark:bg-primary/20" : ""
-              }`}
-            >
-              <input
-                type="radio"
-                name="method"
-                value={option.id}
-                checked={data.method === option.id}
-                onChange={onChange}
-                className="h-5 w-5 text-primary focus:ring-primary"
-              />
-              <div>
-                <p className="text-lg font-semibold text-dark dark:text-white">{option.title}</p>
-                <p className="text-sm text-body-color dark:text-dark-6">{option.description}</p>
-              </div>
-            </label>
-          ))}
+        <div className="rounded-md border border-stroke p-5 dark:border-dark-3">
+          <p className="text-lg font-semibold text-dark dark:text-white">Payment details</p>
+          <p className="mt-1 text-sm text-body-color dark:text-dark-6">
+            Secure checkout powered by Stripe.
+          </p>
+          <div className="mt-4 rounded-md border border-stroke bg-white px-4 py-3 dark:border-dark-3 dark:bg-dark">
+            <CardElement options={CARD_ELEMENT_OPTIONS} onChange={onCardChange} />
+          </div>
+          {cardError && <p className="text-red-500 mt-2 text-sm">{cardError}</p>}
         </div>
-        {errors.method && <p className="text-red-500 mt-2 text-sm">{errors.method}</p>}
       </div>
 
       <TextAreaGroup
@@ -2677,6 +2766,8 @@ PaymentForm.propTypes = {
   data: PropTypes.object.isRequired,
   onChange: PropTypes.func.isRequired,
   errors: PropTypes.object.isRequired,
+  cardError: PropTypes.string.isRequired,
+  onCardChange: PropTypes.func.isRequired,
   cart: PropTypes.array.isRequired,
   formatCurrency: PropTypes.func.isRequired,
   deliveryDateLabel: PropTypes.string.isRequired,
@@ -2943,19 +3034,18 @@ const EmptyCheckoutState = () => (
 const SuccessCard = ({ orderResult }) => (
   <div className="rounded-[20px] border border-success/40 bg-white p-12 text-center shadow-xl dark:border-success/20 dark:bg-dark-2">
     <p className="text-success text-xs font-semibold uppercase tracking-[4px]">
-      Order received
+      Order confirmed
     </p>
     <h2 className="text-dark mt-4 text-3xl font-bold dark:text-white">
-      Thank you! We’re arranging everything.
+      Thank you! Your payment is complete.
     </h2>
     <p className="text-body-color mx-auto mt-4 max-w-2xl text-base dark:text-dark-6">
-      Our team will review the order, confirm delivery details, and follow up with any
-      payment information if needed. You’ll receive updates shortly.
+      We’re arranging your order now and will follow up with delivery updates shortly.
     </p>
 
     <div className="mt-8 rounded-2xl border border-stroke p-6 text-left dark:border-dark-3">
       <p className="text-dark mb-3 text-lg font-semibold dark:text-white">
-        Draft orders created
+        Order confirmation
       </p>
       <ul className="space-y-3 text-sm text-body-color dark:text-dark-6">
         {orderResult.drafts.map((draft) => {
@@ -2999,5 +3089,11 @@ const sanitizeCustomerPayload = (payload, birthdayPayload = {}) => ({
   notes: payload.notes || null,
   ...birthdayPayload,
 });
+
+const Checkout = () => (
+  <Elements stripe={stripePromise} options={{ appearance: { theme: "stripe" } }}>
+    <CheckoutContent />
+  </Elements>
+);
 
 export default Checkout;

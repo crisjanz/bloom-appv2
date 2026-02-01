@@ -1,6 +1,7 @@
 import express from 'express';
 import prisma from '../lib/prisma';
 import transactionService from '../services/transactionService';
+import paymentProviderFactory from '../services/paymentProviders/PaymentProviderFactory';
 
 const router = express.Router();
 
@@ -83,6 +84,37 @@ router.post('/', async (req, res) => {
       isAdjustment: adjustmentFlag,
       orderPaymentAllocations: allocationList
     });
+
+    // Update Stripe PaymentIntent description with order numbers (fire-and-forget)
+    const stripePaymentIntentIds = (paymentMethods as any[])
+      .map((pm: any) => pm.paymentIntentId)
+      .filter(Boolean) as string[];
+
+    if (stripePaymentIntentIds.length > 0 && resolvedOrderIds.length > 0) {
+      (async () => {
+        try {
+          const orders = await prisma.order.findMany({
+            where: { id: { in: resolvedOrderIds } },
+            select: { orderNumber: true },
+          });
+          const orderNumbers = orders
+            .map((o) => o.orderNumber)
+            .filter(Boolean)
+            .sort((a, b) => a - b);
+          if (orderNumbers.length > 0) {
+            const stripe = await paymentProviderFactory.getStripeClient();
+            const description = `Bloom POS - Order${orderNumbers.length > 1 ? 's' : ''} ${orderNumbers.join(', ')}`;
+            await Promise.all(
+              stripePaymentIntentIds.map((piId) =>
+                stripe.paymentIntents.update(piId, { description })
+              )
+            );
+          }
+        } catch (err) {
+          console.error('Failed to update Stripe PaymentIntent description:', err);
+        }
+      })();
+    }
 
     res.status(201).json(transaction);
   } catch (error) {

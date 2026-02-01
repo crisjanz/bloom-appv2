@@ -293,6 +293,7 @@ const GiftCardContent = () => {
         purchaser: trimmedPurchaser,
         message: trimmedRecipient.message,
         bloomCustomerId: customer?.id || null,
+        paymentIntentId: paymentIntent.paymentIntentId,
       });
 
       cardElement.clear();

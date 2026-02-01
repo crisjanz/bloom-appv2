@@ -1,6 +1,6 @@
 # Bloom Flower Shop – Progress Tracker
 
-**Last audited:** 2026-01-25
+**Last audited:** 2026-02-01
 Status markers: ✅ done · 🛠️ in progress · 🔜 planned · ⚠️ attention
 
 ## ✅ Production-Ready
@@ -10,6 +10,7 @@ Status markers: ✅ done · 🛠️ in progress · 🔜 planned · ⚠️ attent
 - ✅ **Gift card lifecycle** — batch generation, activation, redemption, and digital handoff (`back/src/routes/gift-cards`, `admin/src/app/components/orders/payment/GiftCardActivationModal.tsx`).
 - ✅ **Gift card completion (2026-01-29)** — Admin batch creation + detail modals with balance adjustments/deactivation, new admin endpoints, cents audit in gift card routes, website gift card nav link + balance check page (`back/src/routes/gift-cards/*`, `admin/src/app/pages/gift-cards/GiftCardsPage.tsx`, `admin/src/app/components/gift-cards/*`, `www/src/pages/GiftCardBalance.jsx`, `www/src/components/Navbar/index.jsx`, `www/src/components/Footer/index.jsx`).
 - ✅ **Gift card flow improvements (2026-01-31)** — Stripe customer reuse for logged-in gift card purchases, guest email lookup, purchaser receipt email, and admin order receipts now text-only (no PDF) (`back/src/routes/stripe.ts`, `back/src/routes/gift-cards/purchase.ts`, `back/src/services/emailService.ts`, `back/src/templates/email/gift-card-receipt-email.ts`, `back/src/routes/email/send.ts`, `www/src/pages/GiftCard.jsx`, `www/src/services/giftCardService.js`).
+- ✅ **WWW Stripe checkout + gift card orders (2026-02-01)** — www checkout now takes Stripe payment before order creation, saves paid web orders, creates GIFT_CARD orders for gift card purchases, and updates Stripe descriptions (`back/prisma/schema.prisma`, `back/src/routes/orders/create.ts`, `back/src/routes/gift-cards/purchase.ts`, `www/src/pages/Checkout.jsx`, `www/src/services/checkoutService.js`, `www/src/pages/GiftCard.jsx`, `www/src/services/giftCardService.js`).
 - ✅ **Fulfillment photos → Order images (2026-01-30)** — Fulfillment photo uploads now append to `order.images`, notes stay in communications, and desktop Order Photos shows fulfillment photos; includes migration script (`admin/src/app/pages/FulfillmentPage.tsx`, `admin/src/domains/orders/repositories/OrderRepository.ts`, `admin/src/app/pages/orders/OrderEditPage.tsx`, `back/src/scripts/migrate-fulfillment-photos.ts`).
 - ✅ **Unified discounts module** — `/api/discounts` powering POS auto-apply + manual overrides (`back/src/routes/discounts.ts`, `admin/src/domains/payments/hooks/usePaymentCalculations.ts`).
 - ✅ **External order scanning (Gemini OCR) (2026-01-26)** — Scan-to-order flow for wire/external orders with Gemini Vision OCR, mobile scan UI, and create-from-scan endpoint (`back/src/routes/orders/scan.ts`, `back/src/routes/orders/create-from-scan.ts`, `back/src/services/gemini-ocr.ts`, `admin/src/app/components/orders/ScanOrderModal.tsx`, `admin/src/app/pages/mobile/MobileScanPage.tsx`).

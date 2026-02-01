@@ -34,11 +34,19 @@ export async function createDigitalGiftCardPaymentIntent({
   return api.post("/stripe/payment-intent", payload);
 }
 
-export async function purchaseDigitalGiftCard({ amount, recipient, purchaser, message, bloomCustomerId }) {
+export async function purchaseDigitalGiftCard({
+  amount,
+  recipient,
+  purchaser,
+  message,
+  bloomCustomerId,
+  paymentIntentId,
+}) {
   const payload = {
     purchasedBy: purchaser.name,
     purchaserEmail: purchaser.email,
     bloomCustomerId,
+    paymentIntentId,
     cards: [
       {
         amount: dollarsToCents(amount),

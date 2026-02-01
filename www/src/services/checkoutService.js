@@ -21,6 +21,27 @@ export async function createOrderDraft(customerId, order) {
   });
 }
 
+export async function createCheckoutPaymentIntent({
+  amountInCents,
+  customer,
+  bloomCustomerId,
+}) {
+  const payload = {
+    amount: amountInCents,
+    currency: "cad",
+    bloomCustomerId,
+    customerEmail: customer?.email,
+    customerPhone: customer?.phone,
+    customerName: [customer?.firstName, customer?.lastName].filter(Boolean).join(" ") || customer?.email,
+    description: "Web Order - pending",
+    metadata: {
+      purchaseType: "web-order",
+    },
+  };
+
+  return api.post("/stripe/payment-intent", payload);
+}
+
 export async function getSavedRecipients(customerId) {
   return api.get(`/customers/${customerId}/recipients`);
 }
@@ -30,5 +51,6 @@ export default {
   createCustomerAddress,
   linkRecipientToCustomer,
   createOrderDraft,
+  createCheckoutPaymentIntent,
   getSavedRecipients,
 };

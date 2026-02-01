@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { OrderSource, OrderStatus, OrderType, PrismaClient } from '@prisma/client';
 import { formatCurrency } from '../../utils/currency';
 import { emailService } from '../../services/emailService';
+import paymentProviderFactory from '../../services/paymentProviders/PaymentProviderFactory';
 
 const prisma = new PrismaClient();
 
@@ -19,6 +20,7 @@ interface PurchaseRequest {
   employeeId?: string;
   orderId?: string;
   bloomCustomerId?: string;
+  paymentIntentId?: string;
 }
 
 // Generate random card number like "GC-X7K9-M3R8"
@@ -60,7 +62,9 @@ export const purchaseCards = async (req: Request, res: Response) => {
       purchasedBy, 
       purchaserEmail,
       employeeId, 
-      orderId 
+      orderId,
+      bloomCustomerId,
+      paymentIntentId
     }: PurchaseRequest = req.body;
 
     if (!cards || !Array.isArray(cards) || cards.length === 0) {
@@ -100,16 +104,58 @@ export const purchaseCards = async (req: Request, res: Response) => {
     }
 
     const purchasedCards: any[] = [];
+    let createdOrder: { id: string; orderNumber: number } | null = null;
+    let resolvedOrderId: string | undefined = orderId;
 
     // Process each card in a transaction
     await prisma.$transaction(async (tx) => {
+      if (!resolvedOrderId) {
+        const orderItems = normalizedCards.map((card) => {
+          const label = card.type === 'DIGITAL' ? 'Digital Gift Card' : 'Gift Card';
+          const description = `${label} - ${formatCurrency(card.amountCents)}`;
+          return {
+            customName: description,
+            description,
+            unitPrice: card.amountCents,
+            quantity: 1,
+            rowTotal: card.amountCents,
+          };
+        });
+
+        const totalAmount = orderItems.reduce((sum, item) => sum + item.rowTotal, 0);
+
+        const order = await tx.order.create({
+          data: {
+            type: OrderType.GIFT_CARD,
+            status: OrderStatus.PAID,
+            orderSource: OrderSource.WEBSITE,
+            customerId: bloomCustomerId || null,
+            deliveryFee: 0,
+            totalTax: 0,
+            taxBreakdown: [],
+            paymentAmount: totalAmount,
+            images: [],
+            orderItems: {
+              create: orderItems,
+            },
+          },
+          select: {
+            id: true,
+            orderNumber: true,
+          },
+        });
+
+        createdOrder = order;
+        resolvedOrderId = order.id;
+      }
+
       for (const cardData of normalizedCards) {
         let cardNumber = cardData.cardNumber;
-        let existingCard = null;
+        let giftCardId = '';
 
         if (cardData.type === 'PHYSICAL' && cardNumber) {
           // Physical card - find existing inactive card
-          existingCard = await tx.giftCard.findUnique({
+          const existingCard = await tx.giftCard.findUnique({
             where: { cardNumber: cardNumber.toUpperCase() }
           });
 
@@ -136,6 +182,7 @@ export const purchaseCards = async (req: Request, res: Response) => {
           });
 
           cardNumber = updatedCard.cardNumber;
+          giftCardId = updatedCard.id;
 
         } else {
           // Digital card - generate new card number
@@ -157,18 +204,19 @@ export const purchaseCards = async (req: Request, res: Response) => {
           });
 
           cardNumber = newCard.cardNumber;
+          giftCardId = newCard.id;
         }
 
         // Create purchase transaction
         await tx.giftCardTransaction.create({
           data: {
-            giftCardId: existingCard?.id || (await tx.giftCard.findUnique({ where: { cardNumber } }))!.id,
+            giftCardId,
             type: 'PURCHASE',
             amount: cardData.amountCents,
             balanceAfter: cardData.amountCents,
             notes: `Gift card purchased for ${formatCurrency(cardData.amountCents)}`,
             employeeId,
-            orderId
+            orderId: resolvedOrderId
           }
         });
 
@@ -183,6 +231,30 @@ export const purchaseCards = async (req: Request, res: Response) => {
         });
       }
     });
+
+    if (paymentIntentId) {
+      const orderNumber =
+        createdOrder?.orderNumber ||
+        (orderId
+          ? (await prisma.order.findUnique({
+              where: { id: orderId },
+              select: { orderNumber: true },
+            }))?.orderNumber
+          : null);
+
+      if (orderNumber) {
+        (async () => {
+          try {
+            const stripe = await paymentProviderFactory.getStripeClient();
+            await stripe.paymentIntents.update(paymentIntentId, {
+              description: `Gift Card Order - ${orderNumber}`,
+            });
+          } catch (err) {
+            console.error('Failed to update Stripe PaymentIntent description:', err);
+          }
+        })();
+      }
+    }
 
     // 📧 Send email for digital gift cards
     for (const card of purchasedCards) {
