@@ -11,6 +11,15 @@
 
 ---
 
+## 🏷️ Naming Convention
+- **"Bloom"** = the POS software name ("Bloom POS"), NOT the flower shop.
+- **The flower shop** = "In Your Vase Flowers" (stored in `ShopSettings` in the database).
+- All user-facing UI should pull the shop name from `ShopSettings`, never hardcode "Bloom" as the shop name.
+- If you encounter hardcoded "Bloom" referring to the shop (not the POS), replace it with a dynamic `ShopSettings` lookup or the correct shop name.
+- Acceptable: "Bloom POS", "Bloom App" (referring to the software). Not acceptable: "Bloom Flower Shop", "Bloom" as the business name in UI.
+
+---
+
 ## 💰 Cost Optimization - CRITICAL
 **Context accumulation is EXPENSIVE. Minimize token usage aggressively.**
 

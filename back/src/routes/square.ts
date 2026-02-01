@@ -38,7 +38,7 @@ router.post('/payment', async (req, res) => {
     }
 
     // Add order IDs to metadata for tracking
-    const paymentDescription = description || `Bloom Flower Shop - Order${orderIds.length > 1 ? 's' : ''} ${orderIds.join(', ')}`;
+    const paymentDescription = description || `Bloom POS - Order${orderIds.length > 1 ? 's' : ''} ${orderIds.join(', ')}`;
 
     let squareCustomerId = customerId;
 
@@ -387,7 +387,7 @@ router.post('/payment/saved-card', async (req, res) => {
       });
     }
 
-    const paymentDescription = description || `Bloom Flower Shop - Order${orderIds.length > 1 ? 's' : ''} ${orderIds.join(', ')}`;
+    const paymentDescription = description || `Bloom POS - Order${orderIds.length > 1 ? 's' : ''} ${orderIds.join(', ')}`;
 
     const payment = await squareService.createPaymentWithSavedCard({
       amount,

@@ -236,7 +236,7 @@ class SquareService {
             skip_receipt_screen: false,
             collect_signature: true,
           },
-          note: description || 'Bloom Flower Shop Purchase',
+          note: description || 'Bloom POS Purchase',
           payment_type: 'CARD_PRESENT',
         },
       };
