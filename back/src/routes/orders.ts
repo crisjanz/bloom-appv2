@@ -310,6 +310,7 @@ router.put('/:id/update', async (req, res) => {
       // Handle customerId reassignment (e.g. fingerprint match linking guest to existing customer)
       if (updateData.customerId) {
         orderUpdateData.customerId = updateData.customerId;
+        console.log(`🔗 Reassigning order ${id} from customer ${currentOrder.customerId} to ${updateData.customerId}`);
       }
 
       // Handle recipient updates - Recipients are now managed via Customer API
