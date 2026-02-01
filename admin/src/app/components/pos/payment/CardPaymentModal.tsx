@@ -1,10 +1,10 @@
 // components/pos/payment/CardPaymentModal.tsx - Simplified Stripe-only flow
 import { useState, useEffect } from 'react';
+import { Elements, CardElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { Modal } from '@shared/ui/components/ui/modal';
 import stripeService from '@shared/legacy-services/stripeService';
 import { CreditCardIcon } from '@shared/assets/icons';
 import InputField from '@shared/ui/forms/input/InputField';
-import Select from '@shared/ui/forms/Select';
 import { formatCurrency } from '@shared/utils/currency';
 
 type Props = {
@@ -38,6 +38,189 @@ interface SavedCard {
   expYear: number;
 }
 
+const cardElementOptions = {
+  hidePostalCode: true,
+  style: {
+    base: {
+      fontSize: '16px',
+      color: '#111827',
+      '::placeholder': {
+        color: '#9ca3af',
+      },
+    },
+    invalid: {
+      color: '#ef4444',
+    },
+  },
+};
+
+type ManualCardEntryFormProps = {
+  total: number;
+  cardType: 'credit' | 'debit';
+  orderIds?: string[];
+  bloomCustomerId?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  customerName?: string;
+  isProcessing: boolean;
+  onProcessingChange: (processing: boolean) => void;
+  onError: (message: string | null) => void;
+  onComplete: (paymentData: {
+    method: string;
+    transactionId?: string;
+    paymentIntentId?: string;
+    cardLast4?: string;
+    cardBrand?: string;
+    cardFingerprint?: string;
+  }) => void;
+  onBack: () => void;
+};
+
+const ManualCardEntryForm = ({
+  total,
+  cardType,
+  orderIds,
+  bloomCustomerId,
+  customerEmail,
+  customerPhone,
+  customerName,
+  isProcessing,
+  onProcessingChange,
+  onError,
+  onComplete,
+  onBack,
+}: ManualCardEntryFormProps) => {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [postalCode, setPostalCode] = useState('');
+  const [saveCard, setSaveCard] = useState(false);
+  const [cardReady, setCardReady] = useState(false);
+
+  const handleManualCharge = async () => {
+    if (!stripe || !elements) {
+      onError('Stripe is still loading. Please try again.');
+      return;
+    }
+
+    const cardElement = elements.getElement(CardElement);
+    if (!cardElement) {
+      onError('Card input is not ready.');
+      return;
+    }
+
+    onProcessingChange(true);
+    onError(null);
+
+    try {
+      const paymentIntentResult = await stripeService.createPaymentIntent({
+        amount: total,
+        currency: 'cad',
+        customerEmail,
+        customerPhone,
+        customerName,
+        orderIds,
+        bloomCustomerId,
+        metadata: saveCard ? { saveCard: 'true' } : undefined,
+      });
+
+      const paymentMethodResult = await stripe.createPaymentMethod({
+        type: 'card',
+        card: cardElement,
+        billing_details: {
+          name: customerName,
+          email: customerEmail,
+          phone: customerPhone,
+          address: postalCode ? { postal_code: postalCode } : undefined,
+        },
+      });
+
+      if (paymentMethodResult.error || !paymentMethodResult.paymentMethod?.id) {
+        throw new Error(paymentMethodResult.error?.message || 'Failed to create payment method');
+      }
+
+      const confirmResult = await stripeService.confirmPaymentIntent(
+        paymentIntentResult.paymentIntentId,
+        paymentMethodResult.paymentMethod.id
+      );
+
+      if (!confirmResult?.success || confirmResult.status !== 'succeeded') {
+        throw new Error(confirmResult?.error || 'Payment failed');
+      }
+
+      onComplete({
+        method: cardType,
+        transactionId: confirmResult.paymentIntentId,
+        paymentIntentId: confirmResult.paymentIntentId,
+        cardLast4: confirmResult.cardLast4,
+        cardBrand: confirmResult.cardBrand,
+        cardFingerprint: confirmResult.cardFingerprint,
+      });
+    } catch (err) {
+      onError(err instanceof Error ? err.message : 'Payment failed');
+    } finally {
+      onProcessingChange(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+        <CardElement options={cardElementOptions} onReady={() => setCardReady(true)} />
+      </div>
+
+      <InputField
+        label="ZIP Code"
+        type="text"
+        value={postalCode}
+        onChange={(e) => setPostalCode(e.target.value.toUpperCase().slice(0, 7))}
+        placeholder="V2N 2N2"
+        disabled={isProcessing}
+      />
+
+      <div className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          id="saveCard"
+          checked={saveCard}
+          onChange={(e) => setSaveCard(e.target.checked)}
+          disabled={isProcessing}
+          className="w-4 h-4 text-brand-500 border-gray-300 rounded focus:ring-brand-500"
+        />
+        <label htmlFor="saveCard" className="text-sm text-gray-700 dark:text-gray-300">
+          Save card for future payments
+        </label>
+      </div>
+
+      <div className="flex gap-3 pt-4">
+        <button
+          onClick={onBack}
+          disabled={isProcessing}
+          className="flex-1 px-4 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
+        >
+          Back
+        </button>
+        <button
+          onClick={handleManualCharge}
+          disabled={isProcessing || !stripe || !elements || !cardReady}
+          className="flex-1 px-4 py-3 bg-brand-500 text-white rounded-lg hover:bg-brand-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+        >
+          {isProcessing ? (
+            <div className="flex items-center justify-center gap-2">
+              <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <span>Processing...</span>
+            </div>
+          ) : (
+            'Charge Card'
+          )}
+        </button>
+      </div>
+    </div>
+  );
+};
+
 export default function CardPaymentModal({
   open,
   total,
@@ -56,15 +239,8 @@ export default function CardPaymentModal({
   const [error, setError] = useState<string | null>(null);
   const [readerConnected, setReaderConnected] = useState(false);
 
-  // Manual entry state
-  const [cardNumber, setCardNumber] = useState('');
-  const [expiry, setExpiry] = useState('');
-  const [cvv, setCvv] = useState('');
-  const [postalCode, setPostalCode] = useState('');
-  const [saveCard, setSaveCard] = useState(false);
   const [savedCards, setSavedCards] = useState<SavedCard[]>([]);
   const [loadingSavedCards, setLoadingSavedCards] = useState(false);
-  const [selectedSavedCard, setSelectedSavedCard] = useState<string>('');
   const [terminalReaderId, setTerminalReaderId] = useState<string | null>(null);
   const [terminalReaderLabel, setTerminalReaderLabel] = useState<string | null>(null);
   const [terminalPaymentIntentId, setTerminalPaymentIntentId] = useState<string | null>(null);
@@ -109,19 +285,20 @@ export default function CardPaymentModal({
 
   // Load saved cards when entering manual mode
   useEffect(() => {
-    if (viewMode === 'manual' && (customerEmail || customerPhone)) {
+    if (viewMode === 'manual' && (customerEmail || customerPhone || bloomCustomerId)) {
       loadSavedCards();
     }
-  }, [viewMode, customerEmail, customerPhone]);
+  }, [viewMode, customerEmail, customerPhone, bloomCustomerId]);
 
   const loadSavedCards = async () => {
-    if (!customerEmail && !customerPhone) return;
+    if (!customerEmail && !customerPhone && !bloomCustomerId) return;
 
     setLoadingSavedCards(true);
     try {
       const result = await stripeService.getCustomerPaymentMethods(
         customerPhone || '',
-        customerEmail || ''
+        customerEmail || '',
+        bloomCustomerId
       );
 
       if (result.success && result.paymentMethods) {
@@ -176,86 +353,6 @@ export default function CardPaymentModal({
     }
   };
 
-  // Manual entry: Charge with card details
-  const handleManualCharge = async () => {
-    if (!cardNumber || !expiry || !cvv) {
-      setError('Please fill in all card details');
-      return;
-    }
-
-    setIsProcessing(true);
-    setError(null);
-
-    try {
-      const stripe = await stripeService.getStripe();
-      if (!stripe) {
-        throw new Error('Stripe is still loading. Please try again.');
-      }
-
-      const paymentIntentResult = await stripeService.createPaymentIntent({
-        amount: total,
-        currency: 'cad',
-        customerEmail,
-        customerPhone,
-        customerName,
-        orderIds,
-        bloomCustomerId,
-      });
-
-      const cleanedNumber = cardNumber.replace(/\s+/g, '');
-      const [expMonthRaw, expYearRaw] = expiry.split('/');
-      const expMonth = Number(expMonthRaw);
-      const expYearValue = Number(expYearRaw);
-      const expYear = expYearValue < 100 ? 2000 + expYearValue : expYearValue;
-
-      if (!expMonth || !expYear || expMonth < 1 || expMonth > 12) {
-        throw new Error('Enter a valid expiry date.');
-      }
-
-      const paymentMethodResult = await stripe.createPaymentMethod({
-        type: 'card',
-        card: {
-          number: cleanedNumber,
-          exp_month: expMonth,
-          exp_year: expYear,
-          cvc: cvv,
-        },
-        billing_details: {
-          name: customerName,
-          email: customerEmail,
-          phone: customerPhone,
-          address: postalCode ? { postal_code: postalCode } : undefined,
-        },
-      });
-
-      if (paymentMethodResult.error || !paymentMethodResult.paymentMethod?.id) {
-        throw new Error(paymentMethodResult.error?.message || 'Failed to create payment method');
-      }
-
-      const confirmResult = await stripeService.confirmPaymentIntent(
-        paymentIntentResult.paymentIntentId,
-        paymentMethodResult.paymentMethod.id
-      );
-
-      if (!confirmResult?.success || confirmResult.status !== 'succeeded') {
-        throw new Error(confirmResult?.error || 'Payment failed');
-      }
-
-      onComplete({
-        method: cardType,
-        transactionId: confirmResult.paymentIntentId,
-        paymentIntentId: confirmResult.paymentIntentId,
-        cardLast4: confirmResult.cardLast4,
-        cardBrand: confirmResult.cardBrand,
-        cardFingerprint: confirmResult.cardFingerprint,
-      });
-      setIsProcessing(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Payment failed');
-      setIsProcessing(false);
-    }
-  };
-
   // Charge with saved card
   const handleSavedCardCharge = async (card: SavedCard) => {
     setIsProcessing(true);
@@ -296,35 +393,10 @@ export default function CardPaymentModal({
     }
   };
 
-  // Format helpers
-  const formatCardNumber = (value: string) => {
-    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
-    const matches = v.match(/\d{4,16}/g);
-    const match = (matches && matches[0]) || '';
-    const parts = [];
-    for (let i = 0; i < match.length; i += 4) {
-      parts.push(match.substring(i, i + 4));
-    }
-    return parts.length ? parts.join(' ') : value;
-  };
-
-  const formatExpiry = (value: string) => {
-    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
-    if (v.length >= 2) {
-      return `${v.substring(0, 2)}/${v.substring(2, 4)}`;
-    }
-    return v;
-  };
-
   const handleClose = () => {
     if (!isProcessing) {
       setViewMode(defaultMode);
       setError(null);
-      setCardNumber('');
-      setExpiry('');
-      setCvv('');
-      setPostalCode('');
-      setSaveCard(false);
       setTerminalPaymentIntentId(null);
       setTerminalPolling(false);
       onCancel();
@@ -551,90 +623,22 @@ export default function CardPaymentModal({
               </div>
             )}
 
-            {/* Card Form */}
-            <div className="space-y-3">
-              <InputField
-                label="Card Number"
-                type="text"
-                value={cardNumber}
-                onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
-                placeholder="1234 5678 9012 3456"
-                maxLength={19}
-                disabled={isProcessing}
+            <Elements stripe={stripeService.getStripe()}>
+              <ManualCardEntryForm
+                total={total}
+                cardType={cardType}
+                orderIds={orderIds}
+                bloomCustomerId={bloomCustomerId}
+                customerEmail={customerEmail}
+                customerPhone={customerPhone}
+                customerName={customerName}
+                isProcessing={isProcessing}
+                onProcessingChange={setIsProcessing}
+                onError={setError}
+                onComplete={onComplete}
+                onBack={() => setViewMode('main')}
               />
-
-              <div className="grid grid-cols-2 gap-3">
-                <InputField
-                  label="Expiry (MM/YY)"
-                  type="text"
-                  value={expiry}
-                  onChange={(e) => setExpiry(formatExpiry(e.target.value))}
-                  placeholder="12/25"
-                  maxLength={5}
-                  disabled={isProcessing}
-                />
-                <InputField
-                  label="CVV"
-                  type="text"
-                  value={cvv}
-                  onChange={(e) => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                  placeholder="123"
-                  maxLength={4}
-                  disabled={isProcessing}
-                />
-              </div>
-
-              <InputField
-                label="ZIP Code"
-                type="text"
-                value={postalCode}
-                onChange={(e) => setPostalCode(e.target.value.toUpperCase().slice(0, 7))}
-                placeholder="V2N 2N2"
-                disabled={isProcessing}
-              />
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="saveCard"
-                  checked={saveCard}
-                  onChange={(e) => setSaveCard(e.target.checked)}
-                  disabled={isProcessing}
-                  className="w-4 h-4 text-brand-500 border-gray-300 rounded focus:ring-brand-500"
-                />
-                <label htmlFor="saveCard" className="text-sm text-gray-700 dark:text-gray-300">
-                  Save card for future payments
-                </label>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex gap-3 pt-4">
-              <button
-                onClick={() => setViewMode('main')}
-                disabled={isProcessing}
-                className="flex-1 px-4 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
-              >
-                Back
-              </button>
-              <button
-                onClick={handleManualCharge}
-                disabled={isProcessing || !cardNumber || !expiry || !cvv}
-                className="flex-1 px-4 py-3 bg-brand-500 text-white rounded-lg hover:bg-brand-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-              >
-                {isProcessing ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <span>Processing...</span>
-                  </div>
-                ) : (
-                  'Charge Card'
-                )}
-              </button>
-            </div>
+            </Elements>
           </div>
         )}
       </div>

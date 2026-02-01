@@ -207,7 +207,7 @@ class StripeService {
   /**
    * Get saved payment methods for a customer
    */
-  async getCustomerPaymentMethods(phone?: string, email?: string): Promise<{
+  async getCustomerPaymentMethods(phone?: string, email?: string, customerId?: string): Promise<{
     success: boolean;
     customer: any;
     paymentMethods: Array<{
@@ -226,7 +226,7 @@ class StripeService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ phone, email }),
+        body: JSON.stringify({ phone, email, customerId }),
       });
 
       if (!response.ok) {
