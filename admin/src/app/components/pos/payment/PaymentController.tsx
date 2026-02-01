@@ -1014,21 +1014,14 @@ const handleCardComplete = (data: {
                     onClick={async () => {
                       try {
                         // Reassign orders to matched customer
-                        console.log('🔗 DEBUG linking:', { orderIds: pendingCompletion?.completedOrderIds, txId: pendingCompletion?.transaction?.id, customerId: c.id });
                         if (pendingCompletion?.completedOrderIds) {
                           for (const orderId of pendingCompletion.completedOrderIds) {
-                            try {
-                              const res = await apiClient.put(`/api/orders/${orderId}/update`, { customerId: c.id });
-                              console.log('🔗 Order update:', orderId, res.status, res.data?.success);
-                            } catch (orderErr) {
-                              console.error('🔗 Order update failed:', orderId, orderErr);
-                            }
+                            await apiClient.put(`/api/orders/${orderId}/update`, { customerId: c.id });
                           }
                         }
                         // Reassign transaction to matched customer
                         if (pendingCompletion?.transaction?.id) {
-                          const res = await apiClient.put(`/api/payment-transactions/${pendingCompletion.transaction.id}`, { customerId: c.id });
-                          console.log('🔗 Transaction update:', res.status, res.data?.id);
+                          await apiClient.put(`/api/payment-transactions/${pendingCompletion.transaction.id}`, { customerId: c.id });
                         }
                         paymentState.showNotification('success', `Order linked to ${c.firstName || 'customer'}.`, 3000);
                       } catch (err) {
