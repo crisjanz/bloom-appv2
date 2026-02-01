@@ -25,46 +25,14 @@ export const getOrCreateGuestCustomer = async (): Promise<string> => {
   }
 
   try {
-    // First, try to find an existing guest customer
-    const searchResponse = await fetch('/api/customers?search=Walk-in+Customer&limit=1');
+    const response = await fetch('/api/customers/guest');
 
-    if (searchResponse.ok) {
-      const searchResult = await searchResponse.json();
-
-      // If we found an existing guest customer, use it
-      if (searchResult.customers && searchResult.customers.length > 0) {
-        const guestCustomer = searchResult.customers.find(
-          (c: any) => c.firstName === 'Walk-in' && c.lastName === 'Customer'
-        );
-
-        if (guestCustomer) {
-          GUEST_CUSTOMER_ID = guestCustomer.id;
-          console.log('✅ Using existing guest customer:', GUEST_CUSTOMER_ID);
-          return GUEST_CUSTOMER_ID;
-        }
-      }
+    if (!response.ok) {
+      throw new Error('Failed to get guest customer');
     }
 
-    // If no existing guest customer found, create one
-    console.log('👤 Creating new shared guest customer...');
-    const createResponse = await fetch('/api/customers', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        firstName: 'Walk-in',
-        lastName: 'Customer',
-        email: null,
-        phone: null,
-      }),
-    });
-
-    if (!createResponse.ok) {
-      throw new Error('Failed to create guest customer');
-    }
-
-    const newGuest = await createResponse.json();
-    GUEST_CUSTOMER_ID = newGuest.id;
-    console.log('✅ Created shared guest customer:', GUEST_CUSTOMER_ID);
+    const guest = await response.json();
+    GUEST_CUSTOMER_ID = guest.id;
 
     return GUEST_CUSTOMER_ID;
   } catch (error) {

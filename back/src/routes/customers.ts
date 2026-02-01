@@ -77,6 +77,26 @@ router.delete('/addresses/:id', async (req, res) => {
 // CUSTOMER ROUTES
 // ========================================
 
+// GET /guest - Find or create the shared guest customer
+router.get("/guest", async (req, res) => {
+  try {
+    let guest = await prisma.customer.findFirst({
+      where: { firstName: "Walk-in", lastName: "Customer" },
+    });
+
+    if (!guest) {
+      guest = await prisma.customer.create({
+        data: { firstName: "Walk-in", lastName: "Customer" },
+      });
+    }
+
+    res.json(guest);
+  } catch (error) {
+    console.error("Error getting guest customer:", error);
+    res.status(500).json({ error: "Failed to get guest customer" });
+  }
+});
+
 // GET /quick-search - Quick customer search for POS/TakeOrder
 router.get("/quick-search", async (req, res) => {
   try {

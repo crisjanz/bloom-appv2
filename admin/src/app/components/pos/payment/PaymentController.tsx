@@ -503,7 +503,7 @@ const PaymentController: FC<Props> = ({
 
   const finalizeFromModal = (payload: PaymentPayload, rowNote?: string) => {
     if (!paymentModals.modalContext) {
-      console.error('❌ finalizeFromModal called but modalContext is null');
+      console.error('finalizeFromModal called but modalContext is null');
       return;
     }
 
@@ -1014,17 +1014,14 @@ const handleCardComplete = (data: {
                     onClick={async () => {
                       try {
                         // Reassign orders to matched customer
-                        console.log('🔗 Linking to customer:', c.id, 'orders:', pendingCompletion?.completedOrderIds, 'transaction:', pendingCompletion?.transaction?.id);
                         if (pendingCompletion?.completedOrderIds) {
                           for (const orderId of pendingCompletion.completedOrderIds) {
-                            const res = await apiClient.put(`/api/orders/${orderId}/update`, { customerId: c.id });
-                            console.log('🔗 Order update response:', orderId, res.status, res.data);
+                            await apiClient.put(`/api/orders/${orderId}/update`, { customerId: c.id });
                           }
                         }
                         // Reassign transaction to matched customer
                         if (pendingCompletion?.transaction?.id) {
-                          const res = await apiClient.put(`/api/payment-transactions/${pendingCompletion.transaction.id}`, { customerId: c.id });
-                          console.log('🔗 Transaction update response:', res.status, res.data);
+                          await apiClient.put(`/api/payment-transactions/${pendingCompletion.transaction.id}`, { customerId: c.id });
                         }
                         paymentState.showNotification('success', `Order linked to ${c.firstName || 'customer'}.`, 3000);
                       } catch (err) {

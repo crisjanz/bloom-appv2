@@ -702,8 +702,6 @@ router.post('/payment-intent/:id/confirm', async (req, res) => {
     const stripeCustomerId =
       typeof detailedIntent.customer === 'string' ? detailedIntent.customer : undefined;
 
-    console.log(`🔑 Card confirm details: fingerprint=${fingerprint}, last4=${last4}, bloomCustomerId=${bloomCustomerId}`);
-
     if (fingerprint && bloomCustomerId) {
       const existing = await prisma.customerPaymentMethod.findFirst({
         where: { customerId: bloomCustomerId, cardFingerprint: fingerprint }
