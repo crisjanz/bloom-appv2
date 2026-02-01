@@ -224,6 +224,16 @@ const PaymentController: FC<Props> = ({
     completedOrderIds: string[];
     transaction: any;
   } | null>(null);
+  const [guestCustomerId, setGuestCustomerId] = useState<string | null>(null);
+
+  // Eagerly resolve guest customer ID so it's available for card fingerprint storage
+  useEffect(() => {
+    if (!customer?.id) {
+      getOrCreateGuestCustomer().then(setGuestCustomerId).catch(() => {});
+    } else {
+      setGuestCustomerId(null);
+    }
+  }, [customer?.id]);
 
   // Coupon validation hook
   const {
@@ -915,7 +925,7 @@ const handleCardComplete = (data: {
           total={paymentModals.modalContext?.amount ?? total}
           cardType="credit"
           orderIds={orderIds}
-          bloomCustomerId={customer?.id ?? undefined}
+          bloomCustomerId={customer?.id ?? guestCustomerId ?? undefined}
           customerEmail={customer?.email ?? undefined}
           customerPhone={customer?.phone ?? undefined}
           customerName={customerDisplayName}
@@ -1014,14 +1024,21 @@ const handleCardComplete = (data: {
                     onClick={async () => {
                       try {
                         // Reassign orders to matched customer
+                        console.log('🔗 DEBUG linking:', { orderIds: pendingCompletion?.completedOrderIds, txId: pendingCompletion?.transaction?.id, customerId: c.id });
                         if (pendingCompletion?.completedOrderIds) {
                           for (const orderId of pendingCompletion.completedOrderIds) {
-                            await apiClient.put(`/api/orders/${orderId}/update`, { customerId: c.id });
+                            try {
+                              const res = await apiClient.put(`/api/orders/${orderId}/update`, { customerId: c.id });
+                              console.log('🔗 Order update:', orderId, res.status, res.data?.success);
+                            } catch (orderErr) {
+                              console.error('🔗 Order update failed:', orderId, orderErr);
+                            }
                           }
                         }
                         // Reassign transaction to matched customer
                         if (pendingCompletion?.transaction?.id) {
-                          await apiClient.put(`/api/payment-transactions/${pendingCompletion.transaction.id}`, { customerId: c.id });
+                          const res = await apiClient.put(`/api/payment-transactions/${pendingCompletion.transaction.id}`, { customerId: c.id });
+                          console.log('🔗 Transaction update:', res.status, res.data?.id);
                         }
                         paymentState.showNotification('success', `Order linked to ${c.firstName || 'customer'}.`, 3000);
                       } catch (err) {
