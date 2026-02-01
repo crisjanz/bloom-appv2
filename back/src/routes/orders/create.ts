@@ -1,11 +1,12 @@
 import express from 'express';
-import { PrismaClient, OrderStatus, PrintJobType } from '@prisma/client';
+import { PrismaClient, OrderSource, OrderStatus, PrintJobType } from '@prisma/client';
 import { calculateTax } from '../../utils/taxCalculator';
 import { triggerStatusNotifications } from '../../utils/notificationTriggers';
 import { printService } from '../../services/printService';
 import { printSettingsService } from '../../services/printSettingsService';
 import { buildReceiptPdf } from '../../templates/receipt-pdf';
 import { buildThermalReceipt } from '../../templates/receipt-thermal';
+import paymentProviderFactory from '../../services/paymentProviders/PaymentProviderFactory';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -336,10 +337,28 @@ router.post('/save-draft', async (req, res) => {
       
       const taxCalculationDraft = await calculateTax(taxableAmountDraft);
 
+      const paymentIntentId =
+        typeof orderData.paymentIntentId === 'string' ? orderData.paymentIntentId : null;
+      const paymentStatus =
+        typeof orderData.paymentStatus === 'string' ? orderData.paymentStatus : null;
+      const hasConfirmedPayment = Boolean(
+        paymentIntentId && (!paymentStatus || paymentStatus === 'succeeded')
+      );
+      const rawOrderSource =
+        typeof orderData.orderSource === 'string' ? orderData.orderSource.toUpperCase() : null;
+      const normalizedOrderSource = rawOrderSource && Object.values(OrderSource).includes(rawOrderSource as OrderSource)
+        ? (rawOrderSource as OrderSource)
+        : null;
+      const resolvedOrderSource = normalizedOrderSource || (hasConfirmedPayment ? OrderSource.WEBSITE : null);
+
+      const deliveryFeeInCents = Math.round(orderData.deliveryFee * 100);
+      const totalAmount = subtotal + taxCalculationDraft.totalAmount + deliveryFeeInCents;
+
       const order = await prisma.order.create({
         data: {
           type: orderData.orderType,
-          status: OrderStatus.DRAFT,
+          status: hasConfirmedPayment ? OrderStatus.PAID : OrderStatus.DRAFT,
+          ...(resolvedOrderSource ? { orderSource: resolvedOrderSource } : {}),
           customerId,
           recipientCustomerId,
           deliveryAddressId,
@@ -349,10 +368,10 @@ router.post('/save-draft', async (req, res) => {
             ? new Date(orderData.deliveryDate + 'T00:00:00')  // Explicitly midnight to avoid timezone shift
             : null,
           deliveryTime: orderData.deliveryTime || null,
-          deliveryFee: Math.round(orderData.deliveryFee * 100),
+          deliveryFee: deliveryFeeInCents,
           taxBreakdown: taxCalculationDraft.breakdown, // Dynamic tax breakdown
           totalTax: taxCalculationDraft.totalAmount, // Total tax amount
-          paymentAmount: 0, // No payment for drafts
+          paymentAmount: hasConfirmedPayment ? totalAmount : 0,
           images: [], // Initialize empty images array
           orderItems: {
             create: orderItems
@@ -372,6 +391,19 @@ router.post('/save-draft', async (req, res) => {
       });
 
       draftOrders.push(order);
+
+      if (hasConfirmedPayment && paymentIntentId && order.orderNumber) {
+        (async () => {
+          try {
+            const stripe = await paymentProviderFactory.getStripeClient();
+            await stripe.paymentIntents.update(paymentIntentId, {
+              description: `Web Order - ${order.orderNumber}`,
+            });
+          } catch (err) {
+            console.error('Failed to update Stripe PaymentIntent description:', err);
+          }
+        })();
+      }
     }
 
     console.log(`Successfully created ${draftOrders.length} draft orders`);

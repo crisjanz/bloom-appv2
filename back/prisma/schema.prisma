@@ -1201,6 +1201,7 @@ enum OrderType {
   DELIVERY
   PICKUP
   WIREOUT
+  GIFT_CARD
 }
 
 enum OrderStatus {
