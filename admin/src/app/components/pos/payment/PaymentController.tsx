@@ -367,7 +367,7 @@ const PaymentController: FC<Props> = ({
     paymentModals.closeModal();
   };
 
-  const fetchFingerprintMatches = async (fingerprint: string) => {
+  const fetchFingerprintMatches = async (fingerprint: string): Promise<boolean> => {
     try {
       setIsMatchingFingerprint(true);
       setFingerprintMatchError(null);
@@ -377,12 +377,14 @@ const PaymentController: FC<Props> = ({
       const matches = response.data?.matches || [];
       if (matches.length > 0) {
         setFingerprintMatches({ fingerprint, candidates: matches });
+        return true;
       }
     } catch (err: any) {
       setFingerprintMatchError(err?.message || 'Failed to check fingerprint matches');
     } finally {
       setIsMatchingFingerprint(false);
     }
+    return false;
   };
 
   // normalizePayments is now in paymentHelpers
@@ -458,8 +460,9 @@ const PaymentController: FC<Props> = ({
 
       const { transaction, activatedGiftCards } = result.data;
       const fingerprintFromPayment = payments.find((p) => p.metadata?.cardFingerprint)?.metadata?.cardFingerprint;
+      let hasMatches = false;
       if (!customer?.id && fingerprintFromPayment) {
-        await fetchFingerprintMatches(fingerprintFromPayment);
+        hasMatches = await fetchFingerprintMatches(fingerprintFromPayment);
       }
       const completedOrderIds = result.data?.orderIds || orderIds || [];
 
@@ -480,7 +483,7 @@ const PaymentController: FC<Props> = ({
       };
 
       // If fingerprint matches found, defer completion until user dismisses the modal
-      if (fingerprintMatches) {
+      if (hasMatches) {
         setPendingCompletion({ completion, payments, completedOrderIds, transaction });
         return;
       }
