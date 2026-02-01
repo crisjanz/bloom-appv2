@@ -2,7 +2,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PaymentCard from '../PaymentCard';
-import TakeOrderUnifiedPaymentModal from './TakeOrderUnifiedPaymentModal';
 import TakeOrderPaymentTiles from './TakeOrderPaymentTiles';
 import type { PaymentEntry } from '@domains/payments/hooks/usePaymentComposer';
 import GiftCardActivationModal from './GiftCardActivationModal';
@@ -89,7 +88,6 @@ const PaymentSection: React.FC<Props> = ({
   } = useOrderPayments();
   
   const [subscribe, setSubscribe] = useState(false);
-  const [showPaymentPopup, setShowPaymentPopup] = useState(false);
   const [sendEmailReceipt, setSendEmailReceipt] = useState(false);
   const [sendSMSReceipt, setSendSMSReceipt] = useState(false);
   const [printReceipt, setPrintReceipt] = useState(false);
@@ -103,6 +101,7 @@ const PaymentSection: React.FC<Props> = ({
   const [automaticDiscounts, setAutomaticDiscounts] = useState<any[]>([]);
   const [automaticDiscountAmount, setAutomaticDiscountAmount] = useState(0);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [pendingPayment, setPendingPayment] = useState<PaymentEntry[] | null>(null);
 
   const currentOrder = orderState.orders[orderState.activeTab];
   const hasGiftCards = currentOrder ? orderContainsGiftCards(currentOrder.customProducts) : false;
@@ -221,22 +220,6 @@ const PaymentSection: React.FC<Props> = ({
     return null;
   };
 
-  const handleTriggerPayment = () => {
-    const validationError = validateOrdersBeforePayment();
-    if (validationError) {
-      setFormError(validationError);
-      return;
-    }
-    
-    setFormError(null);
-    
-    if (hasGiftCards && giftCardNumbers.length === 0) {
-      setShowGiftCardActivation(true);
-    } else {
-      setShowPaymentPopup(true);
-    }
-  };
-
   const handleGiftCardNumbersCollected = (cardData: any[]) => {
     setGiftCardNumbers(cardData);
     setShowGiftCardActivation(false);
@@ -272,7 +255,11 @@ const PaymentSection: React.FC<Props> = ({
       orderState.setOrders(updatedOrders);
     }
     
-    // Rely on user clicking "Complete Order" to trigger PaymentModal
+    if (pendingPayment) {
+      const paymentPayload = pendingPayment;
+      setPendingPayment(null);
+      void handlePaymentConfirm(paymentPayload);
+    }
   };
 
   const handlePaymentConfirm = async (payments: PaymentEntry[]) => {
@@ -333,7 +320,6 @@ const PaymentSection: React.FC<Props> = ({
         
         // Use existing callback mechanism with transfer data!
         console.log('✅ Transferring to POS via callback...');
-        setShowPaymentPopup(false);
         onOrderComplete(transferData); // Pass transfer data directly to TakeOrderPage
         return;
 
@@ -547,7 +533,6 @@ const PaymentSection: React.FC<Props> = ({
         }
       }
 
-      setShowPaymentPopup(false);
       setShowSuccessToast(true);
       setCouponCode("");
       setGiftCardNumbers([]);
@@ -594,13 +579,25 @@ const PaymentSection: React.FC<Props> = ({
         totalDeliveryFee={totalDeliveryFee}
         customer={customerState.customer}
         onComplete={(paymentData) => {
-          // Handle "Send to POS" button click
-          if (paymentData?.method === 'send_to_pos') {
-            handlePaymentConfirm([paymentData]);
-          } else {
-            // Trigger payment modal for other payment methods
-            handleTriggerPayment();
+          const validationError = validateOrdersBeforePayment();
+          if (validationError) {
+            setFormError(validationError);
+            return;
           }
+
+          const normalizedPayments = normalizeTakeOrderPayments(paymentData);
+          if (!normalizedPayments.length) {
+            setFormError('No payments were entered.');
+            return;
+          }
+
+          if (paymentData?.method !== 'send_to_pos' && hasGiftCards && giftCardNumbers.length === 0) {
+            setPendingPayment(normalizedPayments);
+            setShowGiftCardActivation(true);
+            return;
+          }
+
+          handlePaymentConfirm(normalizedPayments);
         }}
         onDiscountsChange={(discounts) => {
           if (discounts.manualDiscount !== undefined) {
@@ -634,26 +631,6 @@ const PaymentSection: React.FC<Props> = ({
         orderItems={currentOrder?.customProducts || []}
         onActivationComplete={handleGiftCardNumbersCollected}
       />
-      <TakeOrderUnifiedPaymentModal
-        open={showPaymentPopup}
-        onClose={() => setShowPaymentPopup(false)}
-        total={grandTotal}
-        giftCardDiscount={giftCardDiscount}
-        giftCardRedemptions={pendingGiftCardRedemptions}
-        onGiftCardChange={handleGiftCardChange}
-        onConfirm={handlePaymentConfirm}
-        customer={customerState.customer}
-        quickActions={{
-          printReceipt,
-          printTicket,
-          emailReceipt: sendEmailReceipt,
-        }}
-        onQuickActionsChange={(actions) => {
-          setPrintReceipt(actions.printReceipt);
-          setPrintTicket(actions.printTicket);
-          setSendEmailReceipt(actions.emailReceipt);
-        }}
-      />
       <GiftCardHandoffModal
         open={showGiftCardHandoff}
         onClose={() => {
@@ -674,6 +651,75 @@ const PaymentSection: React.FC<Props> = ({
       />
     </>
   );
+};
+
+const normalizeTakeOrderPayments = (paymentData: any): PaymentEntry[] => {
+  if (!paymentData) return [];
+
+  if (paymentData.method === 'send_to_pos') {
+    return [paymentData];
+  }
+
+  if (paymentData.method === 'SPLIT' && Array.isArray(paymentData.metadata?.payments)) {
+    return paymentData.metadata.payments.map((payment: any) =>
+      normalizeSinglePayment(payment)
+    );
+  }
+
+  return [normalizeSinglePayment(paymentData)];
+};
+
+const normalizeSinglePayment = (payment: any): PaymentEntry => {
+  const rawMethod = String(payment.method || '').toUpperCase();
+
+  if (rawMethod === 'CARD' || rawMethod === 'CARD_STRIPE') {
+    return {
+      method: 'credit',
+      amount: payment.amount,
+      metadata: {
+        ...payment.metadata,
+        provider: payment.metadata?.provider || 'stripe',
+      },
+    };
+  }
+
+  if (rawMethod === 'CASH') {
+    return {
+      method: 'cash',
+      amount: payment.amount,
+      metadata: payment.metadata,
+    };
+  }
+
+  if (rawMethod === 'HOUSE_ACCOUNT') {
+    return {
+      method: 'house_account',
+      amount: payment.amount,
+      metadata: payment.metadata,
+    };
+  }
+
+  if (rawMethod === 'COD') {
+    return {
+      method: 'cod',
+      amount: payment.amount,
+      metadata: payment.metadata,
+    };
+  }
+
+  if (rawMethod === 'CHECK') {
+    return {
+      method: 'check',
+      amount: payment.amount,
+      metadata: payment.metadata,
+    };
+  }
+
+  return {
+    method: payment.method || 'cash',
+    amount: payment.amount,
+    metadata: payment.metadata,
+  };
 };
 
 // Helper function to map TakeOrder payment methods to PT transaction API format

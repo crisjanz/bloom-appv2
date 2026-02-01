@@ -6,6 +6,7 @@ interface PaymentIntentRequest {
   amount: number;
   currency?: string;
   customerId?: string;
+  bloomCustomerId?: string;
   customerEmail?: string;
   customerPhone?: string;
   customerName?: string;
@@ -212,6 +213,7 @@ class StripeService {
     paymentMethods: Array<{
       id: string;
       type: string;
+      brand?: string;
       last4: string;
       expMonth: number;
       expYear: number;

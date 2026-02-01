@@ -424,6 +424,7 @@ const TakeOrderPaymentTiles: FC<Props> = ({
           open={activeModal === 'card'}
           total={safeGrandTotal}
           cardType="credit"
+          bloomCustomerId={customer?.id}
           customerEmail={customer?.email}
           customerPhone={customer?.phone}
           customerName={customer?.firstName && customer?.lastName ? `${customer.firstName} ${customer.lastName}` : ''}

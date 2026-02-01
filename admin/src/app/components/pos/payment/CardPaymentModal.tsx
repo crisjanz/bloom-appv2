@@ -12,6 +12,7 @@ type Props = {
   total: number;
   cardType: 'credit' | 'debit';
   orderIds?: string[];
+  bloomCustomerId?: string;
   customerEmail?: string;
   customerPhone?: string;
   customerName?: string;
@@ -21,6 +22,8 @@ type Props = {
     transactionId?: string;
     paymentIntentId?: string;
     cardLast4?: string;
+    cardBrand?: string;
+    cardFingerprint?: string;
   }) => void;
   onCancel: () => void;
 };
@@ -40,6 +43,7 @@ export default function CardPaymentModal({
   total,
   cardType,
   orderIds,
+  bloomCustomerId,
   customerEmail,
   customerPhone,
   customerName,
@@ -61,6 +65,10 @@ export default function CardPaymentModal({
   const [savedCards, setSavedCards] = useState<SavedCard[]>([]);
   const [loadingSavedCards, setLoadingSavedCards] = useState(false);
   const [selectedSavedCard, setSelectedSavedCard] = useState<string>('');
+  const [terminalReaderId, setTerminalReaderId] = useState<string | null>(null);
+  const [terminalReaderLabel, setTerminalReaderLabel] = useState<string | null>(null);
+  const [terminalPaymentIntentId, setTerminalPaymentIntentId] = useState<string | null>(null);
+  const [terminalPolling, setTerminalPolling] = useState(false);
 
   // Check reader connection on mount
   useEffect(() => {
@@ -71,11 +79,31 @@ export default function CardPaymentModal({
 
   const checkReaderConnection = async () => {
     try {
-      // TODO: Implement terminal connection check
-      // const connected = await stripeService.isTerminalConnected();
-      setReaderConnected(false);
+      const response = await fetch('/api/stripe/terminal/readers');
+      if (!response.ok) {
+        setReaderConnected(false);
+        setTerminalReaderId(null);
+        setTerminalReaderLabel(null);
+        return;
+      }
+      const result = await response.json();
+      const readers = Array.isArray(result.readers) ? result.readers : [];
+      const onlineReader =
+        readers.find((reader: any) => reader?.status === 'online') || readers[0];
+
+      if (onlineReader?.id) {
+        setReaderConnected(onlineReader.status === 'online');
+        setTerminalReaderId(onlineReader.id);
+        setTerminalReaderLabel(onlineReader.label || onlineReader.deviceType || 'Stripe Reader');
+      } else {
+        setReaderConnected(false);
+        setTerminalReaderId(null);
+        setTerminalReaderLabel(null);
+      }
     } catch (err) {
       setReaderConnected(false);
+      setTerminalReaderId(null);
+      setTerminalReaderLabel(null);
     }
   };
 
@@ -99,7 +127,7 @@ export default function CardPaymentModal({
       if (result.success && result.paymentMethods) {
         setSavedCards(result.paymentMethods.map(pm => ({
           ...pm,
-          brand: pm.type || 'card'
+          brand: pm.brand || pm.type || 'card'
         })));
       }
     } catch (err) {
@@ -111,7 +139,7 @@ export default function CardPaymentModal({
 
   // Main action: Charge via terminal
   const handleChargeTerminal = async () => {
-    if (!readerConnected) {
+    if (!readerConnected || !terminalReaderId) {
       setError('No card reader connected. Please use Manual Entry.');
       return;
     }
@@ -120,9 +148,28 @@ export default function CardPaymentModal({
     setError(null);
 
     try {
-      // TODO: Implement terminal payment collection
-      setError('Terminal payments not yet implemented. Please use Manual Entry.');
-      setIsProcessing(false);
+      const response = await fetch('/api/stripe/terminal/process-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: total,
+          readerId: terminalReaderId,
+          customerEmail,
+          customerPhone,
+          customerName,
+          orderIds,
+          bloomCustomerId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to start terminal payment');
+      }
+
+      const result = await response.json();
+      setTerminalPaymentIntentId(result.paymentIntentId);
+      setTerminalPolling(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Payment failed');
       setIsProcessing(false);
@@ -140,8 +187,68 @@ export default function CardPaymentModal({
     setError(null);
 
     try {
-      // TODO: Implement manual card charging
-      setError('Manual card entry not yet implemented.');
+      const stripe = await stripeService.getStripe();
+      if (!stripe) {
+        throw new Error('Stripe is still loading. Please try again.');
+      }
+
+      const paymentIntentResult = await stripeService.createPaymentIntent({
+        amount: total,
+        currency: 'cad',
+        customerEmail,
+        customerPhone,
+        customerName,
+        orderIds,
+        bloomCustomerId,
+      });
+
+      const cleanedNumber = cardNumber.replace(/\s+/g, '');
+      const [expMonthRaw, expYearRaw] = expiry.split('/');
+      const expMonth = Number(expMonthRaw);
+      const expYearValue = Number(expYearRaw);
+      const expYear = expYearValue < 100 ? 2000 + expYearValue : expYearValue;
+
+      if (!expMonth || !expYear || expMonth < 1 || expMonth > 12) {
+        throw new Error('Enter a valid expiry date.');
+      }
+
+      const paymentMethodResult = await stripe.createPaymentMethod({
+        type: 'card',
+        card: {
+          number: cleanedNumber,
+          exp_month: expMonth,
+          exp_year: expYear,
+          cvc: cvv,
+        },
+        billing_details: {
+          name: customerName,
+          email: customerEmail,
+          phone: customerPhone,
+          address: postalCode ? { postal_code: postalCode } : undefined,
+        },
+      });
+
+      if (paymentMethodResult.error || !paymentMethodResult.paymentMethod?.id) {
+        throw new Error(paymentMethodResult.error?.message || 'Failed to create payment method');
+      }
+
+      const confirmResult = await stripeService.confirmPaymentIntent(
+        paymentIntentResult.paymentIntentId,
+        paymentMethodResult.paymentMethod.id
+      );
+
+      if (!confirmResult?.success || confirmResult.status !== 'succeeded') {
+        throw new Error(confirmResult?.error || 'Payment failed');
+      }
+
+      onComplete({
+        method: cardType,
+        transactionId: confirmResult.paymentIntentId,
+        paymentIntentId: confirmResult.paymentIntentId,
+        cardLast4: confirmResult.cardLast4,
+        cardBrand: confirmResult.cardBrand,
+        cardFingerprint: confirmResult.cardFingerprint,
+      });
       setIsProcessing(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Payment failed');
@@ -155,8 +262,33 @@ export default function CardPaymentModal({
     setError(null);
 
     try {
-      // TODO: Implement saved card charging
-      setError('Saved card charging not yet implemented.');
+      const paymentIntentResult = await stripeService.createPaymentIntent({
+        amount: total,
+        currency: 'cad',
+        customerEmail,
+        customerPhone,
+        customerName,
+        orderIds,
+        bloomCustomerId,
+      });
+
+      const confirmResult = await stripeService.confirmPaymentIntent(
+        paymentIntentResult.paymentIntentId,
+        card.id
+      );
+
+      if (!confirmResult?.success || confirmResult.status !== 'succeeded') {
+        throw new Error(confirmResult?.error || 'Payment failed');
+      }
+
+      onComplete({
+        method: cardType,
+        transactionId: confirmResult.paymentIntentId,
+        paymentIntentId: confirmResult.paymentIntentId,
+        cardLast4: confirmResult.cardLast4 || card.last4,
+        cardBrand: confirmResult.cardBrand || card.brand,
+        cardFingerprint: confirmResult.cardFingerprint,
+      });
       setIsProcessing(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Payment failed');
@@ -193,7 +325,72 @@ export default function CardPaymentModal({
       setCvv('');
       setPostalCode('');
       setSaveCard(false);
+      setTerminalPaymentIntentId(null);
+      setTerminalPolling(false);
       onCancel();
+    }
+  };
+
+  useEffect(() => {
+    if (!terminalPaymentIntentId || !terminalPolling) return;
+
+    let cancelled = false;
+    const pollStatus = async () => {
+      try {
+        const response = await fetch(`/api/stripe/terminal/payment-status/${terminalPaymentIntentId}`);
+        if (!response.ok) return;
+        const result = await response.json();
+
+        if (cancelled) return;
+
+        if (result.status === 'succeeded') {
+          setTerminalPolling(false);
+          setTerminalPaymentIntentId(null);
+          setIsProcessing(false);
+          onComplete({
+            method: cardType,
+            transactionId: result.paymentIntentId,
+            paymentIntentId: result.paymentIntentId,
+            cardLast4: result.cardLast4,
+            cardBrand: result.cardBrand,
+            cardFingerprint: result.cardFingerprint,
+          });
+        } else if (['canceled', 'requires_payment_method'].includes(result.status)) {
+          setTerminalPolling(false);
+          setTerminalPaymentIntentId(null);
+          setIsProcessing(false);
+          setError('Terminal payment was canceled or failed.');
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setTerminalPolling(false);
+          setTerminalPaymentIntentId(null);
+          setIsProcessing(false);
+          setError(err instanceof Error ? err.message : 'Failed to check terminal payment status');
+        }
+      }
+    };
+
+    const interval = setInterval(pollStatus, 2000);
+    void pollStatus();
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [terminalPaymentIntentId, terminalPolling, cardType, onComplete]);
+
+  const handleTerminalCancel = async () => {
+    if (!terminalReaderId) return;
+    try {
+      await fetch(`/api/stripe/terminal/cancel-action/${terminalReaderId}`, { method: 'POST' });
+    } catch (err) {
+      console.error('Failed to cancel terminal action:', err);
+    } finally {
+      setTerminalPolling(false);
+      setTerminalPaymentIntentId(null);
+      setIsProcessing(false);
+      setError('Terminal payment canceled.');
     }
   };
 
@@ -239,29 +436,44 @@ export default function CardPaymentModal({
             </div>
 
             {/* Charge Button */}
-            <button
-              onClick={handleChargeTerminal}
-              disabled={isProcessing || !readerConnected}
-              className={`w-full h-20 rounded-2xl font-semibold text-xl transition-all ${
-                isProcessing
-                  ? 'bg-gray-300 dark:bg-gray-600 cursor-wait'
-                  : readerConnected
-                  ? 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white'
-                  : 'bg-gray-200 dark:bg-gray-700 cursor-not-allowed text-gray-400 dark:text-gray-500'
-              }`}
-            >
-              {isProcessing ? (
-                <div className="flex items-center justify-center gap-3">
-                  <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  <span>Processing...</span>
+            {!terminalPaymentIntentId ? (
+              <button
+                onClick={handleChargeTerminal}
+                disabled={isProcessing || !readerConnected}
+                className={`w-full h-20 rounded-2xl font-semibold text-xl transition-all ${
+                  isProcessing
+                    ? 'bg-gray-300 dark:bg-gray-600 cursor-wait'
+                    : readerConnected
+                    ? 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white'
+                    : 'bg-gray-200 dark:bg-gray-700 cursor-not-allowed text-gray-400 dark:text-gray-500'
+                }`}
+              >
+                {isProcessing ? (
+                  <div className="flex items-center justify-center gap-3">
+                    <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Processing...</span>
+                  </div>
+                ) : (
+                  'Charge Card'
+                )}
+              </button>
+            ) : (
+              <div className="rounded-2xl border border-brand-500/30 bg-brand-50 px-4 py-4 text-center">
+                <div className="text-sm font-semibold text-brand-600">Waiting for customer…</div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {terminalReaderLabel ? `Reader: ${terminalReaderLabel}` : 'Reader is ready'}
                 </div>
-              ) : (
-                'Charge Card'
-              )}
-            </button>
+                <button
+                  onClick={handleTerminalCancel}
+                  className="mt-3 px-4 py-2 text-xs font-semibold text-red-600 border border-red-200 rounded-full hover:bg-red-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
 
             {/* Bottom Row: Reader Status + Manual Entry */}
             <div className="flex items-center justify-between">

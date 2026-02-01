@@ -159,6 +159,251 @@ router.get('/public-key', async (_req, res) => {
 });
 
 /**
+ * Create Stripe Terminal connection token
+ * POST /api/stripe/terminal/connection-token
+ */
+router.post('/terminal/connection-token', async (_req, res) => {
+  try {
+    const stripe = await paymentProviderFactory.getStripeClient();
+    const token = await stripe.terminal.connectionTokens.create();
+    res.json({ success: true, secret: token.secret });
+  } catch (error) {
+    console.error('❌ Failed to create terminal connection token:', error);
+    res.status(500).json({
+      error: 'Failed to create terminal connection token',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
+ * List Stripe Terminal readers
+ * GET /api/stripe/terminal/readers
+ */
+router.get('/terminal/readers', async (_req, res) => {
+  try {
+    const stripe = await paymentProviderFactory.getStripeClient();
+    const readers = await stripe.terminal.readers.list({ limit: 20 });
+    res.json({
+      success: true,
+      readers: readers.data.map((reader) => ({
+        id: reader.id,
+        label: reader.label,
+        status: reader.status,
+        deviceType: reader.device_type,
+        location: reader.location,
+      })),
+    });
+  } catch (error) {
+    console.error('❌ Failed to list terminal readers:', error);
+    res.status(500).json({
+      error: 'Failed to list terminal readers',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
+ * Process Stripe Terminal payment
+ * POST /api/stripe/terminal/process-payment
+ */
+router.post('/terminal/process-payment', async (req, res) => {
+  try {
+    const {
+      amount,
+      currency = 'cad',
+      readerId,
+      customerId,
+      bloomCustomerId,
+      customerEmail,
+      customerPhone,
+      customerName,
+      orderIds = [],
+      metadata = {},
+    } = req.body;
+
+    if (!readerId) {
+      return res.status(400).json({ error: 'Reader ID is required' });
+    }
+
+    const parsedAmount = Number(amount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      return res.status(400).json({ error: 'Amount is required and must be greater than 0' });
+    }
+
+    const amountInCents = Math.round(parsedAmount);
+    const metadataPayload = metadata && typeof metadata === 'object' ? metadata : {};
+    const orderIdList = Array.isArray(orderIds) ? orderIds : [];
+
+    if (orderIdList.length > 0) {
+      metadataPayload.orderIds = orderIdList.join(',');
+      metadataPayload.source = 'bloom-flower-shop';
+    }
+    if (bloomCustomerId) {
+      metadataPayload.bloomCustomerId = bloomCustomerId;
+    }
+
+    const stripe = await paymentProviderFactory.getStripeClient();
+
+    let resolvedCustomerId = customerId;
+    if (bloomCustomerId && !resolvedCustomerId) {
+      const result = await providerCustomerService.getOrCreateStripeCustomer(bloomCustomerId, {
+        email: customerEmail || '',
+        name: customerName || customerEmail?.split('@')[0] || 'Customer',
+        phone: customerPhone,
+      });
+      resolvedCustomerId = result.stripeCustomerId;
+      console.log(`${result.isNew ? '✅ Created' : '♻️ Reused'} Stripe customer: ${resolvedCustomerId} for ${customerPhone || customerEmail}`);
+    } else if ((customerPhone || customerEmail) && !resolvedCustomerId) {
+      if (customerEmail) {
+        const existing = await stripe.customers.list({ email: customerEmail, limit: 1 });
+        if (existing.data.length > 0) {
+          resolvedCustomerId = existing.data[0].id;
+          console.log(`♻️ Reused Stripe customer: ${resolvedCustomerId} for ${customerEmail}`);
+        }
+      }
+
+      if (!resolvedCustomerId) {
+        const customer = await stripe.customers.create({
+          email: customerEmail,
+          name: customerName || customerEmail?.split('@')[0] || 'Customer',
+          phone: customerPhone,
+        });
+        resolvedCustomerId = customer.id;
+        console.log(`✅ Created Stripe customer: ${resolvedCustomerId} for ${customerPhone || customerEmail}`);
+      }
+    }
+
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amountInCents,
+      currency,
+      customer: resolvedCustomerId,
+      description: `Bloom Flower Shop - POS ${orderIdList.join(', ')}`.trim(),
+      metadata: metadataPayload,
+      automatic_payment_methods: { enabled: true },
+      receipt_email: customerEmail,
+      setup_future_usage: resolvedCustomerId ? 'off_session' : undefined,
+    });
+
+    await stripe.terminal.readers.processPaymentIntent(readerId, {
+      payment_intent: paymentIntent.id,
+    });
+
+    res.json({
+      success: true,
+      paymentIntentId: paymentIntent.id,
+      readerId,
+    });
+  } catch (error) {
+    console.error('❌ Terminal payment processing failed:', error);
+    res.status(500).json({
+      error: 'Failed to process terminal payment',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
+ * Poll Stripe Terminal payment status
+ * GET /api/stripe/terminal/payment-status/:paymentIntentId
+ */
+router.get('/terminal/payment-status/:paymentIntentId', async (req, res) => {
+  try {
+    const { paymentIntentId } = req.params;
+    const stripe = await paymentProviderFactory.getStripeClient();
+
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId, {
+      expand: ['latest_charge.payment_method_details.card'],
+    });
+
+    const charge: any =
+      paymentIntent.latest_charge && typeof paymentIntent.latest_charge === 'object'
+        ? paymentIntent.latest_charge
+        : null;
+
+    const fingerprint = charge?.payment_method_details?.card?.fingerprint as string | undefined;
+    const last4 = charge?.payment_method_details?.card?.last4 as string | undefined;
+    const brand = charge?.payment_method_details?.card?.brand as string | undefined;
+    const expMonth = charge?.payment_method_details?.card?.exp_month as number | undefined;
+    const expYear = charge?.payment_method_details?.card?.exp_year as number | undefined;
+    const bloomCustomerId = (paymentIntent.metadata as any)?.bloomCustomerId as string | undefined;
+    const stripePaymentMethodId =
+      typeof paymentIntent.payment_method === 'string'
+        ? paymentIntent.payment_method
+        : paymentIntent.payment_method?.id;
+    const stripeCustomerId =
+      typeof paymentIntent.customer === 'string' ? paymentIntent.customer : undefined;
+
+    if (paymentIntent.status === 'succeeded' && fingerprint && bloomCustomerId) {
+      const existing = await prisma.customerPaymentMethod.findFirst({
+        where: { customerId: bloomCustomerId, cardFingerprint: fingerprint },
+      });
+
+      if (existing) {
+        await prisma.customerPaymentMethod.update({
+          where: { id: existing.id },
+          data: {
+            stripePaymentMethodId: stripePaymentMethodId ?? existing.stripePaymentMethodId,
+            stripeCustomerId: stripeCustomerId ?? existing.stripeCustomerId,
+            last4: last4 ?? existing.last4,
+            brand: brand ?? existing.brand,
+            expMonth: expMonth ?? existing.expMonth,
+            expYear: expYear ?? existing.expYear,
+          },
+        });
+      } else {
+        await prisma.customerPaymentMethod.create({
+          data: {
+            customerId: bloomCustomerId,
+            stripePaymentMethodId,
+            stripeCustomerId,
+            cardFingerprint: fingerprint,
+            last4: last4 ?? '',
+            brand: brand ?? 'card',
+            expMonth: expMonth ?? 0,
+            expYear: expYear ?? 0,
+          },
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      status: paymentIntent.status,
+      paymentIntentId: paymentIntent.id,
+      cardFingerprint: fingerprint,
+      cardLast4: last4,
+      cardBrand: brand,
+    });
+  } catch (error) {
+    console.error('❌ Failed to poll terminal payment status:', error);
+    res.status(500).json({
+      error: 'Failed to retrieve terminal payment status',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
+ * Cancel a Stripe Terminal reader action
+ * POST /api/stripe/terminal/cancel-action/:readerId
+ */
+router.post('/terminal/cancel-action/:readerId', async (req, res) => {
+  try {
+    const { readerId } = req.params;
+    const stripe = await paymentProviderFactory.getStripeClient();
+    const result = await stripe.terminal.readers.cancelAction(readerId);
+    res.json({ success: true, action: result.action });
+  } catch (error) {
+    console.error('❌ Failed to cancel terminal reader action:', error);
+    res.status(500).json({
+      error: 'Failed to cancel terminal reader action',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
  * Create a payment intent
  * POST /api/stripe/payment-intent
  */
@@ -675,17 +920,93 @@ router.get('/health', async (req, res) => {
 /**
  * Find customer and get saved payment methods
  * POST /api/stripe/customer/payment-methods
- *
- * ⚠️ DEPRECATED: This endpoint is disabled after migration.
- * All Stripe customer IDs are now stored in the ProviderCustomer table.
- * Use the local database to find customers instead of searching Stripe directly.
  */
 router.post('/customer/payment-methods', async (req, res) => {
-  return res.status(410).json({
-    success: false,
-    error: 'This endpoint is deprecated. Stripe customer IDs are now managed via the local ProviderCustomer table.',
-    message: 'Use the customer lookup endpoint with local database instead.',
-  });
+  try {
+    const { phone, email, customerId } = req.body || {};
+
+    if (!phone && !email && !customerId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Phone, email, or customerId is required.',
+      });
+    }
+
+    let customer = null as any;
+    if (customerId) {
+      customer = await prisma.customer.findUnique({
+        where: { id: customerId },
+      });
+    } else {
+      if (email) {
+        customer = await prisma.customer.findFirst({
+          where: {
+            email: {
+              equals: email,
+              mode: 'insensitive',
+            },
+          },
+        });
+      }
+
+      if (!customer && phone) {
+        customer = await prisma.customer.findFirst({
+          where: {
+            phone: String(phone).replace(/\D/g, ''),
+          },
+        });
+      }
+    }
+
+    if (!customer) {
+      return res.json({
+        success: true,
+        customer: null,
+        paymentMethods: [],
+      });
+    }
+
+    const providerCustomer = await providerCustomerService.getProviderCustomer(customer.id, PaymentProvider.STRIPE);
+    if (!providerCustomer) {
+      return res.json({
+        success: true,
+        customer,
+        paymentMethods: [],
+      });
+    }
+
+    const stripe = await paymentProviderFactory.getStripeClient();
+    const paymentMethods = await stripe.paymentMethods.list({
+      customer: providerCustomer.providerCustomerId,
+      type: 'card',
+    });
+
+    res.json({
+      success: true,
+      customer: {
+        id: customer.id,
+        firstName: customer.firstName,
+        lastName: customer.lastName,
+        email: customer.email,
+        phone: customer.phone,
+      },
+      paymentMethods: paymentMethods.data.map((method) => ({
+        id: method.id,
+        type: method.card?.brand ?? 'card',
+        brand: method.card?.brand ?? 'card',
+        last4: method.card?.last4 ?? '',
+        expMonth: method.card?.exp_month ?? 0,
+        expYear: method.card?.exp_year ?? 0,
+      })),
+    });
+  } catch (error) {
+    console.error('❌ Failed to get customer payment methods:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to retrieve payment methods',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
 });
 
 /**

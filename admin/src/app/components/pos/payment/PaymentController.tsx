@@ -893,6 +893,7 @@ const handleCardComplete = (data: {
           total={paymentModals.modalContext?.amount ?? total}
           cardType="credit"
           orderIds={orderIds}
+          bloomCustomerId={customer?.id ?? undefined}
           customerEmail={customer?.email ?? undefined}
           customerPhone={customer?.phone ?? undefined}
           customerName={customerDisplayName}
