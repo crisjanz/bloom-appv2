@@ -33,6 +33,10 @@ const buildStripeCustomerName = (customerName?: string, customerEmail?: string) 
   return 'Customer';
 };
 
+const serializeStripeObject = (value: unknown) => {
+  return JSON.parse(JSON.stringify(value));
+};
+
 const refreshStripeCustomerLink = async ({
   stripe,
   bloomCustomerId,
@@ -73,7 +77,7 @@ const refreshStripeCustomerLink = async ({
       data: {
         providerCustomerId: stripeCustomer.id,
         providerEmail: stripeCustomer.email || existing.providerEmail,
-        providerMetadata: stripeCustomer,
+        providerMetadata: serializeStripeObject(stripeCustomer),
         isActive: true,
         isPrimary: true,
         lastSyncAt: new Date(),
@@ -94,7 +98,7 @@ const refreshStripeCustomerLink = async ({
         provider: PaymentProvider.STRIPE,
         providerCustomerId: stripeCustomer.id,
         providerEmail: stripeCustomer.email || undefined,
-        providerMetadata: stripeCustomer,
+        providerMetadata: serializeStripeObject(stripeCustomer),
         isActive: true,
         isPrimary: true,
         lastSyncAt: new Date(),
