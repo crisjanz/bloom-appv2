@@ -1007,9 +1007,24 @@ const handleCardComplete = (data: {
                   </div>
                   <button
                     type="button"
-                    className="rounded-md bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary/90"
-                    onClick={() => {
-                      paymentState.showNotification('success', `Ask customer about ${c.firstName || 'this contact'}.`, 3000);
+                    className="rounded-md bg-brand-500 hover:bg-brand-600 px-3 py-2 text-xs font-semibold text-white"
+                    onClick={async () => {
+                      try {
+                        // Reassign orders to matched customer
+                        if (pendingCompletion?.completedOrderIds) {
+                          for (const orderId of pendingCompletion.completedOrderIds) {
+                            await apiClient.put(`/api/orders/${orderId}/update`, { customerId: c.id });
+                          }
+                        }
+                        // Reassign transaction to matched customer
+                        if (pendingCompletion?.transaction?.id) {
+                          await apiClient.put(`/api/payment-transactions/${pendingCompletion.transaction.id}`, { customerId: c.id });
+                        }
+                        paymentState.showNotification('success', `Order linked to ${c.firstName || 'customer'}.`, 3000);
+                      } catch (err) {
+                        console.error('Failed to link customer:', err);
+                        paymentState.showNotification('error', 'Failed to link customer to order.', 3000);
+                      }
                       setFingerprintMatches(null);
                       if (pendingCompletion) {
                         finishCompletion(pendingCompletion.completion, pendingCompletion.payments, pendingCompletion.completedOrderIds, pendingCompletion.transaction);
@@ -1017,7 +1032,7 @@ const handleCardComplete = (data: {
                       }
                     }}
                   >
-                    Ask to link
+                    Link to customer
                   </button>
                 </div>
               </div>
@@ -1037,7 +1052,7 @@ const handleCardComplete = (data: {
                   }
                 }}
               >
-                Close
+                Skip
               </button>
             </div>
             {fingerprintMatchError && (

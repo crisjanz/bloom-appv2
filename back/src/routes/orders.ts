@@ -307,6 +307,11 @@ router.put('/:id/update', async (req, res) => {
         // Note: No need to update order.customerId as it's still the same customer
       }
 
+      // Handle customerId reassignment (e.g. fingerprint match linking guest to existing customer)
+      if (updateData.customerId) {
+        orderUpdateData.customerId = updateData.customerId;
+      }
+
       // Handle recipient updates - Recipients are now managed via Customer API
       // Orders can update their recipientCustomerId and deliveryAddressId references
       if (updateData.recipientCustomerId !== undefined) {

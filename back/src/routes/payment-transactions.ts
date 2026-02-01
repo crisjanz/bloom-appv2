@@ -1,4 +1,5 @@
 import express from 'express';
+import prisma from '../lib/prisma';
 import transactionService from '../services/transactionService';
 
 const router = express.Router();
@@ -283,6 +284,32 @@ router.get('/:transactionNumber', async (req, res) => {
   } catch (error) {
     console.error('Error fetching transaction:', error);
     res.status(500).json({ error: 'Failed to fetch transaction' });
+  }
+});
+
+/**
+ * PUT /api/payment-transactions/:id
+ * Update a payment transaction (e.g. reassign customer)
+ */
+router.put('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { customerId } = req.body;
+
+    const updateData: any = {};
+    if (customerId) {
+      updateData.customerId = customerId;
+    }
+
+    const updated = await prisma.paymentTransaction.update({
+      where: { id },
+      data: updateData,
+    });
+
+    res.json(updated);
+  } catch (error) {
+    console.error('Error updating transaction:', error);
+    res.status(500).json({ error: 'Failed to update transaction' });
   }
 });
 
