@@ -418,6 +418,7 @@ const PaymentController: FC<Props> = ({
 
       const { transaction, activatedGiftCards } = result.data;
       const fingerprintFromPayment = payments.find((p) => p.metadata?.cardFingerprint)?.metadata?.cardFingerprint;
+      console.log('🔑 Fingerprint check:', { fingerprintFromPayment, hasCustomer: !!customer?.id, payments: payments.map(p => ({ method: p.method, fingerprint: p.metadata?.cardFingerprint })) });
       if (!customer?.id && fingerprintFromPayment) {
         await fetchFingerprintMatches(fingerprintFromPayment);
       }
