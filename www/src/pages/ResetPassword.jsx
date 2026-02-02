@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { useSearchParams, Link, useNavigate } from "react-router-dom";
 import Breadcrumb from "../components/Breadcrumb.jsx";
-
-const API_BASE = import.meta.env.VITE_API_BASE || "";
+import api from "../services/api.js";
 
 const ResetPassword = () => {
   const [searchParams] = useSearchParams();
@@ -27,18 +26,7 @@ const ResetPassword = () => {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE}/api/customers/reset-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, newPassword: password }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to reset password.");
-      }
-
+      await api.post("/customers/reset-password", { token, newPassword: password });
       setSuccess(true);
       setTimeout(() => navigate("/login"), 3000);
     } catch (err) {

@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import Breadcrumb from "../components/Breadcrumb.jsx";
-
-const API_BASE = import.meta.env.VITE_API_BASE || "";
+import api from "../services/api.js";
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState("");
@@ -16,16 +15,7 @@ const ForgotPassword = () => {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE}/api/customers/forgot-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim().toLowerCase() }),
-      });
-
-      if (!res.ok) {
-        throw new Error("Something went wrong. Please try again.");
-      }
-
+      await api.post("/customers/forgot-password", { email: email.trim().toLowerCase() });
       setSubmitted(true);
     } catch (err) {
       setError(err.message || "Failed to send reset email.");
