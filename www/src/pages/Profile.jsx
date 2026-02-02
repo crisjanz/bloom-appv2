@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import PropTypes from "prop-types";
 import { Navigate } from "react-router-dom";
 import Breadcrumb from "../components/Breadcrumb.jsx";
+import PaymentMethodsTab from "../components/Profile/PaymentMethodsTab.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import authService from "../services/authService.js";
 import api from "../services/api.js";
@@ -357,44 +358,6 @@ const RecipientsTab = ({ customerId, recipients, loading, error, refresh }) => {
   );
 };
 
-const PaymentMethodsTab = ({ customer }) => {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-dark text-xl font-semibold dark:text-white">Payment Methods</h2>
-        <p className="text-body-color mt-2 text-sm leading-relaxed dark:text-dark-6">
-          We securely store your payment details with our providers. Use the links below to
-          manage the cards you’ve saved during checkout.
-        </p>
-      </div>
-
-      <div className="space-y-4">
-        <a
-          href="https://billing.stripe.com/p/login"
-          target="_blank"
-          rel="noreferrer"
-          className="bg-primary hover:bg-primary-dark inline-flex w-full items-center justify-between rounded-xl border border-primary px-5 py-4 text-left text-sm font-semibold text-white transition"
-        >
-          <span>Open Stripe customer portal</span>
-          <span className="text-xs font-medium opacity-75">Secure</span>
-        </a>
-        <a
-          href="https://squareup.com/us/en/pay-invoice"
-          target="_blank"
-          rel="noreferrer"
-          className="bg-white hover:bg-primary-dark/10 inline-flex w-full items-center justify-between rounded-xl border border-stroke px-5 py-4 text-left text-sm font-semibold text-dark transition dark:border-dark-3 dark:bg-dark-2 dark:text-white"
-        >
-          <span>Manage cards via Square</span>
-          <span className="text-xs font-medium text-body-color dark:text-dark-6">Coming soon</span>
-        </a>
-      </div>
-
-      <p className="text-body-color text-xs dark:text-dark-6">
-        Questions? Email us at <a href="mailto:info@hellobloom.ca" className="text-primary">info@hellobloom.ca</a> and we’ll be happy to help.
-      </p>
-    </div>
-  );
-};
 
 const AccountSettingsTab = ({ customer, refreshProfile }) => {
   const [profileForm, setProfileForm] = useState({
@@ -591,10 +554,6 @@ RecipientsTab.propTypes = {
   loading: PropTypes.bool.isRequired,
   error: PropTypes.string,
   refresh: PropTypes.func.isRequired,
-};
-
-PaymentMethodsTab.propTypes = {
-  customer: PropTypes.object.isRequired,
 };
 
 AccountSettingsTab.propTypes = {

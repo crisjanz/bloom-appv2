@@ -265,6 +265,8 @@ Each variant can optionally reference one of the product's images via `featuredI
 - ✅ POST `/api/stripe/customer` — create or fetch Stripe customer.
 - ✅ POST `/api/stripe/refund` — issue refund.
 - ✅ POST `/api/stripe/customer/payment-methods` — list saved payment methods.
+- ✅ POST `/api/stripe/setup-intent` — create SetupIntent for saving a card.
+- ✅ POST `/api/stripe/customer/payment-methods/detach` — detach saved payment method.
 - ✅ GET `/api/stripe/health` — Stripe connectivity check.
 - ✅ POST `/api/stripe/webhook` — Stripe webhook ingestion with signature validation.
 

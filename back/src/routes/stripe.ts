@@ -1189,6 +1189,154 @@ router.post('/customer/payment-methods', async (req, res) => {
 });
 
 /**
+ * Create a Stripe SetupIntent for saving a card
+ * POST /api/stripe/setup-intent
+ */
+router.post('/setup-intent', async (req, res) => {
+  try {
+    const { customerId } = req.body || {};
+
+    if (!customerId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Customer ID is required.',
+      });
+    }
+
+    const customer = await prisma.customer.findUnique({
+      where: { id: customerId },
+    });
+
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        error: 'Customer not found.',
+      });
+    }
+
+    if (!customer.email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Customer email is required.',
+      });
+    }
+
+    const customerName = buildStripeCustomerName(
+      [customer.firstName, customer.lastName].filter(Boolean).join(' '),
+      customer.email
+    );
+
+    const { stripeCustomerId } = await providerCustomerService.getOrCreateStripeCustomer(customer.id, {
+      email: customer.email,
+      name: customerName,
+      phone: customer.phone || undefined,
+    });
+
+    const stripe = await paymentProviderFactory.getStripeClient();
+    const setupIntent = await stripe.setupIntents.create({
+      customer: stripeCustomerId,
+      payment_method_types: ['card'],
+    });
+
+    if (!setupIntent.client_secret) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to create setup intent.',
+      });
+    }
+
+    res.json({
+      success: true,
+      clientSecret: setupIntent.client_secret,
+    });
+  } catch (error) {
+    console.error('❌ Failed to create Stripe setup intent:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create setup intent',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
+ * Detach a saved payment method from a Stripe customer
+ * POST /api/stripe/customer/payment-methods/detach
+ */
+router.post('/customer/payment-methods/detach', async (req, res) => {
+  try {
+    const { paymentMethodId, customerId } = req.body || {};
+
+    if (!paymentMethodId || !customerId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Payment method ID and customer ID are required.',
+      });
+    }
+
+    const providerCustomers = await providerCustomerService.getAllProviderCustomers(
+      customerId,
+      PaymentProvider.STRIPE
+    );
+
+    if (!providerCustomers.length) {
+      return res.status(404).json({
+        success: false,
+        error: 'No Stripe customer linked to this customer.',
+      });
+    }
+
+    const allowedStripeCustomerIds = new Set(
+      providerCustomers.map((providerCustomer) => providerCustomer.providerCustomerId)
+    );
+
+    const stripe = await paymentProviderFactory.getStripeClient();
+    let paymentMethod: Stripe.PaymentMethod;
+    try {
+      paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
+    } catch (error: any) {
+      if (error?.code === 'resource_missing') {
+        return res.status(404).json({
+          success: false,
+          error: 'Payment method not found.',
+        });
+      }
+      throw error;
+    }
+
+    const attachedCustomerId =
+      typeof paymentMethod.customer === 'string'
+        ? paymentMethod.customer
+        : paymentMethod.customer?.id;
+
+    if (!attachedCustomerId || !allowedStripeCustomerIds.has(attachedCustomerId)) {
+      return res.status(403).json({
+        success: false,
+        error: 'Payment method does not belong to this customer.',
+      });
+    }
+
+    await stripe.paymentMethods.detach(paymentMethodId);
+
+    await prisma.customerPaymentMethod.deleteMany({
+      where: {
+        customerId,
+        stripePaymentMethodId: paymentMethodId,
+      },
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('❌ Failed to detach Stripe payment method:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to detach payment method',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
  * Helper function to update payment transaction status in database
  */
 async function updatePaymentTransactionStatus(
