@@ -240,6 +240,30 @@ router.post("/", async (req, res) => {
           }
         : {};
 
+    // Check for existing customer by email or phone before creating
+    let existing = null;
+    if (cleanEmail) {
+      existing = await prisma.customer.findUnique({ where: { email: cleanEmail } });
+    }
+    if (!existing && cleanPhone) {
+      existing = await prisma.customer.findFirst({ where: { phone: cleanPhone } });
+    }
+
+    if (existing) {
+      // Update with any new info
+      const updated = await prisma.customer.update({
+        where: { id: existing.id },
+        data: {
+          firstName: firstName?.trim() || existing.firstName,
+          lastName: lastName?.trim() || existing.lastName,
+          phone: cleanPhone || existing.phone,
+          notes: cleanNotes || existing.notes,
+          ...birthdayData,
+        },
+      });
+      return res.status(200).json(updated);
+    }
+
     const created = await prisma.customer.create({
       data: {
         firstName: firstName.trim(),

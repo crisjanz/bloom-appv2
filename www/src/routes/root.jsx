@@ -10,6 +10,8 @@ import ShoppingCart from "../pages/ShoppingCart.jsx";
 import Contact from "../pages/Contact.jsx";
 import Wishlist from "../pages/Wishlist.jsx";
 import Login from "../pages/Login.jsx";
+import ForgotPassword from "../pages/ForgotPassword.jsx";
+import ResetPassword from "../pages/ResetPassword.jsx";
 import Profile from "../pages/Profile.jsx";
 import Signup from "../pages/Signup.jsx";
 import GiftCard from "../pages/GiftCard.jsx";
@@ -38,6 +40,8 @@ const Root = () => {
           <Route path="/contact" element={<Contact />} />
           <Route path="/wishlist" element={<Wishlist />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/gift-cards" element={<GiftCard />} />

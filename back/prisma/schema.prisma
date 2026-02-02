@@ -192,9 +192,11 @@ model Customer {
   birthdayUpdatedAt   DateTime?
   notes               String?
   homeAddressId       String?              @unique
-  password            String?
-  isRegistered        Boolean              @default(false)
-  lastLogin           DateTime?
+  password              String?
+  passwordResetToken    String?
+  passwordResetExpires  DateTime?
+  isRegistered          Boolean              @default(false)
+  lastLogin             DateTime?
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   addresses           Address[]            @relation("MyAddresses")

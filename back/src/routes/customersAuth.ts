@@ -353,4 +353,109 @@ router.post('/logout', (_req: Request, res: Response) => {
   res.json({ success: true });
 });
 
+// POST /customers/forgot-password
+router.post('/forgot-password', async (req: Request, res: Response) => {
+  const { email } = req.body;
+  const cleanEmail = sanitizeEmail(email);
+
+  // Always return 200 to prevent email enumeration
+  const successResponse = { success: true, message: 'If an account exists with that email, a password reset link has been sent.' };
+
+  if (!cleanEmail) {
+    return res.json(successResponse);
+  }
+
+  try {
+    const customer = await prisma.customer.findUnique({ where: { email: cleanEmail } });
+
+    if (!customer || !customer.isRegistered || !customer.password) {
+      return res.json(successResponse);
+    }
+
+    const crypto = await import('crypto');
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await prisma.customer.update({
+      where: { id: customer.id },
+      data: {
+        passwordResetToken: hashedToken,
+        passwordResetExpires: expires,
+      },
+    });
+
+    const wwwUrl = process.env.WWW_URL || 'http://localhost:5175';
+    const resetLink = `${wwwUrl}/reset-password?token=${rawToken}`;
+
+    const { emailService } = await import('../services/emailService');
+    await emailService.sendEmail({
+      to: cleanEmail,
+      subject: 'Reset your password',
+      html: `
+        <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+          <h2 style="color: #111827;">Reset your password</h2>
+          <p style="color: #4b5563;">Hi ${customer.firstName || 'there'},</p>
+          <p style="color: #4b5563;">We received a request to reset your password. Click the button below to choose a new one. This link expires in 1 hour.</p>
+          <div style="text-align: center; margin: 32px 0;">
+            <a href="${resetLink}" style="background: #111827; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; display: inline-block;">Reset Password</a>
+          </div>
+          <p style="color: #9ca3af; font-size: 13px;">If you didn't request this, you can safely ignore this email.</p>
+        </div>
+      `,
+    });
+
+    res.json(successResponse);
+  } catch (error: any) {
+    console.error('Forgot password error:', error);
+    res.json(successResponse);
+  }
+});
+
+// POST /customers/reset-password
+router.post('/reset-password', async (req: Request, res: Response) => {
+  const { token, newPassword } = req.body;
+
+  if (!token || !newPassword) {
+    return res.status(400).json({ error: 'Token and new password are required.' });
+  }
+
+  const strengthError = validatePasswordStrength(newPassword);
+  if (strengthError) {
+    return res.status(400).json({ error: strengthError });
+  }
+
+  try {
+    const crypto = await import('crypto');
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    const customer = await prisma.customer.findFirst({
+      where: {
+        passwordResetToken: hashedToken,
+        passwordResetExpires: { gt: new Date() },
+      },
+    });
+
+    if (!customer) {
+      return res.status(400).json({ error: 'Invalid or expired reset link. Please request a new one.' });
+    }
+
+    const hashed = await hashPassword(newPassword);
+
+    await prisma.customer.update({
+      where: { id: customer.id },
+      data: {
+        password: hashed,
+        passwordResetToken: null,
+        passwordResetExpires: null,
+      },
+    });
+
+    res.json({ success: true, message: 'Password has been reset. You can now log in.' });
+  } catch (error: any) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Failed to reset password. Please try again.' });
+  }
+});
+
 export default router;
