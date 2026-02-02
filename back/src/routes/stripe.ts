@@ -1124,8 +1124,9 @@ router.post('/customer/payment-methods', async (req, res) => {
       });
     }
 
-    const providerCustomer = await providerCustomerService.getProviderCustomer(customer.id, PaymentProvider.STRIPE);
-    if (!providerCustomer) {
+    // Fetch ALL linked Stripe customers (handles merged accounts with multiple Stripe IDs)
+    const providerCustomers = await providerCustomerService.getAllProviderCustomers(customer.id, PaymentProvider.STRIPE);
+    if (!providerCustomers || providerCustomers.length === 0) {
       return res.json({
         success: true,
         customer,
@@ -1134,31 +1135,36 @@ router.post('/customer/payment-methods', async (req, res) => {
     }
 
     const stripe = await paymentProviderFactory.getStripeClient();
-    let paymentMethods: Stripe.Response<Stripe.ApiList<Stripe.PaymentMethod>>;
-    try {
-      paymentMethods = await stripe.paymentMethods.list({
-        customer: providerCustomer.providerCustomerId,
-        type: 'card',
-      });
-    } catch (error: any) {
-      if (error?.code === 'resource_missing' && error?.param === 'customer') {
-        console.warn(`⚠️ Stripe customer missing: ${providerCustomer.providerCustomerId}. Deactivating link.`);
-        await prisma.providerCustomer.update({
-          where: { id: providerCustomer.id },
-          data: {
-            isActive: false,
-            isPrimary: false,
-            lastSyncAt: new Date(),
-          },
+    const allMethods: Stripe.PaymentMethod[] = [];
+
+    for (const pc of providerCustomers) {
+      try {
+        const methods = await stripe.paymentMethods.list({
+          customer: pc.providerCustomerId,
+          type: 'card',
         });
-        return res.json({
-          success: true,
-          customer,
-          paymentMethods: [],
-        });
+        allMethods.push(...methods.data);
+      } catch (error: any) {
+        if (error?.code === 'resource_missing' && error?.param === 'customer') {
+          console.warn(`⚠️ Stripe customer missing: ${pc.providerCustomerId}. Deactivating link.`);
+          await prisma.providerCustomer.update({
+            where: { id: pc.id },
+            data: { isActive: false, isPrimary: false, lastSyncAt: new Date() },
+          });
+          continue;
+        }
+        throw error;
       }
-      throw error;
     }
+
+    // Deduplicate by card fingerprint — same physical card may exist across multiple Stripe customers
+    const seen = new Set<string>();
+    const uniqueMethods = allMethods.filter((method) => {
+      const fp = method.card?.fingerprint;
+      if (!fp || seen.has(fp)) return false;
+      seen.add(fp);
+      return true;
+    });
 
     res.json({
       success: true,
@@ -1169,13 +1175,14 @@ router.post('/customer/payment-methods', async (req, res) => {
         email: customer.email,
         phone: customer.phone,
       },
-      paymentMethods: paymentMethods.data.map((method) => ({
+      paymentMethods: uniqueMethods.map((method) => ({
         id: method.id,
         type: method.card?.brand ?? 'card',
         brand: method.card?.brand ?? 'card',
         last4: method.card?.last4 ?? '',
         expMonth: method.card?.exp_month ?? 0,
         expYear: method.card?.exp_year ?? 0,
+        fingerprint: method.card?.fingerprint ?? '',
       })),
     });
   } catch (error) {
