@@ -114,6 +114,7 @@ const initialCustomer = {
   email: "",
   phone: "",
   saveCustomer: true,
+  password: "",
 };
 
 const initialPayment = {
@@ -137,7 +138,7 @@ const CheckoutContent = () => {
     getDiscountAmount,
     hasFreeShipping,
   } = useCart();
-  const { customer: authCustomer, isAuthenticated, refreshProfile } = useAuth();
+  const { customer: authCustomer, isAuthenticated, refreshProfile, register } = useAuth();
 
   const [recipient, setRecipient] = useState(initialRecipient);
   const [customer, setCustomer] = useState(initialCustomer);
@@ -425,6 +426,11 @@ const CheckoutContent = () => {
       if (!birthday.month) errors.birthdayMonth = "Select month";
       if (!birthday.day) errors.birthdayDay = "Select day";
     }
+    if (customer.saveCustomer && !authCustomer?.id) {
+      if (!customer.password || customer.password.length < 8) {
+        errors.password = "Password must be at least 8 characters";
+      }
+    }
     return errors;
   };
 
@@ -463,7 +469,12 @@ const CheckoutContent = () => {
       return;
     }
 
-    setActiveStep(Math.min(currentStep + 1, 3));
+    const nextStep = Math.min(currentStep + 1, 3);
+    setActiveStep(nextStep);
+    requestAnimationFrame(() => {
+      const section = document.querySelector(`[data-step="${nextStep}"]`);
+      section?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   };
 
   const goBack = (currentStep) => {
@@ -532,6 +543,21 @@ const CheckoutContent = () => {
       } else {
         const buyer = await createCustomer(buyerPayload);
         buyerId = buyer.id;
+
+        // Register account if "save my info" is on and password provided
+        if (customer.saveCustomer && customer.password) {
+          try {
+            await register({
+              email: customer.email.trim().toLowerCase(),
+              password: customer.password,
+              firstName: customer.firstName.trim(),
+              lastName: customer.lastName.trim(),
+              phone: customer.phone.trim(),
+            });
+          } catch (regError) {
+            console.warn("Account registration failed (non-blocking):", regError);
+          }
+        }
       }
 
       // If using saved recipient, reuse that customer ID; otherwise create new recipient
@@ -682,7 +708,7 @@ const CheckoutContent = () => {
       setSelectedSavedRecipientOption("new");
       setRecipientWasAutofilled(false);
 
-      if (!isAuthenticated) {
+      if (!isAuthenticated && !customer.saveCustomer) {
         setShowCreateAccountModal(true);
       }
     } catch (error) {
@@ -887,6 +913,7 @@ const CheckoutContent = () => {
                   birthday={birthday}
                   onBirthdayToggle={handleBirthdayToggle}
                   onBirthdayChange={handleBirthdayChange}
+                  isAuthenticated={isAuthenticated}
                 />
                   <div className="mt-6 flex flex-wrap gap-3 px-3">
                     <button
@@ -1065,6 +1092,7 @@ const MobileCheckout = ({
           birthday={birthday}
           onBirthdayToggle={onBirthdayToggle}
           onBirthdayChange={onBirthdayChange}
+          isAuthenticated={isAuthenticated}
         />
           <MobileStepActions
             primaryLabel="Save & Continue"
@@ -1483,7 +1511,7 @@ MobileRecipientForm.propTypes = {
   recipientModifiedAfterAutofill: PropTypes.bool.isRequired,
 };
 
-const MobileCustomerForm = ({ data, errors, onChange, birthday, onBirthdayToggle, onBirthdayChange }) => (
+const MobileCustomerForm = ({ data, errors, onChange, birthday, onBirthdayToggle, onBirthdayChange, isAuthenticated }) => (
   <div className="space-y-0">
     <MobileSectionHeader>Your Information</MobileSectionHeader>
     <div className="bg-white dark:bg-dark-2">
@@ -1500,18 +1528,34 @@ const MobileCustomerForm = ({ data, errors, onChange, birthday, onBirthdayToggle
           compact
         />
       </div>
-      <div className="border-t border-stroke/30 px-4 py-3 dark:border-dark-3/30">
-        <label className="flex items-center gap-3 text-sm text-body-color dark:text-dark-6">
-          <input
-            type="checkbox"
-            name="saveCustomer"
-            checked={data.saveCustomer}
-            onChange={onChange}
-            className="h-4 w-4 rounded border border-stroke text-primary focus:ring-primary"
-          />
-          Save details for next time
-        </label>
-      </div>
+      {!isAuthenticated && (
+        <>
+          <div className="border-t border-stroke/30 px-4 py-3 dark:border-dark-3/30">
+            <label className="flex items-center gap-3 text-sm text-body-color dark:text-dark-6">
+              <input
+                type="checkbox"
+                name="saveCustomer"
+                checked={data.saveCustomer}
+                onChange={onChange}
+                className="h-4 w-4 rounded border border-stroke text-primary focus:ring-primary"
+              />
+              Save details for next time
+            </label>
+          </div>
+          {data.saveCustomer && (
+            <MobileInput
+              label="Create a password"
+              type="password"
+              name="password"
+              value={data.password || ''}
+              onChange={onChange}
+              error={errors.password}
+              placeholder="Minimum 8 characters"
+              required
+            />
+          )}
+        </>
+      )}
     </div>
   </div>
 );
@@ -2571,7 +2615,7 @@ RecipientForm.propTypes = {
   recipientModifiedAfterAutofill: PropTypes.bool.isRequired,
 };
 
-const CustomerForm = ({ data, onChange, errors, birthday, onBirthdayToggle, onBirthdayChange }) => (
+const CustomerForm = ({ data, onChange, errors, birthday, onBirthdayToggle, onBirthdayChange, isAuthenticated }) => (
   <>
     <InputGroup
       labelTitle="First Name"
@@ -2621,12 +2665,29 @@ const CustomerForm = ({ data, onChange, errors, birthday, onBirthdayToggle, onBi
         errors={errors}
       />
     </div>
-    <CheckboxGroup
-      labelTitle="Save my information for future orders"
-      name="saveCustomer"
-      checked={data.saveCustomer}
-      onChange={onChange}
-    />
+    {!isAuthenticated && (
+      <>
+        <CheckboxGroup
+          labelTitle="Save my information for future orders"
+          name="saveCustomer"
+          checked={data.saveCustomer}
+          onChange={onChange}
+        />
+        {data.saveCustomer && (
+          <InputGroup
+            labelTitle="Create a password"
+            type="password"
+            placeholder="Minimum 8 characters"
+            name="password"
+            value={data.password || ''}
+            onChange={onChange}
+            error={errors.password}
+            fullColumn
+            required
+          />
+        )}
+      </>
+    )}
   </>
 );
 
