@@ -253,35 +253,80 @@ const Navbar = () => {
             </div>
 
             {/* Account Icon */}
-            <button
-              onClick={() => setAccountMenuOpen((prev) => !prev)}
-              aria-label="Account"
-              className="relative"
-            >
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                className="text-dark dark:text-white"
+            <div className="relative" ref={accountRef}>
+              <button
+                onClick={() => setAccountMenuOpen((prev) => !prev)}
+                aria-label="Account"
               >
-                <path
-                  d="M12 11C14.2091 11 16 9.20914 16 7C16 4.79086 14.2091 3 12 3C9.79086 3 8 4.79086 8 7C8 9.20914 9.79086 11 12 11Z"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M3 21C3 17.134 7.02944 14 12 14C16.9706 14 21 17.134 21 21"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="text-dark dark:text-white"
+                >
+                  <path
+                    d="M12 11C14.2091 11 16 9.20914 16 7C16 4.79086 14.2091 3 12 3C9.79086 3 8 4.79086 8 7C8 9.20914 9.79086 11 12 11Z"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M3 21C3 17.134 7.02944 14 12 14C16.9706 14 21 17.134 21 21"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+
+              {/* Account Dropdown - Mobile */}
+              {accountMenuOpen && (
+                <div className="absolute right-0 top-full mt-2 w-48 rounded-xl border border-stroke bg-white p-2 shadow-lg dark:border-dark-3 dark:bg-dark-2 z-50">
+                  {isAuthenticated ? (
+                    <>
+                      <Link
+                        to="/profile"
+                        className="text-body-color hover:bg-primary hover:text-white block rounded-lg px-3 py-2 text-sm font-medium transition dark:text-dark-6"
+                        onClick={() => setAccountMenuOpen(false)}
+                      >
+                        My profile
+                      </Link>
+                      <button
+                        type="button"
+                        className="text-body-color hover:bg-primary hover:text-white block w-full rounded-lg px-3 py-2 text-left text-sm font-medium transition dark:text-dark-6"
+                        onClick={() => {
+                          setAccountMenuOpen(false);
+                          logout();
+                        }}
+                      >
+                        Logout
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <Link
+                        to="/login"
+                        className="text-body-color hover:bg-primary hover:text-white block rounded-lg px-3 py-2 text-sm font-medium transition dark:text-dark-6"
+                        onClick={() => setAccountMenuOpen(false)}
+                      >
+                        Login
+                      </Link>
+                      <Link
+                        to="/signup"
+                        className="text-body-color hover:bg-primary hover:text-white block rounded-lg px-3 py-2 text-sm font-medium transition dark:text-dark-6"
+                        onClick={() => setAccountMenuOpen(false)}
+                      >
+                        Create account
+                      </Link>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
 
             {/* Wishlist Icon */}
             <Link to="/wishlist" aria-label="Wishlist">
@@ -381,50 +426,6 @@ const Navbar = () => {
             </button>
           </div>
         </div>
-
-        {/* Account Dropdown */}
-        {accountMenuOpen && (
-          <div className="absolute right-4 top-full mt-2 w-48 rounded-xl border border-stroke bg-white p-2 shadow-lg dark:border-dark-3 dark:bg-dark-2" ref={accountRef}>
-            {isAuthenticated ? (
-              <>
-                <Link
-                  to="/profile"
-                  className="text-body-color hover:bg-primary hover:text-white block rounded-lg px-3 py-2 text-sm font-medium transition dark:text-dark-6"
-                  onClick={() => setAccountMenuOpen(false)}
-                >
-                  My profile
-                </Link>
-                <button
-                  type="button"
-                  className="text-body-color hover:bg-primary hover:text-white block w-full rounded-lg px-3 py-2 text-left text-sm font-medium transition dark:text-dark-6"
-                  onClick={() => {
-                    setAccountMenuOpen(false);
-                    logout();
-                  }}
-                >
-                  Logout
-                </button>
-              </>
-            ) : (
-              <>
-                <Link
-                  to="/login"
-                  className="text-body-color hover:bg-primary hover:text-white block rounded-lg px-3 py-2 text-sm font-medium transition dark:text-dark-6"
-                  onClick={() => setAccountMenuOpen(false)}
-                >
-                  Login
-                </Link>
-                <Link
-                  to="/signup"
-                  className="text-body-color hover:bg-primary hover:text-white block rounded-lg px-3 py-2 text-sm font-medium transition dark:text-dark-6"
-                  onClick={() => setAccountMenuOpen(false)}
-                >
-                  Create account
-                </Link>
-              </>
-            )}
-          </div>
-        )}
 
         {/* Mobile Navigation Menu */}
         {navbarOpen && (
