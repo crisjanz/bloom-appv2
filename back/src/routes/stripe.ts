@@ -956,7 +956,7 @@ router.post('/charge-saved', async (req, res) => {
  * Stripe webhook endpoint
  * POST /api/stripe/webhook
  */
-router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+router.post('/webhook', async (req, res) => {
   let event: Stripe.Event;
 
   try {

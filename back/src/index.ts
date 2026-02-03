@@ -180,7 +180,11 @@ app.options('*', cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
-app.use(express.json()); 
+
+// Stripe webhook needs raw body - must be registered BEFORE express.json()
+app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
+
+app.use(express.json());
 
 app.use('/api/discounts', discountsRouter); // Unified discounts system
 app.use("/api/auth", authRouter);
