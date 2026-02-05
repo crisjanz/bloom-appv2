@@ -9,8 +9,9 @@ export interface PriceLabelItem {
   quantity: number;
 }
 
-const LABEL_WIDTH = 144; // 2 inches at 72dpi
-const LABEL_HEIGHT = 72; // 1 inch at 72dpi
+// 40mm x 35mm at 72dpi (1mm = 72/25.4 points)
+const LABEL_WIDTH = 113;  // 40mm
+const LABEL_HEIGHT = 99;  // 35mm
 
 const decodeDataUrl = (dataUrl: string) => {
   const match = dataUrl.match(/^data:image\/\w+;base64,(.+)$/);
@@ -80,10 +81,10 @@ const wrapText = (doc: any, text: string, maxWidth: number, maxLines: number) =>
 };
 
 const drawLabel = (doc: any, item: PriceLabelItem) => {
-  const qrSize = 56;
+  const qrSize = 60;
   const qrX = 5;
-  const qrY = 8;
-  const contentX = qrX + qrSize + 5;
+  const qrY = (LABEL_HEIGHT - qrSize) / 2; // Center QR vertically
+  const contentX = qrX + qrSize + 6;
   const contentWidth = LABEL_WIDTH - contentX - 5;
 
   doc.save();
@@ -98,25 +99,28 @@ const drawLabel = (doc: any, item: PriceLabelItem) => {
     doc.rect(qrX, qrY, qrSize, qrSize).lineWidth(0.5).strokeColor('#9ca3af').stroke();
     doc.restore();
     doc.font('Helvetica').fontSize(7).fillColor('#6b7280');
-    doc.text('NO QR', qrX + 12, qrY + 24, { width: qrSize - 24, align: 'center' });
+    doc.text('NO QR', qrX + 12, qrY + 26, { width: qrSize - 24, align: 'center' });
   }
 
+  // Product name - top of content area
   const labelName = buildLabelName(item);
-  doc.font('Helvetica-Bold').fontSize(8).fillColor('#111827');
+  doc.font('Helvetica-Bold').fontSize(9).fillColor('#111827');
   const nameLines = wrapText(doc, labelName, contentWidth, 2);
-  doc.text(nameLines.join('\n'), contentX, 8, {
+  doc.text(nameLines.join('\n'), contentX, 12, {
     width: contentWidth,
-    lineGap: 0,
+    lineGap: 1,
   });
 
-  doc.font('Helvetica-Bold').fontSize(10).fillColor('#111827');
-  doc.text(formatCurrency(item.priceCents), contentX, 37, {
+  // Price - middle, larger
+  doc.font('Helvetica-Bold').fontSize(14).fillColor('#111827');
+  doc.text(formatCurrency(item.priceCents), contentX, 45, {
     width: contentWidth,
     align: 'left',
   });
 
+  // SKU - bottom
   doc.font('Helvetica').fontSize(7).fillColor('#374151');
-  doc.text(`SKU: ${item.sku}`, contentX, 51, {
+  doc.text(`SKU: ${item.sku}`, contentX, 72, {
     width: contentWidth,
     align: 'left',
   });

@@ -17,7 +17,7 @@ export class JobProcessor {
   /**
    * Process a print job
    */
-  async processJob(job: PrintJob, thermalPrinter: string, laserPrinter: string): Promise<void> {
+  async processJob(job: PrintJob, thermalPrinter: string, laserPrinter: string, labelPrinter: string): Promise<void> {
     logger.info(`Processing print job: ${job.id} (Type: ${job.type})`);
 
     try {
@@ -27,7 +27,14 @@ export class JobProcessor {
       }
 
       // Select correct printer based on job type
-      const defaultPrinterName = job.type === 'RECEIPT' ? thermalPrinter : laserPrinter;
+      let defaultPrinterName: string;
+      if (job.type === 'RECEIPT') {
+        defaultPrinterName = thermalPrinter;
+      } else if (job.type === 'LABEL') {
+        defaultPrinterName = labelPrinter;
+      } else {
+        defaultPrinterName = laserPrinter;
+      }
       const printerName = job.printerName || defaultPrinterName;
       const copies = Math.max(job.copies ?? 1, 1);
       const printOptions = {

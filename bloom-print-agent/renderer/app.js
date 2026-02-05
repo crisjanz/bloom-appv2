@@ -5,8 +5,10 @@ const statusDot = document.getElementById('statusDot');
 const statusText = document.getElementById('statusText');
 const thermalPrinter = document.getElementById('thermalPrinter');
 const laserPrinter = document.getElementById('laserPrinter');
+const labelPrinter = document.getElementById('labelPrinter');
 const testThermal = document.getElementById('testThermal');
 const testLaser = document.getElementById('testLaser');
+const testLabel = document.getElementById('testLabel');
 const jobsList = document.getElementById('jobsList');
 const saveSettings = document.getElementById('saveSettings');
 const viewLogs = document.getElementById('viewLogs');
@@ -53,10 +55,20 @@ async function loadPrinters() {
       option.textContent = printer.name;
       laserPrinter.appendChild(option);
     });
+
+    // Populate label printer dropdown
+    labelPrinter.innerHTML = '<option value="">Select printer...</option>';
+    printers.forEach(printer => {
+      const option = document.createElement('option');
+      option.value = printer.name;
+      option.textContent = printer.name;
+      labelPrinter.appendChild(option);
+    });
   } catch (error) {
     console.error('Failed to load printers:', error);
     thermalPrinter.innerHTML = '<option value="">Error loading printers</option>';
     laserPrinter.innerHTML = '<option value="">Error loading printers</option>';
+    labelPrinter.innerHTML = '<option value="">Error loading printers</option>';
   }
 }
 
@@ -71,6 +83,9 @@ async function loadSettings() {
     }
     if (settings.laserPrinter) {
       laserPrinter.value = settings.laserPrinter;
+    }
+    if (settings.labelPrinter) {
+      labelPrinter.value = settings.labelPrinter;
     }
   } catch (error) {
     console.error('Failed to load settings:', error);
@@ -157,11 +172,34 @@ function setupEventListeners() {
     }
   });
 
+  // Test label print
+  testLabel.addEventListener('click', async () => {
+    const printerName = labelPrinter.value;
+    if (!printerName) {
+      alert('Please select a label printer first');
+      return;
+    }
+
+    testLabel.disabled = true;
+    testLabel.textContent = 'Printing...';
+
+    try {
+      await window.electronAPI.testPrint(printerName, 'label');
+      alert('Test print sent successfully!');
+    } catch (error) {
+      alert('Test print failed: ' + error.message);
+    } finally {
+      testLabel.disabled = false;
+      testLabel.textContent = 'Test Print';
+    }
+  });
+
   // Save settings
   saveSettings.addEventListener('click', async () => {
     const settings = {
       thermalPrinter: thermalPrinter.value,
-      laserPrinter: laserPrinter.value
+      laserPrinter: laserPrinter.value,
+      labelPrinter: labelPrinter.value
     };
 
     saveSettings.disabled = true;

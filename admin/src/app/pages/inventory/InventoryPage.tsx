@@ -68,8 +68,7 @@ export default function InventoryPage() {
     bulkAdjust,
     getQrCode,
     generateReport,
-    generateSingleLabel,
-    generateLabels,
+    printLabels,
   } = useInventory();
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -156,10 +155,18 @@ export default function InventoryPage() {
     }
   };
 
-  const handleGenerateLabels = async (labels: Array<{ variantId: string; quantity: number }>) => {
-    const result = await generateLabels(labels);
-    if (result.pdfUrl) {
-      window.open(result.pdfUrl, '_blank');
+  const handlePrintLabels = async (labels: Array<{ variantId: string; quantity: number }>) => {
+    try {
+      setActionError(null);
+      const result = await printLabels(labels);
+      if (result.action === 'queued') {
+        // Success - job sent to print agent
+      } else if (result.action === 'skipped') {
+        setActionError('Label printing is disabled. Enable it in Settings → Print Settings.');
+      }
+    } catch (err: any) {
+      console.error('Failed to print labels:', err);
+      setActionError(err?.message || 'Failed to send labels to printer');
     }
   };
 
@@ -179,13 +186,13 @@ export default function InventoryPage() {
   const handlePrintSingleLabel = async (item: InventoryItem) => {
     try {
       setActionError(null);
-      const result = await generateSingleLabel(item.variantId, 1);
-      if (result.pdfUrl) {
-        window.open(result.pdfUrl, '_blank');
+      const result = await printLabels([{ variantId: item.variantId, quantity: 1 }]);
+      if (result.action === 'skipped') {
+        setActionError('Label printing is disabled. Enable it in Settings → Print Settings.');
       }
     } catch (err: any) {
-      console.error('Failed to generate single label:', err);
-      setActionError(err?.message || 'Failed to generate label');
+      console.error('Failed to print single label:', err);
+      setActionError(err?.message || 'Failed to send label to printer');
     }
   };
 
@@ -455,7 +462,7 @@ export default function InventoryPage() {
         isOpen={showPrintLabelsModal}
         selectedItems={selectedItems}
         onClose={() => setShowPrintLabelsModal(false)}
-        onGenerate={handleGenerateLabels}
+        onGenerate={handlePrintLabels}
       />
     </div>
   );

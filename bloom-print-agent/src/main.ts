@@ -51,6 +51,7 @@ const store: any = new Store({
   defaults: {
     thermalPrinter: '',
     laserPrinter: '',
+    labelPrinter: '',
     backendUrl: 'https://api.hellobloom.ca'
   }
 });
@@ -123,6 +124,7 @@ function setupIPCHandlers() {
     try {
       store.set('thermalPrinter', settings.thermalPrinter);
       store.set('laserPrinter', settings.laserPrinter);
+      store.set('labelPrinter', settings.labelPrinter);
       logger.info('Settings saved:', settings);
     } catch (error) {
       logger.error('Failed to save settings:', error);
@@ -136,6 +138,7 @@ function setupIPCHandlers() {
       return {
         thermalPrinter: store.get('thermalPrinter'),
         laserPrinter: store.get('laserPrinter'),
+        labelPrinter: store.get('labelPrinter'),
         backendUrl: store.get('backendUrl')
       };
     } catch (error) {
@@ -274,10 +277,11 @@ function setupConnectionManager() {
     // Get printer settings
     const thermalPrinter = store.get('thermalPrinter') || '';
     const laserPrinter = store.get('laserPrinter') || '';
+    const labelPrinter = store.get('labelPrinter') || '';
 
     try {
       // Process the job
-      await jobProcessor!.processJob(job, thermalPrinter, laserPrinter);
+      await jobProcessor!.processJob(job, thermalPrinter, laserPrinter, labelPrinter);
 
       // Notify backend of success
       await connectionManager!.sendJobStatus(job.id, 'COMPLETED');
