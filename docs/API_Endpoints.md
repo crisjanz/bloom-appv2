@@ -155,6 +155,16 @@ Each variant can optionally reference one of the product's images via `featuredI
 }
 ```
 
+## Inventory Management
+- ✅ GET `/api/inventory` — paged inventory listing with filters (`search`, `categoryId`, `lowStockOnly`, `page`, `pageSize`, `sortBy`, `sortOrder`) (`back/src/routes/inventory.ts`)
+- ✅ GET `/api/inventory/lookup?sku=...` — lookup a single variant by SKU or QR payload (`BLOOM:SKU:...`) (`back/src/routes/inventory.ts`)
+- ✅ PATCH `/api/inventory/:variantId` — quick stock adjustment (`stockLevel` absolute or `delta` increment/decrement) (`back/src/routes/inventory.ts`)
+- ✅ POST `/api/inventory/bulk-adjust` — bulk stock adjustments for multiple variants (`back/src/routes/inventory.ts`)
+- ✅ GET `/api/inventory/qr/:variantId` — generate QR data URL for inventory labels (`back/src/routes/inventory.ts`)
+- ✅ GET `/api/inventory/report` — generate inventory count sheet PDF and return `pdfUrl` (`back/src/routes/inventory.ts`, `back/src/templates/inventory-sheet-pdf.ts`)
+- ✅ GET `/api/inventory/label/:variantId` — generate single price label PDF (`quantity` query optional) and return `pdfUrl` (`back/src/routes/inventory.ts`, `back/src/templates/price-label-pdf.ts`)
+- ✅ POST `/api/inventory/labels` — generate batch price labels PDF from variant IDs/quantities and return `pdfUrl` (`back/src/routes/inventory.ts`, `back/src/templates/price-label-pdf.ts`)
+
 ## Add-On Groups
 - ✅ GET `/api/addon-groups` — list add-on groups with counts (`back/src/routes/addon-groups.ts`)
 - ✅ GET `/api/addon-groups/options` — fetch main/add-on product catalogs for assignment.

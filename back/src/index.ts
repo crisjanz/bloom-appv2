@@ -8,6 +8,7 @@ import { WebSocketServer } from 'ws';
 import authRouter from "./routes/auth";
 
 import productsRouter from './routes/products';
+import inventoryRouter from './routes/inventory';
 import categoriesRouter from './routes/categories';
 import customersRouter from './routes/customers';
 import reportingCategoriesRouter from './routes/reportingCategories';
@@ -200,6 +201,7 @@ app.use('/api/customers', customersRouter);
 app.use('/api/import', importRouter);
 app.use('/api/import-json', importJsonRouter);
 app.use('/api/products', productsRouter);
+app.use('/api/inventory', inventoryRouter);
 app.use('/api/categories', categoriesRouter);
 app.use('/api/addon-groups', addOnGroupsRouter);
 app.use('/api/dashboard', dashboardRouter);

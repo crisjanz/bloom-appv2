@@ -24,6 +24,7 @@ import ProtectedRoute from "@shared/ui/common/ProtectedRoute";
 import { EmployeeType } from "./contexts/AuthContext";
 import Home from "./pages/Dashboard/Home";
 import ProductsPage from "./pages/products/ProductsPage";
+import InventoryPage from "./pages/inventory/InventoryPage";
 import NewProductPage from "./pages/products/NewProductPage";
 import EditProductPage from "./pages/products/EditProductPage";
 import TakeOrderPage from "./pages/orders/TakeOrderPage";
@@ -64,6 +65,7 @@ import TransactionsReportPage from "./pages/reports/TransactionsReportPage";
 import WireProductsPage from "./pages/wire-products/WireProductsPage";
 import MobileHomePage from "./pages/mobile/MobileHomePage";
 import MobileScanPage from "./pages/mobile/MobileScanPage";
+import MobileInventoryPage from "./pages/mobile/MobileInventoryPage";
 import MobileFulfillmentPage from "./pages/mobile/MobileFulfillmentPage";
 import MobileDeliveryPage from "./pages/mobile/MobileDeliveryPage";
 import MobileRedirect from "./components/MobileRedirect";
@@ -85,6 +87,7 @@ export default function App() {
           {/* Mobile routes - OUTSIDE AppLayout for mobile-optimized experience */}
           <Route path="/mobile" element={<MobileHomePage />} />
           <Route path="/mobile/scan" element={<MobileScanPage />} />
+          <Route path="/mobile/inventory" element={<MobileInventoryPage />} />
           <Route path="/mobile/delivery" element={<MobileDeliveryPage />} />
           <Route path="/mobile/fulfillment" element={<MobileFulfillmentPage />} />
 
@@ -115,6 +118,7 @@ export default function App() {
             
             {/* Product routes */}
             <Route path="products" element={<ProductsPage />} />
+            <Route path="inventory" element={<InventoryPage />} />
             <Route path="products/new" element={<NewProductPage />} />
             <Route path="products/edit/:id" element={<EditProductPage />} />
             <Route path="products/categories" element={<CategoriesPage />} />

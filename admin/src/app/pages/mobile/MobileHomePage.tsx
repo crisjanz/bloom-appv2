@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { TruckIcon, PackageIcon } from '@shared/assets/icons';
+import { TruckIcon, PackageIcon, BoxCubeIcon } from '@shared/assets/icons';
 
 export default function MobileHomePage() {
   const navigate = useNavigate();
@@ -9,7 +9,7 @@ export default function MobileHomePage() {
       {/* Header */}
       <div className="bg-white dark:bg-gray-900 shadow-sm p-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white text-center">
-          🌸 Bloom Mobile
+          Bloom Mobile
         </h1>
         <p className="text-sm text-gray-600 dark:text-gray-400 text-center mt-1">
           Field Tools
@@ -37,6 +37,24 @@ export default function MobileHomePage() {
               </h2>
               <p className="text-gray-600 dark:text-gray-400 mt-2">
                 Wire orders & web orders
+              </p>
+            </div>
+          </button>
+
+          {/* Delivery Route Button */}
+          <button
+            onClick={() => navigate('/mobile/inventory')}
+            className="w-full bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 flex flex-col items-center gap-4 active:scale-95 transition-transform"
+          >
+            <div className="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center">
+              <BoxCubeIcon className="w-12 h-12 text-white" />
+            </div>
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                Inventory
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400 mt-2">
+                Scan and adjust stock
               </p>
             </div>
           </button>

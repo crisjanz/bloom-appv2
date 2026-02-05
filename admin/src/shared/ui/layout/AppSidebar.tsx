@@ -61,6 +61,11 @@ const navItems: NavItem[] = [
       { name: "External Product Library", path: "/wire-products", pro: false, icon: <BoxCubeIcon /> },
     ],
   },
+  {
+    name: "Inventory",
+    icon: <BoxCubeIcon />,
+    path: "/inventory",
+  },
 
   {
     name: "Customers",
