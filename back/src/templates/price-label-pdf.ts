@@ -81,15 +81,30 @@ const wrapText = (doc: any, text: string, maxWidth: number, maxLines: number) =>
 };
 
 const drawLabel = (doc: any, item: PriceLabelItem) => {
-  const qrSize = 60;
-  const qrX = 5;
-  const qrY = (LABEL_HEIGHT - qrSize) / 2; // Center QR vertically
-  const contentX = qrX + qrSize + 6;
-  const contentWidth = LABEL_WIDTH - contentX - 5;
+  const padding = 4;
+  const contentWidth = LABEL_WIDTH - (padding * 2);
 
+  // Optional border (for debugging/alignment)
   doc.save();
   doc.rect(0, 0, LABEL_WIDTH, LABEL_HEIGHT).lineWidth(0.4).strokeColor('#d1d5db').stroke();
   doc.restore();
+
+  // Product name - top, full width
+  const labelName = buildLabelName(item);
+  doc.font('Helvetica-Bold').fontSize(8).fillColor('#111827');
+  const nameLines = wrapText(doc, labelName, contentWidth, 2);
+  doc.text(nameLines.join('\n'), padding, 5, {
+    width: contentWidth,
+    lineGap: 0,
+  });
+
+  // Calculate name height for positioning below
+  const nameHeight = nameLines.length * 9 + 3;
+
+  // QR code - smaller, bottom left
+  const qrSize = 38;
+  const qrX = padding;
+  const qrY = 5 + nameHeight;
 
   const qrBuffer = decodeDataUrl(item.qrCodeDataUrl);
   if (qrBuffer) {
@@ -98,30 +113,23 @@ const drawLabel = (doc: any, item: PriceLabelItem) => {
     doc.save();
     doc.rect(qrX, qrY, qrSize, qrSize).lineWidth(0.5).strokeColor('#9ca3af').stroke();
     doc.restore();
-    doc.font('Helvetica').fontSize(7).fillColor('#6b7280');
-    doc.text('NO QR', qrX + 12, qrY + 26, { width: qrSize - 24, align: 'center' });
+    doc.font('Helvetica').fontSize(6).fillColor('#6b7280');
+    doc.text('NO QR', qrX + 8, qrY + 16, { width: qrSize - 16, align: 'center' });
   }
 
-  // Product name - top of content area
-  const labelName = buildLabelName(item);
-  doc.font('Helvetica-Bold').fontSize(9).fillColor('#111827');
-  const nameLines = wrapText(doc, labelName, contentWidth, 2);
-  doc.text(nameLines.join('\n'), contentX, 12, {
-    width: contentWidth,
-    lineGap: 1,
-  });
-
-  // Price - middle, larger
+  // Price - right of QR, larger
+  const priceX = qrX + qrSize + 4;
+  const priceWidth = LABEL_WIDTH - priceX - padding;
   doc.font('Helvetica-Bold').fontSize(14).fillColor('#111827');
-  doc.text(formatCurrency(item.priceCents), contentX, 45, {
-    width: contentWidth,
+  doc.text(formatCurrency(item.priceCents), priceX, qrY + 6, {
+    width: priceWidth,
     align: 'left',
   });
 
-  // SKU - bottom
-  doc.font('Helvetica').fontSize(7).fillColor('#374151');
-  doc.text(`SKU: ${item.sku}`, contentX, 72, {
-    width: contentWidth,
+  // SKU - below price
+  doc.font('Helvetica').fontSize(6).fillColor('#374151');
+  doc.text(item.sku, priceX, qrY + 24, {
+    width: priceWidth,
     align: 'left',
   });
 };
