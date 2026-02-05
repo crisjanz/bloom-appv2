@@ -39,14 +39,21 @@ export function useBarcodeScanner({
         if (response.status === 200 && response.data) {
           // Convert inventory item to product format for POS
           const item = response.data;
+
+          // Build display name: "Product - Variant" or just "Product" if same
+          const displayName = item.variantName &&
+            item.variantName.toLowerCase() !== item.productName.toLowerCase()
+            ? `${item.productName} - ${item.variantName}`
+            : item.productName;
+
           const product = {
-            id: item.productId,
-            name: item.productName,
-            price: item.priceCents,
+            id: `${item.productId}-${item.variantId}`, // Unique ID for cart
+            name: displayName,
+            price: item.price, // Already in cents from API
             variants: [{
               id: item.variantId,
               name: item.variantName,
-              price: item.priceCents,
+              price: item.price,
               isDefault: true,
             }],
             categoryId: item.categoryId,
