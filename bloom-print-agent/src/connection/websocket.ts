@@ -4,7 +4,7 @@ import { logger } from '../main';
 
 export interface PrintJob {
   id: string;
-  type: 'RECEIPT' | 'ORDER_TICKET' | 'REPORT';
+  type: 'RECEIPT' | 'ORDER_TICKET' | 'REPORT' | 'LABEL';
   orderId: string;
   agentType?: 'receipt-agent' | 'electron-agent' | null;
   printerName?: string | null;

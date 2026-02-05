@@ -46,6 +46,8 @@ export class JobProcessor {
         await this.printOrderTicket(job, printerName, printOptions);
       } else if (job.type === 'REPORT') {
         await this.printReport(job, printerName, printOptions);
+      } else if (job.type === 'LABEL') {
+        await this.printLabel(job, printerName, printOptions);
       } else {
         throw new Error(`Unknown job type: ${job.type}`);
       }
@@ -134,6 +136,25 @@ export class JobProcessor {
     // TODO: Generate report PDF
     const reportHTML = this.generateReportHTML(job.data);
     await this.printHTML(reportHTML, printerName, options);
+  }
+
+  /**
+   * Print price label (label printer)
+   */
+  private async printLabel(
+    job: PrintJob,
+    printerName: string,
+    options: { printerTray?: number | null; copies?: number }
+  ): Promise<void> {
+    logger.info(`Printing label to ${printerName}`);
+    logger.info(`Label count: ${job.data?.labelCount || 'unknown'}`);
+
+    if (job.data?.pdfBase64) {
+      await this.printPdfBuffer(job.data.pdfBase64, printerName, options);
+      return;
+    }
+
+    throw new Error('Label job missing pdfBase64 data');
   }
 
   private async printPdfBuffer(

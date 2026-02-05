@@ -18,6 +18,10 @@ export interface PrintSettingsUpdate {
   documentsDestination: PrintDestination;
   documentsPrinterName?: string | null;
   documentsPrinterTray?: number | null;
+  labelsEnabled: boolean;
+  labelsDestination: PrintDestination;
+  labelsPrinterName?: string | null;
+  labelsPrinterTray?: number | null;
 }
 
 export interface PrintTypeConfig {
@@ -71,6 +75,10 @@ export class PrintSettingsService {
         documentsDestination: payload.documentsDestination,
         documentsPrinterName: normalizePrinterName(payload.documentsPrinterName),
         documentsPrinterTray: normalizeTray(payload.documentsPrinterTray),
+        labelsEnabled: payload.labelsEnabled,
+        labelsDestination: payload.labelsDestination,
+        labelsPrinterName: normalizePrinterName(payload.labelsPrinterName),
+        labelsPrinterTray: normalizeTray(payload.labelsPrinterTray),
       },
     });
   }
@@ -101,6 +109,14 @@ export class PrintSettingsService {
           destination: settings.documentsDestination as PrintDestination,
           printerName: settings.documentsPrinterName,
           printerTray: settings.documentsPrinterTray,
+          copies: 1,
+        };
+      case PrintJobType.LABEL:
+        return {
+          enabled: settings.labelsEnabled,
+          destination: settings.labelsDestination as PrintDestination,
+          printerName: settings.labelsPrinterName,
+          printerTray: settings.labelsPrinterTray,
           copies: 1,
         };
       default:

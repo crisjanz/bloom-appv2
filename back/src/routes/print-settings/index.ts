@@ -21,6 +21,10 @@ const updateSchema = z.object({
   documentsDestination: destinationSchema,
   documentsPrinterName: z.string().trim().min(1).nullable().optional(),
   documentsPrinterTray: z.number().int().min(1).max(3).nullable().optional(),
+  labelsEnabled: z.boolean(),
+  labelsDestination: destinationSchema,
+  labelsPrinterName: z.string().trim().min(1).nullable().optional(),
+  labelsPrinterTray: z.number().int().min(1).max(3).nullable().optional(),
 });
 
 router.get('/', async (_req, res) => {

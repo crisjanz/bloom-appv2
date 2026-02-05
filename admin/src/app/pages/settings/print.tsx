@@ -24,6 +24,10 @@ type PrintSettings = {
   documentsDestination: PrintDestination;
   documentsPrinterName: string | null;
   documentsPrinterTray: number | null;
+  labelsEnabled: boolean;
+  labelsDestination: PrintDestination;
+  labelsPrinterName: string | null;
+  labelsPrinterTray: number | null;
 };
 
 type PrintTypeCardProps = {
@@ -191,6 +195,7 @@ const PrintPage = () => {
       receiptsPrinterName: settings.receiptsPrinterName?.trim() || null,
       ticketsPrinterName: settings.ticketsPrinterName?.trim() || null,
       documentsPrinterName: settings.documentsPrinterName?.trim() || null,
+      labelsPrinterName: settings.labelsPrinterName?.trim() || null,
     };
 
     try {
@@ -281,6 +286,19 @@ const PrintPage = () => {
             onPrinterNameChange={(next) => updateField("documentsPrinterName", next)}
             printerTray={settings.documentsPrinterTray}
             onPrinterTrayChange={(next) => updateField("documentsPrinterTray", next)}
+          />
+
+          <PrintTypeCard
+            title="Labels"
+            description="Price tag labels for inventory (Clabel thermal printer)."
+            enabled={settings.labelsEnabled}
+            onEnabledChange={(next) => updateField("labelsEnabled", next)}
+            destination={settings.labelsDestination}
+            onDestinationChange={(next) => updateField("labelsDestination", next)}
+            printerName={settings.labelsPrinterName}
+            onPrinterNameChange={(next) => updateField("labelsPrinterName", next)}
+            printerTray={settings.labelsPrinterTray}
+            onPrinterTrayChange={(next) => updateField("labelsPrinterTray", next)}
           />
         </>
       )}

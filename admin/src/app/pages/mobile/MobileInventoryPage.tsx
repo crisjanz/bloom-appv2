@@ -1,30 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import jsQR from 'jsqr';
 import { ChevronLeftIcon, CameraIcon, PackageIcon, SaveIcon } from '@shared/assets/icons';
 import InputField from '@shared/ui/forms/input/InputField';
 import FormError from '@shared/ui/components/ui/form/FormError';
 import LoadingButton from '@shared/ui/components/ui/button/LoadingButton';
 import useInventory, { InventoryItem } from '@shared/hooks/useInventory';
 
-type BarcodeDetectorLike = {
-  detect: (source: ImageBitmapSource) => Promise<Array<{ rawValue?: string }>>;
-};
-
-type BarcodeDetectorConstructor = new (options?: { formats?: string[] }) => BarcodeDetectorLike;
-
-const getBarcodeDetectorConstructor = (): BarcodeDetectorConstructor | null => {
-  if (typeof window === 'undefined') return null;
-  return ((window as any).BarcodeDetector as BarcodeDetectorConstructor | undefined) || null;
-};
-
 export default function MobileInventoryPage() {
   const navigate = useNavigate();
   const { lookup, search, adjustStock } = useInventory({ pageSize: 10 });
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const scanIntervalRef = useRef<number | null>(null);
-  const detectorRef = useRef<BarcodeDetectorLike | null>(null);
   const scanningRef = useRef(false);
 
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -47,7 +37,6 @@ export default function MobileInventoryPage() {
       streamRef.current = null;
     }
 
-    detectorRef.current = null;
     scanningRef.current = false;
   };
 
@@ -83,48 +72,58 @@ export default function MobileInventoryPage() {
     setActionError(null);
     setScannerOpen(true);
 
-    const BarcodeDetectorCtor = getBarcodeDetectorConstructor();
-    if (!BarcodeDetectorCtor) {
-      setScannerError('Live QR scanning is not supported on this device browser. Use manual search below.');
-      setScannerOpen(false);
-      return;
-    }
-
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
         },
         audio: false,
       });
 
       streamRef.current = stream;
-      detectorRef.current = new BarcodeDetectorCtor({ formats: ['qr_code'] });
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
       }
 
-      scanIntervalRef.current = window.setInterval(async () => {
-        if (!videoRef.current || !detectorRef.current) return;
+      // Create canvas for scanning if not exists
+      if (!canvasRef.current) {
+        canvasRef.current = document.createElement('canvas');
+      }
+
+      scanIntervalRef.current = window.setInterval(() => {
+        if (!videoRef.current || !canvasRef.current) return;
         if (scanningRef.current) return;
         if (videoRef.current.readyState < 2) return;
 
         scanningRef.current = true;
         try {
-          const codes = await detectorRef.current.detect(videoRef.current);
-          const rawValue = codes?.[0]?.rawValue;
+          const video = videoRef.current;
+          const canvas = canvasRef.current;
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
+          if (!ctx) return;
 
-          if (rawValue) {
-            await handleDetectedCode(rawValue);
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const code = jsQR(imageData.data, imageData.width, imageData.height, {
+            inversionAttempts: 'dontInvert',
+          });
+
+          if (code?.data) {
+            handleDetectedCode(code.data);
           }
         } catch (error) {
           // Keep scanner alive on transient decode failures.
         } finally {
           scanningRef.current = false;
         }
-      }, 400);
+      }, 250);
     } catch (error) {
       console.error('Failed to start camera scanner:', error);
       setScannerError('Camera access failed. Allow camera permissions and try again.');

@@ -797,6 +797,12 @@ model PrintSettings {
   documentsPrinterName String?
   documentsPrinterTray Int?    @default(2)
 
+  // Labels (Price tags - inventory)
+  labelsEnabled     Boolean @default(true)
+  labelsDestination String  @default("electron-agent")
+  labelsPrinterName String?
+  labelsPrinterTray Int?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1238,6 +1244,7 @@ enum PrintJobType {
   RECEIPT
   ORDER_TICKET
   REPORT
+  LABEL
 }
 
 enum PrintJobStatus {

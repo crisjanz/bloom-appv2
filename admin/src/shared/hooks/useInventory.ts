@@ -302,6 +302,21 @@ export function useInventory(initialFilters?: Partial<InventoryFilters>) {
     [apiClient]
   );
 
+  const printLabels = useCallback(
+    async (labels: Array<{ variantId: string; quantity: number }>) => {
+      const { data, status } = await apiClient.post('/api/inventory/labels/print', {
+        labels,
+      });
+      return ensureResponse<{
+        action: 'queued' | 'browser-print' | 'skipped';
+        jobId?: string;
+        labelCount: number;
+        variantCount: number;
+      }>(status, data, 'Failed to print labels');
+    },
+    [apiClient]
+  );
+
   const refresh = useCallback(() => loadInventory(filters), [filters, loadInventory]);
 
   const hasActiveFilters = useMemo(() => {
@@ -325,6 +340,7 @@ export function useInventory(initialFilters?: Partial<InventoryFilters>) {
     generateReport,
     generateSingleLabel,
     generateLabels,
+    printLabels,
     refresh,
   };
 }

@@ -1,11 +1,12 @@
 import { Router } from 'express';
-import { Prisma } from '@prisma/client';
+import { Prisma, PrintJobType } from '@prisma/client';
 import { z } from 'zod';
 import prisma from '../lib/prisma';
 import { generateOrderQRCode } from '../utils/qrCodeGenerator';
 import { buildInventorySheetPdf } from '../templates/inventory-sheet-pdf';
 import { buildPriceLabelsPdf, PriceLabelItem } from '../templates/price-label-pdf';
 import { storePdf } from '../utils/pdfStorage';
+import { printService } from '../services/printService';
 
 const router = Router();
 
@@ -539,6 +540,94 @@ router.post('/labels', async (req, res) => {
 
     console.error('Failed to generate inventory labels batch:', error);
     res.status(500).json({ error: 'Failed to generate inventory labels batch' });
+  }
+});
+
+// Print labels via print agent (for mobile/remote printing)
+router.post('/labels/print', async (req, res) => {
+  try {
+    const payload = batchLabelsSchema.parse(req.body);
+    const quantityMap = new Map<string, number>();
+
+    if (payload.variantIds) {
+      for (const variantId of payload.variantIds) {
+        const current = quantityMap.get(variantId) || 0;
+        quantityMap.set(variantId, current + 1);
+      }
+    }
+
+    if (payload.labels) {
+      for (const label of payload.labels) {
+        const current = quantityMap.get(label.variantId) || 0;
+        quantityMap.set(label.variantId, current + (label.quantity || 1));
+      }
+    }
+
+    const variantIds = Array.from(quantityMap.keys());
+    if (variantIds.length === 0) {
+      return res.status(400).json({ error: 'No variants provided' });
+    }
+
+    const variants = await prisma.productVariant.findMany({
+      where: { id: { in: variantIds } },
+      include: inventoryInclude,
+    });
+
+    const variantMap = new Map(variants.map((variant) => [variant.id, variant]));
+    const missingIds = variantIds.filter((id) => !variantMap.has(id));
+    if (missingIds.length > 0) {
+      return res.status(404).json({
+        error: `Missing variants: ${missingIds.join(', ')}`,
+      });
+    }
+
+    const labelItems: PriceLabelItem[] = await Promise.all(
+      variantIds.map(async (variantId) => {
+        const variant = variantMap.get(variantId)!;
+        const qrCodeDataUrl = await generateOrderQRCode(`${QR_PREFIX}${variant.sku}`);
+        return {
+          productName: variant.product?.name || 'Product',
+          variantName: variant.name || '',
+          sku: variant.sku,
+          priceCents: variant.price,
+          qrCodeDataUrl,
+          quantity: quantityMap.get(variantId) || 1,
+        };
+      })
+    );
+
+    const labelCount = labelItems.reduce((sum, item) => sum + item.quantity, 0);
+    const pdfBuffer = await buildPriceLabelsPdf(labelItems);
+
+    // Queue print job via print agent
+    const result = await printService.queuePrintJob({
+      type: PrintJobType.LABEL,
+      order: {
+        pdfBase64: pdfBuffer.toString('base64'),
+        labelCount,
+        variantCount: labelItems.length,
+        items: labelItems.map((item) => ({
+          productName: item.productName,
+          sku: item.sku,
+          quantity: item.quantity,
+        })),
+      } as any,
+      template: 'price-label-v1',
+      priority: 5,
+    });
+
+    res.json({
+      ...result,
+      labelCount,
+      variantCount: labelItems.length,
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.errors });
+    }
+
+    console.error('Failed to queue label print job:', error);
+    res.status(500).json({ error: 'Failed to queue label print job' });
   }
 });
 
