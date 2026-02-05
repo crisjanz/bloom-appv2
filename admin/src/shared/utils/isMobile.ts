@@ -1,5 +1,5 @@
 /**
- * Detect if the user is on a mobile device
+ * Detect if the user is on a mobile or tablet device
  */
 export function isMobileDevice(): boolean {
   // Check user agent for mobile indicators
@@ -8,11 +8,16 @@ export function isMobileDevice(): boolean {
 
   const isMobileUA = mobileKeywords.some(keyword => userAgent.includes(keyword));
 
-  // Check for touch capability and small screen
+  // Check for touch capability
   const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-  const isSmallScreen = window.innerWidth <= 768;
 
-  return isMobileUA || (isTouchDevice && isSmallScreen);
+  // iPadOS 13+ reports as Mac, detect via touch + Mac combo
+  const isIPad = isTouchDevice && /macintosh/.test(userAgent) && navigator.maxTouchPoints > 1;
+
+  // Treat touch devices with tablet-sized screens as mobile too (up to 1024px)
+  const isTabletOrSmaller = window.innerWidth <= 1024;
+
+  return isMobileUA || isIPad || (isTouchDevice && isTabletOrSmaller);
 }
 
 /**

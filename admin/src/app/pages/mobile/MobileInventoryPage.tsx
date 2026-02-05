@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import jsQR from 'jsqr';
+import { Html5Qrcode } from 'html5-qrcode';
 import { ChevronLeftIcon, CameraIcon, PackageIcon, SaveIcon } from '@shared/assets/icons';
 import InputField from '@shared/ui/forms/input/InputField';
 import FormError from '@shared/ui/components/ui/form/FormError';
@@ -11,11 +11,8 @@ export default function MobileInventoryPage() {
   const navigate = useNavigate();
   const { lookup, search, adjustStock } = useInventory({ pageSize: 10 });
 
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const scanIntervalRef = useRef<number | null>(null);
-  const scanningRef = useRef(false);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const scannerContainerId = 'qr-scanner-container';
 
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scannerError, setScannerError] = useState<string | null>(null);
@@ -26,18 +23,18 @@ export default function MobileInventoryPage() {
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const stopScanner = () => {
-    if (scanIntervalRef.current) {
-      window.clearInterval(scanIntervalRef.current);
-      scanIntervalRef.current = null;
+  const stopScanner = async () => {
+    if (scannerRef.current) {
+      try {
+        const state = scannerRef.current.getState();
+        if (state === 2) { // Scanning
+          await scannerRef.current.stop();
+        }
+      } catch {
+        // Ignore stop errors
+      }
+      scannerRef.current = null;
     }
-
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-
-    scanningRef.current = false;
   };
 
   useEffect(() => {
@@ -54,16 +51,16 @@ export default function MobileInventoryPage() {
   };
 
   const handleDetectedCode = async (value: string) => {
+    // Stop scanner immediately to prevent multiple detections
+    await stopScanner();
+    setScannerOpen(false);
+
     try {
       const item = await lookup(value);
       selectItem(item);
-      setScannerOpen(false);
-      stopScanner();
     } catch (err: any) {
       console.error('Failed to lookup scanned inventory item:', err);
       setActionError(err?.message || 'Unable to find product for scanned code');
-      setScannerOpen(false);
-      stopScanner();
     }
   };
 
@@ -72,69 +69,36 @@ export default function MobileInventoryPage() {
     setActionError(null);
     setScannerOpen(true);
 
+    // Wait for container to be in DOM
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+      scannerRef.current = new Html5Qrcode(scannerContainerId);
+
+      await scannerRef.current.start(
+        { facingMode: 'environment' },
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 },
         },
-        audio: false,
-      });
-
-      streamRef.current = stream;
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
-
-      // Create canvas for scanning if not exists
-      if (!canvasRef.current) {
-        canvasRef.current = document.createElement('canvas');
-      }
-
-      scanIntervalRef.current = window.setInterval(() => {
-        if (!videoRef.current || !canvasRef.current) return;
-        if (scanningRef.current) return;
-        if (videoRef.current.readyState < 2) return;
-
-        scanningRef.current = true;
-        try {
-          const video = videoRef.current;
-          const canvas = canvasRef.current;
-          const ctx = canvas.getContext('2d', { willReadFrequently: true });
-          if (!ctx) return;
-
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const code = jsQR(imageData.data, imageData.width, imageData.height, {
-            inversionAttempts: 'dontInvert',
-          });
-
-          if (code?.data) {
-            handleDetectedCode(code.data);
-          }
-        } catch (error) {
-          // Keep scanner alive on transient decode failures.
-        } finally {
-          scanningRef.current = false;
+        (decodedText) => {
+          handleDetectedCode(decodedText);
+        },
+        () => {
+          // Ignore scan failures (no code found in frame)
         }
-      }, 250);
+      );
     } catch (error) {
       console.error('Failed to start camera scanner:', error);
       setScannerError('Camera access failed. Allow camera permissions and try again.');
       setScannerOpen(false);
-      stopScanner();
+      await stopScanner();
     }
   };
 
-  const closeScanner = () => {
+  const closeScanner = async () => {
     setScannerOpen(false);
-    stopScanner();
+    await stopScanner();
   };
 
   const handleManualSearch = async () => {
@@ -228,13 +192,13 @@ export default function MobileInventoryPage() {
             className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-brand-500 hover:bg-brand-600 text-white rounded-xl font-semibold"
           >
             <CameraIcon className="w-5 h-5" />
-            Scan QR
+            Scan Code
           </button>
 
           <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
             <InputField
-              label="Search SKU or Name"
-              placeholder="BLM-001234 or rose"
+              label="Search SKU/Barcode or Name"
+              placeholder="012345678901 or rose"
               value={manualQuery || ''}
               onChange={(event) => setManualQuery(event.target.value)}
             />
@@ -260,11 +224,9 @@ export default function MobileInventoryPage() {
                 Close
               </button>
             </div>
-            <div className="rounded-xl overflow-hidden bg-black">
-              <video ref={videoRef} className="w-full h-64 object-cover" playsInline muted autoPlay />
-            </div>
+            <div id={scannerContainerId} className="rounded-xl overflow-hidden" />
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Point the camera at a product QR code.
+              Point the camera at a QR code or barcode.
             </p>
           </div>
         ) : null}
