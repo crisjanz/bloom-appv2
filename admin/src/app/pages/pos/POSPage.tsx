@@ -9,6 +9,7 @@ import PaymentController from '@app/components/pos/payment/PaymentController';
 import TakeOrderOverlay from '@app/components/pos/TakeOrderOverlay';
 import { useApiClient } from '@shared/hooks/useApiClient';
 import { useTaxRates } from '@shared/hooks/useTaxRates';
+import { useBarcodeScanner } from '@shared/hooks/useBarcodeScanner';
 import { getOrCreateGuestCustomer } from '@shared/utils/customerHelpers';
 import { Modal } from '@shared/ui/components/ui/modal';
 import { centsToDollars, coerceCents, dollarsToCents, formatCurrency } from '@shared/utils/currency';
@@ -83,6 +84,10 @@ export default function POSPage() {
 
   // Draft state
   const [showDraftModal, setShowDraftModal] = useState(false);
+  const [scannerError, setScannerError] = useState<string | null>(null);
+
+  // Ref to hold the add product handler for barcode scanner
+  const addProductRef = useRef<(product: any) => void>(() => {});
 
   const normalizePriceCents = (value: number) => {
     if (!Number.isFinite(value)) return 0;
@@ -207,6 +212,22 @@ export default function POSPage() {
       console.error('❌ Error adding product to cart:', error);
     }
   };
+
+  // Keep ref updated for barcode scanner
+  addProductRef.current = handleAddProduct;
+
+  // Barcode scanner - only active when not in payment/delivery mode
+  useBarcodeScanner({
+    enabled: !showPaymentController && !showDeliveryOrder,
+    onProductFound: (product) => {
+      setScannerError(null);
+      addProductRef.current(product);
+    },
+    onError: (error) => {
+      setScannerError(error);
+      setTimeout(() => setScannerError(null), 3000);
+    },
+  });
 
   const handleRemoveDiscount = (index: number) => {
     const newDiscounts = appliedDiscounts.filter((_, i) => i !== index);
@@ -741,6 +762,11 @@ export default function POSPage() {
           }`}
         >
           {draftToast.message}
+        </div>
+      )}
+      {scannerError && (
+        <div className="fixed left-1/2 top-6 z-[120] -translate-x-1/2 rounded-xl bg-red-600 px-4 py-3 text-sm font-medium text-white shadow-lg">
+          {scannerError}
         </div>
       )}
       <div className="flex h-full bg-gray-50 dark:bg-gray-900">
