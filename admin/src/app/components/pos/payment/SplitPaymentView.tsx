@@ -1,5 +1,5 @@
 // components/pos/payment/SplitPaymentView.tsx
-import { FC } from 'react';
+import { FC, useState, useEffect } from 'react';
 import Select from '@shared/ui/forms/Select';
 import { centsToDollars, formatCurrency, parseUserCurrency } from '@shared/utils/currency';
 
@@ -48,6 +48,50 @@ const statusBadge = (status: SplitPaymentRow['status']) => {
   if (status === 'completed') return 'bg-green-100 text-green-700';
   if (status === 'processing') return 'bg-blue-100 text-blue-700';
   return 'bg-gray-100 text-gray-600';
+};
+
+// Local state input to prevent cursor jumping during typing
+const AmountInput: FC<{
+  amountCents: number;
+  onChange: (cents: number) => void;
+  disabled?: boolean;
+}> = ({ amountCents, onChange, disabled }) => {
+  const [localValue, setLocalValue] = useState(() =>
+    amountCents ? centsToDollars(amountCents).toFixed(2) : ''
+  );
+  const [isFocused, setIsFocused] = useState(false);
+
+  // Sync from parent when not focused (e.g., row added with remaining balance)
+  useEffect(() => {
+    if (!isFocused) {
+      setLocalValue(amountCents ? centsToDollars(amountCents).toFixed(2) : '');
+    }
+  }, [amountCents, isFocused]);
+
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      value={localValue}
+      onChange={(e) => {
+        // Allow digits, one decimal point, and empty string
+        const val = e.target.value;
+        if (val === '' || /^\d*\.?\d{0,2}$/.test(val)) {
+          setLocalValue(val);
+        }
+      }}
+      onFocus={() => setIsFocused(true)}
+      onBlur={() => {
+        setIsFocused(false);
+        const cents = parseUserCurrency(localValue);
+        onChange(cents);
+        // Format on blur
+        setLocalValue(cents ? centsToDollars(cents).toFixed(2) : '');
+      }}
+      disabled={disabled}
+      className="w-32 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 disabled:cursor-not-allowed disabled:bg-gray-100 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+    />
+  );
 };
 
 const SplitPaymentView: FC<Props> = ({
@@ -138,14 +182,10 @@ const SplitPaymentView: FC<Props> = ({
                     <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                       Amount
                     </label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={row.amount ? centsToDollars(row.amount).toFixed(2) : ''}
-                      onChange={(event) => onChangeAmount(row.id, parseUserCurrency(event.target.value))}
+                    <AmountInput
+                      amountCents={row.amount}
+                      onChange={(cents) => onChangeAmount(row.id, cents)}
                       disabled={row.status !== 'pending'}
-                      className="w-32 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 disabled:cursor-not-allowed disabled:bg-gray-100 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                     />
                   </div>
                   <div className="flex items-center gap-2">
