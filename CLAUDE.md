@@ -404,3 +404,17 @@ cd back && npm run dev:back   # Backend on :4000
 cd admin && npm run dev        # Admin Frontend on :5173
 cd www && npm run dev          # Customer frontend on :5175
 ```
+
+---
+
+## 📝 Changelog Notes
+
+### 2026-02-05: Major Cleanup (pre-launch)
+Removed ~65 unused files and 15 npm packages across all three apps using `knip`.
+
+**Deleted:**
+- `back/`: coupons routes, test files, duplicate prisma.ts, addresses.ts, 8 packages
+- `admin/`: ~40 unused components (ecommerce, settings-old, unused DDD boilerplate, payment modals), 3 packages
+- `www/`: 16 template components (Blog, CustomerReview, old Checkouts), 4 packages
+
+**If something breaks**, check this commit for accidentally deleted files.

@@ -24,8 +24,6 @@
   "type": "commonjs",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.713.0",
-    "@fontsource/dejavu-serif": "^5.2.5",
-    "@fontsource/noto-serif": "^5.2.9",
     "@google/generative-ai": "^0.24.1",
     "@prisma/client": "^6.8.2",
     "@sendgrid/mail": "^8.1.5",
@@ -35,8 +33,6 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^1.4.12",
     "@types/node": "^22.15.21",
-    "@types/passport": "^1.0.17",
-    "@types/passport-jwt": "^4.0.1",
     "axios": "^1.12.2",
     "bcryptjs": "^3.0.2",
     "cheerio": "^1.1.2",
@@ -49,12 +45,9 @@
     "multer": "^2.0.1",
     "node-thermal-printer": "^4.5.0",
     "nodemailer": "^6.9.15",
-    "passport": "^0.7.0",
-    "passport-jwt": "^4.0.1",
     "pdfkit": "^0.17.2",
     "prisma": "^6.8.2",
     "qrcode": "^1.5.4",
-    "square-connect": "^6.20201216.0",
     "stripe": "^18.2.1",
     "twilio": "^5.7.1",
     "typescript": "^5.8.3",
@@ -67,7 +60,6 @@
     "@types/qrcode": "^1.5.5",
     "@types/ws": "^8.5.13",
     "nodemon": "^3.1.10",
-    "prisma-seeder": "^1.0.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
   }
