@@ -1,14 +1,14 @@
 # Feature: Web Accounts & Customer-Specific Pricing
 
 ## Overview
-Allow customers (e.g., churches, businesses) to create online accounts on `www` that link to their existing customer record. Discounts can be tied to specific customers, so when they log in and shop online, their pricing applies automatically.
+Use existing `Customer` accounts for `www` login (no separate WebUser model). Discounts can be tied to specific customers, so when they log in and shop online, their pricing applies automatically.
 
 **Primary use case:** St. Mary's Church gets free bud vases for newborn families. They log in on www, order bud vases at $0, shop fulfills.
 
 ---
 
 ## Goals
-- ✅ Online login system for `www` (WebUser → Customer)
+- ✅ Online login system for `www` (Customer auth already exists)
 - ✅ Customer-specific discounts (extend existing Discount model)
 - ✅ Auto-apply discounts at www checkout when customer is logged in
 - ✅ Admin can manage which customers get which discounts
@@ -17,20 +17,8 @@ Allow customers (e.g., churches, businesses) to create online accounts on `www` 
 
 ## Schema Changes
 
-### New Model: `WebUser`
-```prisma
-model WebUser {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  passwordHash String
-  customerId   String   @unique
-  customer     Customer @relation(fields: [customerId], references: [id])
-  lastLoginAt  DateTime?
-  enabled      Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-}
-```
+### Use existing `Customer` auth
+`Customer` already stores `password`, `isRegistered`, and `lastLogin` and is used for `www` login today.
 
 ### Extend: `Discount`
 ```prisma
@@ -38,13 +26,18 @@ model WebUser {
 customerId        String?
 customer          Customer? @relation(fields: [customerId], references: [id])
 periodLimit       Int?              // Max uses per period (e.g., 4)
-periodType        PeriodType?       // WEEKLY | MONTHLY | YEARLY
+periodType        PeriodType?       // WEEKLY | MONTHLY | YEARLY (calendar windows)
+periodWindowDays  Int?              // Rolling window in days (e.g., 7, 30)
 ```
 - When `customerId` is set, discount only applies to that customer.
 - When `periodLimit` + `periodType` are set, usage is capped per time window.
   - Example: `periodLimit: 4, periodType: MONTHLY` → 4 free bud vases/month.
   - Checked against `DiscountUsage.usedAt` within the current period.
   - Resets automatically each period (no cron needed — just query the window).
+- When `periodLimit` + `periodWindowDays` are set, usage is capped per rolling day window.
+  - Example: `periodLimit: 4, periodWindowDays: 30` → 4 uses per rolling 30 days.
+  - Example: `periodLimit: 1, periodWindowDays: 7` → 1 use per rolling 7 days.
+  - If both `periodType` and `periodWindowDays` are set, prefer `periodWindowDays`.
 
 ```prisma
 enum PeriodType {
@@ -57,7 +50,6 @@ enum PeriodType {
 ### Extend: `Customer`
 ```prisma
 // Add relations
-webUser      WebUser?
 discounts    Discount[]
 ```
 
@@ -68,24 +60,15 @@ discounts    Discount[]
 ### Auth (www)
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/www/auth/login` | Email/password login, returns JWT |
-| POST | `/api/www/auth/logout` | Clear session |
-| GET | `/api/www/auth/me` | Current user + customer info |
-
-### Web User Management (admin)
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/web-users` | List all web users |
-| POST | `/api/web-users` | Create web user (link to customer) |
-| PUT | `/api/web-users/:id` | Update web user |
-| DELETE | `/api/web-users/:id` | Delete web user |
-| POST | `/api/web-users/:id/reset-password` | Generate temp password |
+| POST | `/api/customers/login` | Email/password login, returns JWT |
+| POST | `/api/customers/logout` | Clear session |
+| GET | `/api/customers/me` | Current customer + profile info |
 
 ### www Shopping (future - when www e-commerce is built)
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/www/products` | Product catalog |
-| POST | `/api/www/cart/discounts` | Auto-apply customer discounts to cart |
+| POST | `/api/discounts/auto-apply` | Auto-apply customer discounts to cart |
 | POST | `/api/www/orders` | Place order |
 
 ---
@@ -94,13 +77,19 @@ discounts    Discount[]
 
 ### Existing `auto-apply` endpoint update
 - Accept optional `customerId` parameter
-- When checking eligible discounts, include those where `customerId` matches the logged-in customer
+- When checking eligible discounts, include those where `customerId` matches the logged-in customer (or is null for global discounts)
 - No change to existing discount logic — just one more filter condition
+- Enforce `periodLimit` with either `periodType` (calendar windows) or `periodWindowDays` (rolling windows)
 
 ### Admin UI
 - Add optional "Customer" dropdown to CreateDiscountModal
 - When a customer is selected, discount only applies to that customer
 - Label: "Restrict to customer" with customer search/select
+- Add "Usage limit per period" fields:
+  - Limit count (number)
+  - Window type: `Calendar` (Weekly/Monthly/Yearly) or `Rolling days`
+  - Rolling days input (e.g., 7, 30)
+  - Helper text examples: "4 uses per 30 days", "1 use per 7 days"
 
 ---
 
@@ -108,14 +97,13 @@ discounts    Discount[]
 
 ### Setup (Admin)
 1. Customer "St. Mary's Church" already exists in CRM
-2. Admin creates a WebUser for them (email + generated password)
-3. Admin creates Discount:
+2. Admin creates Discount:
    - Type: `SALE_PRICE`, value: `0`
    - Trigger: `AUTOMATIC_PRODUCT`
    - Products: Bud Vase(s)
    - Customer: St. Mary's Church
    - Max quantity: optional (e.g., 3 per order)
-4. Share login credentials with church contact
+3. Church logs in on `www` using the same email (if not registered yet, they can register and claim the existing customer record)
 
 ### Ordering (www)
 1. Church person goes to www, logs in
@@ -127,24 +115,23 @@ discounts    Discount[]
 
 ## Implementation Phases
 
-### Phase 1: Schema + Auth
-- [ ] Add `WebUser` model + migration
+### Phase 1: Schema + Discount Scoping
 - [ ] Add `customerId` to `Discount` + migration
-- [ ] Build www auth endpoints (login/logout/me)
-- [ ] Build admin web-user CRUD endpoints + UI
+- [ ] Add `periodLimit` + `periodType` to `Discount` + migration
+- [ ] Add `periodWindowDays` to `Discount` + migration
+- [ ] Add `PeriodType` enum
 
-### Phase 2: Discount Scoping
+### Phase 2: Discount Scoping + Admin UI
 - [ ] Update discount auto-apply logic to filter by `customerId`
 - [ ] Update discount validate logic to check `customerId`
 - [ ] Add customer selector to CreateDiscountModal
+- [ ] Enforce `periodLimit` with `periodType` or `periodWindowDays` (per-customer window) in validate + auto-apply
 - [ ] Test: discount only applies for linked customer
 
 ### Phase 3: Connect www Auth + Discounts
 The www already has: product catalog, cart (CartContext), checkout flow (CheckoutForm, CouponForm, PaymentBox), auth (AuthContext, Login, Signup, Profile), gift cards, wishlist, delivery date picker, and address autocomplete.
 
 Work needed:
-- [ ] Refactor `AuthContext.jsx` to use `WebUser` model (login → `/api/www/auth/login`)
-- [ ] Refactor `Signup.jsx` / `CreateAccountModal.jsx` to create WebUser linked to Customer
 - [ ] Pass `customerId` from auth context to discount auto-apply at checkout
 - [ ] Update `CartContext.jsx` to fetch and display auto-applied customer discounts
 - [ ] Update `CheckoutForm.jsx` to include customer-specific discounts in order submission
@@ -155,8 +142,8 @@ Work needed:
 
 | Component | Path | Status |
 |-----------|------|--------|
-| Auth | `www/src/contexts/AuthContext.jsx` | Exists — needs WebUser refactor |
-| Login/Signup | `www/src/pages/Login.jsx`, `Signup.jsx` | Exists — needs WebUser refactor |
+| Auth | `www/src/contexts/AuthContext.jsx` | Exists — uses Customer auth |
+| Login/Signup | `www/src/pages/Login.jsx`, `Signup.jsx` | Exists — uses Customer auth |
 | Cart | `www/src/contexts/CartContext.jsx` | Exists — needs discount integration |
 | Checkout | `www/src/components/Checkouts/CheckoutForm.jsx` | Exists — needs customerId pass-through |
 | Coupon | `www/src/components/Checkouts/CouponForm.jsx` | Exists — works as-is |
@@ -167,9 +154,8 @@ Work needed:
 
 ## Notes
 - www e-commerce is largely built — Phase 3 is integration work, not a greenfield build
-- One WebUser per Customer (1:1). If multi-login needed later, change to 1:many
-- WebUser auth is separate from admin auth (different JWT/session, different middleware)
+- Customer register already supports claiming an existing customer by email (if not registered)
 
 ---
 
-**Status:** 📜 Draft — awaiting approval
+**Status:** ✅ Completed — 2026-02-06

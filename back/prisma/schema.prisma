@@ -210,6 +210,7 @@ model Customer {
   providerCustomers   ProviderCustomer[]
   giftTokensRedeemed  GiftToken[]          @relation("RedeemedGiftTokens")
   paymentMethods      CustomerPaymentMethod[]
+  discounts           Discount[]
 
   @@index([phone])
   @@index([firstName, lastName])
@@ -469,6 +470,11 @@ model Discount {
   usageLimit           Int?
   usageCount           Int             @default(0)
   perCustomerLimit     Int?
+  periodLimit          Int?
+  periodType           PeriodType?
+  periodWindowDays     Int?
+  customerId           String?
+  customer             Customer?       @relation(fields: [customerId], references: [id])
   startDate            DateTime?
   endDate              DateTime?
   posOnly              Boolean         @default(false)
@@ -483,6 +489,7 @@ model Discount {
   @@index([triggerType])
   @@index([enabled])
   @@index([startDate, endDate])
+  @@index([customerId])
 }
 
 model DiscountUsage {
@@ -1314,6 +1321,12 @@ enum TriggerType {
   COUPON_CODE
   AUTOMATIC_PRODUCT
   AUTOMATIC_CATEGORY
+}
+
+enum PeriodType {
+  WEEKLY
+  MONTHLY
+  YEARLY
 }
 
 enum PaymentProviderMode {

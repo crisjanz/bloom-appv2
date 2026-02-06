@@ -133,6 +133,7 @@ const CheckoutContent = () => {
     setDeliveryDate,
     clearCart,
     coupon,
+    autoDiscounts,
     applyCouponCode,
     clearCoupon,
     getDiscountAmount,
@@ -237,6 +238,31 @@ const CheckoutContent = () => {
     [cart],
   );
   const discountAmount = getDiscountAmount();
+  const appliedDiscounts = useMemo(() => {
+    const autoApplied = Array.isArray(autoDiscounts)
+      ? autoDiscounts.map((discount) => ({
+          id: discount.id,
+          name: discount.name,
+          discountType: discount.discountType,
+          discountAmount: Number(discount.discountAmount) || 0,
+        }))
+      : [];
+
+    const couponApplied =
+      coupon?.discount?.id
+        ? [
+            {
+              id: coupon.discount.id,
+              name: coupon.discount.name,
+              discountType: coupon.discount.discountType,
+              discountAmount: Number(coupon.discountAmount) || 0,
+              code: coupon.code,
+            },
+          ]
+        : [];
+
+    return [...autoApplied, ...couponApplied];
+  }, [autoDiscounts, coupon]);
   const couponFreeShipping = hasFreeShipping();
   const baseDeliveryFee = cart.length ? DELIVERY_FEE : 0;
   const deliveryFee = couponFreeShipping ? 0 : baseDeliveryFee;
@@ -677,6 +703,8 @@ const CheckoutContent = () => {
         deliveryInstructions: recipient.deliveryInstructions || null,
         deliveryDate,
         deliveryFee,
+        discountAmount,
+        appliedDiscounts,
         customProducts,
         paymentIntentId: paymentIntent.paymentIntentId,
         paymentStatus: confirmation.paymentIntent?.status || null,

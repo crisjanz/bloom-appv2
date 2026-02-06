@@ -1,6 +1,7 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
-import { validateCoupon } from '../services/discountService';
+import { validateCoupon, autoApplyDiscounts } from '../services/discountService';
+import { useAuth } from './AuthContext';
 
 const CartContext = createContext();
 
@@ -13,9 +14,11 @@ export function useCart() {
 }
 
 export function CartProvider({ children }) {
+  const { customer } = useAuth();
   const [cart, setCart] = useState([]);
   const [deliveryDate, setDeliveryDate] = useState(null);
   const [coupon, setCoupon] = useState(null);
+  const [autoDiscounts, setAutoDiscounts] = useState([]);
 
   // Load cart and delivery date from localStorage on mount
   useEffect(() => {
@@ -130,6 +133,7 @@ export function CartProvider({ children }) {
             isTaxable:
               typeof product.isTaxable === 'boolean' ? product.isTaxable : true,
             categoryId: product.categoryId || product.category?.id || null,
+            categoryIds: Array.isArray(product.categoryIds) ? product.categoryIds : [],
           },
         ];
       }
@@ -163,6 +167,7 @@ export function CartProvider({ children }) {
     setCart([]);
     setDeliveryDate(null);
     setCoupon(null);
+    setAutoDiscounts([]);
   };
 
   const getCartTotal = () => {
@@ -174,11 +179,17 @@ export function CartProvider({ children }) {
   };
 
   const getDiscountAmount = () => {
-    return coupon?.discountAmount ? Number(coupon.discountAmount) : 0;
+    const couponDiscount = coupon?.discountAmount ? Number(coupon.discountAmount) : 0;
+    const autoDiscount = autoDiscounts.reduce(
+      (sum, discount) => sum + (Number(discount.discountAmount) || 0),
+      0
+    );
+    return couponDiscount + autoDiscount;
   };
 
   const hasFreeShipping = () => {
-    return coupon?.discount?.discountType === 'FREE_SHIPPING';
+    if (coupon?.discount?.discountType === 'FREE_SHIPPING') return true;
+    return autoDiscounts.some((discount) => discount.discountType === 'FREE_SHIPPING');
   };
 
   const applyCouponCode = async (code, customerId = null) => {
@@ -196,12 +207,13 @@ export function CartProvider({ children }) {
       price: Number(item.price),
       quantity: item.quantity,
       categoryId: item.categoryId || null,
+      categoryIds: item.categoryIds || (item.categoryId ? [item.categoryId] : []),
     }));
 
     try {
       const result = await validateCoupon({
         code: trimmedCode,
-        customerId,
+        customerId: customerId ?? customer?.id ?? null,
         cartItems,
       });
 
@@ -216,6 +228,36 @@ export function CartProvider({ children }) {
       throw error;
     }
   };
+
+  const refreshAutoDiscounts = useCallback(async () => {
+    if (!cart.length) {
+      setAutoDiscounts([]);
+      return;
+    }
+
+    const cartItems = cart.map((item) => ({
+      id: item.id,
+      price: Number(item.price),
+      quantity: item.quantity,
+      categoryId: item.categoryId || null,
+      categoryIds: item.categoryIds || (item.categoryId ? [item.categoryId] : []),
+    }));
+
+    try {
+      const result = await autoApplyDiscounts({
+        cartItems,
+        customerId: customer?.id ?? null,
+      });
+      setAutoDiscounts(result.discounts || []);
+    } catch (error) {
+      console.error('Failed to auto-apply discounts:', error);
+      setAutoDiscounts([]);
+    }
+  }, [cart, customer?.id]);
+
+  useEffect(() => {
+    refreshAutoDiscounts();
+  }, [refreshAutoDiscounts]);
 
   const clearCoupon = () => {
     setCoupon(null);
@@ -232,6 +274,8 @@ export function CartProvider({ children }) {
     getCartTotal,
     getCartCount,
     coupon,
+    autoDiscounts,
+    refreshAutoDiscounts,
     applyCouponCode,
     clearCoupon,
     getDiscountAmount,

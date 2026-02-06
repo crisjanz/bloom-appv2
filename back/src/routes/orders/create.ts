@@ -21,6 +21,82 @@ function getOrderTransactions(order: any) {
   });
 }
 
+const normalizeAppliedDiscounts = (appliedDiscounts: any[]) => {
+  if (!Array.isArray(appliedDiscounts)) return [];
+  return appliedDiscounts
+    .filter((discount) => discount && (discount.id || discount.discountId))
+    .map((discount) => {
+      const discountAmount = Number(discount.discountAmount) || 0;
+      return {
+        id: discount.id || discount.discountId,
+        name: discount.name || null,
+        code: discount.code || null,
+        discountType: discount.discountType || null,
+        discountAmountCents: Math.max(0, Math.round(discountAmount * 100)),
+      };
+    });
+};
+
+const resolveDiscountPayload = (orderData: any) => {
+  const rawDiscountAmount = Number(orderData.discountAmount) || 0;
+  const discountAmountCents = Math.max(0, Math.round(rawDiscountAmount * 100));
+  const normalizedDiscounts = normalizeAppliedDiscounts(orderData.appliedDiscounts || []);
+  const discountId = normalizedDiscounts.length === 1 ? normalizedDiscounts[0].id : null;
+  const discountCode = normalizedDiscounts.length === 1 ? normalizedDiscounts[0].code : null;
+
+  return {
+    discountAmountCents,
+    discountBreakdown: normalizedDiscounts.map((discount) => ({
+      id: discount.id,
+      name: discount.name,
+      code: discount.code,
+      discountType: discount.discountType,
+      discountAmount: discount.discountAmountCents,
+    })),
+    discountId,
+    discountCode,
+    appliedDiscounts: normalizedDiscounts,
+  };
+};
+
+const applyDiscountToTaxableAmount = (taxableAmount: number, subtotal: number, discountAmount: number) => {
+  if (!subtotal || !discountAmount) return taxableAmount;
+  const cappedDiscount = Math.min(discountAmount, subtotal);
+  const ratio = cappedDiscount / subtotal;
+  const taxableDiscount = Math.round(taxableAmount * ratio);
+  return Math.max(0, taxableAmount - taxableDiscount);
+};
+
+const recordDiscountUsage = async (
+  discounts: { id: string; discountAmountCents: number }[],
+  customerId: string | null,
+  orderId: string,
+  source: string | null,
+) => {
+  if (!customerId || discounts.length === 0) return;
+
+  await prisma.$transaction(async (tx) => {
+    for (const discount of discounts) {
+      await tx.discountUsage.create({
+        data: {
+          discountId: discount.id,
+          customerId,
+          orderId,
+          source: source || 'UNKNOWN',
+          appliedValue: discount.discountAmountCents,
+        },
+      });
+
+      await tx.discount.update({
+        where: { id: discount.id },
+        data: {
+          usageCount: { increment: 1 },
+        },
+      });
+    }
+  });
+};
+
 // Create orders after payment confirmation
 router.post('/create', async (req, res) => {
   try {
@@ -93,11 +169,26 @@ router.post('/create', async (req, res) => {
       const taxableAmount = orderItems
         .filter((_: any, index: number) => orderData.customProducts[index].tax)
         .reduce((sum: number, item: any) => sum + item.rowTotal, 0);
+
+      const {
+        discountAmountCents,
+        discountBreakdown,
+        discountId,
+        discountCode,
+        appliedDiscounts,
+      } = resolveDiscountPayload(orderData);
+
+      const discountedSubtotal = Math.max(subtotal - discountAmountCents, 0);
+      const taxableAmountAfterDiscount = applyDiscountToTaxableAmount(
+        taxableAmount,
+        subtotal,
+        discountAmountCents,
+      );
       
-      const taxCalculation = await calculateTax(taxableAmount);
+      const taxCalculation = await calculateTax(taxableAmountAfterDiscount);
 
       const deliveryFeeInCents = Math.round(orderData.deliveryFee * 100);
-      const totalAmount = subtotal + taxCalculation.totalAmount + deliveryFeeInCents;
+      const totalAmount = discountedSubtotal + taxCalculation.totalAmount + deliveryFeeInCents;
 
       // Create order with DRAFT status first, will be updated to PAID by PT transaction
       const order = await prisma.order.create({
@@ -115,6 +206,10 @@ router.post('/create', async (req, res) => {
             : null,
           deliveryTime: orderData.deliveryTime || null,
           deliveryFee: deliveryFeeInCents,
+          discount: discountAmountCents,
+          discountBreakdown,
+          discountId,
+          discountCode,
           taxBreakdown: taxCalculation.breakdown, // Dynamic tax breakdown
           totalTax: taxCalculation.totalAmount, // Total tax amount
           paymentAmount: totalAmount,
@@ -138,6 +233,13 @@ router.post('/create', async (req, res) => {
 
       console.log('Order created:', order.id);
       createdOrders.push(order);
+
+      await recordDiscountUsage(
+        appliedDiscounts,
+        customerId,
+        order.id,
+        orderData.orderSource || 'POS',
+      );
     }
 
     // Update all orders to PAID status and trigger notifications
@@ -334,8 +436,23 @@ router.post('/save-draft', async (req, res) => {
       const taxableAmountDraft = orderItems
         .filter((_: any, index: number) => orderData.customProducts[index].tax)
         .reduce((sum: number, item: any) => sum + item.rowTotal, 0);
+
+      const {
+        discountAmountCents,
+        discountBreakdown,
+        discountId,
+        discountCode,
+        appliedDiscounts,
+      } = resolveDiscountPayload(orderData);
+
+      const discountedSubtotal = Math.max(subtotal - discountAmountCents, 0);
+      const taxableAmountAfterDiscount = applyDiscountToTaxableAmount(
+        taxableAmountDraft,
+        subtotal,
+        discountAmountCents,
+      );
       
-      const taxCalculationDraft = await calculateTax(taxableAmountDraft);
+      const taxCalculationDraft = await calculateTax(taxableAmountAfterDiscount);
 
       const paymentIntentId =
         typeof orderData.paymentIntentId === 'string' ? orderData.paymentIntentId : null;
@@ -352,7 +469,7 @@ router.post('/save-draft', async (req, res) => {
       const resolvedOrderSource = normalizedOrderSource || (hasConfirmedPayment ? OrderSource.WEBSITE : null);
 
       const deliveryFeeInCents = Math.round(orderData.deliveryFee * 100);
-      const totalAmount = subtotal + taxCalculationDraft.totalAmount + deliveryFeeInCents;
+      const totalAmount = discountedSubtotal + taxCalculationDraft.totalAmount + deliveryFeeInCents;
 
       const order = await prisma.order.create({
         data: {
@@ -369,6 +486,10 @@ router.post('/save-draft', async (req, res) => {
             : null,
           deliveryTime: orderData.deliveryTime || null,
           deliveryFee: deliveryFeeInCents,
+          discount: discountAmountCents,
+          discountBreakdown,
+          discountId,
+          discountCode,
           taxBreakdown: taxCalculationDraft.breakdown, // Dynamic tax breakdown
           totalTax: taxCalculationDraft.totalAmount, // Total tax amount
           paymentAmount: hasConfirmedPayment ? totalAmount : 0,
@@ -391,6 +512,15 @@ router.post('/save-draft', async (req, res) => {
       });
 
       draftOrders.push(order);
+
+      if (hasConfirmedPayment) {
+        await recordDiscountUsage(
+          appliedDiscounts,
+          customerId,
+          order.id,
+          resolvedOrderSource,
+        );
+      }
 
       if (hasConfirmedPayment && paymentIntentId && order.orderNumber) {
         (async () => {

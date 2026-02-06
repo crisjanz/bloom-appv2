@@ -3,6 +3,65 @@ import prisma from '../lib/prisma';
 
 const router = Router();
 
+const getPeriodWindowStart = (now: Date, periodType?: string | null, periodWindowDays?: number | null) => {
+  if (periodWindowDays && periodWindowDays > 0) {
+    return new Date(now.getTime() - periodWindowDays * 24 * 60 * 60 * 1000);
+  }
+
+  if (!periodType) return null;
+
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+
+  if (periodType === 'WEEKLY') {
+    const day = start.getDay(); // 0 = Sunday
+    const diff = (day + 6) % 7; // days since Monday
+    start.setDate(start.getDate() - diff);
+    return start;
+  }
+
+  if (periodType === 'MONTHLY') {
+    return new Date(start.getFullYear(), start.getMonth(), 1);
+  }
+
+  if (periodType === 'YEARLY') {
+    return new Date(start.getFullYear(), 0, 1);
+  }
+
+  return null;
+};
+
+const getItemCategoryIds = (item: any) => {
+  if (Array.isArray(item.categoryIds) && item.categoryIds.length > 0) {
+    return item.categoryIds;
+  }
+  return item.categoryId ? [item.categoryId] : [];
+};
+
+const isItemApplicableToDiscount = (item: any, discount: any) => {
+  if (discount.applicableProducts?.length > 0) {
+    return discount.applicableProducts.includes(item.id);
+  }
+  if (discount.applicableCategories?.length > 0) {
+    const itemCategoryIds = getItemCategoryIds(item);
+    return itemCategoryIds.some((catId: string) => discount.applicableCategories.includes(catId));
+  }
+  return true;
+};
+
+const calculateSalePriceDiscount = (cartItems: any[], discount: any) => {
+  const salePrice = Number(discount.value) || 0;
+  if (!Array.isArray(cartItems) || cartItems.length === 0) return 0;
+
+  return cartItems.reduce((sum, item) => {
+    if (!isItemApplicableToDiscount(item, discount)) return sum;
+    const itemPrice = Number(item.price) || 0;
+    const quantity = Number(item.quantity) || 0;
+    if (!quantity || itemPrice <= salePrice) return sum;
+    return sum + (itemPrice - salePrice) * quantity;
+  }, 0);
+};
+
 // Get all discounts
 router.get('/', async (req, res) => {
   try {
@@ -91,6 +150,10 @@ router.post('/', async (req, res) => {
       stackable,
       usageLimit,
       perCustomerLimit,
+      periodLimit,
+      periodType,
+      periodWindowDays,
+      customerId,
       startDate,
       endDate,
       posOnly,
@@ -127,6 +190,27 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ 
         error: 'Value is required for this discount type' 
       });
+    }
+
+    if (periodLimit && !(periodType || periodWindowDays)) {
+      return res.status(400).json({
+        error: 'Period type or rolling days are required when period limit is set'
+      });
+    }
+
+    if (periodWindowDays && Number(periodWindowDays) <= 0) {
+      return res.status(400).json({
+        error: 'Rolling days must be greater than 0'
+      });
+    }
+
+    if (periodType) {
+      const validPeriodTypes = ['WEEKLY', 'MONTHLY', 'YEARLY'];
+      if (!validPeriodTypes.includes(periodType)) {
+        return res.status(400).json({
+          error: 'Invalid period type'
+        });
+      }
     }
 
     // Validate discount type enum
@@ -180,6 +264,10 @@ router.post('/', async (req, res) => {
         stackable: stackable || false,
         usageLimit,
         perCustomerLimit,
+        periodLimit,
+        periodType: periodWindowDays ? null : periodType,
+        periodWindowDays,
+        customerId: customerId || null,
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
         posOnly: posOnly || false,
@@ -264,6 +352,10 @@ router.put('/:id', async (req, res) => {
       stackable,
       usageLimit,
       perCustomerLimit,
+      periodLimit,
+      periodType,
+      periodWindowDays,
+      customerId,
       startDate,
       endDate,
       posOnly,
@@ -275,6 +367,27 @@ router.put('/:id', async (req, res) => {
       freeType,
       ...otherFields
     } = updateData;
+
+    if (periodLimit && !(periodType || periodWindowDays)) {
+      return res.status(400).json({
+        error: 'Period type or rolling days are required when period limit is set'
+      });
+    }
+
+    if (periodWindowDays && Number(periodWindowDays) <= 0) {
+      return res.status(400).json({
+        error: 'Rolling days must be greater than 0'
+      });
+    }
+
+    if (periodType) {
+      const validPeriodTypes = ['WEEKLY', 'MONTHLY', 'YEARLY'];
+      if (!validPeriodTypes.includes(periodType)) {
+        return res.status(400).json({
+          error: 'Invalid period type'
+        });
+      }
+    }
 
     const updatedDiscount = await prisma.discount.update({
       where: { id },
@@ -296,6 +409,10 @@ router.put('/:id', async (req, res) => {
         stackable: stackable || false,
         usageLimit,
         perCustomerLimit,
+        periodLimit,
+        periodType: periodWindowDays ? null : periodType,
+        periodWindowDays,
+        customerId: customerId || null,
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
         posOnly: posOnly || false,
@@ -408,6 +525,13 @@ router.post('/validate', async (req, res) => {
       return res.status(400).json({ error: 'Discount has expired' });
     }
 
+    // Check customer restriction
+    if (discount.customerId) {
+      if (!customerId || discount.customerId !== customerId) {
+        return res.status(400).json({ error: 'This discount is not available for this customer' });
+      }
+    }
+
     // Check usage limits
     if (discount.usageLimit && discount.usageCount >= discount.usageLimit) {
       return res.status(400).json({ error: 'Discount usage limit reached' });
@@ -424,6 +548,28 @@ router.post('/validate', async (req, res) => {
 
       if (customerUsage >= discount.perCustomerLimit) {
         return res.status(400).json({ error: 'You have reached the usage limit for this discount' });
+      }
+    }
+
+    // Check per-period limit
+    if (discount.periodLimit) {
+      if (!customerId) {
+        return res.status(400).json({ error: 'Login required to use this discount' });
+      }
+
+      const periodStart = getPeriodWindowStart(now, discount.periodType, discount.periodWindowDays);
+      if (periodStart) {
+        const periodUsage = await prisma.discountUsage.count({
+          where: {
+            discountId: discount.id,
+            customerId,
+            usedAt: { gte: periodStart }
+          }
+        });
+
+        if (periodUsage >= discount.periodLimit) {
+          return res.status(400).json({ error: 'Discount usage limit reached for this period' });
+        }
       }
     }
 
@@ -479,8 +625,7 @@ router.post('/validate', async (req, res) => {
         discountAmount = 0; // Handled separately in delivery calculation
         break;
       case 'SALE_PRICE':
-        // For sale price, calculate difference from regular price
-        discountAmount = 0; // This would need product-specific logic
+        discountAmount = calculateSalePriceDiscount(cartItems || [], discount);
         break;
       case 'BUY_X_GET_Y_FREE':
         // TODO: Implement buy X get Y logic
@@ -556,6 +701,12 @@ router.post('/auto-apply', async (req, res) => {
       console.log(`\n🔍 Checking discount: ${discount.name} (${discount.triggerType})`);
       let isApplicable = false;
 
+      if (discount.customerId) {
+        if (!customerId || discount.customerId !== customerId) {
+          continue;
+        }
+      }
+
       // Check if discount applies to current cart
       if (discount.triggerType === 'AUTOMATIC_PRODUCT' && discount.applicableProducts.length > 0) {
         console.log('🎯 Checking AUTOMATIC_PRODUCT discount');
@@ -614,6 +765,27 @@ router.post('/auto-apply', async (req, res) => {
           }
         }
 
+        // Check per-period limit
+        if (discount.periodLimit) {
+          if (!customerId) {
+            continue;
+          }
+          const periodStart = getPeriodWindowStart(now, discount.periodType, discount.periodWindowDays);
+          if (periodStart) {
+            const periodUsage = await prisma.discountUsage.count({
+              where: {
+                discountId: discount.id,
+                customerId,
+                usedAt: { gte: periodStart }
+              }
+            });
+
+            if (periodUsage >= discount.periodLimit) {
+              continue;
+            }
+          }
+        }
+
         // Calculate discount amount
         let discountAmount = 0;
         
@@ -627,12 +799,15 @@ router.post('/auto-apply', async (req, res) => {
           case 'FREE_SHIPPING':
             discountAmount = 0; // Handled separately
             break;
+          case 'SALE_PRICE':
+            discountAmount = calculateSalePriceDiscount(cartItems, discount);
+            break;
           default:
             discountAmount = 0;
         }
 
         // Only add discounts with valid amounts
-        if (discountAmount > 0) {
+        if (discountAmount > 0 || discount.discountType === 'FREE_SHIPPING') {
           applicableDiscounts.push({
             id: discount.id,
             name: discount.name,

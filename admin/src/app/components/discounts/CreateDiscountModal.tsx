@@ -4,6 +4,8 @@ import Select from '@shared/ui/forms/Select';
 import DatePicker from '@shared/ui/forms/date-picker';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
 import { Modal } from '@shared/ui/components/ui/modal';
+import { useApiClient } from '@shared/hooks/useApiClient';
+import { useCustomerSearch, useCustomerService } from '@domains/customers/hooks/useCustomerService.ts';
 
 type Props = {
   open: boolean;
@@ -18,10 +20,16 @@ type TriggerType = 'COUPON_CODE' | 'AUTOMATIC_PRODUCT' | 'AUTOMATIC_CATEGORY';
 
 export default function CreateDiscountModal({ open, onClose, onSuccess, editingDiscount, onDelete }: Props) {
   const { formatDate: formatBusinessDate, parseToBusinessDate } = useBusinessTimezone();
+  const apiClient = useApiClient();
+  const { query: customerQuery, setQuery: setCustomerQuery, results: customerResults, isSearching: isSearchingCustomers, clearSearch } = useCustomerSearch();
+  const { getCustomer } = useCustomerService();
   const [discountType, setDiscountType] = useState<DiscountType | null>(null);
   const [triggerType, setTriggerType] = useState<TriggerType>('COUPON_CODE');
   const [autoApplyScope, setAutoApplyScope] = useState<'ALL' | 'CATEGORY' | 'PRODUCT'>('ALL');
   const [applicationMethod, setApplicationMethod] = useState<'COUPON_CODE' | 'AUTO_APPLY'>('COUPON_CODE');
+  const [periodWindowType, setPeriodWindowType] = useState<'NONE' | 'CALENDAR' | 'ROLLING'>('NONE');
+  const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
+  const [loadingCustomer, setLoadingCustomer] = useState(false);
   
   // Selection state
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -43,6 +51,9 @@ export default function CreateDiscountModal({ open, onClose, onSuccess, editingD
     maximumQuantity: '',
     usageLimit: '',
     perCustomerLimit: '',
+    periodLimit: '',
+    periodType: '',
+    periodWindowDays: '',
     startDate: '',
     endDate: '',
     applicableProducts: [],
@@ -82,10 +93,9 @@ export default function CreateDiscountModal({ open, onClose, onSuccess, editingD
   const loadCategories = async () => {
     setLoadingCategories(true);
     try {
-      const response = await fetch('/api/categories');
-      if (response.ok) {
-        const data = await response.json();
-        setCategories(data);
+      const response = await apiClient.get('/api/categories');
+      if (response.status >= 200 && response.status < 300) {
+        setCategories(response.data);
       }
     } catch (error) {
       console.error('Failed to load categories:', error);
@@ -98,10 +108,9 @@ export default function CreateDiscountModal({ open, onClose, onSuccess, editingD
   const loadProducts = async () => {
     setLoadingProducts(true);
     try {
-      const response = await fetch('/api/products');
-      if (response.ok) {
-        const data = await response.json();
-        setProducts(data);
+      const response = await apiClient.get('/api/products');
+      if (response.status >= 200 && response.status < 300) {
+        setProducts(response.data);
       }
     } catch (error) {
       console.error('Failed to load products:', error);
@@ -115,6 +124,23 @@ export default function CreateDiscountModal({ open, onClose, onSuccess, editingD
       // Load data
       loadCategories();
       loadProducts();
+      clearSearch();
+
+      const hydrateCustomer = async () => {
+        if (editingDiscount?.customerId) {
+          setLoadingCustomer(true);
+          try {
+            const customer = await getCustomer(editingDiscount.customerId);
+            setSelectedCustomer(customer);
+          } finally {
+            setLoadingCustomer(false);
+          }
+        } else {
+          setSelectedCustomer(null);
+          setLoadingCustomer(false);
+        }
+      };
+      hydrateCustomer();
       
       if (editingDiscount) {
         // Populate form with existing discount data
@@ -145,6 +171,9 @@ export default function CreateDiscountModal({ open, onClose, onSuccess, editingD
           maximumQuantity: editingDiscount.maximumQuantity?.toString() || '',
           usageLimit: editingDiscount.usageLimit?.toString() || '',
           perCustomerLimit: editingDiscount.perCustomerLimit?.toString() || '',
+          periodLimit: editingDiscount.periodLimit?.toString() || '',
+          periodType: editingDiscount.periodType || '',
+          periodWindowDays: editingDiscount.periodWindowDays?.toString() || '',
           startDate: editingDiscount.startDate ? new Date(editingDiscount.startDate).toISOString().slice(0, 16) : '',
           endDate: editingDiscount.endDate ? new Date(editingDiscount.endDate).toISOString().slice(0, 16) : '',
           applicableProducts: editingDiscount.applicableProducts || [],
@@ -158,6 +187,14 @@ export default function CreateDiscountModal({ open, onClose, onSuccess, editingD
           getQuantity: editingDiscount.buyXGetYFree?.get?.toString() || '',
           freeType: editingDiscount.buyXGetYFree?.freeType || 'CHEAPEST'
         });
+
+        if (editingDiscount.periodWindowDays) {
+          setPeriodWindowType('ROLLING');
+        } else if (editingDiscount.periodType) {
+          setPeriodWindowType('CALENDAR');
+        } else {
+          setPeriodWindowType('NONE');
+        }
       } else {
         // Reset form for new discount
         setDiscountType(null);
@@ -177,6 +214,9 @@ export default function CreateDiscountModal({ open, onClose, onSuccess, editingD
           maximumQuantity: '',
           usageLimit: '',
           perCustomerLimit: '',
+          periodLimit: '',
+          periodType: '',
+          periodWindowDays: '',
           startDate: '',
           endDate: '',
           applicableProducts: [],
@@ -190,9 +230,12 @@ export default function CreateDiscountModal({ open, onClose, onSuccess, editingD
           getQuantity: '',
           freeType: 'CHEAPEST'
         });
+
+        setPeriodWindowType('NONE');
+        setSelectedCustomer(null);
       }
     }
-  }, [open, editingDiscount]);
+  }, [open, editingDiscount, clearSearch, getCustomer]);
 
   if (!open) return null;
 
@@ -214,6 +257,24 @@ export default function CreateDiscountModal({ open, onClose, onSuccess, editingD
     { value: 'CATEGORY', label: 'Specific Categories' },
     { value: 'PRODUCT', label: 'Specific Products' }
   ];
+
+  const periodWindowOptions = [
+    { value: 'NONE', label: 'No period limit' },
+    { value: 'CALENDAR', label: 'Calendar period' },
+    { value: 'ROLLING', label: 'Rolling days' }
+  ];
+
+  const periodTypeOptions = [
+    { value: 'WEEKLY', label: 'Weekly' },
+    { value: 'MONTHLY', label: 'Monthly' },
+    { value: 'YEARLY', label: 'Yearly' }
+  ];
+
+  const handleCustomerSelect = (customer: any) => {
+    setSelectedCustomer(customer);
+    setCustomerQuery('');
+    clearSearch();
+  };
 
   // Note: Toggle functions removed - now using single selection
 
@@ -256,6 +317,19 @@ export default function CreateDiscountModal({ open, onClose, onSuccess, editingD
         // For 'ALL', both arrays stay empty
       }
 
+      const periodLimitValue = formData.periodLimit ? parseInt(formData.periodLimit) : null;
+      const periodWindowDaysValue =
+        periodWindowType === 'ROLLING' && formData.periodWindowDays
+          ? parseInt(formData.periodWindowDays)
+          : null;
+      const periodTypeValue =
+        periodWindowType === 'CALENDAR' && formData.periodType ? formData.periodType : null;
+
+      if (periodLimitValue && !periodWindowDaysValue && !periodTypeValue) {
+        alert('Select a period window when setting a usage limit per period.');
+        return;
+      }
+
       const discountData = {
         ...formData,
         discountType,
@@ -268,6 +342,10 @@ export default function CreateDiscountModal({ open, onClose, onSuccess, editingD
         maximumQuantity: formData.maximumQuantity ? parseInt(formData.maximumQuantity) : null,
         usageLimit: formData.usageLimit ? parseInt(formData.usageLimit) : null,
         perCustomerLimit: formData.perCustomerLimit ? parseInt(formData.perCustomerLimit) : null,
+        periodLimit: periodLimitValue,
+        periodType: periodLimitValue ? periodTypeValue : null,
+        periodWindowDays: periodLimitValue ? periodWindowDaysValue : null,
+        customerId: selectedCustomer?.id || null,
         priority: parseInt(formData.priority) || 1,
         autoApply: applicationMethod === 'AUTO_APPLY',
         startDate: formData.startDate ? new Date(formData.startDate).toISOString() : null,
@@ -283,16 +361,14 @@ export default function CreateDiscountModal({ open, onClose, onSuccess, editingD
       const url = editingDiscount ? `/api/discounts/${editingDiscount.id}` : '/api/discounts';
       const method = editingDiscount ? 'PUT' : 'POST';
       
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(discountData),
-      });
+      const response = method === 'PUT'
+        ? await apiClient.put(url, discountData)
+        : await apiClient.post(url, discountData);
 
-      if (response.ok) {
+      if (response.status >= 200 && response.status < 300) {
         onSuccess();
       } else {
-        const error = await response.json();
+        const error = response.data || {};
         alert(`Failed to create discount: ${error.error || error.message || 'Unknown error'}`);
       }
     } catch (error) {
@@ -308,16 +384,13 @@ export default function CreateDiscountModal({ open, onClose, onSuccess, editingD
     
     setLoading(true);
     try {
-      const response = await fetch(`/api/discounts/${editingDiscount.id}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' }
-      });
+      const response = await apiClient.delete(`/api/discounts/${editingDiscount.id}`);
 
-      if (response.ok) {
+      if (response.status >= 200 && response.status < 300) {
         onDelete(editingDiscount.id);
         onClose();
       } else {
-        const error = await response.json();
+        const error = response.data || {};
         alert(`Failed to delete discount: ${error.error || error.message || 'Unknown error'}`);
       }
     } catch (error) {
@@ -940,6 +1013,146 @@ export default function CreateDiscountModal({ open, onClose, onSuccess, editingD
                   onChange={(e) => setFormData(prev => ({ ...prev, minimumOrder: e.target.value }))}
                   placeholder="No minimum"
                 />
+              </div>
+
+              {/* Usage Limit Per Period */}
+              <div className="space-y-3">
+                <h5 className="text-md font-semibold text-black dark:text-white">
+                  Usage Limit Per Period (Optional)
+                </h5>
+                <div className="grid grid-cols-2 gap-6">
+                  <InputField
+                    label="Uses per period"
+                    type="number"
+                    value={formData.periodLimit}
+                    onChange={(e) => setFormData(prev => ({ ...prev, periodLimit: e.target.value }))}
+                    placeholder="Unlimited"
+                  />
+                  <Select
+                    options={periodWindowOptions}
+                    value={periodWindowType}
+                    onChange={(value) => {
+                      const nextType = value as 'NONE' | 'CALENDAR' | 'ROLLING';
+                      setPeriodWindowType(nextType);
+                      if (nextType === 'NONE') {
+                        setFormData(prev => ({
+                          ...prev,
+                          periodLimit: '',
+                          periodType: '',
+                          periodWindowDays: ''
+                        }));
+                      } else if (nextType === 'CALENDAR') {
+                        setFormData(prev => ({
+                          ...prev,
+                          periodType: prev.periodType || 'MONTHLY',
+                          periodWindowDays: ''
+                        }));
+                      } else {
+                        setFormData(prev => ({
+                          ...prev,
+                          periodType: '',
+                          periodWindowDays: prev.periodWindowDays || '30'
+                        }));
+                      }
+                    }}
+                    placeholder="Select window"
+                  />
+                </div>
+                {periodWindowType === 'CALENDAR' && (
+                  <Select
+                    options={periodTypeOptions}
+                    value={formData.periodType}
+                    onChange={(value) => setFormData(prev => ({ ...prev, periodType: value }))}
+                    placeholder="Select calendar period"
+                  />
+                )}
+                {periodWindowType === 'ROLLING' && (
+                  <InputField
+                    label="Rolling days"
+                    type="number"
+                    value={formData.periodWindowDays}
+                    onChange={(e) => setFormData(prev => ({ ...prev, periodWindowDays: e.target.value }))}
+                    placeholder="30"
+                  />
+                )}
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Examples: 4 uses per 30 days, 1 use per 7 days.
+                </p>
+              </div>
+
+              {/* Customer Restriction */}
+              <div className="space-y-3">
+                <h5 className="text-md font-semibold text-black dark:text-white">
+                  Restrict to Customer (Optional)
+                </h5>
+                {loadingCustomer ? (
+                  <div className="text-sm text-gray-500 dark:text-gray-400">Loading customer...</div>
+                ) : selectedCustomer ? (
+                  <div className="flex items-center justify-between rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+                    <div>
+                      <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                        {selectedCustomer.firstName} {selectedCustomer.lastName}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        {[selectedCustomer.email, selectedCustomer.phone].filter(Boolean).join(' • ') || 'No contact info'}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCustomer(null)}
+                      className="rounded-lg bg-gray-100 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <InputField
+                      label="Search customers"
+                      value={customerQuery}
+                      onChange={(e) => setCustomerQuery(e.target.value)}
+                      placeholder="Start typing name, phone, or email"
+                    />
+                    <div className="max-h-56 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700">
+                      {isSearchingCustomers ? (
+                        <div className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                          Searching...
+                        </div>
+                      ) : customerQuery.length < 3 ? (
+                        <div className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                          Type at least 3 characters to search.
+                        </div>
+                      ) : customerResults.length === 0 ? (
+                        <div className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                          No customers found.
+                        </div>
+                      ) : (
+                        customerResults.map((result) => (
+                          <div
+                            key={result.id}
+                            className="flex items-center justify-between border-b border-gray-100 px-4 py-3 last:border-0 dark:border-gray-700"
+                          >
+                            <div className="min-w-0">
+                              <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                                {result.firstName} {result.lastName}
+                              </div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400">
+                                {[result.email, result.phone].filter(Boolean).join(' • ') || 'No contact info'}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleCustomerSelect(result)}
+                              className="rounded-lg bg-brand-500 px-3 py-2 text-xs font-medium text-white hover:bg-brand-600"
+                            >
+                              Select
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Date Range */}

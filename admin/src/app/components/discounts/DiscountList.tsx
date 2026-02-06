@@ -3,6 +3,7 @@ import InputField from '@shared/ui/forms/input/InputField';
 import Select from '@shared/ui/forms/Select';
 import StandardTable, { ColumnDef } from '@shared/ui/components/ui/table/StandardTable';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
+import { useApiClient } from '@shared/hooks/useApiClient';
 
 // Inline SVG icons
 const PencilIcon = ({ className = '' }: { className?: string }) => (
@@ -21,6 +22,11 @@ type Discount = {
   enabled: boolean;
   usageCount: number;
   usageLimit?: number;
+  perCustomerLimit?: number;
+  periodLimit?: number;
+  periodType?: string;
+  periodWindowDays?: number;
+  customerId?: string;
   startDate?: string;
   endDate?: string;
   createdAt: string;
@@ -31,6 +37,7 @@ type Props = {
 };
 
 export default function DiscountList({ onEditDiscount }: Props) {
+  const apiClient = useApiClient();
   const [discounts, setDiscounts] = useState<Discount[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -44,10 +51,9 @@ export default function DiscountList({ onEditDiscount }: Props) {
   const fetchDiscounts = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/discounts');
-      if (response.ok) {
-        const data = await response.json();
-        setDiscounts(data);
+      const response = await apiClient.get('/api/discounts');
+      if (response.status >= 200 && response.status < 300) {
+        setDiscounts(response.data);
       }
     } catch (error) {
       console.error('Failed to fetch discounts:', error);
@@ -58,13 +64,11 @@ export default function DiscountList({ onEditDiscount }: Props) {
 
   const toggleDiscountStatus = async (discountId: string, enabled: boolean) => {
     try {
-      const response = await fetch(`/api/discounts/${discountId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled: !enabled }),
+      const response = await apiClient.patch(`/api/discounts/${discountId}`, {
+        enabled: !enabled
       });
       
-      if (response.ok) {
+      if (response.status >= 200 && response.status < 300) {
         setDiscounts(prev => 
           prev.map(discount => 
             discount.id === discountId 
