@@ -1061,7 +1061,7 @@ const handleCardComplete = (data: {
             {fingerprintMatchError && (
               <p className="text-sm text-red-500 mt-3">{fingerprintMatchError}</p>
             )}
-            {isMatchingFingerprint && (
+            {isMatchingFingerprint && !fingerprintMatches?.candidates?.length && (
               <p className="text-sm text-gray-500 mt-3">Checking for matches…</p>
             )}
           </div>
