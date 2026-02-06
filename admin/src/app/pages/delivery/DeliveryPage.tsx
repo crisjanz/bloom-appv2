@@ -27,6 +27,7 @@ import { useCommunicationsSocket, CommunicationsSocketEvent } from '@shared/hook
 // MIGRATION: Use domain hook for delivery management
 import { useDeliveryManagement } from '@domains/orders/hooks/useDeliveryManagement';
 import { OrderStatus as DomainOrderStatus } from '@domains/orders/entities/Order';
+import { OrdersMapButton, formatOrderAddress } from '@shared/ui/components/OrdersMapButton';
 
 // Temporary types until domain layer is fully implemented
 type DeliveryPerson = {
@@ -119,6 +120,18 @@ const DeliveryPage: React.FC = () => {
     });
     return ids;
   }, [routeSummaries]);
+
+  // Collect map locations from delivery orders
+  const mapLocations = useMemo(() => {
+    if (!displayData?.forDelivery) return [];
+    return displayData.forDelivery
+      .filter((order: DeliveryOrder) => order.deliveryAddress)
+      .map((order: DeliveryOrder) => ({
+        address: formatOrderAddress(order.deliveryAddress),
+        label: `#${order.orderNumber}`,
+      }))
+      .filter((loc) => loc.address);
+  }, [displayData]);
 
   const handleUnreadCountsUpdated = useCallback(
     (payload: { orderId: string; orderUnreadCount: number }) => {
@@ -684,8 +697,9 @@ const DeliveryPage: React.FC = () => {
               )}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button onClick={() => navigate('/delivery/routes')}>
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <OrdersMapButton locations={mapLocations} size="sm" />
+            <Button size="sm" onClick={() => navigate('/delivery/routes')}>
               Route Builder
             </Button>
           </div>

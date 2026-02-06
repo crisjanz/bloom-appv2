@@ -6,6 +6,7 @@ import Button from '@shared/ui/components/ui/button/Button';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
 import { useApiClient } from '@shared/hooks/useApiClient';
 import useRoutes, { Route, RouteStop } from '@shared/hooks/useRoutes';
+import { OrdersMapButton, formatOrderAddress } from '@shared/ui/components/OrdersMapButton';
 
 type DeliveryOrder = {
   id: string;
@@ -302,6 +303,12 @@ export default function RouteBuilderPage() {
                         </option>
                       ))}
                     </select>
+                    <OrdersMapButton
+                      locations={route.stops.map((stop) => ({
+                        address: formatOrderAddress(stop.order?.deliveryAddress),
+                        label: `#${stop.order?.orderNumber}`,
+                      }))}
+                    />
                     <Button variant="outline" onClick={() => handleDeleteRoute(route.id)}>
                       Delete
                     </Button>
