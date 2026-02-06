@@ -225,6 +225,9 @@ const PaymentController: FC<Props> = ({
     transaction: any;
   } | null>(null);
 
+  // Ref to prevent multiple finalization calls (state updates are async, ref is sync)
+  const finalizationAttemptedRef = useRef(false);
+
   // Coupon validation hook
   const {
     validateCoupon,
@@ -254,6 +257,7 @@ const PaymentController: FC<Props> = ({
     clearValidation();
     setRefundModalOpen(false);
     setRefundTransactionNumber(null);
+    finalizationAttemptedRef.current = false;
   };
 
   useEffect(() => {
@@ -627,10 +631,14 @@ const handleCardComplete = (data: {
   };
 
   useEffect(() => {
-    if (view !== 'split') return;
+    if (view !== 'split') {
+      finalizationAttemptedRef.current = false; // Reset when leaving split view
+      return;
+    }
     if (paymentState.isProcessing || paymentState.showCompletion) return;
     if (paymentModals.modalContext?.mode === 'split') return;
     if (transactionSubmission.pendingFinalization) return;
+    if (finalizationAttemptedRef.current) return; // Prevent duplicate calls
 
     const outstandingRows = splitPayment.splitRows.filter((row) => row.status !== 'completed');
     if (outstandingRows.some((row) => row.status === 'processing')) return;
@@ -645,6 +653,7 @@ const handleCardComplete = (data: {
     const remaining = Math.max(0, total - paid);
 
     if (remaining <= MIN_BALANCE && outstandingRows.length === 0) {
+      finalizationAttemptedRef.current = true; // Set BEFORE calling (sync)
       attemptFinalize(payments);
     }
   }, [
