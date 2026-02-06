@@ -238,6 +238,24 @@ const CheckoutContent = () => {
     [cart],
   );
   const discountAmount = getDiscountAmount();
+  const discountLabel = useMemo(() => {
+    if (!appliedDiscounts.length) return "Discount";
+
+    if (appliedDiscounts.length === 1) {
+      const discount = appliedDiscounts[0];
+      if (discount.name) return `Discount (${discount.name})`;
+      if (discount.code) return `Discount (${discount.code.toUpperCase()})`;
+      return "Discount";
+    }
+
+    const primary = appliedDiscounts[0];
+    const primaryLabel = primary.name || (primary.code ? primary.code.toUpperCase() : null);
+    if (primaryLabel) {
+      return `Discounts (${primaryLabel} +${appliedDiscounts.length - 1})`;
+    }
+
+    return "Discounts";
+  }, [appliedDiscounts]);
   const appliedDiscounts = useMemo(() => {
     const autoApplied = Array.isArray(autoDiscounts)
       ? autoDiscounts.map((discount) => ({
@@ -827,6 +845,7 @@ const CheckoutContent = () => {
           tax={estimatedTax}
           total={estimatedTotal}
           discountAmount={discountAmount}
+          discountLabel={discountLabel}
           couponFreeShipping={couponFreeShipping}
           formatCurrency={formatCurrency}
           formatDate={formatDate}
@@ -867,6 +886,7 @@ const CheckoutContent = () => {
                 formatCurrency={formatCurrency}
                 formatDate={formatDate}
                 discountAmount={discountAmount}
+                discountLabel={discountLabel}
                 couponFreeShipping={couponFreeShipping}
                 coupon={coupon}
                 couponInput={couponInput}
@@ -978,6 +998,7 @@ const CheckoutContent = () => {
                     deliveryDateLabel={formatDate(deliveryDate)}
                     recipient={recipient}
                     customer={customer}
+                    discountLabel={discountLabel}
                     coupon={coupon}
                     couponFreeShipping={couponFreeShipping}
                     totals={{
@@ -1059,6 +1080,7 @@ const MobileCheckout = ({
   tax,
   total,
   discountAmount,
+  discountLabel,
   couponFreeShipping,
   formatCurrency,
   formatDate,
@@ -1158,6 +1180,7 @@ const MobileCheckout = ({
             tax={tax}
             total={total}
             discountAmount={discountAmount}
+            discountLabel={discountLabel}
             couponFreeShipping={couponFreeShipping}
           />
           <MobileStepActions
@@ -1181,6 +1204,7 @@ const MobileCheckout = ({
       tax={tax}
       total={total}
       discountAmount={discountAmount}
+      discountLabel={discountLabel}
       coupon={coupon}
       couponFreeShipping={couponFreeShipping}
       formatCurrency={formatCurrency}
@@ -1227,6 +1251,7 @@ MobileCheckout.propTypes = {
   tax: PropTypes.number.isRequired,
   total: PropTypes.number.isRequired,
   discountAmount: PropTypes.number.isRequired,
+  discountLabel: PropTypes.string.isRequired,
   couponFreeShipping: PropTypes.bool.isRequired,
   formatCurrency: PropTypes.func.isRequired,
   formatDate: PropTypes.func.isRequired,
@@ -1618,6 +1643,7 @@ const MobilePaymentForm = ({
   tax,
   total,
   discountAmount,
+  discountLabel,
   couponFreeShipping,
 }) => (
   <div className="space-y-0">
@@ -1701,7 +1727,7 @@ const MobilePaymentForm = ({
           </div>
           {discountAmount > 0 && (
             <div className="flex justify-between text-success">
-              <span>Discount {coupon?.code ? `(${coupon.code.toUpperCase()})` : ""}</span>
+              <span>{discountLabel}</span>
               <span>-{formatCurrency(discountAmount)}</span>
             </div>
           )}
@@ -1765,6 +1791,7 @@ MobilePaymentForm.propTypes = {
   tax: PropTypes.number.isRequired,
   total: PropTypes.number.isRequired,
   discountAmount: PropTypes.number.isRequired,
+  discountLabel: PropTypes.string.isRequired,
   couponFreeShipping: PropTypes.bool.isRequired,
 };
 
@@ -1811,6 +1838,7 @@ const MobileStickyBottomSummary = ({
   tax,
   total,
   discountAmount,
+  discountLabel,
   coupon,
   couponFreeShipping,
   formatCurrency,
@@ -1851,7 +1879,7 @@ const MobileStickyBottomSummary = ({
                 </div>
                 {discountAmount > 0 && (
                   <div className="flex justify-between text-success">
-                    <span>Discount {coupon?.code ? `(${coupon.code.toUpperCase()})` : ""}</span>
+                    <span>{discountLabel}</span>
                     <span>-{formatCurrency(discountAmount)}</span>
                   </div>
                 )}
@@ -1921,6 +1949,7 @@ MobileStickyBottomSummary.propTypes = {
   tax: PropTypes.number.isRequired,
   total: PropTypes.number.isRequired,
   discountAmount: PropTypes.number.isRequired,
+  discountLabel: PropTypes.string.isRequired,
   coupon: PropTypes.object,
   couponFreeShipping: PropTypes.bool.isRequired,
   formatCurrency: PropTypes.func.isRequired,
@@ -1993,10 +2022,10 @@ const MobileCartSummary = ({
   deliveryFee,
   total,
   discountAmount,
+  discountLabel,
   couponFreeShipping,
   formatCurrency,
   formatDate,
-  coupon,
 }) => (
   <div className="mt-10 space-y-4">
     <div>
@@ -2030,7 +2059,7 @@ const MobileCartSummary = ({
       </div>
       {discountAmount > 0 && (
         <div className="flex justify-between text-success">
-          <span>Discount {coupon?.code ? `(${coupon.code.toUpperCase()})` : ""}</span>
+          <span>{discountLabel}</span>
           <span>-{formatCurrency(discountAmount)}</span>
         </div>
       )}
@@ -2058,10 +2087,10 @@ MobileCartSummary.propTypes = {
   deliveryFee: PropTypes.number.isRequired,
   total: PropTypes.number.isRequired,
   discountAmount: PropTypes.number.isRequired,
+  discountLabel: PropTypes.string.isRequired,
   couponFreeShipping: PropTypes.bool.isRequired,
   formatCurrency: PropTypes.func.isRequired,
   formatDate: PropTypes.func.isRequired,
-  coupon: PropTypes.object,
 };
 
 const SavedRecipientControls = ({
@@ -2268,6 +2297,7 @@ const SidebarSummary = ({
   tax,
   total,
   discountAmount,
+  discountLabel,
   couponFreeShipping,
   coupon,
   couponInput,
@@ -2310,7 +2340,7 @@ const SidebarSummary = ({
         <SummaryRow label="Subtotal" value={formatCurrency(subtotal)} />
         {discountAmount > 0 && (
           <SummaryRow
-            label={`Discount (${coupon?.code?.toUpperCase()})`}
+            label={discountLabel}
             value={`-${formatCurrency(discountAmount)}`}
           />
         )}
@@ -2396,6 +2426,7 @@ SidebarSummary.propTypes = {
   tax: PropTypes.number.isRequired,
   total: PropTypes.number.isRequired,
   discountAmount: PropTypes.number.isRequired,
+  discountLabel: PropTypes.string.isRequired,
   couponFreeShipping: PropTypes.bool.isRequired,
   coupon: PropTypes.object,
   couponInput: PropTypes.string.isRequired,
@@ -2740,6 +2771,7 @@ const PaymentForm = ({
   recipient,
   customer,
   totals,
+  discountLabel,
   coupon,
   couponFreeShipping,
 }) => {
@@ -2806,9 +2838,7 @@ const PaymentForm = ({
             </div>
             {totals.discount && (
               <div className="flex justify-between">
-                <span>
-                  Discount{coupon?.code ? ` (${coupon.code.toUpperCase()})` : ""}
-                </span>
+                <span>{discountLabel}</span>
                 <span>-{totals.discount}</span>
               </div>
             )}
@@ -2863,6 +2893,7 @@ PaymentForm.propTypes = {
   recipient: PropTypes.object.isRequired,
   customer: PropTypes.object.isRequired,
   totals: PropTypes.object.isRequired,
+  discountLabel: PropTypes.string.isRequired,
   coupon: PropTypes.object,
   couponFreeShipping: PropTypes.bool.isRequired,
 };
