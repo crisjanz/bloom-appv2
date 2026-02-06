@@ -54,6 +54,9 @@ export const useOrderLists = () => {
       if (criteria.deliveryDateTo) {
         searchCriteria.deliveryDateTo = new Date(criteria.deliveryDateTo)
       }
+      if (criteria.limit) {
+        searchCriteria.limit = criteria.limit
+      }
 
       const results = await orderService.search(searchCriteria)
       setOrders(results)
