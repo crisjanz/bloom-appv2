@@ -112,7 +112,7 @@ const OrdersListPage: React.FC = () => {
     const filters: any = {
       status: statusFilter,
       search: activeSearchTerm,
-      limit: 200
+      limit: 10000
     };
 
     // Handle date filter buttons
@@ -552,7 +552,7 @@ const OrdersListPage: React.FC = () => {
                 : 'No orders found',
               action: error ? {
                 label: 'Retry',
-                onClick: () => fetchOrders({ status: statusFilter, search: activeSearchTerm, limit: 200 })
+                onClick: () => fetchOrders({ status: statusFilter, search: activeSearchTerm, limit: 10000 })
               } : undefined
             }}
             pagination={{
