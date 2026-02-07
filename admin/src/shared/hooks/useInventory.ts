@@ -279,6 +279,28 @@ export function useInventory(initialFilters?: Partial<InventoryFilters>) {
     [apiClient]
   );
 
+  const printInventoryReport = useCallback(
+    async (options?: {
+      categoryId?: string;
+      lowStockOnly?: boolean;
+      sortBy?: 'name' | 'sku' | 'stock';
+      sortOrder?: 'asc' | 'desc';
+    }) => {
+      const { data, status } = await apiClient.post('/api/print/inventory-report', {
+        categoryId: options?.categoryId,
+        lowStockOnly: options?.lowStockOnly,
+        sortBy: options?.sortBy,
+        sortOrder: options?.sortOrder,
+      });
+      return ensureResponse<{
+        action: 'queued' | 'browser-print' | 'skipped';
+        pdfUrl?: string;
+        jobId?: string;
+      }>(status, data, 'Failed to print inventory report');
+    },
+    [apiClient]
+  );
+
   const generateSingleLabel = useCallback(
     async (variantId: string, quantity = 1) => {
       const params = new URLSearchParams({ quantity: String(quantity) });
@@ -338,6 +360,7 @@ export function useInventory(initialFilters?: Partial<InventoryFilters>) {
     bulkAdjust,
     getQrCode,
     generateReport,
+    printInventoryReport,
     generateSingleLabel,
     generateLabels,
     printLabels,

@@ -264,6 +264,10 @@ Each variant can optionally reference one of the product's images via `featuredI
 - ✅ POST `/api/print/receipt/:orderId` — generate receipt print (PDF or thermal).
 - ✅ POST `/api/print/invoice/:orderId` — generate invoice PDF print.
 - ✅ POST `/api/print/order-ticket/:orderId` — generate order ticket print.
+- ✅ POST `/api/print/sales-report` — generate sales report print (Documents settings).
+- ✅ POST `/api/print/house-account-statement` — generate house account statement print (Documents settings).
+- ✅ POST `/api/print/inventory-report` — generate inventory count sheet print (Documents settings).
+- ✅ POST `/api/print/gift-cards` — generate gift card handoff print (Documents settings).
 - ✅ GET `/api/print/preview/ticket` — generate a preview order ticket PDF from the most recent completed order.
 - ✅ GET `/api/print/pdf/:fileName` — fetch locally stored PDF for browser printing.
 

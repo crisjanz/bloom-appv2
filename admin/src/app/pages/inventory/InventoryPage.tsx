@@ -67,7 +67,7 @@ export default function InventoryPage() {
     adjustStock,
     bulkAdjust,
     getQrCode,
-    generateReport,
+    printInventoryReport,
     printLabels,
   } = useInventory();
 
@@ -149,9 +149,17 @@ export default function InventoryPage() {
     sortBy?: 'name' | 'sku' | 'stock';
     sortOrder?: 'asc' | 'desc';
   }) => {
-    const report = await generateReport(options);
-    if (report.pdfUrl) {
-      window.open(report.pdfUrl, '_blank');
+    try {
+      setActionError(null);
+      const result = await printInventoryReport(options);
+      if (result.action === 'browser-print' && result.pdfUrl) {
+        window.open(result.pdfUrl, '_blank');
+      } else if (result.action === 'skipped') {
+        setActionError('Document printing is disabled. Enable it in Settings → Print Settings.');
+      }
+    } catch (err: any) {
+      console.error('Failed to print inventory report:', err);
+      setActionError(err?.message || 'Failed to print inventory report');
     }
   };
 

@@ -3,6 +3,7 @@ import PageBreadcrumb from '@shared/ui/common/PageBreadCrumb';
 import ComponentCard from '@shared/ui/common/ComponentCard';
 import Label from '@shared/ui/forms/Label';
 import Select from '@shared/ui/forms/Select';
+import FormError from '@shared/ui/components/ui/form/FormError';
 import {
   Table,
   TableBody,
@@ -14,12 +15,12 @@ import StatusBadge from '@app/components/orders/StatusBadge';
 import ReportMetricCard from '@app/components/reports/ReportMetricCard';
 import SalesTrendChart from '@app/components/reports/SalesTrendChart';
 import BreakdownList from '@app/components/reports/BreakdownList';
-import SalesReportPrintView from '@app/components/reports/SalesReportPrintView';
 import { getMonthRange, getTodayRange, getWeekRange } from '@app/components/reports/dateUtils';
 import { DEFAULT_PAYMENT_METHOD_KEYS, formatPaymentMethodKeyLabel, summarizePaymentMethods } from '@app/components/reports/paymentUtils';
 import { useSalesReports } from '@domains/reports/hooks/useSalesReports';
 import type { SalesOrder } from '@domains/reports/types';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
+import { useApiClient } from '@shared/hooks/useApiClient';
 import type { OrderStatus } from '@shared/utils/orderStatusHelpers';
 import { formatCurrency } from '@shared/utils/currency';
 
@@ -53,10 +54,14 @@ const formatLabel = (value: string) => {
 
 const SalesReportPage: React.FC = () => {
   const defaultRange = useMemo(() => getMonthRange(), []);
+  const apiClient = useApiClient();
 
   const [datePreset, setDatePreset] = useState<DatePreset>('MONTH');
   const [customStartDate, setCustomStartDate] = useState<string>(defaultRange.start);
   const [customEndDate, setCustomEndDate] = useState<string>(defaultRange.end);
+  const [printLoading, setPrintLoading] = useState(false);
+  const [printError, setPrintError] = useState<string | null>(null);
+  const [printSuccess, setPrintSuccess] = useState<string | null>(null);
 
   const {
     filters,
@@ -230,46 +235,40 @@ const SalesReportPage: React.FC = () => {
     );
   };
 
-  const handlePrint = () => {
-    if (typeof document === 'undefined') return;
+  const handlePrint = async () => {
+    setPrintError(null);
+    setPrintSuccess(null);
+    setPrintLoading(true);
 
-    const body = document.body;
-    const mediaQuery = window.matchMedia('print');
-    let removeMediaListener: (() => void) | null = null;
+    try {
+      const response = await apiClient.post('/api/print/sales-report', {
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        paymentMethod: filters.paymentMethod,
+        status: filters.status,
+        orderSource: filters.orderSource,
+      });
 
-    const cleanup = () => {
-      body.classList.remove('print-mode');
-      window.removeEventListener('afterprint', cleanup);
-      if (removeMediaListener) {
-        removeMediaListener();
-        removeMediaListener = null;
+      if (response.status >= 400) {
+        throw new Error(response.data?.error || 'Print request failed');
       }
-    };
 
-    body.classList.add('print-mode');
-
-    const mediaListener = (event: MediaQueryListEvent) => {
-      if (!event.matches) {
-        cleanup();
+      if (response.data?.action === 'browser-print' && response.data?.pdfUrl) {
+        window.open(response.data.pdfUrl, '_blank');
+        setPrintSuccess('Report PDF opened in a new tab.');
+      } else if (response.data?.action === 'queued') {
+        setPrintSuccess('Report queued for printing.');
+      } else if (response.data?.action === 'skipped') {
+        setPrintError('Printing is disabled for documents.');
+      } else {
+        setPrintSuccess('Report queued for printing.');
       }
-    };
-
-    if (mediaQuery.addEventListener) {
-      mediaQuery.addEventListener('change', mediaListener);
-      removeMediaListener = () => mediaQuery.removeEventListener('change', mediaListener);
-    } else if (mediaQuery.addListener) {
-      mediaQuery.addListener(mediaListener);
-      removeMediaListener = () => mediaQuery.removeListener(mediaListener);
+    } catch (err) {
+      console.error('Failed to print report:', err);
+      setPrintError(err instanceof Error ? err.message : 'Failed to print report');
+    } finally {
+      setPrintLoading(false);
     }
-
-    window.addEventListener('afterprint', cleanup);
-    window.print();
-
-    setTimeout(() => {
-      if (body.classList.contains('print-mode')) {
-        cleanup();
-      }
-    }, 2000);
   };
 
   return (
@@ -310,9 +309,12 @@ const SalesReportPage: React.FC = () => {
               <button
                 type="button"
                 onClick={handlePrint}
-                className="rounded-lg border border-brand-500 px-4 py-2 text-sm font-medium text-brand-500 transition-colors hover:bg-brand-500/10"
+                disabled={printLoading}
+                className={`rounded-lg border border-brand-500 px-4 py-2 text-sm font-medium text-brand-500 transition-colors hover:bg-brand-500/10 ${
+                  printLoading ? 'cursor-not-allowed opacity-50' : ''
+                }`}
               >
-                Print Report
+                {printLoading ? 'Printing...' : 'Print Report'}
               </button>
               <button
                 type="button"
@@ -322,6 +324,13 @@ const SalesReportPage: React.FC = () => {
                 Refresh
               </button>
             </div>
+
+            {printError && <FormError error={printError} />}
+            {printSuccess && (
+              <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+                {printSuccess}
+              </div>
+            )}
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-1">
@@ -477,11 +486,6 @@ const SalesReportPage: React.FC = () => {
         )}
       </ComponentCard>
       </div>
-      <SalesReportPrintView
-        summary={summary ?? null}
-        orders={orders}
-        filters={filters}
-      />
     </div>
   );
 };

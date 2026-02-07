@@ -10,18 +10,6 @@ import { formatCurrency } from '@shared/utils/currency';
 import { getMonthRange } from '@app/components/reports/dateUtils';
 import { useApiClient } from '@shared/hooks/useApiClient';
 import useHouseAccounts, { HouseAccountStatement } from '@shared/hooks/useHouseAccounts';
-import HouseAccountStatementPrintView from './components/HouseAccountStatementPrintView';
-
-interface StoreInfo {
-  storeName?: string | null;
-  phone?: string | null;
-  email?: string | null;
-  address?: string | null;
-  city?: string | null;
-  state?: string | null;
-  zipCode?: string | null;
-  country?: string | null;
-}
 
 interface ChargeRow {
   id: string;
@@ -75,20 +63,11 @@ export default function HouseAccountStatementPage() {
   const [toDate, setToDate] = useState(defaultRange.end);
 
   const [statement, setStatement] = useState<HouseAccountStatement | null>(null);
-  const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const loadStoreInfo = useCallback(async () => {
-    try {
-      const { data, status } = await apiClient.get('/api/settings/store-info');
-      if (status < 400) {
-        setStoreInfo(data || null);
-      }
-    } catch (err) {
-      console.error('Failed to load store info:', err);
-    }
-  }, [apiClient]);
+  const [printLoading, setPrintLoading] = useState(false);
+  const [printError, setPrintError] = useState<string | null>(null);
+  const [printSuccess, setPrintSuccess] = useState<string | null>(null);
 
   const loadStatement = useCallback(async () => {
     if (!customerId) return;
@@ -111,53 +90,42 @@ export default function HouseAccountStatementPage() {
   }, [customerId, fromDate, getStatement, toDate]);
 
   useEffect(() => {
-    loadStoreInfo();
-  }, [loadStoreInfo]);
-
-  useEffect(() => {
     loadStatement();
   }, [loadStatement]);
 
-  const handlePrint = () => {
-    if (typeof document === 'undefined') return;
+  const handlePrint = async () => {
+    if (!customerId) return;
+    setPrintError(null);
+    setPrintSuccess(null);
+    setPrintLoading(true);
 
-    const body = document.body;
-    const mediaQuery = window.matchMedia('print');
-    let removeMediaListener: (() => void) | null = null;
+    try {
+      const { data, status } = await apiClient.post('/api/print/house-account-statement', {
+        customerId,
+        from: fromDate || undefined,
+        to: toDate || undefined,
+      });
 
-    const cleanup = () => {
-      body.classList.remove('print-mode');
-      window.removeEventListener('afterprint', cleanup);
-      if (removeMediaListener) {
-        removeMediaListener();
-        removeMediaListener = null;
+      if (status >= 400) {
+        throw new Error(data?.error || 'Print request failed');
       }
-    };
 
-    body.classList.add('print-mode');
-
-    const mediaListener = (event: MediaQueryListEvent) => {
-      if (!event.matches) {
-        cleanup();
+      if (data?.action === 'browser-print' && data?.pdfUrl) {
+        window.open(data.pdfUrl, '_blank');
+        setPrintSuccess('Statement PDF opened in a new tab.');
+      } else if (data?.action === 'queued') {
+        setPrintSuccess('Statement queued for printing.');
+      } else if (data?.action === 'skipped') {
+        setPrintError('Printing is disabled for documents.');
+      } else {
+        setPrintSuccess('Statement queued for printing.');
       }
-    };
-
-    if (mediaQuery.addEventListener) {
-      mediaQuery.addEventListener('change', mediaListener);
-      removeMediaListener = () => mediaQuery.removeEventListener('change', mediaListener);
-    } else if (mediaQuery.addListener) {
-      mediaQuery.addListener(mediaListener);
-      removeMediaListener = () => mediaQuery.removeListener(mediaListener);
+    } catch (err) {
+      console.error('Failed to print statement:', err);
+      setPrintError(err instanceof Error ? err.message : 'Failed to print statement');
+    } finally {
+      setPrintLoading(false);
     }
-
-    window.addEventListener('afterprint', cleanup);
-    window.print();
-
-    setTimeout(() => {
-      if (body.classList.contains('print-mode')) {
-        cleanup();
-      }
-    }, 2000);
   };
 
   const charges = statement?.charges || [];
@@ -354,16 +322,22 @@ export default function HouseAccountStatementPage() {
           <button
             type="button"
             onClick={handlePrint}
-            disabled={!statement || loading}
+            disabled={!statement || loading || printLoading}
             className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <DownloadIcon className="h-4 w-4" />
-            Print Statement
+            {printLoading ? 'Printing...' : 'Print Statement'}
           </button>
         </div>
       </ComponentCard>
 
       {error && <FormError error={error} />}
+      {printError && <FormError error={printError} />}
+      {printSuccess && (
+        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          {printSuccess}
+        </div>
+      )}
 
       {loading && (
         <div className="text-sm text-gray-500">Loading statement...</div>
@@ -451,10 +425,6 @@ export default function HouseAccountStatementPage() {
         </div>
       )}
 
-      <HouseAccountStatementPrintView
-        statement={statement}
-        storeInfo={storeInfo}
-      />
     </div>
   );
 }

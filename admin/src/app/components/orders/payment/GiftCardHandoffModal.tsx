@@ -1,5 +1,8 @@
 
+import { useState } from "react";
 import Button from "@shared/ui/components/ui/button/Button";
+import FormError from "@shared/ui/components/ui/form/FormError";
+import { useApiClient } from "@shared/hooks/useApiClient";
 import { formatCurrency } from "@shared/utils/currency";
 
 type GiftCardDetails = {
@@ -27,53 +30,50 @@ const GiftCardHandoffModal: React.FC<Props> = ({
   isDigital = false
 }) => {
   // Gift card handoff modal component
+  const apiClient = useApiClient();
+  const [printLoading, setPrintLoading] = useState(false);
+  const [printError, setPrintError] = useState<string | null>(null);
+  const [printSuccess, setPrintSuccess] = useState<string | null>(null);
   
   if (!open || cards.length === 0) return null;
 
-  const handlePrint = () => {
-    // Create printable content with better formatting for digital cards
-    const printContent = cards.map(card => `
-      <div style="border: 2px solid brand-500; padding: 30px; margin: 20px 0; text-align: center; background: #f9f9f9; border-radius: 10px; page-break-after: always;">
-        <h1 style="color: brand-500; margin-bottom: 20px;">🌸 Bloom Flower Shop Gift Card</h1>
-        
-        <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
-          <h2 style="font-family: monospace; font-size: 24px; color: #333; margin: 10px 0;">${card.cardNumber}</h2>
-          <h3 style="color: brand-500; font-size: 32px; margin: 20px 0;">${formatCurrency(card.amount)}</h3>
-        </div>
-        
-        ${card.recipientName ? `<p style="font-size: 18px; margin: 10px 0;"><strong>For:</strong> ${card.recipientName}</p>` : ''}
-        ${card.recipientEmail ? `<p style="font-size: 14px; color: #666; margin: 5px 0;">Email: ${card.recipientEmail}</p>` : ''}
-        ${card.message ? `<p style="font-style: italic; margin: 15px 0; padding: 10px; background: #f0f0f0; border-radius: 5px;">"${card.message}"</p>` : ''}
-        
-        <div style="margin-top: 30px; font-size: 12px; color: #666; border-top: 1px solid #ddd; padding-top: 15px;">
-          <p><strong>How to Use:</strong></p>
-          <p>• Present this card number for payment at Bloom Flower Shop</p>
-          <p>• Use online, in-store, or over the phone</p>
-          <p>• No expiration date • Remaining balance stays on card</p>
-          <p style="margin-top: 15px;">Questions? Call us or visit bloomflowershop.com</p>
-        </div>
-      </div>
-    `).join('');
+  const handlePrint = async () => {
+    setPrintError(null);
+    setPrintSuccess(null);
+    setPrintLoading(true);
 
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>Gift Card Details - ${cards.length} Card(s)</title>
-            <style>
-              body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
-              @media print { 
-                body { margin: 0; } 
-                @page { margin: 0.5in; }
-              }
-            </style>
-          </head>
-          <body>${printContent}</body>
-        </html>
-      `);
-      printWindow.document.close();
-      printWindow.print();
+    try {
+      const response = await apiClient.post('/api/print/gift-cards', {
+        customerName,
+        cards: cards.map((card) => ({
+          cardNumber: card.cardNumber,
+          amount: card.amount,
+          type: card.type,
+          recipientName: card.recipientName,
+          recipientEmail: card.recipientEmail,
+          message: card.message,
+        })),
+      });
+
+      if (response.status >= 400) {
+        throw new Error(response.data?.error || 'Print request failed');
+      }
+
+      if (response.data?.action === 'browser-print' && response.data?.pdfUrl) {
+        window.open(response.data.pdfUrl, '_blank');
+        setPrintSuccess('Gift card PDF opened in a new tab.');
+      } else if (response.data?.action === 'queued') {
+        setPrintSuccess('Gift cards queued for printing.');
+      } else if (response.data?.action === 'skipped') {
+        setPrintError('Printing is disabled for documents.');
+      } else {
+        setPrintSuccess('Gift cards queued for printing.');
+      }
+    } catch (err) {
+      console.error('Failed to print gift cards:', err);
+      setPrintError(err instanceof Error ? err.message : 'Failed to print gift cards');
+    } finally {
+      setPrintLoading(false);
     }
   };
 
@@ -103,9 +103,9 @@ const GiftCardHandoffModal: React.FC<Props> = ({
         {/* Instructions */}
         <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
           <p className="text-sm text-blue-800 dark:text-blue-200">
-            {isDigital 
-              ? '📧 Digital gift cards have been created. Print beautiful gift cards for immediate handoff or email them to recipients.'
-              : '🎁 Physical gift cards have been activated. Please provide the following details to the customer:'
+            {isDigital
+              ? 'Digital gift cards have been created. Print gift cards for handoff or email them to recipients.'
+              : 'Physical gift cards have been activated. Please provide the following details to the customer:'
             }
           </p>
         </div>
@@ -177,6 +177,13 @@ const GiftCardHandoffModal: React.FC<Props> = ({
           </ul>
         </div>
 
+        {printError && <FormError error={printError} />}
+        {printSuccess && (
+          <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+            {printSuccess}
+          </div>
+        )}
+
         {/* Actions */}
         <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-stroke dark:border-strokedark">
           {isDigital && (
@@ -184,17 +191,18 @@ const GiftCardHandoffModal: React.FC<Props> = ({
               onClick={handleEmailSend}
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
-              📧 Send Email
+              Send Email
             </Button>
           )}
-          
+
           <Button
             onClick={handlePrint}
+            disabled={printLoading}
             className="bg-gray-600 hover:bg-gray-700 text-white"
           >
-            🖨️ {isDigital ? 'Print Gift Cards' : 'Print Details'}
+            {printLoading ? 'Printing...' : isDigital ? 'Print Gift Cards' : 'Print Details'}
           </Button>
-          
+
           <Button
             onClick={onClose}
             className="bg-brand-500 hover:bg-brand-600 text-white"
