@@ -1,5 +1,5 @@
 import prisma from '../lib/prisma';
-import { Prisma } from '@prisma/client';
+import { HouseAccountEntryType, Prisma } from '@prisma/client';
 import { format } from 'date-fns';
 
 export interface CreateTransactionData {
@@ -150,8 +150,38 @@ class TransactionService {
   async createTransaction(data: CreateTransactionData) {
     const transactionNumber = await this.generateTransactionNumber();
     const isAdjustment = Boolean(data.isAdjustment);
+    const hasHouseAccount = data.paymentMethods.some((method) => method.type === 'HOUSE_ACCOUNT');
+    const hasNonHouseAccount = data.paymentMethods.some((method) => method.type !== 'HOUSE_ACCOUNT');
+    const houseAccountReference = hasHouseAccount
+      ? data.paymentMethods
+          .filter((method) => method.type === 'HOUSE_ACCOUNT')
+          .map((method) => {
+            const reference = method.providerMetadata?.reference;
+            return typeof reference === 'string' ? reference.trim() : '';
+          })
+          .find((reference) => reference.length > 0)
+      : undefined;
+
+    if (hasHouseAccount && hasNonHouseAccount) {
+      throw new Error('House account payments cannot be combined with other payment methods');
+    }
     
     return await prisma.$transaction(async (tx) => {
+      if (hasHouseAccount) {
+        const customer = await tx.customer.findUnique({
+          where: { id: data.customerId },
+          select: { id: true, isHouseAccount: true }
+        });
+
+        if (!customer) {
+          throw new Error(`Customer not found for transaction ${transactionNumber}`);
+        }
+
+        if (!customer.isHouseAccount) {
+          throw new Error('Customer does not have house account enabled');
+        }
+      }
+
       // Create the main payment transaction
       const paymentTransaction = await tx.paymentTransaction.create({
         data: {
@@ -211,6 +241,7 @@ class TransactionService {
           ? { id: true }
           : {
               id: true,
+              orderNumber: true,
               paymentAmount: true,
               deliveryFee: true,
               totalTax: true,
@@ -228,6 +259,11 @@ class TransactionService {
       if (missingOrderIds.length > 0) {
         throw new Error(`Orders not found for transaction ${transactionNumber}: ${missingOrderIds.join(', ')}`);
       }
+
+      const ordersById = new Map(orders.map((order) => [order.id, order]));
+      const orderedOrders = normalizedOrderIds
+        .map((orderId) => ordersById.get(orderId))
+        .filter(Boolean);
 
       if (isAdjustment) {
         const allocationMap = new Map<string, number>();
@@ -301,6 +337,37 @@ class TransactionService {
             })
           )
         );
+
+        if (hasHouseAccount) {
+          const latestEntry = await tx.houseAccountLedger.findFirst({
+            where: { customerId: data.customerId },
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]
+          });
+          let runningBalance = latestEntry?.balance ?? 0;
+
+          for (const order of orderedOrders) {
+            if (!order) continue;
+            const amount = orderAmountMap.get(order.id) || 0;
+            if (amount <= 0) continue;
+            runningBalance += amount;
+            const orderNumber = (order as any).orderNumber;
+            const description = orderNumber ? `Order #${orderNumber}` : 'Order Charge';
+
+            await tx.houseAccountLedger.create({
+              data: {
+                customerId: data.customerId,
+                type: HouseAccountEntryType.CHARGE,
+                amount,
+                balance: runningBalance,
+                description,
+                reference: houseAccountReference || null,
+                orderId: order.id,
+                transactionId: paymentTransaction.id,
+                createdBy: data.employeeId || null
+              }
+            });
+          }
+        }
       }
 
       // Update transaction status to completed if all payments succeeded

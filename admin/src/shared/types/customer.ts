@@ -5,6 +5,9 @@ export interface Customer {
   email?: string;
   phone?: string;
   notes?: string;
+  isHouseAccount?: boolean;
+  houseAccountTerms?: string;
+  houseAccountNotes?: string;
   homeAddress?: Address;
   createdAt?: string;
   updatedAt?: string;

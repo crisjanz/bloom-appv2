@@ -5,6 +5,7 @@ import TextArea from "@shared/ui/forms/input/TextArea";
 import Label from "@shared/ui/forms/Label";
 import PhoneInput from "@shared/ui/forms/PhoneInput";
 import Select from "@shared/ui/forms/Select";
+import Switch from "@shared/ui/forms/switch/Switch";
 
 interface CustomerInfoCardProps {
   customer: {
@@ -15,6 +16,9 @@ interface CustomerInfoCardProps {
     phoneLabel?: string;
     phoneNumbers?: Array<{ phone: string; label: string }>;
     notes?: string;
+    isHouseAccount?: boolean;
+    houseAccountTerms?: string;
+    houseAccountNotes?: string;
   };
   onCustomerChange: (field: string, value: any) => void;
   error?: string;
@@ -26,6 +30,14 @@ const phoneLabelOptions = [
   { value: "Work", label: "Work" },
   { value: "Office", label: "Office" },
   { value: "Other", label: "Other" },
+];
+
+const houseAccountTermOptions = [
+  { value: "NET_15", label: "NET 15" },
+  { value: "NET_30", label: "NET 30" },
+  { value: "NET_45", label: "NET 45" },
+  { value: "NET_60", label: "NET 60" },
+  { value: "DUE_ON_RECEIPT", label: "Due on Receipt" },
 ];
 
 export default function CustomerInfoCard({
@@ -179,6 +191,44 @@ export default function CustomerInfoCard({
           className="focus:border-brand-500 focus:ring-brand-500/20"
           rows={3}
         />
+      </div>
+
+      <div className="border-t border-gray-200 dark:border-gray-800 pt-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">House Account</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Enable to allow house account payments.</p>
+          </div>
+          <Switch
+            label="Enabled"
+            checked={Boolean(customer.isHouseAccount)}
+            onChange={(value) => onCustomerChange("isHouseAccount", value)}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Select
+            label="Terms"
+            options={houseAccountTermOptions}
+            value={customer.houseAccountTerms || "NET_30"}
+            onChange={(value) => onCustomerChange("houseAccountTerms", value)}
+            allowCustomValue
+            customOptionLabel="Custom terms"
+            disabled={!customer.isHouseAccount}
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="houseAccountNotes">House Account Notes</Label>
+          <TextArea
+            placeholder="Internal notes for house account billing"
+            value={customer.houseAccountNotes || ""}
+            onChange={(value) => onCustomerChange("houseAccountNotes", value)}
+            className="focus:border-brand-500 focus:ring-brand-500/20"
+            rows={3}
+            disabled={!customer.isHouseAccount}
+          />
+        </div>
       </div>
     </ComponentCard>
   );

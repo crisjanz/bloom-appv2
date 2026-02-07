@@ -1,6 +1,6 @@
 # Bloom Flower Shop – Progress Tracker
 
-**Last audited:** 2026-02-01
+**Last audited:** 2026-02-07
 Status markers: ✅ done · 🛠️ in progress · 🔜 planned · ⚠️ attention
 
 ## ✅ Production-Ready
@@ -16,6 +16,7 @@ Status markers: ✅ done · 🛠️ in progress · 🔜 planned · ⚠️ attent
 - ✅ **Fulfillment photos → Order images (2026-01-30)** — Fulfillment photo uploads now append to `order.images`, notes stay in communications, and desktop Order Photos shows fulfillment photos; includes migration script (`admin/src/app/pages/FulfillmentPage.tsx`, `admin/src/domains/orders/repositories/OrderRepository.ts`, `admin/src/app/pages/orders/OrderEditPage.tsx`, `back/src/scripts/migrate-fulfillment-photos.ts`).
 - ✅ **Unified discounts module** — `/api/discounts` powering POS auto-apply + manual overrides (`back/src/routes/discounts.ts`, `admin/src/domains/payments/hooks/usePaymentCalculations.ts`).
 - ✅ **WWW customer-specific pricing (2026-02-06)** — Customer-linked discounts with per-period limits, admin customer selector + rolling/calendar windows, sale-price auto-apply logic, and www auto-apply + checkout discount payloads (`back/prisma/schema.prisma`, `back/src/routes/discounts.ts`, `back/src/routes/orders/create.ts`, `admin/src/app/components/discounts/CreateDiscountModal.tsx`, `www/src/contexts/CartContext.jsx`, `www/src/pages/Checkout.jsx`).
+- ✅ **House account management (2026-02-07)** — House account ledger routes, admin list/detail/statement pages, and HOUSE_ACCOUNT transaction ledger entries (`back/src/routes/house-accounts.ts`, `back/src/services/houseAccountService.ts`, `back/src/services/transactionService.ts`, `admin/src/shared/hooks/useHouseAccounts.ts`, `admin/src/app/pages/house-accounts/*`, `admin/src/shared/ui/layout/AppSidebar.tsx`, `docs/API_Endpoints.md`).
 - ✅ **External order scanning (Gemini OCR) (2026-01-26)** — Scan-to-order flow for wire/external orders with Gemini Vision OCR, mobile scan UI, and create-from-scan endpoint (`back/src/routes/orders/scan.ts`, `back/src/routes/orders/create-from-scan.ts`, `back/src/services/gemini-ocr.ts`, `admin/src/app/components/orders/ScanOrderModal.tsx`, `admin/src/app/pages/mobile/MobileScanPage.tsx`).
 - ✅ **Payment settings admin** — encrypted provider credentials, offline tenders, and UI warnings when `CONFIG_ENCRYPTION_KEY` is absent (`admin/src/app/pages/settings/payments.tsx`, `back/src/routes/settings/payments.ts`).
 - ✅ **Stripe credentials from DB** — Stripe client now loads from encrypted payment settings with cache invalidation after updates; `.env` Stripe keys removed in favor of Settings → Payments (`back/src/services/paymentProviders/PaymentProviderFactory.ts`, `back/src/routes/stripe.ts`, `back/src/routes/settings/payments.ts`).

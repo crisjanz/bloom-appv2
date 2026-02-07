@@ -438,8 +438,8 @@ const TakeOrderPaymentTiles: FC<Props> = ({
           methodLabel="House Account"
           defaultAmount={safeGrandTotal}
           requireReference={true}
-          referenceLabel="Account Number"
-          instructions="Enter the house account details"
+          referenceLabel="Person Ordered"
+          instructions="Enter who placed the order"
           onSubmit={(data) => handleManualComplete('HOUSE_ACCOUNT', data)}
           onCancel={() => setActiveModal(null)}
         />

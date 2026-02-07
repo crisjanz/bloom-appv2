@@ -34,6 +34,9 @@ const emptyCustomer: Customer = {
   email: "",
   phone: "",
   notes: "",
+  isHouseAccount: false,
+  houseAccountTerms: "NET_30",
+  houseAccountNotes: "",
   homeAddress: undefined,
 };
 
@@ -167,7 +170,7 @@ export default function CustomerFormPage() {
     return homeAddress ? [homeAddress, ...filteredAdditional] : filteredAdditional;
   }, [addresses, customer.homeAddress]);
 
-  const handleCustomerChange = (field: keyof Customer, value: string) => {
+  const handleCustomerChange = (field: keyof Customer, value: any) => {
     setCustomer((prev) => ({
       ...prev,
       [field]: value,

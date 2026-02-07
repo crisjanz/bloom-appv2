@@ -1,6 +1,6 @@
 # Bloom API Surface
 
-**Last audited:** 2026-02-01
+**Last audited:** 2026-02-07
 **Source:** `back/src`
 
 ## Diagnostics
@@ -212,6 +212,16 @@ Each variant can optionally reference one of the product's images via `featuredI
 - ✅ GET `/api/payment-transactions/reports/daily/:date` — daily reconciliation snapshot.
 - ✅ POST `/api/payment-transactions/generate-number` — allocate PT-XXXX numbers.
 - ✅ GET `/api/payment-transactions/:transactionNumber` — lookup by transaction number.
+
+## House Accounts
+- ✅ GET `/api/house-accounts` — list house account customers (optional `?hasBalance=true`).
+- ✅ GET `/api/house-accounts/:customerId` — house account detail + ledger (optional `?from=YYYY-MM-DD&to=YYYY-MM-DD&page=1&pageSize=25`).
+- ✅ PUT `/api/house-accounts/:customerId` — update house account settings (`{ terms, notes }`).
+- ✅ POST `/api/house-accounts/:customerId/enable` — enable house account for customer.
+- ✅ POST `/api/house-accounts/:customerId/disable` — disable house account for customer.
+- ✅ POST `/api/house-accounts/:customerId/payments` — apply payment (`{ amount, reference, notes }` in cents).
+- ✅ POST `/api/house-accounts/:customerId/adjustments` — add adjustment (`{ amount, description }` in cents).
+- ✅ GET `/api/house-accounts/:customerId/statement` — statement summary (optional `?from=YYYY-MM-DD&to=YYYY-MM-DD`).
 
 ### Refunds & External Providers
 - ✅ POST `/api/refunds` — process a refund with order allocations.

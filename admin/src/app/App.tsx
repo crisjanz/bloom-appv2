@@ -63,6 +63,9 @@ import SalesReportPage from "./pages/reports/SalesReportPage";
 import TaxExportPage from "./pages/reports/TaxExportPage";
 import TransactionsReportPage from "./pages/reports/TransactionsReportPage";
 import WireProductsPage from "./pages/wire-products/WireProductsPage";
+import HouseAccountsPage from "./pages/house-accounts/HouseAccountsPage";
+import HouseAccountDetailPage from "./pages/house-accounts/HouseAccountDetailPage";
+import HouseAccountStatementPage from "./pages/house-accounts/HouseAccountStatementPage";
 import MobileHomePage from "./pages/mobile/MobileHomePage";
 import MobileScanPage from "./pages/mobile/MobileScanPage";
 import MobileInventoryPage from "./pages/mobile/MobileInventoryPage";
@@ -161,6 +164,9 @@ export default function App() {
             <Route path="reports/sales" element={<SalesReportPage />} />
             <Route path="reports/tax-export" element={<TaxExportPage />} />
             <Route path="reports/transactions" element={<TransactionsReportPage />} />
+            <Route path="house-accounts" element={<HouseAccountsPage />} />
+            <Route path="house-accounts/:customerId" element={<HouseAccountDetailPage />} />
+            <Route path="house-accounts/:customerId/statement" element={<HouseAccountStatementPage />} />
 
             {/* Marketing / Campaigns */}
             <Route path="marketing/birthday-gifts" element={<BirthdayGiftsPage />} />

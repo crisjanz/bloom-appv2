@@ -211,6 +211,12 @@ model Customer {
   giftTokensRedeemed  GiftToken[]          @relation("RedeemedGiftTokens")
   paymentMethods      CustomerPaymentMethod[]
   discounts           Discount[]
+  houseAccountLedger  HouseAccountLedger[]
+
+  // House Account
+  isHouseAccount      Boolean              @default(false)
+  houseAccountTerms   String?              @default("NET_30")
+  houseAccountNotes   String?
 
   @@index([phone])
   @@index([firstName, lastName])
@@ -308,6 +314,7 @@ model Order {
   communications      OrderCommunication[]
   orderPayments       OrderPayment[]
   orderRefunds        OrderRefund[]
+  houseAccountLedger  HouseAccountLedger[]
 
   @@index([createdAt])
   @@index([status])
@@ -877,6 +884,7 @@ model PaymentTransaction {
   customer          Customer                 @relation(fields: [customerId], references: [id])
   employee          Employee?                @relation("EmployeeTransactions", fields: [employeeId], references: [id])
   refunds           Refund[]
+  houseAccountLedger HouseAccountLedger[]
 
   @@index([createdAt])
   @@index([status])
@@ -916,6 +924,26 @@ model OrderPayment {
   transaction   PaymentTransaction @relation(fields: [transactionId], references: [id])
 
   @@map("order_payments")
+}
+
+model HouseAccountLedger {
+  id            String                 @id @default(uuid())
+  customerId    String
+  customer      Customer               @relation(fields: [customerId], references: [id])
+  type          HouseAccountEntryType
+  amount        Int
+  balance       Int
+  description   String
+  reference     String?
+  orderId       String?
+  order         Order?                 @relation(fields: [orderId], references: [id])
+  transactionId String?
+  transaction   PaymentTransaction?    @relation(fields: [transactionId], references: [id])
+  createdAt     DateTime               @default(now())
+  createdBy     String?
+
+  @@index([customerId])
+  @@index([createdAt])
 }
 
 model Refund {
@@ -1355,6 +1383,12 @@ enum PaymentMethodType {
   HOUSE_ACCOUNT
   OFFLINE
   EXTERNAL
+}
+
+enum HouseAccountEntryType {
+  CHARGE
+  PAYMENT
+  ADJUSTMENT
 }
 
 enum PaymentProvider {

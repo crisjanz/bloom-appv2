@@ -213,6 +213,9 @@ router.post("/", async (req, res) => {
     email,
     phone,
     notes,
+    isHouseAccount,
+    houseAccountTerms,
+    houseAccountNotes,
     birthdayOptIn,
     birthdayMonth,
     birthdayDay,
@@ -249,6 +252,21 @@ router.post("/", async (req, res) => {
       existing = await prisma.customer.findFirst({ where: { phone: cleanPhone } });
     }
 
+    const houseAccountData: Record<string, any> = {};
+    if (typeof isHouseAccount === "boolean") {
+      houseAccountData.isHouseAccount = isHouseAccount;
+    }
+    if (typeof houseAccountTerms === "string") {
+      const trimmed = houseAccountTerms.trim();
+      if (trimmed) {
+        houseAccountData.houseAccountTerms = trimmed;
+      }
+    }
+    if (typeof houseAccountNotes === "string") {
+      const trimmed = houseAccountNotes.trim();
+      houseAccountData.houseAccountNotes = trimmed || null;
+    }
+
     if (existing) {
       // Update with any new info
       const updated = await prisma.customer.update({
@@ -258,6 +276,7 @@ router.post("/", async (req, res) => {
           lastName: lastName?.trim() || existing.lastName,
           phone: cleanPhone || existing.phone,
           notes: cleanNotes || existing.notes,
+          ...houseAccountData,
           ...birthdayData,
         },
       });
@@ -271,6 +290,7 @@ router.post("/", async (req, res) => {
         email: cleanEmail,
         phone: cleanPhone,
         notes: cleanNotes,
+        ...houseAccountData,
         ...birthdayData,
       },
     });
@@ -292,6 +312,9 @@ router.put('/:id', async (req, res) => {
     phone,
     notes,
     homeAddress,
+    isHouseAccount,
+    houseAccountTerms,
+    houseAccountNotes,
     birthdayOptIn,
     birthdayMonth,
     birthdayDay,
@@ -339,6 +362,20 @@ router.put('/:id', async (req, res) => {
       phone,
       notes,
     };
+
+    if (typeof isHouseAccount === "boolean") {
+      updateData.isHouseAccount = isHouseAccount;
+    }
+    if (typeof houseAccountTerms === "string") {
+      const trimmedTerms = houseAccountTerms.trim();
+      if (trimmedTerms) {
+        updateData.houseAccountTerms = trimmedTerms;
+      }
+    }
+    if (typeof houseAccountNotes === "string") {
+      const trimmedNotes = houseAccountNotes.trim();
+      updateData.houseAccountNotes = trimmedNotes || null;
+    }
 
     if (birthdayOptIn === true) {
       if (!birthdayMonth || !birthdayDay) {
@@ -720,6 +757,11 @@ router.delete("/:id", async (req, res) => {
 
     // 1. Delete payment transactions
     await prisma.paymentTransaction.deleteMany({
+      where: { customerId: id }
+    });
+
+    // 1b. Delete house account ledger entries
+    await prisma.houseAccountLedger.deleteMany({
       where: { customerId: id }
     });
 
