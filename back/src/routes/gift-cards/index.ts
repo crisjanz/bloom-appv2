@@ -8,11 +8,13 @@ import { purchaseCards } from './purchase';
 import { deactivateCard } from './deactivate';
 import { adjustBalance } from './adjust';
 import { resendGiftCardEmail } from './resend';
+import { generateGiftCardNumber } from './generate-number';
 
 const router = Router();
 
 // Admin operations
 router.post('/batch', createBatch);           // Generate batch of inactive cards
+router.post('/generate-number', generateGiftCardNumber); // Generate electronic card number
 router.get('/', getGiftCards);               // List all cards (admin)
 router.patch('/:id/deactivate', deactivateCard); // Deactivate a card
 router.post('/:id/adjust', adjustBalance);       // Adjust card balance

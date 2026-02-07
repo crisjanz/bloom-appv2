@@ -3,6 +3,7 @@ import { OrderSource, OrderStatus, OrderType, PrismaClient } from '@prisma/clien
 import { formatCurrency } from '../../utils/currency';
 import { emailService } from '../../services/emailService';
 import paymentProviderFactory from '../../services/paymentProviders/PaymentProviderFactory';
+import { giftCardService } from '../../services/giftCardService';
 
 const prisma = new PrismaClient();
 
@@ -22,38 +23,6 @@ interface PurchaseRequest {
   bloomCustomerId?: string;
   paymentIntentId?: string;
 }
-
-// Generate random card number like "GC-X7K9-M3R8"
-const generateCardNumber = (): string => {
-  const chars = 'ABCDEFGHIJKLMNPQRSTUVWXYZ23456789'; // Exclude confusing chars
-  const segments = [];
-  
-  for (let i = 0; i < 3; i++) {
-    let segment = '';
-    for (let j = 0; j < 4; j++) {
-      segment += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    segments.push(segment);
-  }
-  
-  return `GC-${segments.join('-')}`;
-};
-
-const ensureUniqueCardNumber = async (): Promise<string> => {
-  let attempts = 0;
-  while (attempts < 100) { // Prevent infinite loops
-    const cardNumber = generateCardNumber();
-    const existing = await prisma.giftCard.findUnique({
-      where: { cardNumber }
-    });
-    
-    if (!existing) {
-      return cardNumber;
-    }
-    attempts++;
-  }
-  throw new Error('Unable to generate unique card number');
-};
 
 export const purchaseCards = async (req: Request, res: Response) => {
   try {
@@ -185,8 +154,22 @@ export const purchaseCards = async (req: Request, res: Response) => {
           giftCardId = updatedCard.id;
 
         } else {
-          // Digital card - generate new card number
-          cardNumber = await ensureUniqueCardNumber();
+          // Digital card - generate new card number if one wasn't provided
+          if (cardNumber) {
+            const normalized = cardNumber.toUpperCase().trim();
+            if (!normalized.startsWith('EGC-')) {
+              throw new Error('Digital gift card numbers must start with EGC-');
+            }
+            const existing = await tx.giftCard.findUnique({
+              where: { cardNumber: normalized },
+            });
+            if (existing) {
+              throw new Error(`Gift card ${normalized} already exists`);
+            }
+            cardNumber = normalized;
+          } else {
+            cardNumber = await giftCardService.generateElectronicNumber();
+          }
 
           // Create new active card
           const newCard = await tx.giftCard.create({
@@ -258,8 +241,8 @@ export const purchaseCards = async (req: Request, res: Response) => {
 
     // 📧 Send email for digital gift cards
     for (const card of purchasedCards) {
-      if (card.type === 'DIGITAL' && card.recipientEmail) {
-        console.log('📧 Sending digital gift card email to:', card.recipientEmail);
+      if (card.recipientEmail) {
+        console.log('📧 Sending gift card email to:', card.recipientEmail);
         try {
           const emailSent = await emailService.sendGiftCardEmail({
             recipientEmail: card.recipientEmail,

@@ -15,6 +15,13 @@ import {
   formatCurrency,
   parseUserCurrency,
 } from "@shared/utils/currency";
+import {
+  GiftCardSaleData,
+  getGiftCardInfo,
+  getGiftCardNumberType,
+  isGiftCardNumber,
+  isGiftCardProduct,
+} from "@shared/utils/giftCardHelpers";
 
 
 
@@ -25,6 +32,7 @@ type Product = {
   qty: string;
   tax: boolean;
   productId?: string;
+  giftCard?: GiftCardSaleData;
 };
 
 type AddOnProductSummary = {
@@ -51,6 +59,12 @@ type Props = {
   handleProductChange: (index: number, field: string, value: any) => void;
   handleAddCustomProduct: () => void;
   calculateRowTotal: (price: string, qty: string) => string;
+  onGiftCardSale?: (payload: {
+    mode: 'physical' | 'electronic';
+    cardNumber?: string;
+    defaultAmountCents?: number | null;
+    product?: any;
+  }) => void;
 };
 
 export default function ProductsCard({
@@ -58,6 +72,7 @@ export default function ProductsCard({
   handleProductChange,
   handleAddCustomProduct,
   calculateRowTotal,
+  onGiftCardSale,
 }: Props) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -75,7 +90,6 @@ export default function ProductsCard({
   // Variant modal state
   const [showVariantModal, setShowVariantModal] = useState(false);
   const [selectedProductForVariants, setSelectedProductForVariants] = useState(null);
-  const [pendingProductIndex, setPendingProductIndex] = useState<number | null>(null);
 
   // Local editing state for price inputs (prevents cursor jumping)
   const [editingPrices, setEditingPrices] = useState<Record<number, string>>({});
@@ -286,7 +300,6 @@ export default function ProductsCard({
     }
     setShowVariantModal(false);
     setSelectedProductForVariants(null);
-    setPendingProductIndex(null);
     setSearchQuery("");
     setSearchResults([]);
   };
@@ -321,6 +334,21 @@ export default function ProductsCard({
       setSearchResults([]);
     }
   }, [searchQuery]);
+
+  const handleSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") return;
+    const trimmed = searchQuery.trim();
+    if (!trimmed) return;
+    if (!isGiftCardNumber(trimmed)) return;
+    const type = getGiftCardNumberType(trimmed);
+    if (type !== "PHYSICAL") return;
+    if (!onGiftCardSale) return;
+
+    event.preventDefault();
+    onGiftCardSale({ mode: "physical", cardNumber: trimmed });
+    setSearchQuery("");
+    setSearchResults([]);
+  };
   
   const handleRemoveProduct = (index: number) => {
     if (customProducts.length === 1) {
@@ -377,6 +405,7 @@ export default function ProductsCard({
             placeholder="Search for products..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={handleSearchKeyDown}
           />
           {isSearching && (
             <div className="absolute right-3 top-3 text-gray-400">
@@ -394,6 +423,24 @@ export default function ProductsCard({
                 <div
                   key={product.id}
                   onClick={() => {
+                    if (isGiftCardProduct(product) && onGiftCardSale) {
+                      const giftCardInfo = getGiftCardInfo(product);
+                      let defaultAmountCents: number | null = null;
+                      if (giftCardInfo.value) {
+                        defaultAmountCents = dollarsToCents(giftCardInfo.value);
+                      } else if (typeof product.defaultPrice === "number" && product.defaultPrice > 0) {
+                        defaultAmountCents = dollarsToCents(product.defaultPrice);
+                      }
+                      onGiftCardSale({
+                        mode: "electronic",
+                        defaultAmountCents,
+                        product,
+                      });
+                      setSearchQuery("");
+                      setSearchResults([]);
+                      return;
+                    }
+
                     // Check if product has multiple variants
                     if (hasMultipleVariants(product)) {
                       // Ensure the product has the price field that the modal expects
@@ -570,19 +617,28 @@ export default function ProductsCard({
               const priceDisplay = item.price
                 ? centsToDollars(priceCents).toFixed(2)
                 : "";
+              const isGiftCardItem = Boolean(item.giftCard);
 
               return (
                 <tr key={idx} className="border-b border-stroke dark:border-strokedark">
                   {/* Description */}
                   <td className="py-2 px-4">
-                    <InputField
-                      type="text"
-                      placeholder="Enter item description..."
-                      value={item.description}
-                      onChange={(e) =>
-                        handleProductChange(idx, "description", e.target.value)
-                      }
-                    />
+                    <div className="space-y-1">
+                      <InputField
+                        type="text"
+                        placeholder="Enter item description..."
+                        value={item.description || ""}
+                        onChange={(e) =>
+                          handleProductChange(idx, "description", e.target.value)
+                        }
+                        disabled={isGiftCardItem}
+                      />
+                      {item.giftCard && (
+                        <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                          {item.giftCard.cardNumber}
+                        </div>
+                      )}
+                    </div>
                   </td>
 
                   {/* Category */}
@@ -592,50 +648,61 @@ export default function ProductsCard({
                         value: cat.id,
                         label: cat.name
                       }))}
-                      value={item.category}
+                      value={item.category || ""}
                       placeholder="Select category"
                       onChange={(value) =>
                         handleProductChange(idx, "category", value)
                       }
+                      disabled={isGiftCardItem}
                     />
                   </td>
 
                   {/* Unit Price */}
                   <td className="w-22 py-2 px-1">
-                    <InputField
-                      type="text"
-                      placeholder="0.00"
-                      className="w-full text-center py-1 px-1"
-                      value={editingPrices[idx] !== undefined ? editingPrices[idx] : priceDisplay}
-                      onFocus={() => {
-                        // Start editing - use current display value
-                        setEditingPrices(prev => ({ ...prev, [idx]: priceDisplay }));
-                      }}
-                      onChange={(e) => {
-                        const nextValue = e.target.value;
-                        // Allow empty, digits, and decimal point (max 2 decimal places)
-                        if (nextValue === "" || /^\d*\.?\d{0,2}$/.test(nextValue)) {
-                          // Store raw input locally while editing
-                          setEditingPrices(prev => ({ ...prev, [idx]: nextValue }));
-                        }
-                      }}
-                      onBlur={() => {
-                        // Convert to cents and save
-                        const value = editingPrices[idx] || "";
-                        if (value === "") {
-                          handleProductChange(idx, "price", "");
-                        } else {
-                          const centsValue = parseUserCurrency(value);
-                          handleProductChange(idx, "price", centsValue.toString());
-                        }
-                        // Clear editing state
-                        setEditingPrices(prev => {
-                          const updated = { ...prev };
-                          delete updated[idx];
-                          return updated;
-                        });
-                      }}
-                    />
+                    {isGiftCardItem ? (
+                      <InputField
+                        type="text"
+                        placeholder="0.00"
+                        className="w-full text-center py-1 px-1"
+                        value={priceDisplay}
+                        disabled
+                      />
+                    ) : (
+                      <InputField
+                        type="text"
+                        placeholder="0.00"
+                        className="w-full text-center py-1 px-1"
+                        value={editingPrices[idx] !== undefined ? editingPrices[idx] : priceDisplay}
+                        onFocus={() => {
+                          // Start editing - use current display value
+                          setEditingPrices(prev => ({ ...prev, [idx]: priceDisplay }));
+                        }}
+                        onChange={(e) => {
+                          const nextValue = e.target.value;
+                          // Allow empty, digits, and decimal point (max 2 decimal places)
+                          if (nextValue === "" || /^\d*\.?\d{0,2}$/.test(nextValue)) {
+                            // Store raw input locally while editing
+                            setEditingPrices(prev => ({ ...prev, [idx]: nextValue }));
+                          }
+                        }}
+                        onBlur={() => {
+                          // Convert to cents and save
+                          const value = editingPrices[idx] || "";
+                          if (value === "") {
+                            handleProductChange(idx, "price", "");
+                          } else {
+                            const centsValue = parseUserCurrency(value);
+                            handleProductChange(idx, "price", centsValue.toString());
+                          }
+                          // Clear editing state
+                          setEditingPrices(prev => {
+                            const updated = { ...prev };
+                            delete updated[idx];
+                            return updated;
+                          });
+                        }}
+                      />
+                    )}
                   </td>
 
                   {/* Quantity */}
@@ -645,10 +712,11 @@ export default function ProductsCard({
                       min="1"
                       placeholder="1"
                       className="w-12 text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      value={item.qty}
+                      value={item.qty || ""}
                       onChange={(e) =>
                         handleProductChange(idx, "qty", e.target.value)
                       }
+                      disabled={isGiftCardItem}
                     />
                   </td>
 
@@ -673,6 +741,7 @@ export default function ProductsCard({
                           handleProductChange(idx, "tax", checked)
                         }
                         className="checked:bg-brand-500 checked:border-brand-500"
+                        disabled={isGiftCardItem}
                       />
                     </div>
                   </td>
@@ -741,7 +810,6 @@ export default function ProductsCard({
         onClose={() => {
           setShowVariantModal(false);
           setSelectedProductForVariants(null);
-          setPendingProductIndex(null);
         }}
         onSelectVariant={handleVariantSelection}
       />

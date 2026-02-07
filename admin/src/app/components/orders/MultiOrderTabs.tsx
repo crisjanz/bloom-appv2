@@ -1,10 +1,11 @@
 // src/components/orders/MultiOrderTabs.tsx
-import { useEffect, Dispatch, SetStateAction } from "react";
+import { useCallback, useState, Dispatch, SetStateAction } from "react";
 import ComponentCard from "@shared/ui/common/ComponentCard";
 import RecipientCard from "./RecipientCard";
 import DeliveryCard from "./DeliveryCard";
 import ProductsCard from "./ProductsCard";
-import { isGiftCardProduct, getGiftCardInfo, orderContainsGiftCards } from '@shared/utils/giftCardHelpers';
+import GiftCardSaleModal from "@app/components/gift-cards/GiftCardSaleModal";
+import type { GiftCardSaleData } from "@shared/utils/giftCardHelpers";
 import { coerceCents, formatCurrency } from "@shared/utils/currency";
 
 
@@ -38,6 +39,8 @@ type OrderEntry = {
     price: string;
     qty: string;
     tax: boolean;
+    productId?: string;
+    giftCard?: GiftCardSaleData;
   }[];
   // Recipient tracking fields for 3-option workflow
   selectedRecipientId?: string;
@@ -84,6 +87,80 @@ export default function MultiOrderTabs({
 }: Props) {
   
   const maxTabs = 5;
+  const [giftCardModalOpen, setGiftCardModalOpen] = useState(false);
+  const [giftCardModalMode, setGiftCardModalMode] = useState<'physical' | 'electronic'>('electronic');
+  const [giftCardCardNumber, setGiftCardCardNumber] = useState<string | undefined>(undefined);
+  const [giftCardDefaultAmount, setGiftCardDefaultAmount] = useState<number | null>(null);
+  const [giftCardOrderIndex, setGiftCardOrderIndex] = useState<number | null>(null);
+  const [giftCardSourceProduct, setGiftCardSourceProduct] = useState<{
+    productId?: string;
+    categoryId?: string;
+  } | null>(null);
+
+  const handleGiftCardSaleRequest = useCallback((payload: {
+    mode: 'physical' | 'electronic';
+    cardNumber?: string;
+    defaultAmountCents?: number | null;
+    product?: any;
+  }) => {
+    setGiftCardModalMode(payload.mode);
+    setGiftCardCardNumber(payload.cardNumber);
+    setGiftCardDefaultAmount(payload.defaultAmountCents ?? null);
+    setGiftCardOrderIndex(activeTab);
+    setGiftCardSourceProduct(payload.product
+      ? { productId: payload.product.id, categoryId: payload.product.reportingCategoryId }
+      : null
+    );
+    setGiftCardModalOpen(true);
+  }, [activeTab]);
+
+  const handleGiftCardAdd = useCallback((giftCard: GiftCardSaleData) => {
+    const orderIndex = giftCardOrderIndex ?? activeTab;
+    const updated = [...orders];
+    const targetOrder = updated[orderIndex];
+    if (!targetOrder) return;
+
+    const existing = targetOrder.customProducts.find(
+      (item) => item?.giftCard?.cardNumber === giftCard.cardNumber
+    );
+    if (existing) return;
+
+    const label = giftCard.type === 'DIGITAL' ? 'Digital Gift Card' : 'Gift Card';
+    const giftCardItem = {
+      description: `${label} - ${giftCard.cardNumber}`,
+      category: giftCardSourceProduct?.categoryId || "",
+      price: giftCard.amount.toString(),
+      qty: "1",
+      tax: false,
+      productId: giftCardSourceProduct?.productId,
+      giftCard,
+    };
+
+    const emptyIndex = targetOrder.customProducts.findIndex((item) => !item.description);
+    if (emptyIndex >= 0) {
+      targetOrder.customProducts[emptyIndex] = {
+        ...targetOrder.customProducts[emptyIndex],
+        ...giftCardItem,
+      };
+    } else {
+      targetOrder.customProducts = [...targetOrder.customProducts, giftCardItem];
+    }
+
+    setOrders(updated);
+    setGiftCardModalOpen(false);
+    setGiftCardCardNumber(undefined);
+    setGiftCardDefaultAmount(null);
+    setGiftCardOrderIndex(null);
+    setGiftCardSourceProduct(null);
+  }, [activeTab, giftCardOrderIndex, giftCardSourceProduct, orders, setOrders]);
+
+  const handleGiftCardClose = useCallback(() => {
+    setGiftCardModalOpen(false);
+    setGiftCardCardNumber(undefined);
+    setGiftCardDefaultAmount(null);
+    setGiftCardOrderIndex(null);
+    setGiftCardSourceProduct(null);
+  }, []);
 
 
   const handleAddTab = () => {
@@ -309,6 +386,7 @@ export default function MultiOrderTabs({
 
         <ProductsCard
           customProducts={order.customProducts}
+          onGiftCardSale={handleGiftCardSaleRequest}
           handleProductChange={(index, field, value) => {
             // Handle the special removeAt case
             if (field === "removeAt") {
@@ -339,6 +417,15 @@ export default function MultiOrderTabs({
           }}
         />
       </div>
+
+      <GiftCardSaleModal
+        open={giftCardModalOpen}
+        mode={giftCardModalMode}
+        initialCardNumber={giftCardCardNumber}
+        defaultAmountCents={giftCardDefaultAmount}
+        onClose={handleGiftCardClose}
+        onAdd={handleGiftCardAdd}
+      />
     </ComponentCard>
   );
 }

@@ -11,23 +11,13 @@
 import { useState, useCallback } from 'react';
 import { mapPaymentMethodType, getPaymentProvider, normalizePayments } from '@shared/utils/paymentHelpers';
 import { getOrCreateGuestCustomer } from '@shared/utils/customerHelpers';
-import { CompletionData } from './usePaymentState';
 import { centsToDollars, formatCurrency } from '@shared/utils/currency';
+import { getGiftCardLineItems } from '@shared/utils/giftCardHelpers';
 
 export type PaymentPayload = {
   method: string;
   amount: number;
   metadata?: Record<string, any>;
-};
-
-export type GiftCardType = 'PHYSICAL' | 'DIGITAL';
-
-export type GiftCardData = {
-  cardNumber: string;
-  amount: number;
-  type?: GiftCardType;
-  recipientName?: string;
-  recipientEmail?: string;
 };
 
 export type GiftCardRedemption = {
@@ -38,8 +28,6 @@ export type GiftCardRedemption = {
 const MIN_BALANCE = 1;
 
 export const useTransactionSubmission = () => {
-  const [pendingFinalization, setPendingFinalization] = useState<PaymentPayload[] | null>(null);
-  const [giftCardNumbers, setGiftCardNumbers] = useState<GiftCardData[]>([]);
   const [activatedGiftCards, setActivatedGiftCards] = useState<any[]>([]);
 
   /**
@@ -95,6 +83,7 @@ export const useTransactionSubmission = () => {
       let allOrderIds = Array.from(new Set([...explicitOrderIds, ...draftOrderIds]));
 
       let printActions: any[] = [];
+      let createdOrderIds: string[] = [];
 
       // Create orders for non-draft cart items if any
       if (nonDraftItems.length > 0) {
@@ -139,12 +128,12 @@ export const useTransactionSubmission = () => {
         }
 
         // Add newly created order IDs
-        const newOrderIds = orderResult.orders.map((order: any) => order.id);
-        allOrderIds = Array.from(new Set([...allOrderIds, ...newOrderIds]));
+        createdOrderIds = orderResult.orders.map((order: any) => order.id);
+        allOrderIds = Array.from(new Set([...allOrderIds, ...createdOrderIds]));
         if (Array.isArray(orderResult.printActions)) {
           printActions = orderResult.printActions;
         }
-        console.log('✅ Created POS orders:', newOrderIds);
+        console.log('✅ Created POS orders:', createdOrderIds);
       }
 
       // Update draft orders to PAID status
@@ -292,20 +281,26 @@ export const useTransactionSubmission = () => {
         totalAmount: transaction.totalAmount,
       });
 
-      // Handle gift card activation
-      if (giftCardNumbers.length > 0) {
+      const giftCardLineItems = getGiftCardLineItems(cartItems);
+      let purchasedGiftCards: any[] = [];
+
+      if (giftCardLineItems.length > 0) {
         const { purchaseGiftCards } = await import('@shared/legacy-services/giftCardService');
-        const cards = giftCardNumbers.map<{ cardNumber?: string; amount: number; type: GiftCardType; recipientName?: string; recipientEmail?: string }>((card) => ({
+        const cards = giftCardLineItems.map((card) => ({
           cardNumber: card.cardNumber,
           amount: card.amount,
-          type: card.type === 'DIGITAL' ? 'DIGITAL' : 'PHYSICAL',
+          type: card.type,
           recipientName: card.recipientName || customerDisplayName || 'Walk-in Customer',
           recipientEmail: card.recipientEmail,
+          message: card.message,
         }));
 
+        const giftCardOrderId = createdOrderIds[0] ?? allOrderIds[0];
+
         try {
-          const purchaseResult = await purchaseGiftCards(cards, customerId, employeeId, transaction.id);
-          setActivatedGiftCards(purchaseResult.cards);
+          const purchaseResult = await purchaseGiftCards(cards, customerId, employeeId, giftCardOrderId);
+          purchasedGiftCards = Array.isArray(purchaseResult?.cards) ? purchaseResult.cards : [];
+          setActivatedGiftCards(purchasedGiftCards);
         } catch (giftError: any) {
           return {
             success: false,
@@ -330,7 +325,7 @@ export const useTransactionSubmission = () => {
         success: true,
         data: {
           transaction,
-          activatedGiftCards: activatedGiftCards,
+          activatedGiftCards: purchasedGiftCards,
           orderIds: allOrderIds,
           printActions,
         },
@@ -342,7 +337,7 @@ export const useTransactionSubmission = () => {
         error: processingError instanceof Error ? processingError.message : 'Payment processing failed',
       };
     }
-  }, [activatedGiftCards, giftCardNumbers]);
+  }, [setActivatedGiftCards]);
 
   /**
    * Validate and attempt to finalize payments
@@ -350,8 +345,6 @@ export const useTransactionSubmission = () => {
   const attemptFinalize = useCallback((
     payments: PaymentPayload[],
     total: number,
-    hasGiftCards: boolean,
-    onNeedGiftCardActivation: () => void,
     onSubmit: (normalized: PaymentPayload[]) => void,
   ) => {
     const normalized = normalizePayments(payments, total, MIN_BALANCE);
@@ -361,45 +354,21 @@ export const useTransactionSubmission = () => {
       throw new Error('Payments do not cover the order total.');
     }
 
-    // Check if gift card activation is needed
-    if (hasGiftCards && giftCardNumbers.length === 0) {
-      setPendingFinalization(normalized);
-      onNeedGiftCardActivation();
-      return;
-    }
-
     onSubmit(normalized);
-  }, [giftCardNumbers.length]);
-
-  /**
-   * Handle gift card activation completion
-   */
-  const handleGiftCardActivationComplete = useCallback((cards: GiftCardData[], onContinue: (payments: PaymentPayload[]) => void) => {
-    setGiftCardNumbers(cards);
-    if (pendingFinalization) {
-      onContinue(pendingFinalization);
-    }
-  }, [pendingFinalization]);
+  }, []);
 
   const resetTransaction = useCallback(() => {
-    setPendingFinalization(null);
-    setGiftCardNumbers([]);
     setActivatedGiftCards([]);
   }, []);
 
   return {
     // State
-    pendingFinalization,
-    giftCardNumbers,
     activatedGiftCards,
 
     // Actions
     submitTransaction,
     attemptFinalize,
-    handleGiftCardActivationComplete,
-    setGiftCardNumbers,
     setActivatedGiftCards,
-    setPendingFinalization,
     resetTransaction,
   };
 };

@@ -8,8 +8,41 @@ export interface GiftCardProductInfo {
   maxAmount?: number;
 }
 
+export type GiftCardType = 'PHYSICAL' | 'DIGITAL';
+
+export type GiftCardSaleData = {
+  cardNumber: string;
+  amount: number;
+  type: GiftCardType;
+  recipientEmail?: string;
+  recipientName?: string;
+  message?: string;
+};
+
+const GIFT_CARD_NUMBER_REGEX = /^(EGC|GC)-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
+
+export const normalizeGiftCardNumber = (value: string): string => {
+  return value.replace(/\s+/g, '').toUpperCase();
+};
+
+export const isGiftCardNumber = (value: string): boolean => {
+  const normalized = normalizeGiftCardNumber(value);
+  return GIFT_CARD_NUMBER_REGEX.test(normalized);
+};
+
+export const getGiftCardNumberType = (value: string): GiftCardType | null => {
+  const normalized = normalizeGiftCardNumber(value);
+  if (!GIFT_CARD_NUMBER_REGEX.test(normalized)) return null;
+  if (normalized.startsWith('EGC-')) return 'DIGITAL';
+  return 'PHYSICAL';
+};
+
 // ✅ UPDATED: Check if a product is a gift card (works with SKU, name, and description)
 export const isGiftCardProduct = (product: any): boolean => {
+  if (product?.giftCard) {
+    return true;
+  }
+
   // Check sku first
   const sku = product?.sku;
   if (sku && sku.startsWith('GC-')) {
@@ -114,12 +147,18 @@ export const getGiftCardInfo = (product: any): GiftCardProductInfo => {
 
 // Check if an order contains any gift card products
 export const orderContainsGiftCards = (orderItems: any[]): boolean => {
-  return orderItems.some(item => isGiftCardProduct(item.product || item));
+  return orderItems.some(item => Boolean(item?.giftCard) || isGiftCardProduct(item.product || item));
 };
 
 // Get all gift card items from an order
 export const getGiftCardItems = (orderItems: any[]) => {
-  return orderItems.filter(item => isGiftCardProduct(item.product || item));
+  return orderItems.filter(item => Boolean(item?.giftCard) || isGiftCardProduct(item.product || item));
+};
+
+export const getGiftCardLineItems = (orderItems: any[]): GiftCardSaleData[] => {
+  return orderItems
+    .map((item) => item?.giftCard)
+    .filter((item): item is GiftCardSaleData => Boolean(item?.cardNumber));
 };
 
 // Get all non-gift card items from an order

@@ -64,6 +64,7 @@ export default function GiftCardDetailModal({ open, cardId, onClose, onCardUpdat
   const [isAdjusting, setIsAdjusting] = useState(false);
   const [isDeactivating, setIsDeactivating] = useState(false);
   const [isResending, setIsResending] = useState(false);
+  const [isPrintingLabel, setIsPrintingLabel] = useState(false);
 
   const formatDate = useCallback((value?: string | null) => {
     if (!value) return "—";
@@ -148,6 +149,36 @@ export default function GiftCardDetailModal({ open, cardId, onClose, onCardUpdat
       setActionError(err instanceof Error ? err.message : "Failed to resend email");
     } finally {
       setIsResending(false);
+    }
+  };
+
+  const handlePrintLabel = async () => {
+    if (!card) return;
+    setIsPrintingLabel(true);
+    setActionError(null);
+    setActionSuccess(null);
+
+    try {
+      const { data, status } = await apiClient.post(`/api/print/gift-card-label/${card.id}`);
+      if (status >= 400) {
+        throw new Error(data?.error || "Failed to print gift card label");
+      }
+
+      if (data?.action === "browser-print" && data?.pdfUrl) {
+        window.open(data.pdfUrl, "_blank");
+        setActionSuccess("Gift card label opened in a new tab.");
+      } else if (data?.action === "queued") {
+        setActionSuccess("Gift card label queued for printing.");
+      } else if (data?.action === "skipped") {
+        setActionError("Label printing is disabled in Print Settings.");
+      } else {
+        setActionSuccess("Gift card label queued for printing.");
+      }
+    } catch (err) {
+      console.error("Error printing gift card label:", err);
+      setActionError(err instanceof Error ? err.message : "Failed to print gift card label");
+    } finally {
+      setIsPrintingLabel(false);
     }
   };
 
@@ -356,6 +387,16 @@ export default function GiftCardDetailModal({ open, cardId, onClose, onCardUpdat
               </div>
 
               <div className="flex items-center gap-2 pt-1 border-t border-stroke dark:border-strokedark">
+                {card.type === "PHYSICAL" && (
+                  <button
+                    type="button"
+                    onClick={handlePrintLabel}
+                    disabled={isPrintingLabel}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isPrintingLabel ? "Printing..." : "Print Label"}
+                  </button>
+                )}
                 {card.type === "DIGITAL" && card.recipientEmail && (
                   <button
                     type="button"

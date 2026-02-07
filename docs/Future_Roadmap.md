@@ -7,7 +7,7 @@
 ## ✅ Recently Delivered Highlights
 - ✅ **POS ↔ Take Order bridge** — true multi-order handoff with card message, delivery fee, and customer-based recipient handling (`admin/src/app/components/pos`, `back/src/routes/orders/create.ts`).
 - ✅ **Unified payment settings** — encrypted provider credentials + custom offline tenders (`admin/src/app/pages/settings/payments.tsx`, `back/src/services/paymentSettingsService.ts`).
-- ✅ **Gift card lifecycle** — purchase, activation, redemption, and handoff modals for both POS and phone orders (`admin/src/app/components/orders/payment/GiftCardActivationModal.tsx`, `back/src/routes/gift-cards`).
+- ✅ **Gift card lifecycle** — purchase, redemption, and handoff modals for both POS and phone orders (`admin/src/app/components/gift-cards/GiftCardSaleModal.tsx`, `back/src/routes/gift-cards`).
 - ✅ **Customer & recipient overhaul** — sender/recipient both use `Customer` records with shared addresses; duplicate walk-in customers eliminated (`admin/src/domains/customers/services/CustomerService.ts`, `back/prisma/schema.prisma:328-380`).
 - ✅ **FTD wire ingestion** — polling, auto-sync, and monitoring pipeline running continuously (`back/src/services/ftdMonitor.ts`, `back/src/routes/ftd`).
 - ✅ **Discount engine refresh** — new `/api/discounts` module with validation + auto-apply endpoints feeding POS calculations (`back/src/routes/discounts.ts`, `admin/src/domains/payments/hooks/usePaymentCalculations.ts`).

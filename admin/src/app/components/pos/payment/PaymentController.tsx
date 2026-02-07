@@ -9,14 +9,12 @@ import SplitPaymentView, {
 import NotificationModal from './NotificationModal';
 import RefundModal from '../../refunds/RefundModal';
 import OrderCompletionSummary from './OrderCompletionSummary';
-import GiftCardActivationModal from '../../orders/payment/GiftCardActivationModal';
 import GiftCardHandoffModal from '../../orders/payment/GiftCardHandoffModal';
 import AdjustmentsModal from '../../orders/payment/AdjustmentsModal';
-import { orderContainsGiftCards } from '@shared/utils/giftCardHelpers';
 import { useCouponValidation } from '@shared/hooks/useCouponValidation';
 import { formatCurrency } from '@shared/utils/currency';
 import { mapPaymentMethodType, getPaymentProvider, transformCartToOrders, generatePaymentSummary } from '@shared/utils/paymentHelpers';
-import { getOrCreateGuestCustomer, getCustomerDisplayName } from '@shared/utils/customerHelpers';
+import { getCustomerDisplayName } from '@shared/utils/customerHelpers';
 import { usePaymentState } from '@domains/payments/hooks/usePaymentState';
 import { usePaymentModals } from '@domains/payments/hooks/usePaymentModals';
 import { usePaymentDiscounts } from '@domains/payments/hooks/usePaymentDiscounts';
@@ -240,7 +238,6 @@ const PaymentController: FC<Props> = ({
 
   // Computed values
   const customerDisplayName = getCustomerDisplayName(customer, customerName);
-  const hasGiftCards = useMemo(() => orderContainsGiftCards(cartItems), [cartItems]);
   const giftCardTotal = useMemo(
     () => paymentDiscounts.giftCardRedemptions.reduce((sum, card) => sum + card.amount, 0),
     [paymentDiscounts.giftCardRedemptions]
@@ -397,8 +394,6 @@ const PaymentController: FC<Props> = ({
     transactionSubmission.attemptFinalize(
       payments,
       total,
-      hasGiftCards,
-      () => paymentModals.setShowGiftCardActivation(true),
       (normalized) => void submitTransaction(normalized)
     );
   };
@@ -406,7 +401,6 @@ const PaymentController: FC<Props> = ({
   const finishCompletion = async (completion: CompletionData, payments: PaymentPayload[], completedOrderIds: string[], transaction: any) => {
     paymentState.completePayment(completion, payments);
     paymentModals.setShowAdjustments(false);
-    transactionSubmission.setPendingFinalization(null);
     setView('selection');
 
     if (paymentState.quickActions.emailReceipt) {
@@ -455,7 +449,6 @@ const PaymentController: FC<Props> = ({
         orderIds,
         cartItems,
         giftCardRedemptions: paymentDiscounts.giftCardRedemptions,
-        hasGiftCards,
       });
 
       if (!result.success) {
@@ -501,7 +494,6 @@ const PaymentController: FC<Props> = ({
     } finally {
       paymentState.setProcessing(false);
       paymentModals.closeModal();
-      transactionSubmission.setPendingFinalization(null);
     }
   };
 
@@ -578,11 +570,6 @@ const handleCardComplete = (data: {
     );
   };
 
-  const handleGiftCardActivationComplete = (cards: any[]) => {
-    transactionSubmission.handleGiftCardActivationComplete(cards, (normalized) => void submitTransaction(normalized));
-    paymentModals.setShowGiftCardActivation(false);
-  };
-
   const handleNotificationSuccess = (message: string) => {
     paymentModals.setShowNotificationModal(false);
     paymentState.showNotification('success', message, 3000);
@@ -637,7 +624,6 @@ const handleCardComplete = (data: {
     }
     if (paymentState.isProcessing || paymentState.showCompletion) return;
     if (paymentModals.modalContext?.mode === 'split') return;
-    if (transactionSubmission.pendingFinalization) return;
     if (finalizationAttemptedRef.current) return; // Prevent duplicate calls
 
     const outstandingRows = splitPayment.splitRows.filter((row) => row.status !== 'completed');
@@ -663,7 +649,6 @@ const handleCardComplete = (data: {
     paymentState.isProcessing,
     paymentState.showCompletion,
     paymentModals.modalContext,
-    transactionSubmission.pendingFinalization,
     attemptFinalize,
     splitPayment.getCompletedPayments,
   ]);
@@ -947,13 +932,6 @@ const handleCardComplete = (data: {
               onCancel={handleModalCancel}
             />
           )}
-
-        <GiftCardActivationModal
-          open={paymentModals.showGiftCardActivation}
-          onClose={() => paymentModals.setShowGiftCardActivation(false)}
-          orderItems={cartItems}
-          onActivationComplete={handleGiftCardActivationComplete}
-        />
 
         <NotificationModal
           isOpen={paymentModals.showNotificationModal}

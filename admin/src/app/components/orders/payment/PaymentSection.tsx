@@ -1,12 +1,10 @@
 // src/components/orders/payment/PaymentSection.tsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import PaymentCard from '../PaymentCard';
 import TakeOrderPaymentTiles from './TakeOrderPaymentTiles';
 import type { PaymentEntry } from '@domains/payments/hooks/usePaymentComposer';
-import GiftCardActivationModal from './GiftCardActivationModal';
 import GiftCardHandoffModal from './GiftCardHandoffModal';
-import { orderContainsGiftCards } from '@shared/utils/giftCardHelpers';
+import { getGiftCardLineItems } from '@shared/utils/giftCardHelpers';
 import { useOrderPayments } from '@domains/orders/hooks/useOrderPayments';
 import { coerceCents } from '@shared/utils/currency';
 
@@ -93,18 +91,13 @@ const PaymentSection: React.FC<Props> = ({
   const [printReceipt, setPrintReceipt] = useState(false);
   const [printTicket, setPrintTicket] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [showGiftCardActivation, setShowGiftCardActivation] = useState(false);
   const [showGiftCardHandoff, setShowGiftCardHandoff] = useState(false);
-  const [giftCardNumbers, setGiftCardNumbers] = useState<any[]>([]);
   const [activatedGiftCards, setActivatedGiftCards] = useState<any[]>([]);
   const [pendingGiftCardRedemptions, setPendingGiftCardRedemptions] = useState<any[]>([]);
   const [automaticDiscounts, setAutomaticDiscounts] = useState<any[]>([]);
   const [automaticDiscountAmount, setAutomaticDiscountAmount] = useState(0);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
-  const [pendingPayment, setPendingPayment] = useState<PaymentEntry[] | null>(null);
 
-  const currentOrder = orderState.orders[orderState.activeTab];
-  const hasGiftCards = currentOrder ? orderContainsGiftCards(currentOrder.customProducts) : false;
   const amountAfterGiftCards = Math.max(0, grandTotal - giftCardDiscount);
 
   // Function to check for automatic discounts
@@ -218,48 +211,6 @@ const PaymentSection: React.FC<Props> = ({
       }
     }
     return null;
-  };
-
-  const handleGiftCardNumbersCollected = (cardData: any[]) => {
-    setGiftCardNumbers(cardData);
-    setShowGiftCardActivation(false);
-    
-    console.log('🎁 Gift card data collected:', cardData);
-    
-    if (cardData.length > 0) {
-      const updatedOrders = [...orderState.orders];
-      const currentOrderIndex = orderState.activeTab;
-      
-      const cardsByItemId = cardData.reduce((acc, card) => {
-        if (!acc[card.itemId]) acc[card.itemId] = [];
-        acc[card.itemId].push(card);
-        return acc;
-      }, {});
-      
-      updatedOrders[currentOrderIndex].customProducts = updatedOrders[currentOrderIndex].customProducts.map((product: any, index: number) => {
-        const stableId = `item-${index}-${product.description?.slice(0, 10) || 'gc'}`;
-        
-        if (cardsByItemId[stableId]) {
-          const cardAmount = cardsByItemId[stableId][0].amount;
-          console.log(`💰 Updating price: $${product.price} → $${cardAmount}`);
-          
-          return {
-            ...product,
-            price: cardAmount.toString()
-          };
-        }
-        
-        return product;
-      });
-      
-      orderState.setOrders(updatedOrders);
-    }
-    
-    if (pendingPayment) {
-      const paymentPayload = pendingPayment;
-      setPendingPayment(null);
-      void handlePaymentConfirm(paymentPayload);
-    }
   };
 
   const handlePaymentConfirm = async (payments: PaymentEntry[]) => {
@@ -443,33 +394,47 @@ const PaymentSection: React.FC<Props> = ({
       }
 
       // 🎁 Create/activate gift cards if any were purchased
-      if (giftCardNumbers.length > 0) {
+      const giftCardOrders = orderState.orders
+        .map((order: any, index: number) => ({
+          orderId: result.orders?.[index]?.id,
+          cards: getGiftCardLineItems(order.customProducts || []),
+        }))
+        .filter((entry: any) => entry.cards.length > 0);
+
+      if (giftCardOrders.length > 0) {
         console.log('🎁 Creating/activating gift cards...');
         const { purchaseGiftCards } = await import('@shared/legacy-services/giftCardService');
-        
+        const purchasedCards: any[] = [];
+        const fallbackRecipientName = `${customerState.customer?.firstName || ''} ${customerState.customer?.lastName || ''}`.trim() || undefined;
+
         try {
-          // Convert gift card data to purchase format
-          const cardsToProcess = giftCardNumbers.map(card => ({
-            cardNumber: card.cardNumber, // Physical card number (only for physical cards)
-            amount: card.amount,
-            type: card.type || 'PHYSICAL', // Use the actual card type from activation modal
-            recipientName: card.recipientName || customerState.customer?.firstName + ' ' + customerState.customer?.lastName,
-            recipientEmail: card.recipientEmail // Include email for digital cards
-          }));
+          for (const entry of giftCardOrders) {
+            const cardsToProcess = entry.cards.map((card: any) => ({
+              cardNumber: card.cardNumber,
+              amount: card.amount,
+              type: card.type || 'PHYSICAL',
+              recipientName: card.recipientName || fallbackRecipientName,
+              recipientEmail: card.recipientEmail,
+              message: card.message,
+            }));
 
-          const purchaseResult = await purchaseGiftCards(
-            cardsToProcess,
-            customerState.customer?.id,
-            employee,
-            result.orders[0]?.id // Use first order ID for tracking
-          );
+            const purchaseResult = await purchaseGiftCards(
+              cardsToProcess,
+              customerState.customer?.id,
+              employee,
+              entry.orderId
+            );
 
-          console.log('✅ Gift cards created/activated:', purchaseResult.cards);
-          
-          // Store activated cards and show handoff modal
-          setActivatedGiftCards(purchaseResult.cards);
-          setShowGiftCardHandoff(true);
-          
+            if (Array.isArray(purchaseResult?.cards)) {
+              purchasedCards.push(...purchaseResult.cards);
+            }
+          }
+
+          if (purchasedCards.length > 0) {
+            console.log('✅ Gift cards created/activated:', purchasedCards);
+            setActivatedGiftCards(purchasedCards);
+            setShowGiftCardHandoff(true);
+          }
         } catch (error: any) {
           console.error('❌ Failed to create/activate gift cards:', error);
           setFormError(`Orders created but gift card activation failed: ${error.message}`);
@@ -535,7 +500,6 @@ const PaymentSection: React.FC<Props> = ({
 
       setShowSuccessToast(true);
       setCouponCode("");
-      setGiftCardNumbers([]);
       setPendingGiftCardRedemptions([]);
       setFormError(null);
       
@@ -591,12 +555,6 @@ const PaymentSection: React.FC<Props> = ({
             return;
           }
 
-          if (paymentData?.method !== 'send_to_pos' && hasGiftCards && giftCardNumbers.length === 0) {
-            setPendingPayment(normalizedPayments);
-            setShowGiftCardActivation(true);
-            return;
-          }
-
           handlePaymentConfirm(normalizedPayments);
         }}
         onDiscountsChange={(discounts) => {
@@ -625,12 +583,6 @@ const PaymentSection: React.FC<Props> = ({
           </div>
         </div>
       )}
-      <GiftCardActivationModal
-        open={showGiftCardActivation}
-        onClose={() => setShowGiftCardActivation(false)}
-        orderItems={currentOrder?.customProducts || []}
-        onActivationComplete={handleGiftCardNumbersCollected}
-      />
       <GiftCardHandoffModal
         open={showGiftCardHandoff}
         onClose={() => {

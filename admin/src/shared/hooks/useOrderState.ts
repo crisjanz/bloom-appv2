@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { GiftCardSaleData } from '@shared/utils/giftCardHelpers';
 
 type OrderEntry = {
   recipientFirstName: string;
@@ -28,6 +29,8 @@ type OrderEntry = {
     price: string;
     qty: string;
     tax: boolean;
+    productId?: string;
+    giftCard?: GiftCardSaleData;
   }[];
   // Recipient tracking fields for 3-option workflow
   selectedRecipientId?: string;

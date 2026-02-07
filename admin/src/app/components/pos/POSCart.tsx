@@ -6,6 +6,7 @@ import { useTaxRates } from '@shared/hooks/useTaxRates';
 import InputField from '@shared/ui/forms/input/InputField';
 import { formatPhoneDisplay } from '@shared/ui/forms/PhoneInput';
 import { centsToDollars, formatCurrency, parseUserCurrency } from '@shared/utils/currency';
+import type { GiftCardSaleData } from '@shared/utils/giftCardHelpers';
 import POSCartSummary from './POSCartSummary';
 
 type CartItem = {
@@ -17,6 +18,7 @@ type CartItem = {
   customPrice?: number;
   isTaxable?: boolean;
   category?: string;
+  giftCard?: GiftCardSaleData;
 };
 
 type Props = {
@@ -293,6 +295,7 @@ const handleCustomerSelect = (selectedCustomer: any) => {
               {items.map((item, index) => {
                 const itemPrice = item.customPrice ?? item.price ?? 0;
                 const isEditingThisPrice = editingPrice === item.id;
+                const isGiftCardItem = Boolean(item.giftCard);
                 
                 return (
                   <div key={item.id} className={`${index !== 0 ? 'pt-4 border-t border-gray-100 dark:border-gray-800' : ''}`}>
@@ -302,6 +305,11 @@ const handleCustomerSelect = (selectedCustomer: any) => {
                         <h4 className="font-semibold text-black dark:text-white text-sm mb-1">
                           {item.name}
                         </h4>
+                        {item.giftCard && (
+                          <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                            {item.giftCard.cardNumber}
+                          </div>
+                        )}
                         {item.category === 'TakeOrder' && (
                           <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                             Transferred from TakeOrder
@@ -324,7 +332,11 @@ const handleCustomerSelect = (selectedCustomer: any) => {
                       {/* Price editing */}
                       <div className="flex items-center">
                         <span className="text-sm text-gray-500 dark:text-gray-400 mr-1">$</span>
-                        {isEditingThisPrice ? (
+                        {isGiftCardItem ? (
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300 px-2 py-1">
+                            {centsToDollars(itemPrice).toFixed(2)}
+                          </span>
+                        ) : isEditingThisPrice ? (
                           <input
                             type="number"
                             value={tempPrice}
@@ -350,7 +362,12 @@ const handleCustomerSelect = (selectedCustomer: any) => {
                       <div className="flex items-center gap-3">
                         <button
                           onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
-                          className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center justify-center transition-colors"
+                          disabled={isGiftCardItem}
+                          className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                            isGiftCardItem
+                              ? 'bg-gray-100 text-gray-300 dark:bg-gray-800 dark:text-gray-600 cursor-not-allowed'
+                              : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
+                          }`}
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
@@ -361,7 +378,12 @@ const handleCustomerSelect = (selectedCustomer: any) => {
                         </span>
                         <button
                           onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
-                          className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center justify-center transition-colors"
+                          disabled={isGiftCardItem}
+                          className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                            isGiftCardItem
+                              ? 'bg-gray-100 text-gray-300 dark:bg-gray-800 dark:text-gray-600 cursor-not-allowed'
+                              : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
+                          }`}
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />

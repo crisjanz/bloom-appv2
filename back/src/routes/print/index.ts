@@ -12,10 +12,11 @@ import { buildInventorySheetPdf } from '../../templates/inventory-sheet-pdf';
 import { buildSalesReportPdf } from '../../templates/sales-report-pdf';
 import { buildHouseAccountStatementPdf } from '../../templates/house-account-statement-pdf';
 import { buildGiftCardHandoffPdf } from '../../templates/gift-card-handoff-pdf';
+import { buildGiftCardLabelsPdf } from '../../templates/gift-card-labels-pdf';
 import { buildThermalReceipt } from '../../templates/receipt-thermal';
 import { loadLocalPdf, storePdf } from '../../utils/pdfStorage';
 import { buildRouteViewUrl, generateRouteToken } from '../../utils/routeToken';
-import { generateOrderQRCodeBuffer } from '../../utils/qrCodeGenerator';
+import { generateOrderQRCode, generateOrderQRCodeBuffer } from '../../utils/qrCodeGenerator';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -96,6 +97,14 @@ const giftCardPrintSchema = z.object({
       })
     )
     .min(1),
+});
+
+const giftCardLabelSchema = z.object({
+  cardNumbers: z.array(z.string().trim().min(1)).min(1),
+});
+
+const giftCardLabelParamSchema = z.object({
+  cardId: z.string().trim().min(1),
 });
 
 const LOW_STOCK_THRESHOLD = 5;
@@ -318,6 +327,35 @@ async function respondWithDocumentPrint(params: {
 
   const result = await printService.queuePrintJob({
     type: PrintJobType.REPORT,
+    order: {
+      ...jobData,
+      pdfBase64: pdfBuffer.toString('base64'),
+    } as any,
+    template,
+    priority: priority ?? 5,
+  });
+
+  return res.json(result);
+}
+
+async function respondWithLabelPrint(params: {
+  res: any;
+  config: { destination: string };
+  pdfBuffer: Buffer;
+  template: string;
+  fileLabel: string;
+  jobData: Record<string, any>;
+  priority?: number;
+}) {
+  const { res, config, pdfBuffer, template, fileLabel, jobData, priority } = params;
+
+  if (config.destination === 'browser') {
+    const stored = await storePdf(pdfBuffer, fileLabel);
+    return res.json({ action: 'browser-print', pdfUrl: stored.url });
+  }
+
+  const result = await printService.queuePrintJob({
+    type: PrintJobType.LABEL,
     order: {
       ...jobData,
       pdfBase64: pdfBuffer.toString('base64'),
@@ -821,6 +859,91 @@ router.post('/gift-cards', async (req, res) => {
     }
     console.error('Error printing gift cards:', error);
     res.status(500).json({ error: 'Failed to print gift cards' });
+  }
+});
+
+router.post('/gift-card-labels', async (req, res) => {
+  try {
+    const payload = giftCardLabelSchema.parse(req.body ?? {});
+    const config = await printSettingsService.getConfigForType(PrintJobType.LABEL);
+    if (!config.enabled) {
+      return res.json({ action: 'skipped', reason: 'disabled', type: PrintJobType.LABEL });
+    }
+
+    const labelItems = await Promise.all(
+      payload.cardNumbers.map(async (cardNumber) => ({
+        cardNumber,
+        qrCodeDataUrl: await generateOrderQRCode(cardNumber),
+        quantity: 1,
+      }))
+    );
+
+    const pdfBuffer = await buildGiftCardLabelsPdf(labelItems);
+
+    return respondWithLabelPrint({
+      res,
+      config,
+      pdfBuffer,
+      template: 'gift-card-label-v1',
+      fileLabel: 'gift-card-labels',
+      jobData: {
+        labelCount: labelItems.length,
+        cardNumbers: payload.cardNumbers,
+      },
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.errors[0]?.message || 'Invalid request data' });
+    }
+    console.error('Error printing gift card labels:', error);
+    res.status(500).json({ error: 'Failed to print gift card labels' });
+  }
+});
+
+router.post('/gift-card-label/:cardId', async (req, res) => {
+  try {
+    const { cardId } = giftCardLabelParamSchema.parse(req.params ?? {});
+    const config = await printSettingsService.getConfigForType(PrintJobType.LABEL);
+    if (!config.enabled) {
+      return res.json({ action: 'skipped', reason: 'disabled', type: PrintJobType.LABEL });
+    }
+
+    const card = await prisma.giftCard.findUnique({
+      where: { id: cardId },
+      select: { cardNumber: true },
+    });
+
+    if (!card) {
+      return res.status(404).json({ error: 'Gift card not found' });
+    }
+
+    const labelItems = [
+      {
+        cardNumber: card.cardNumber,
+        qrCodeDataUrl: await generateOrderQRCode(card.cardNumber),
+        quantity: 1,
+      },
+    ];
+
+    const pdfBuffer = await buildGiftCardLabelsPdf(labelItems);
+
+    return respondWithLabelPrint({
+      res,
+      config,
+      pdfBuffer,
+      template: 'gift-card-label-v1',
+      fileLabel: `gift-card-label-${card.cardNumber}`,
+      jobData: {
+        labelCount: 1,
+        cardNumbers: [card.cardNumber],
+      },
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.errors[0]?.message || 'Invalid request data' });
+    }
+    console.error('Error printing gift card label:', error);
+    res.status(500).json({ error: 'Failed to print gift card label' });
   }
 });
 

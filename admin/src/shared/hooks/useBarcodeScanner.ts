@@ -4,6 +4,7 @@ import { useApiClient } from './useApiClient';
 interface UseBarcodeSccannerOptions {
   enabled?: boolean;
   onProductFound: (product: any) => void;
+  onCodeScanned?: (code: string) => boolean | Promise<boolean>;
   onError?: (error: string) => void;
 }
 
@@ -15,6 +16,7 @@ interface UseBarcodeSccannerOptions {
 export function useBarcodeScanner({
   enabled = true,
   onProductFound,
+  onCodeScanned,
   onError,
 }: UseBarcodeSccannerOptions) {
   const apiClient = useApiClient();
@@ -33,6 +35,13 @@ export function useBarcodeScanner({
       isProcessingRef.current = true;
 
       try {
+        if (onCodeScanned) {
+          const handled = await Promise.resolve(onCodeScanned(code));
+          if (handled) {
+            return;
+          }
+        }
+
         // First try inventory lookup (searches by SKU)
         const response = await apiClient.get(`/api/inventory/lookup?sku=${encodeURIComponent(code)}`);
 
@@ -71,7 +80,7 @@ export function useBarcodeScanner({
         isProcessingRef.current = false;
       }
     },
-    [apiClient, onProductFound, onError]
+    [apiClient, onProductFound, onError, onCodeScanned]
   );
 
   useEffect(() => {

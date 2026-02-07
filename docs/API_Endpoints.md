@@ -190,7 +190,8 @@ Each variant can optionally reference one of the product's images via `featuredI
 - ✅ POST `/api/discounts/auto-apply` — evaluate automatic discounts for cart context.
 
 ## Gift Cards & Payments
-- ✅ POST `/api/gift-cards/batch` — generate inactive card batch (`back/src/routes/gift-cards/index.ts`)
+- ✅ POST `/api/gift-cards/batch` — generate inactive card batch (supports `printLabels` for physical label printing) (`back/src/routes/gift-cards/index.ts`)
+- ✅ POST `/api/gift-cards/generate-number` — generate unique EGC-* number for digital cards (`back/src/routes/gift-cards/index.ts`)
 - ✅ GET `/api/gift-cards` — list cards.
 - ✅ GET `/api/gift-cards/:id` — card detail (includes transactions).
 - ✅ PATCH `/api/gift-cards/:id/deactivate` — deactivate an active card.
@@ -268,6 +269,8 @@ Each variant can optionally reference one of the product's images via `featuredI
 - ✅ POST `/api/print/house-account-statement` — generate house account statement print (Documents settings).
 - ✅ POST `/api/print/inventory-report` — generate inventory count sheet print (Documents settings).
 - ✅ POST `/api/print/gift-cards` — generate gift card handoff print (Documents settings).
+- ✅ POST `/api/print/gift-card-labels` — generate gift card label sheet print (Labels settings).
+- ✅ POST `/api/print/gift-card-label/:cardId` — generate single gift card label print (Labels settings).
 - ✅ GET `/api/print/preview/ticket` — generate a preview order ticket PDF from the most recent completed order.
 - ✅ GET `/api/print/pdf/:fileName` — fetch locally stored PDF for browser printing.
 

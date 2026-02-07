@@ -1,32 +1,61 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, PrintJobType } from '@prisma/client';
+import { generateOrderQRCode } from '../../utils/qrCodeGenerator';
+import { storePdf } from '../../utils/pdfStorage';
+import { giftCardService } from '../../services/giftCardService';
+import { printSettingsService } from '../../services/printSettingsService';
+import { printService } from '../../services/printService';
+import { buildGiftCardLabelsPdf } from '../../templates/gift-card-labels-pdf';
 
 const prisma = new PrismaClient();
 
 interface BatchRequest {
   quantity: number;
   type: 'PHYSICAL' | 'DIGITAL';
+  printLabels?: boolean;
 }
 
-// Generate random card number like "GC-X7K9-M3R8"
-const generateCardNumber = (): string => {
-  const chars = 'ABCDEFGHIJKLMNPQRSTUVWXYZ23456789'; // Exclude confusing chars
-  const segments = [];
-  
-  for (let i = 0; i < 3; i++) {
-    let segment = '';
-    for (let j = 0; j < 4; j++) {
-      segment += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    segments.push(segment);
+const queueLabelPrint = async (cardNumbers: string[]) => {
+  const config = await printSettingsService.getConfigForType(PrintJobType.LABEL);
+  if (!config.enabled) {
+    return { action: 'skipped', reason: 'disabled', type: PrintJobType.LABEL };
   }
-  
-  return `GC-${segments.join('-')}`;
+
+  const labelItems = await Promise.all(
+    cardNumbers.map(async (cardNumber) => ({
+      cardNumber,
+      qrCodeDataUrl: await generateOrderQRCode(cardNumber),
+      quantity: 1,
+    }))
+  );
+
+  const pdfBuffer = await buildGiftCardLabelsPdf(labelItems);
+
+  if (config.destination === 'browser') {
+    const stored = await storePdf(pdfBuffer, 'gift-card-labels');
+    return {
+      action: 'browser-print',
+      pdfUrl: stored.url,
+    };
+  }
+
+  const result = await printService.queuePrintJob({
+    type: PrintJobType.LABEL,
+    order: {
+      pdfBase64: pdfBuffer.toString('base64'),
+      labelCount: labelItems.length,
+      cardNumbers,
+    } as any,
+    template: 'gift-card-label-v1',
+    priority: 5,
+  });
+
+  return result;
 };
 
 export const createBatch = async (req: Request, res: Response) => {
   try {
-    const { quantity = 100, type = 'PHYSICAL' }: BatchRequest = req.body;
+    const { quantity = 100, type = 'PHYSICAL', printLabels = false }: BatchRequest = req.body;
 
     if (quantity < 1 || quantity > 1000) {
       return res.status(400).json({
@@ -34,22 +63,9 @@ export const createBatch = async (req: Request, res: Response) => {
       });
     }
 
+    const prefix = type === 'DIGITAL' ? 'EGC' : 'GC';
+    const cardNumbers = await giftCardService.generateBatchNumbers(prefix, quantity);
     const cards = [];
-    const cardNumbers = new Set<string>(); // Ensure uniqueness
-
-    // Generate unique card numbers
-    while (cardNumbers.size < quantity) {
-      const cardNumber = generateCardNumber();
-      
-      // Check if it already exists in database
-      const existing = await prisma.giftCard.findUnique({
-        where: { cardNumber }
-      });
-      
-      if (!existing) {
-        cardNumbers.add(cardNumber);
-      }
-    }
 
     // Create all cards in batch
     for (const cardNumber of cardNumbers) {
@@ -67,16 +83,26 @@ export const createBatch = async (req: Request, res: Response) => {
     });
 
     // Return the card numbers for printing
-    const createdCards = Array.from(cardNumbers).map(cardNumber => ({
+    const createdCards = cardNumbers.map(cardNumber => ({
       cardNumber,
       type,
       status: 'INACTIVE'
     }));
 
+    const shouldPrintLabels = printLabels && type === 'PHYSICAL';
+    const labelPrint = shouldPrintLabels ? await queueLabelPrint(cardNumbers) : null;
+
+    const labelPdfUrl =
+      labelPrint && typeof labelPrint === 'object' && 'pdfUrl' in labelPrint
+        ? labelPrint.pdfUrl
+        : undefined;
+
     return res.status(201).json({
       success: true,
       message: `Created ${result.count} gift cards`,
-      cards: createdCards
+      cards: createdCards,
+      labelPrint,
+      labelPdfUrl,
     });
 
   } catch (error) {

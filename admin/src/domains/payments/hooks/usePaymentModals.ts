@@ -4,7 +4,7 @@
  * Manages all modal states and contexts for payment flow:
  * - Active payment modal (cash, card, manual methods)
  * - Modal context (single payment vs split payment)
- * - Gift card activation/handoff modals
+ * - Gift card handoff modal
  * - Notification modal
  * - Adjustments/discounts modal
  */
@@ -39,7 +39,6 @@ export const usePaymentModals = () => {
   const [activeModal, setActiveModal] = useState<PaymentTileId | null>(null);
   const [modalContext, setModalContext] = useState<ModalContext>(null);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
-  const [showGiftCardActivation, setShowGiftCardActivation] = useState(false);
   const [showGiftCardHandoff, setShowGiftCardHandoff] = useState(false);
   const [showAdjustments, setShowAdjustments] = useState(false);
 
@@ -70,7 +69,6 @@ export const usePaymentModals = () => {
     setActiveModal(null);
     setModalContext(null);
     setShowNotificationModal(false);
-    setShowGiftCardActivation(false);
     setShowGiftCardHandoff(false);
     setShowAdjustments(false);
   }, []);
@@ -80,7 +78,6 @@ export const usePaymentModals = () => {
     activeModal,
     modalContext,
     showNotificationModal,
-    showGiftCardActivation,
     showGiftCardHandoff,
     showAdjustments,
 
@@ -90,7 +87,6 @@ export const usePaymentModals = () => {
     setActiveModal,
     setModalContext,
     setShowNotificationModal,
-    setShowGiftCardActivation,
     setShowGiftCardHandoff,
     setShowAdjustments,
     resetModals,

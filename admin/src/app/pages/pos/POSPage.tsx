@@ -7,12 +7,20 @@ import CustomItemModal from '@app/components/pos/CustomItemModal';
 import ProductVariantModal from '@app/components/pos/ProductVariantModal';
 import PaymentController from '@app/components/pos/payment/PaymentController';
 import TakeOrderOverlay from '@app/components/pos/TakeOrderOverlay';
+import GiftCardSaleModal from '@app/components/gift-cards/GiftCardSaleModal';
 import { useApiClient } from '@shared/hooks/useApiClient';
 import { useTaxRates } from '@shared/hooks/useTaxRates';
 import { useBarcodeScanner } from '@shared/hooks/useBarcodeScanner';
 import { getOrCreateGuestCustomer } from '@shared/utils/customerHelpers';
 import { Modal } from '@shared/ui/components/ui/modal';
 import { centsToDollars, coerceCents, dollarsToCents, formatCurrency } from '@shared/utils/currency';
+import {
+  GiftCardSaleData,
+  getGiftCardInfo,
+  getGiftCardNumberType,
+  isGiftCardNumber,
+  isGiftCardProduct,
+} from '@shared/utils/giftCardHelpers';
 import { deleteLocalDraft, getLocalDrafts, saveLocalDraft, LocalDraft } from '@shared/utils/posLocalDrafts';
 
 const AUTO_RESTORE_WINDOW_MS = 5 * 60 * 1000;
@@ -75,6 +83,11 @@ export default function POSPage() {
   const [cartItems, setCartItems] = useState([]);
   const [showPaymentController, setShowPaymentController] = useState(false);
   const [showDeliveryOrder, setShowDeliveryOrder] = useState(false);
+  const [showGiftCardModal, setShowGiftCardModal] = useState(false);
+  const [giftCardModalMode, setGiftCardModalMode] = useState<'physical' | 'electronic'>('electronic');
+  const [giftCardCardNumber, setGiftCardCardNumber] = useState<string | undefined>(undefined);
+  const [giftCardDefaultAmount, setGiftCardDefaultAmount] = useState<number | null>(null);
+  const [giftCardSourceProduct, setGiftCardSourceProduct] = useState<any | null>(null);
 
   // Discount state
   const [appliedDiscounts, setAppliedDiscounts] = useState([]);
@@ -111,7 +124,9 @@ export default function POSPage() {
   // Check for automatic discounts when cart changes
   const checkAutomaticDiscounts = async (currentCartItems) => {
     try {
-      const cartItemsForAPI = currentCartItems.map(item => ({
+      const cartItemsForAPI = currentCartItems
+        .filter((item) => !item?.giftCard)
+        .map(item => ({
         id: item.id,
         categoryId: item.categoryId,
         categoryIds: item.categoryIds || (item.categoryId ? [item.categoryId] : []),
@@ -145,6 +160,23 @@ export default function POSPage() {
     console.log('🛒 Adding product to cart:', product);
     
     try {
+      if (isGiftCardProduct(product)) {
+        const giftCardInfo = getGiftCardInfo(product);
+        let defaultAmountCents: number | null = null;
+        if (giftCardInfo.value) {
+          defaultAmountCents = dollarsToCents(giftCardInfo.value);
+        } else if (typeof product.defaultPrice === 'number' && product.defaultPrice > 0) {
+          defaultAmountCents = dollarsToCents(product.defaultPrice);
+        }
+
+        setGiftCardSourceProduct(product);
+        setGiftCardModalMode('electronic');
+        setGiftCardCardNumber(undefined);
+        setGiftCardDefaultAmount(defaultAmountCents);
+        setShowGiftCardModal(true);
+        return;
+      }
+
       // Check if product has multiple variants (non-default variants)
       const hasVariants = product.variants && product.variants.length > 1;
       const hasNonDefaultVariants = product.variants && product.variants.some(v => !v.isDefault);
@@ -218,10 +250,23 @@ export default function POSPage() {
 
   // Barcode scanner - only active when not in payment/delivery mode
   useBarcodeScanner({
-    enabled: !showPaymentController && !showDeliveryOrder,
+    enabled: !showPaymentController && !showDeliveryOrder && !showGiftCardModal,
     onProductFound: (product) => {
       setScannerError(null);
       addProductRef.current(product);
+    },
+    onCodeScanned: (code) => {
+      if (!isGiftCardNumber(code)) return false;
+      const type = getGiftCardNumberType(code);
+      if (type !== 'PHYSICAL') return false;
+
+      setScannerError(null);
+      setGiftCardSourceProduct(null);
+      setGiftCardModalMode('physical');
+      setGiftCardCardNumber(code);
+      setGiftCardDefaultAmount(null);
+      setShowGiftCardModal(true);
+      return true;
     },
     onError: (error) => {
       setScannerError(error);
@@ -412,6 +457,40 @@ export default function POSPage() {
   const handleDeliveryOrderCancel = () => {
     console.log('❌ Delivery order cancelled');
     setShowDeliveryOrder(false);
+  };
+
+  const handleGiftCardAdd = (payload: GiftCardSaleData) => {
+    const existing = cartItems.find((item) => item?.giftCard?.cardNumber === payload.cardNumber);
+    if (existing) {
+      setScannerError('Gift card already added to the cart.');
+      setTimeout(() => setScannerError(null), 3000);
+      return;
+    }
+
+    const label = payload.type === 'DIGITAL' ? 'Digital Gift Card' : 'Gift Card';
+    const newItem = {
+      id: `gift-card-${payload.cardNumber}`,
+      name: `${label} - ${payload.cardNumber}`,
+      price: payload.amount,
+      quantity: 1,
+      isTaxable: false,
+      giftCard: payload,
+      categoryId: giftCardSourceProduct?.categoryId,
+      categoryIds: giftCardSourceProduct?.categoryIds,
+      productId: giftCardSourceProduct?.id,
+    };
+
+    const updatedCartItems = [...cartItems, newItem];
+    setCartItems(updatedCartItems);
+    checkAutomaticDiscounts(updatedCartItems);
+    setGiftCardSourceProduct(null);
+  };
+
+  const handleGiftCardClose = () => {
+    setShowGiftCardModal(false);
+    setGiftCardSourceProduct(null);
+    setGiftCardCardNumber(undefined);
+    setGiftCardDefaultAmount(null);
   };
 
   useEffect(() => {
@@ -837,6 +916,15 @@ export default function POSPage() {
           setSelectedProductForVariants(null);
         }}
         onSelectVariant={handleVariantSelection}
+      />
+
+      <GiftCardSaleModal
+        open={showGiftCardModal}
+        mode={giftCardModalMode}
+        initialCardNumber={giftCardCardNumber}
+        defaultAmountCents={giftCardDefaultAmount}
+        onClose={handleGiftCardClose}
+        onAdd={handleGiftCardAdd}
       />
 
       {/* Draft Modal */}
