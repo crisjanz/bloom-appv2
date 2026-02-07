@@ -65,6 +65,7 @@ export default function GiftCardDetailModal({ open, cardId, onClose, onCardUpdat
   const [isDeactivating, setIsDeactivating] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [isPrintingLabel, setIsPrintingLabel] = useState(false);
+  const [isPrintingDetails, setIsPrintingDetails] = useState(false);
 
   const formatDate = useCallback((value?: string | null) => {
     if (!value) return "—";
@@ -179,6 +180,50 @@ export default function GiftCardDetailModal({ open, cardId, onClose, onCardUpdat
       setActionError(err instanceof Error ? err.message : "Failed to print gift card label");
     } finally {
       setIsPrintingLabel(false);
+    }
+  };
+
+  const handlePrintDetails = async () => {
+    if (!card) return;
+    setIsPrintingDetails(true);
+    setActionError(null);
+    setActionSuccess(null);
+
+    try {
+      const amount = card.initialValue > 0 ? card.initialValue : card.currentBalance;
+      const { data, status } = await apiClient.post('/api/print/gift-cards', {
+        customerName: card.recipientName || card.purchasedBy || undefined,
+        cards: [
+          {
+            cardNumber: card.cardNumber,
+            amount,
+            type: card.type,
+            recipientName: card.recipientName || null,
+            recipientEmail: card.recipientEmail || null,
+            message: card.message || null,
+          },
+        ],
+      });
+
+      if (status >= 400) {
+        throw new Error(data?.error || 'Failed to print gift card');
+      }
+
+      if (data?.action === 'browser-print' && data?.pdfUrl) {
+        window.open(data.pdfUrl, '_blank');
+        setActionSuccess('Gift card PDF opened in a new tab.');
+      } else if (data?.action === 'queued') {
+        setActionSuccess('Gift card queued for printing.');
+      } else if (data?.action === 'skipped') {
+        setActionError('Printing is disabled in Print Settings.');
+      } else {
+        setActionSuccess('Gift card queued for printing.');
+      }
+    } catch (err) {
+      console.error('Error printing gift card:', err);
+      setActionError(err instanceof Error ? err.message : 'Failed to print gift card');
+    } finally {
+      setIsPrintingDetails(false);
     }
   };
 
@@ -395,6 +440,16 @@ export default function GiftCardDetailModal({ open, cardId, onClose, onCardUpdat
                     className="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isPrintingLabel ? "Printing..." : "Print Label"}
+                  </button>
+                )}
+                {card.status === "ACTIVE" && (
+                  <button
+                    type="button"
+                    onClick={handlePrintDetails}
+                    disabled={isPrintingDetails}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isPrintingDetails ? "Printing..." : "Print Gift Card"}
                   </button>
                 )}
                 {card.type === "DIGITAL" && card.recipientEmail && (
