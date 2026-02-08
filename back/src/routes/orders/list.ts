@@ -206,4 +206,29 @@ router.get('/list', async (req, res) => {
   }
 });
 
+// Get order by order number (for global search)
+router.get('/by-number/:orderNumber', async (req, res) => {
+  try {
+    const { orderNumber } = req.params;
+
+    const order = await prisma.order.findFirst({
+      where: { orderNumber: Number(orderNumber) },
+      include: {
+        customer: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true
+          }
+        }
+      }
+    });
+
+    res.json({ order });
+  } catch (error) {
+    console.error('Error fetching order by number:', error);
+    res.status(500).json({ error: 'Failed to fetch order' });
+  }
+});
+
 export default router;
