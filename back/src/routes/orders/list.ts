@@ -231,4 +231,35 @@ router.get('/by-number/:orderNumber', async (req, res) => {
   }
 });
 
+// Get recent website orders for notifications
+router.get('/recent-web', async (req, res) => {
+  try {
+    const hoursAgo = parseInt(req.query.hours?.toString() || '24');
+    const since = new Date(Date.now() - hoursAgo * 60 * 60 * 1000);
+
+    const orders = await prisma.order.findMany({
+      where: {
+        orderSource: 'WEBSITE',
+        createdAt: { gte: since }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      select: {
+        id: true,
+        orderNumber: true,
+        createdAt: true,
+        grandTotal: true,
+        customer: {
+          select: { firstName: true, lastName: true }
+        }
+      }
+    });
+
+    res.json({ orders });
+  } catch (error) {
+    console.error('Error fetching recent web orders:', error);
+    res.status(500).json({ error: 'Failed to fetch orders' });
+  }
+});
+
 export default router;

@@ -432,5 +432,46 @@ metaRouter.get('/unread-count', async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/communications/unread - Get recent unread SMS messages with order info
+metaRouter.get('/unread', async (req: Request, res: Response) => {
+  try {
+    const limit = parseInt(req.query.limit?.toString() || '10');
+
+    const messages = await prisma.orderCommunication.findMany({
+      where: {
+        type: CommunicationType.SMS_RECEIVED,
+        readAt: null
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      include: {
+        order: {
+          select: {
+            id: true,
+            orderNumber: true,
+            recipientCustomer: {
+              select: { firstName: true, lastName: true }
+            },
+            customer: {
+              select: { firstName: true, lastName: true }
+            }
+          }
+        }
+      }
+    });
+
+    res.json({
+      success: true,
+      messages
+    });
+  } catch (error) {
+    console.error('Error fetching unread messages:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch unread messages'
+    });
+  }
+});
+
 export { metaRouter as communicationsMetaRouter };
 export default router;
