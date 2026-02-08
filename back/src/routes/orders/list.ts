@@ -248,14 +248,27 @@ router.get('/recent-web', async (req, res) => {
         id: true,
         orderNumber: true,
         createdAt: true,
-        grandTotal: true,
+        orderItems: {
+          select: { rowTotal: true }
+        },
+        deliveryFee: true,
+        totalTax: true,
         customer: {
           select: { firstName: true, lastName: true }
         }
       }
     });
 
-    res.json({ orders });
+    // Calculate grandTotal for each order
+    const ordersWithTotal = orders.map(order => ({
+      id: order.id,
+      orderNumber: order.orderNumber,
+      createdAt: order.createdAt,
+      grandTotal: order.orderItems.reduce((sum, item) => sum + item.rowTotal, 0) + order.deliveryFee + order.totalTax,
+      customer: order.customer
+    }));
+
+    res.json({ orders: ordersWithTotal });
   } catch (error) {
     console.error('Error fetching recent web orders:', error);
     res.status(500).json({ error: 'Failed to fetch orders' });
