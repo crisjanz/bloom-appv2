@@ -77,6 +77,12 @@ import { ReactComponent as PackageIcon } from "./more-icons/package.svg?react";
 import { ReactComponent as UserIcon2 } from "./more-icons/user.svg?react";
 import { ReactComponent as CameraIcon } from "./more-icons/camera.svg?react";
 
+// Menu icons
+import { ReactComponent as TagIcon } from "./more-icons/tag.svg?react";
+import { ReactComponent as GiftIcon } from "./gift.svg?react";
+import { ReactComponent as QrCodeIcon } from "./qr-code.svg?react";
+import { ReactComponent as BarChartIcon } from "./more-icons/bar-chart-2.svg?react";
+
 export {
   // Core icons
   PlusIcon,
@@ -156,4 +162,10 @@ export {
   PackageIcon,
   UserIcon2,
   CameraIcon,
+
+  // Menu icons
+  TagIcon,
+  GiftIcon,
+  QrCodeIcon,
+  BarChartIcon,
 };

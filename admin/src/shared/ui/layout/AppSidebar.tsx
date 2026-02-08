@@ -15,7 +15,11 @@ import {
   PieChartIcon,
   TableIcon,
   UserCircleIcon,
-  MailIcon,
+  TagIcon,
+  GiftIcon,
+  QrCodeIcon,
+  BarChartIcon,
+  DollarLineIcon,
 } from "@shared/assets/icons";
 import { useSidebar } from "@app/contexts/SidebarContext";
 import { useApiClient } from "@shared/hooks/useApiClient";
@@ -35,21 +39,13 @@ const navItems: NavItem[] = [
     path: "/",
   },
   {
-    name: "Take Order",
-    icon: <ListIcon />,
-    path: "/orders/new",
-  },
-  {
-    name: "POS Terminal",
-    icon: <GridIcon />,
-    path: "/pos/fullscreen",
-  },
-  {
     name: "Orders",
     icon: <ListIcon />,
     path: "/orders",
     subItems: [
-      { name: "Delivery", path: "/delivery", pro: false, icon: <TruckIcon /> },
+      { name: "Take Order", path: "/orders/new", icon: <ListIcon /> },
+      { name: "Delivery", path: "/delivery", icon: <TruckIcon /> },
+      { name: "External Orders", path: "/external-orders", icon: <LinkIcon /> },
     ],
   },
   {
@@ -57,70 +53,53 @@ const navItems: NavItem[] = [
     icon: <BoxCubeIcon />,
     path: "/products",
     subItems: [
-      { name: "Categories", path: "/products/categories", pro: false, icon: <GridIcon /> },
-      { name: "External Product Library", path: "/wire-products", pro: false, icon: <BoxCubeIcon /> },
+      { name: "Categories", path: "/products/categories", icon: <GridIcon /> },
+      { name: "Wire Products", path: "/wire-products", icon: <LinkIcon /> },
+      { name: "Inventory", path: "/inventory", icon: <BoxCubeIcon /> },
     ],
   },
-  {
-    name: "Inventory",
-    icon: <BoxCubeIcon />,
-    path: "/inventory",
-  },
-
   {
     name: "Customers",
     icon: <UserCircleIcon />,
     path: "/customers",
-  },
-  {
-    name: "Events",
-    icon: <CalenderIcon />,
-    path: "/events",
-  },
-  {
-    name: "External Orders",
-    icon: <LinkIcon />,
-    path: "/external-orders",
+    subItems: [
+      { name: "House Accounts", path: "/house-accounts", icon: <DollarLineIcon /> },
+    ],
   },
   {
     name: "Calendar",
     icon: <CalenderIcon />,
     path: "/calendar",
+    subItems: [
+      { name: "Events", path: "/events", icon: <CalenderIcon /> },
+    ],
+  },
+  {
+    name: "Marketing",
+    icon: <TagIcon />,
+    subItems: [
+      { name: "Discounts", path: "/discounts", icon: <TagIcon /> },
+      { name: "Gift Cards", path: "/gift-cards", icon: <GiftIcon /> },
+      { name: "Birthday QR", path: "/marketing/birthday-gifts", icon: <QrCodeIcon /> },
+    ],
+  },
+  {
+    name: "Reports",
+    icon: <BarChartIcon />,
+    path: "/reports/sales",
+    subItems: [
+      { name: "Sales", path: "/reports/sales", icon: <PieChartIcon /> },
+      { name: "Transactions", path: "/reports/transactions", icon: <TableIcon /> },
+      { name: "Tax Export", path: "/reports/tax-export", icon: <TableIcon /> },
+    ],
   },
   {
     name: "Settings",
     icon: <SettingsIcon />,
     path: "/settings",
-  },
-  {
-    name: "Discounts",
-    icon: <BoxCubeIcon />,
-    path: "/discounts",
-  },
-  {
-    name: "Gift Cards",
-    icon: <GridIcon />,
-    path: "/gift-cards",
-  },
-  {
-    name: "Gift QR",
-    icon: <MailIcon />,
-    path: "/marketing/birthday-gifts",
-  },
-  {
-    name: "Reports",
-    icon: <PieChartIcon />,
-    path: "/reports/sales",
     subItems: [
-      { name: "Transactions", path: "/reports/transactions", pro: false, icon: <TableIcon /> },
-      { name: "House Accounts", path: "/house-accounts", pro: false, icon: <TableIcon /> },
-      { name: "Tax Export", path: "/reports/tax-export", pro: false, icon: <TableIcon /> },
+      { name: "User Profile", path: "/profile", icon: <UserCircleIcon /> },
     ],
-  },
-  {
-    name: "User Profile",
-    icon: <UserCircleIcon />,
-    path: "/profile",
   },
 ];
 

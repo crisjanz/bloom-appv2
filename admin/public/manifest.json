@@ -1,11 +1,11 @@
 {
-  "name": "Bloom Flower Shop POS",
+  "name": "Bloom POS Terminal",
   "short_name": "Bloom POS",
-  "description": "Point of Sale Terminal for Bloom Flower Shop",
+  "description": "Point of Sale Terminal",
   "start_url": "/pos/fullscreen",
   "display": "standalone",
-  "background_color": "#597485",
-  "theme_color": "#597485",
+  "background_color": "#ffffff",
+  "theme_color": "#465fff",
   "icons": [
     {
       "src": "/favicon.png",

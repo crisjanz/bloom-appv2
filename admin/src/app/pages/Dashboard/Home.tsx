@@ -3,6 +3,7 @@ import { useDashboardMetrics, useRevenueTrend } from "@shared/hooks/useDashboard
 import MetricCard from "@app/components/dashboard/MetricCard";
 import RevenueTrendChart from "@app/components/dashboard/RevenueTrendChart";
 import { formatCurrency } from "@shared/utils/currency";
+import { GridIcon } from "@shared/assets/icons";
 
 export default function DashboardHome() {
   const { metrics, loading, error } = useDashboardMetrics();
@@ -43,9 +44,18 @@ export default function DashboardHome() {
         description="Real-time operational metrics for Bloom"
       />
       <div className="p-4 md:p-6">
-        <h1 className="mb-6 text-2xl font-semibold text-gray-900 dark:text-white">
-          Dashboard
-        </h1>
+        <div className="mb-6 flex items-center justify-between">
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
+            Dashboard
+          </h1>
+          <button
+            onClick={() => window.open('/pos/fullscreen', '_blank', 'noopener')}
+            className="flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 transition-colors"
+          >
+            <GridIcon className="h-4 w-4" />
+            Open POS Terminal
+          </button>
+        </div>
 
         <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
           <MetricCard
