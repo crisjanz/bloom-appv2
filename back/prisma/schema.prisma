@@ -218,6 +218,10 @@ model Customer {
   houseAccountTerms   String?              @default("NET_30")
   houseAccountNotes   String?
 
+  // Cart sync across browsers
+  cartData            Json?
+  cartUpdatedAt       DateTime?
+
   @@index([phone])
   @@index([firstName, lastName])
 }

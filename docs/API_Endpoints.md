@@ -44,6 +44,8 @@
 - ✅ PUT `/api/customers/me` — update profile details.
 - ✅ PUT `/api/customers/me/password` — change password after verification.
 - ✅ GET `/api/customers/me/orders` — customer order history.
+- ✅ GET `/api/customers/me/cart` — get customer's synced cart.
+- ✅ PUT `/api/customers/me/cart` — save customer's cart for cross-browser sync.
 - ✅ POST `/api/customers/logout` — end active session.
 
 - ✅ GET `/api/customers/quick-search` — fuzzy lookup for POS/phone orders (`back/src/routes/customers.ts`)

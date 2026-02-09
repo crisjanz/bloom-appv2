@@ -1,7 +1,8 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { validateCoupon, autoApplyDiscounts } from '../services/discountService';
 import { useAuth } from './AuthContext';
+import api from '../services/api';
 
 const CartContext = createContext();
 
@@ -19,12 +20,17 @@ export function CartProvider({ children }) {
   const [deliveryDate, setDeliveryDate] = useState(null);
   const [coupon, setCoupon] = useState(null);
   const [autoDiscounts, setAutoDiscounts] = useState([]);
+  const [cartUpdatedAt, setCartUpdatedAt] = useState(null);
+  const syncTimeoutRef = useRef(null);
+  const lastCustomerIdRef = useRef(null);
+  const isSyncingRef = useRef(false);
 
   // Load cart and delivery date from localStorage on mount
   useEffect(() => {
     const savedCart = localStorage.getItem('bloom_cart');
     const savedDate = localStorage.getItem('bloom_delivery_date');
     const savedCoupon = localStorage.getItem('bloom_coupon');
+    const savedUpdatedAt = localStorage.getItem('bloom_cart_updated_at');
 
     if (savedCart) {
       try {
@@ -50,6 +56,10 @@ export function CartProvider({ children }) {
         console.error('Failed to load coupon from localStorage:', error);
       }
     }
+
+    if (savedUpdatedAt) {
+      setCartUpdatedAt(savedUpdatedAt);
+    }
   }, []);
 
   // Save cart to localStorage whenever it changes
@@ -74,6 +84,114 @@ export function CartProvider({ children }) {
       localStorage.removeItem('bloom_coupon');
     }
   }, [coupon]);
+
+  // Save cartUpdatedAt to localStorage
+  useEffect(() => {
+    if (cartUpdatedAt) {
+      localStorage.setItem('bloom_cart_updated_at', cartUpdatedAt);
+    }
+  }, [cartUpdatedAt]);
+
+  // Update cartUpdatedAt when cart changes (but not on initial load)
+  const isInitialMount = useRef(true);
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    // Only update timestamp if not currently syncing from server
+    if (!isSyncingRef.current) {
+      setCartUpdatedAt(new Date().toISOString());
+    }
+  }, [cart]);
+
+  // Save cart to server (for logged-in users)
+  const saveCartToServer = useCallback(async (items, updatedAt) => {
+    if (!customer) return;
+    try {
+      await api.put('/customers/me/cart', { items, updatedAt });
+    } catch (error) {
+      // Silently fail - localStorage is source of truth
+      console.error('Failed to sync cart to server:', error);
+    }
+  }, [customer]);
+
+  // Load cart from server and merge with local
+  const loadCartFromServer = useCallback(async () => {
+    if (!customer) return;
+    try {
+      const serverCart = await api.get('/customers/me/cart');
+      const serverItems = serverCart.items || [];
+      const serverUpdatedAt = serverCart.updatedAt;
+
+      // Get local cart state
+      const localUpdatedAt = cartUpdatedAt;
+
+      // Determine which cart is newer
+      const serverTime = serverUpdatedAt ? new Date(serverUpdatedAt).getTime() : 0;
+      const localTime = localUpdatedAt ? new Date(localUpdatedAt).getTime() : 0;
+
+      isSyncingRef.current = true;
+
+      if (serverTime > localTime && serverItems.length > 0) {
+        // Server cart is newer - use it
+        setCart(serverItems);
+        setCartUpdatedAt(serverUpdatedAt);
+        localStorage.setItem('bloom_cart', JSON.stringify(serverItems));
+        localStorage.setItem('bloom_cart_updated_at', serverUpdatedAt);
+      } else if (cart.length > 0 && localTime > serverTime) {
+        // Local cart is newer - sync to server
+        await saveCartToServer(cart, localUpdatedAt);
+      } else if (serverItems.length > 0 && cart.length === 0) {
+        // No local cart but server has items - use server
+        setCart(serverItems);
+        setCartUpdatedAt(serverUpdatedAt);
+        localStorage.setItem('bloom_cart', JSON.stringify(serverItems));
+        if (serverUpdatedAt) {
+          localStorage.setItem('bloom_cart_updated_at', serverUpdatedAt);
+        }
+      }
+      // If local has items but server doesn't, keep local (already in state)
+
+      isSyncingRef.current = false;
+    } catch (error) {
+      isSyncingRef.current = false;
+      console.error('Failed to load cart from server:', error);
+    }
+  }, [customer, cart, cartUpdatedAt, saveCartToServer]);
+
+  // Sync cart on login (when customer changes)
+  useEffect(() => {
+    if (customer?.id && customer.id !== lastCustomerIdRef.current) {
+      lastCustomerIdRef.current = customer.id;
+      loadCartFromServer();
+    } else if (!customer) {
+      lastCustomerIdRef.current = null;
+    }
+  }, [customer, loadCartFromServer]);
+
+  // Debounced save to server when cart changes (for logged-in users)
+  useEffect(() => {
+    if (!customer || isSyncingRef.current) return;
+
+    // Clear any pending save
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+    }
+
+    // Debounce: save after 500ms of no changes
+    syncTimeoutRef.current = setTimeout(() => {
+      if (cartUpdatedAt) {
+        saveCartToServer(cart, cartUpdatedAt);
+      }
+    }, 500);
+
+    return () => {
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+    };
+  }, [cart, customer, cartUpdatedAt, saveCartToServer]);
 
   const addToCart = (product, variantId = null) => {
     setCart((prevCart) => {

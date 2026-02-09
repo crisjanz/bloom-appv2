@@ -353,6 +353,88 @@ router.post('/logout', (_req: Request, res: Response) => {
   res.json({ success: true });
 });
 
+// GET /customers/me/cart - Get customer's saved cart
+router.get('/me/cart', authenticateCustomer, async (req: Request, res: Response) => {
+  try {
+    const customer = await prisma.customer.findUnique({
+      where: { id: req.customer!.id },
+      select: {
+        cartData: true,
+        cartUpdatedAt: true,
+      },
+    });
+
+    if (!customer) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+
+    res.json({
+      items: customer.cartData || [],
+      updatedAt: customer.cartUpdatedAt?.toISOString() || null,
+    });
+  } catch (error: any) {
+    console.error('Get cart error:', error);
+    res.status(500).json({ error: 'Failed to load cart' });
+  }
+});
+
+// PUT /customers/me/cart - Save customer's cart
+router.put('/me/cart', authenticateCustomer, async (req: Request, res: Response) => {
+  try {
+    const { items, updatedAt } = req.body;
+
+    if (!Array.isArray(items)) {
+      return res.status(400).json({ error: 'Items must be an array' });
+    }
+
+    const customer = await prisma.customer.findUnique({
+      where: { id: req.customer!.id },
+      select: { cartUpdatedAt: true },
+    });
+
+    if (!customer) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+
+    // Compare timestamps - only save if client data is newer
+    const clientUpdatedAt = updatedAt ? new Date(updatedAt) : new Date();
+    const serverUpdatedAt = customer.cartUpdatedAt;
+
+    if (serverUpdatedAt && clientUpdatedAt < serverUpdatedAt) {
+      // Client has stale data, return server data
+      const freshCustomer = await prisma.customer.findUnique({
+        where: { id: req.customer!.id },
+        select: { cartData: true, cartUpdatedAt: true },
+      });
+      return res.json({
+        items: freshCustomer?.cartData || [],
+        updatedAt: freshCustomer?.cartUpdatedAt?.toISOString() || null,
+        conflict: true,
+      });
+    }
+
+    const updated = await prisma.customer.update({
+      where: { id: req.customer!.id },
+      data: {
+        cartData: items,
+        cartUpdatedAt: clientUpdatedAt,
+      },
+      select: {
+        cartData: true,
+        cartUpdatedAt: true,
+      },
+    });
+
+    res.json({
+      items: updated.cartData || [],
+      updatedAt: updated.cartUpdatedAt?.toISOString() || null,
+    });
+  } catch (error: any) {
+    console.error('Save cart error:', error);
+    res.status(500).json({ error: 'Failed to save cart' });
+  }
+});
+
 // POST /customers/forgot-password
 router.post('/forgot-password', async (req: Request, res: Response) => {
   const { email } = req.body;
