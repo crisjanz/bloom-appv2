@@ -239,15 +239,43 @@ const CheckoutContent = () => {
     const paymentIntentId = params.get("payment_intent");
     const redirectStatus = params.get("redirect_status");
 
-    if (!paymentIntentId || redirectStatus !== "succeeded") return;
+    if (!paymentIntentId) return;
+
+    // Clear URL params
+    window.history.replaceState({}, "", window.location.pathname);
+
+    // Handle failed payment redirect
+    if (redirectStatus !== "succeeded") {
+      // Restore form data so user can retry
+      const pending = sessionStorage.getItem("pendingCheckout");
+      if (pending) {
+        const pendingData = JSON.parse(pending);
+        if (pendingData.recipient) {
+          setRecipient((prev) => ({ ...prev, ...pendingData.recipient }));
+        }
+        if (pendingData.buyer) {
+          setCustomer((prev) => ({
+            ...prev,
+            firstName: pendingData.buyer.firstName || prev.firstName,
+            lastName: pendingData.buyer.lastName || prev.lastName,
+            email: pendingData.buyer.email || prev.email,
+            phone: pendingData.buyer.phone || prev.phone,
+          }));
+        }
+        if (pendingData.deliveryDate) {
+          setDeliveryDate(pendingData.deliveryDate);
+        }
+      }
+      setActiveStep(3);
+      setCardError("Your payment was not completed. Please try again or use a different card.");
+      sessionStorage.removeItem("pendingCheckout");
+      return;
+    }
 
     const pending = sessionStorage.getItem("pendingCheckout");
     if (!pending) return;
 
     const pendingData = JSON.parse(pending);
-
-    // Clear URL params
-    window.history.replaceState({}, "", window.location.pathname);
 
     // Complete the order
     setIsSubmitting(true);
@@ -3269,6 +3297,9 @@ const EmptyCheckoutState = () => (
   </div>
 );
 
+const formatSuccessCurrency = (amount) =>
+  new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(amount);
+
 const SuccessCard = ({ orderResult }) => {
   const { drafts, recipient, deliveryDate, cardMessage, isPickup, cartItems, totals, buyer } = orderResult;
   const orderNumber = drafts?.[0]?.orderNumber || drafts?.[0]?.id || "—";
@@ -3281,9 +3312,6 @@ const SuccessCard = ({ orderResult }) => {
         year: "numeric",
       })
     : null;
-
-  const formatCurrency = (amount) =>
-    new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(amount);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-12">
@@ -3342,7 +3370,7 @@ const SuccessCard = ({ orderResult }) => {
                   <h3 className="font-medium text-gray-800">{item.name}</h3>
                   {item.quantity > 1 && <p className="text-sm text-gray-500">Qty: {item.quantity}</p>}
                 </div>
-                <p className="font-semibold text-gray-800">{formatCurrency(item.price)}</p>
+                <p className="font-semibold text-gray-800">{formatSuccessCurrency(item.price)}</p>
               </div>
             ))}
           </div>
@@ -3372,27 +3400,27 @@ const SuccessCard = ({ orderResult }) => {
           <div className="space-y-2 text-sm">
             <div className="flex justify-between text-gray-600">
               <span>Subtotal</span>
-              <span>{formatCurrency(totals.subtotal)}</span>
+              <span>{formatSuccessCurrency(totals.subtotal)}</span>
             </div>
             {!isPickup && totals.deliveryFee > 0 && (
               <div className="flex justify-between text-gray-600">
                 <span>Delivery</span>
-                <span>{formatCurrency(totals.deliveryFee)}</span>
+                <span>{formatSuccessCurrency(totals.deliveryFee)}</span>
               </div>
             )}
             {totals.discount > 0 && (
               <div className="flex justify-between text-green-600">
                 <span>Discount</span>
-                <span>-{formatCurrency(totals.discount)}</span>
+                <span>-{formatSuccessCurrency(totals.discount)}</span>
               </div>
             )}
             <div className="flex justify-between text-gray-600">
               <span>Tax</span>
-              <span>{formatCurrency(totals.tax)}</span>
+              <span>{formatSuccessCurrency(totals.tax)}</span>
             </div>
             <div className="flex justify-between border-t border-gray-200 pt-3 text-lg font-semibold text-gray-800">
               <span>Total</span>
-              <span>{formatCurrency(totals.total)}</span>
+              <span>{formatSuccessCurrency(totals.total)}</span>
             </div>
           </div>
         )}

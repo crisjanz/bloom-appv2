@@ -73,16 +73,32 @@ const GiftCardContent = () => {
     const paymentIntentId = params.get("payment_intent");
     const redirectStatus = params.get("redirect_status");
 
-    if (!paymentIntentId || redirectStatus !== "succeeded") return;
+    if (!paymentIntentId) return;
+
+    // Clear URL params
+    window.history.replaceState({}, "", window.location.pathname);
+
+    // Handle failed payment redirect
+    if (redirectStatus !== "succeeded") {
+      // Restore form data so user can retry
+      const pending = sessionStorage.getItem("pendingGiftCard");
+      if (pending) {
+        const { amount: pendingAmount, recipient: pendingRecipient, purchaser: pendingPurchaser } = JSON.parse(pending);
+        setSelectedAmount(pendingAmount);
+        setRecipient(pendingRecipient);
+        setPurchaser(pendingPurchaser);
+      }
+      setCurrentStep(3);
+      setSubmitError("Your payment was not completed. Please try again or use a different card.");
+      sessionStorage.removeItem("pendingGiftCard");
+      return;
+    }
 
     // Get pending order from sessionStorage
     const pending = sessionStorage.getItem("pendingGiftCard");
     if (!pending) return;
 
     const { amount: pendingAmount, recipient: pendingRecipient, purchaser: pendingPurchaser, bloomCustomerId } = JSON.parse(pending);
-
-    // Clear URL params
-    window.history.replaceState({}, "", window.location.pathname);
 
     // Complete the purchase
     setIsSubmitting(true);
