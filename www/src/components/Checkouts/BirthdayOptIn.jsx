@@ -27,7 +27,8 @@ const BirthdayOptIn = ({ value, onToggle, onChange, errors, compact = false }) =
           <select
             value={value.month}
             onChange={(e) => onChange("month", e.target.value)}
-            className="w-full rounded-md border border-stroke bg-transparent px-3 py-2 text-sm text-dark outline-hidden focus:border-primary dark:border-dark-3 dark:text-white"
+            className="w-full h-10 rounded-md border border-stroke bg-transparent px-3 text-sm text-dark outline-hidden focus:border-primary dark:border-dark-3 dark:text-white appearance-none"
+            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center', backgroundSize: '16px' }}
           >
             <option value="">Month</option>
             {months.map((m) => (
@@ -44,7 +45,8 @@ const BirthdayOptIn = ({ value, onToggle, onChange, errors, compact = false }) =
           <select
             value={value.day}
             onChange={(e) => onChange("day", e.target.value)}
-            className="w-full rounded-md border border-stroke bg-transparent px-3 py-2 text-sm text-dark outline-hidden focus:border-primary dark:border-dark-3 dark:text-white"
+            className="w-full h-10 rounded-md border border-stroke bg-transparent px-3 text-sm text-dark outline-hidden focus:border-primary dark:border-dark-3 dark:text-white appearance-none"
+            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center', backgroundSize: '16px' }}
           >
             <option value="">Day</option>
             {days.map((d) => (
@@ -63,7 +65,7 @@ const BirthdayOptIn = ({ value, onToggle, onChange, errors, compact = false }) =
             value={value.year}
             onChange={(e) => onChange("year", e.target.value)}
             placeholder="1990"
-            className="w-full rounded-md border border-stroke bg-transparent px-3 py-2 text-sm text-dark outline-hidden focus:border-primary dark:border-dark-3 dark:text-white"
+            className="w-full h-10 rounded-md border border-stroke bg-transparent px-3 text-sm text-dark outline-hidden focus:border-primary dark:border-dark-3 dark:text-white"
           />
         </div>
       </div>

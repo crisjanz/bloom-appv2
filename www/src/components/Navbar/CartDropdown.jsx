@@ -62,7 +62,7 @@ const CartDropdown = () => {
           <div
             className={`absolute top-full right-0 mt-3 w-[330px] overflow-hidden ${openDropDown ? "block" : "hidden"}`}
           >
-            <div className="p-8 overflow-x-hidden bg-white rounded-lg shadow-1 dark:bg-dark-2 dark:shadow-box-dark">
+            <div className="p-8 overflow-x-hidden bg-white rounded-lg border border-stroke shadow-1 dark:border-dark-3 dark:bg-dark-2 dark:shadow-box-dark">
               {cart.length === 0 ? (
                 <div className="text-center py-6">
                   <p className="text-body-color dark:text-dark-6">Your cart is empty</p>
@@ -86,6 +86,7 @@ const CartDropdown = () => {
                           <div className="min-w-0 flex-1">
                             <Link
                               to={`/product-details?id=${item.id}`}
+                              onClick={() => setOpenDropDown(false)}
                               className="text-sm font-medium text-dark hover:text-primary dark:text-white block truncate"
                             >
                               {item.name}
@@ -126,12 +127,14 @@ const CartDropdown = () => {
                   <div className="space-y-3">
                     <Link
                       to="/shopping-cart"
+                      onClick={() => setOpenDropDown(false)}
                       className="bg-gray-200 hover:bg-gray-300 dark:bg-dark-3 dark:hover:bg-dark flex w-full items-center justify-center rounded-md px-10 py-[13px] text-center text-base font-medium text-dark dark:text-white"
                     >
                       View Cart
                     </Link>
                     <Link
                       to="/checkout"
+                      onClick={() => setOpenDropDown(false)}
                       className="bg-primary hover:bg-primary-dark flex w-full items-center justify-center rounded-md px-10 py-[13px] text-center text-base font-medium text-white"
                     >
                       Checkout

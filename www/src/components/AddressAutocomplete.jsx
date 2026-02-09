@@ -8,23 +8,21 @@ const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY?.trim() || "";
 
 // Plain input without Google Maps autocomplete
 const PlainInput = ({ label, placeholder, value, onChange, disabled }) => (
-  <div className="w-full">
-    <div className="flex items-center border-b border-stroke/30 py-3 dark:border-dark-3/30">
-      {label && (
-        <label className="w-[35%] shrink-0 pr-3 text-sm font-medium text-dark dark:text-white">
-          {label}
-        </label>
-      )}
-      <input
-        type="text"
-        name="address1"
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        disabled={disabled}
-        className="flex-1 bg-transparent text-base text-dark outline-hidden placeholder:text-body-color/50 dark:text-white dark:placeholder:text-dark-6/50"
-      />
-    </div>
+  <div className="w-full px-4 py-3 bg-white dark:bg-dark-2">
+    {label && (
+      <label className="block text-sm font-medium text-dark dark:text-white mb-2">
+        {label}
+      </label>
+    )}
+    <input
+      type="text"
+      name="address1"
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      disabled={disabled}
+      className="w-full h-12 rounded-md border border-stroke bg-transparent px-4 text-base text-dark outline-hidden focus:border-primary placeholder:text-body-color/50 dark:border-dark-3 dark:text-white dark:placeholder:text-dark-6/50"
+    />
   </div>
 );
 
@@ -70,36 +68,35 @@ const GoogleAutocompleteInput = ({
   }
 
   return (
-    <div className="w-full">
-      <div className="flex items-center border-b border-stroke/30 py-3 dark:border-dark-3/30">
-        {label && (
-          <label className="w-[35%] shrink-0 pr-3 text-sm font-medium text-dark dark:text-white">
-            {label}
-          </label>
-        )}
-        <Autocomplete
-          onLoad={(instance) => {
-            autocompleteRef.current = instance;
-          }}
-          onPlaceChanged={handlePlaceChanged}
-          options={{
-            bounds: princeGeorgeBounds,
-            strictBounds: false,
-            componentRestrictions: { country: ["ca"] },
-            fields: ["address_components", "geometry"],
-          }}
-        >
-          <input
-            type="text"
-            name="address1"
-            value={value}
-            onChange={onChange}
-            placeholder={placeholder}
-            disabled={disabled}
-            className="flex-1 bg-transparent text-base text-dark outline-hidden placeholder:text-body-color/50 dark:text-white dark:placeholder:text-dark-6/50"
-          />
-        </Autocomplete>
-      </div>
+    <div className="w-full px-4 py-3 bg-white dark:bg-dark-2">
+      {label && (
+        <label className="block text-sm font-medium text-dark dark:text-white mb-2">
+          {label}
+        </label>
+      )}
+      <Autocomplete
+        onLoad={(instance) => {
+          autocompleteRef.current = instance;
+        }}
+        onPlaceChanged={handlePlaceChanged}
+        options={{
+          bounds: princeGeorgeBounds,
+          strictBounds: false,
+          componentRestrictions: { country: ["ca"] },
+          fields: ["address_components", "geometry"],
+        }}
+        className="w-full"
+      >
+        <input
+          type="text"
+          name="address1"
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          disabled={disabled}
+          className="w-full h-12 rounded-md border border-stroke bg-transparent px-4 text-base text-dark outline-hidden focus:border-primary placeholder:text-body-color/50 dark:border-dark-3 dark:text-white dark:placeholder:text-dark-6/50"
+        />
+      </Autocomplete>
     </div>
   );
 };

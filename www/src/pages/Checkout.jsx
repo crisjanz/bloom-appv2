@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PropTypes from "prop-types";
 import { Link } from "react-router-dom";
 import { CardElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
@@ -47,6 +47,32 @@ const CARD_ELEMENT_OPTIONS = {
       color: "#dc2626",
     },
   },
+};
+
+// Smooth scroll helper with controlled duration
+const smoothScrollTo = (element, duration = 600) => {
+  if (!element) return;
+  const headerOffset = 70; // Account for fixed header
+  const elementPosition = element.getBoundingClientRect().top;
+  const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+  const startPosition = window.pageYOffset;
+  const distance = offsetPosition - startPosition;
+  let startTime = null;
+
+  const easeInOutCubic = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+  const animation = (currentTime) => {
+    if (startTime === null) startTime = currentTime;
+    const timeElapsed = currentTime - startTime;
+    const progress = Math.min(timeElapsed / duration, 1);
+    const ease = easeInOutCubic(progress);
+    window.scrollTo(0, startPosition + distance * ease);
+    if (timeElapsed < duration) {
+      requestAnimationFrame(animation);
+    }
+  };
+
+  requestAnimationFrame(animation);
 };
 
 const useIsMobile = () => {
@@ -635,10 +661,10 @@ const CheckoutContent = () => {
 
     const nextStep = Math.min(currentStep + 1, 3);
     setActiveStep(nextStep);
-    requestAnimationFrame(() => {
+    setTimeout(() => {
       const section = document.querySelector(`[data-step="${nextStep}"]`);
-      section?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
+      smoothScrollTo(section, 800);
+    }, 50);
   };
 
   const goBack = (currentStep) => {
@@ -1093,10 +1119,10 @@ const CheckoutContent = () => {
                 applyingCoupon={applyingCoupon}
                 onJumpToPayment={() => {
                   setActiveStep(3);
-                  requestAnimationFrame(() => {
+                  setTimeout(() => {
                     const section = document.querySelector('[data-step="3"]');
-                    section?.scrollIntoView({ behavior: "smooth", block: "start" });
-                  });
+                    smoothScrollTo(section, 800);
+                  }, 50);
                 }}
               />
             </div>
@@ -1482,19 +1508,25 @@ MobileCheckout.propTypes = {
 };
 
 const MobileAccordionSection = ({ step, title, open, onToggle, children }) => {
-  const sectionRef = useCallback((node) => {
-    if (node && open) {
-      // Scroll to the section with some offset for better UX
+  const wasOpenRef = useRef(open);
+
+  // Scroll when this section opens (useEffect runs AFTER DOM commit)
+  useEffect(() => {
+    const wasOpen = wasOpenRef.current;
+    wasOpenRef.current = open;
+
+    // Only scroll when transitioning from closed to open
+    if (open && !wasOpen) {
+      // Small delay to ensure all DOM updates are complete
       setTimeout(() => {
-        const yOffset = -80; // Offset to account for header/spacing
-        const y = node.getBoundingClientRect().top + window.pageYOffset + yOffset;
-        window.scrollTo({ top: y, behavior: 'smooth' });
-      }, 100);
+        const section = document.querySelector(`[data-step="${step}"]`);
+        smoothScrollTo(section, 800);
+      }, 50);
     }
-  }, [open]);
+  }, [open, step]);
 
   return (
-    <div ref={sectionRef} className="border-b border-stroke/40 pb-4">
+    <div data-step={step} className="border-b border-stroke/40 pb-4">
       <button
         type="button"
         onClick={onToggle}
