@@ -60,7 +60,7 @@ const CartDropdown = () => {
 
         <div ref={cartRef}>
           <div
-            className={`absolute top-full right-0 mt-3 w-[330px] ${openDropDown ? "block" : "hidden"}`}
+            className={`absolute top-full right-0 mt-3 w-[330px] overflow-hidden ${openDropDown ? "block" : "hidden"}`}
           >
             <div className="p-8 overflow-x-hidden bg-white rounded-lg shadow-1 dark:bg-dark-2 dark:shadow-box-dark">
               {cart.length === 0 ? (
@@ -69,7 +69,7 @@ const CartDropdown = () => {
                 </div>
               ) : (
                 <>
-                  <div className="pb-3 mb-5 border-b border-stroke dark:border-dark-3 max-h-[300px] overflow-y-auto">
+                  <div className="pb-3 mb-5 border-b border-stroke dark:border-dark-3 max-h-[300px] overflow-y-auto overflow-x-hidden">
                     {cart.map((item, index) => (
                       <div
                         key={`${item.id}-${item.variantId || 'default'}`}

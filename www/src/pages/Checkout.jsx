@@ -2388,32 +2388,31 @@ const SavedRecipientControls = ({
 
   if (variant === "mobile") {
     return (
-      <div className="mb-4 bg-white dark:bg-dark-2">
-        <div className="flex items-center border-b border-stroke/30 py-3 dark:border-dark-3/30">
-          <label className="w-[35%] shrink-0 pr-3 text-sm font-medium text-dark dark:text-white">
-            Saved
-            {selectedOption !== "new" && hasOptions && (
-              <span className="ml-1 text-xs text-primary">
-                {recipientModifiedAfterAutofill ? "(edited)" : "✓"}
-              </span>
-            )}
-          </label>
-          <select
-            className="flex-1 bg-transparent text-base text-dark outline-hidden dark:text-white"
-            value={selectedOption}
-            onChange={(event) => onSelectOption(event.target.value)}
-            disabled={loading || !hasOptions}
-          >
-            <option value="new">New recipient</option>
-            {options.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        {loading && <p className="px-4 pb-2 text-sm text-body-color">Loading saved recipients…</p>}
-        {error && <p className="px-4 pb-2 text-sm text-red-500">{error}</p>}
+      <div className="mb-4 bg-white dark:bg-dark-2 px-4 py-3">
+        <label className="block text-sm font-medium text-dark dark:text-white mb-2">
+          Saved Recipients
+          {selectedOption !== "new" && hasOptions && (
+            <span className="ml-2 text-xs text-primary">
+              {recipientModifiedAfterAutofill ? "(edited)" : "✓"}
+            </span>
+          )}
+        </label>
+        <select
+          className="w-full h-12 rounded-md border border-stroke bg-transparent px-4 text-base text-dark outline-hidden focus:border-primary dark:border-dark-3 dark:text-white appearance-none"
+          value={selectedOption}
+          onChange={(event) => onSelectOption(event.target.value)}
+          disabled={loading || !hasOptions}
+          style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '20px' }}
+        >
+          <option value="new">+ New recipient</option>
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        {loading && <p className="mt-2 text-sm text-body-color">Loading saved recipients…</p>}
+        {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
       </div>
     );
   }
