@@ -15,7 +15,8 @@ if (!JWT_SECRET || !JWT_REFRESH_SECRET) {
 
 const JWT_EXPIRES_IN = '24h';
 const JWT_REFRESH_EXPIRES_IN = '7d';
-const CUSTOMER_JWT_EXPIRES_IN = '30d';
+const CUSTOMER_JWT_EXPIRES_IN_SHORT = '24h';
+const CUSTOMER_JWT_EXPIRES_IN_LONG = '14d';
 const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS || '12');
 
 /**
@@ -85,9 +86,11 @@ export const verifyRefreshToken = (token: string): any => {
 
 /**
  * Generate JWT access token for customers
+ * @param rememberMe - If true, token expires in 14 days; otherwise 24 hours
  */
 export const generateCustomerAccessToken = (
-  customer: Pick<Customer, 'id' | 'email' | 'firstName' | 'lastName' | 'isRegistered'>
+  customer: Pick<Customer, 'id' | 'email' | 'firstName' | 'lastName' | 'isRegistered'>,
+  rememberMe: boolean = false
 ): string => {
   const payload = {
     id: customer.id,
@@ -98,7 +101,8 @@ export const generateCustomerAccessToken = (
     subject: 'customer',
   };
 
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: CUSTOMER_JWT_EXPIRES_IN });
+  const expiresIn = rememberMe ? CUSTOMER_JWT_EXPIRES_IN_LONG : CUSTOMER_JWT_EXPIRES_IN_SHORT;
+  return jwt.sign(payload, JWT_SECRET, { expiresIn });
 };
 
 /**

@@ -8,6 +8,7 @@ const Login = () => {
   const { login, isAuthenticated, initializing } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -21,7 +22,7 @@ const Login = () => {
     setLoading(true);
 
     try {
-      await login(email, password);
+      await login(email, password, rememberMe);
       navigate("/profile", { replace: true });
     } catch (err) {
       setError(err.message || "Failed to log in. Please try again.");
@@ -33,7 +34,7 @@ const Login = () => {
   return (
     <>
       <Breadcrumb pageName="Login" />
-      <section className="bg-tg-bg py-20 dark:bg-dark">
+      <section className="bg-white py-20 dark:bg-dark">
         <div className="container mx-auto">
           <div className="mx-auto max-w-[480px] rounded-2xl border border-stroke bg-white p-10 shadow-xl dark:border-dark-3 dark:bg-dark-2">
             <h1 className="text-dark mb-6 text-3xl font-bold dark:text-white">Welcome back</h1>
@@ -72,7 +73,16 @@ const Login = () => {
                 />
               </div>
 
-              <div className="text-right">
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="h-4 w-4 rounded border-stroke text-primary focus:ring-primary"
+                  />
+                  <span className="text-sm text-body-color dark:text-dark-6">Keep me logged in for 14 days</span>
+                </label>
                 <Link to="/forgot-password" className="text-primary hover:text-primary-dark text-sm font-medium">
                   Forgot password?
                 </Link>
@@ -98,11 +108,10 @@ const Login = () => {
             </div>
 
             <div className="text-body-color mt-3 text-sm dark:text-dark-6">
-              New to Bloom? {" "}
+              New here?{" "}
               <Link to="/signup" className="text-primary hover:text-primary-dark font-semibold">
                 Create an account
               </Link>
-              .
             </div>
           </div>
         </div>

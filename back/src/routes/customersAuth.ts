@@ -30,7 +30,7 @@ const customerPublicFields = {
 
 router.post('/register', async (req: Request, res: Response) => {
   try {
-    const { email, password, firstName, lastName, phone } = req.body;
+    const { email, password, firstName, lastName, phone, rememberMe } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({
@@ -104,12 +104,12 @@ router.post('/register', async (req: Request, res: Response) => {
       firstName: customer.firstName,
       lastName: customer.lastName,
       isRegistered: customer.isRegistered,
-    });
+    }, !!rememberMe);
 
     res.status(201).json({
       customer,
       token,
-      expiresIn: '30d',
+      expiresIn: rememberMe ? '14d' : '24h',
     });
   } catch (error: any) {
     console.error('Customer register error:', error);
@@ -122,7 +122,7 @@ router.post('/register', async (req: Request, res: Response) => {
 
 router.post('/login', async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, rememberMe } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({
@@ -165,12 +165,12 @@ router.post('/login', async (req: Request, res: Response) => {
       firstName: updatedCustomer.firstName,
       lastName: updatedCustomer.lastName,
       isRegistered: updatedCustomer.isRegistered,
-    });
+    }, !!rememberMe);
 
     res.json({
       customer: updatedCustomer,
       token,
-      expiresIn: '30d',
+      expiresIn: rememberMe ? '14d' : '24h',
     });
   } catch (error: any) {
     console.error('Customer login error:', error);

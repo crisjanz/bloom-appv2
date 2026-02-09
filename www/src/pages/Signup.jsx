@@ -14,6 +14,7 @@ const Signup = () => {
     password: "",
     confirmPassword: "",
   });
+  const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -43,6 +44,7 @@ const Signup = () => {
         password: form.password,
         firstName: form.firstName,
         lastName: form.lastName,
+        rememberMe,
       });
       navigate("/profile", { replace: true });
     } catch (err) {
@@ -55,10 +57,10 @@ const Signup = () => {
   return (
     <>
       <Breadcrumb pageName="Create Account" />
-      <section className="bg-tg-bg py-20 dark:bg-dark">
+      <section className="bg-white py-20 dark:bg-dark">
         <div className="container mx-auto">
           <div className="mx-auto max-w-[520px] rounded-2xl border border-stroke bg-white p-10 shadow-xl dark:border-dark-3 dark:bg-dark-2">
-            <h1 className="text-dark mb-3 text-3xl font-bold dark:text-white">Join Bloom</h1>
+            <h1 className="text-dark mb-3 text-3xl font-bold dark:text-white">Create an account</h1>
             <p className="text-body-color mb-8 text-sm leading-relaxed dark:text-dark-6">
               Create an account to view your order history, reuse saved recipients, and check out faster.
               If we already have your email from an in-store order, we’ll connect this login to your existing history.
@@ -105,6 +107,16 @@ const Signup = () => {
                 onChange={handleChange}
                 required
               />
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="h-4 w-4 rounded border-stroke text-primary focus:ring-primary"
+                />
+                <span className="text-sm text-body-color dark:text-dark-6">Keep me logged in for 14 days</span>
+              </label>
 
               {error && <p className="text-red-500 text-sm">{error}</p>}
 

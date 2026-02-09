@@ -40,7 +40,7 @@ const ResetPassword = () => {
     return (
       <>
         <Breadcrumb pageName="Reset Password" />
-        <section className="bg-tg-bg py-20 dark:bg-dark">
+        <section className="bg-white py-20 dark:bg-dark">
           <div className="container mx-auto">
             <div className="mx-auto max-w-[480px] rounded-2xl border border-stroke bg-white p-10 shadow-xl dark:border-dark-3 dark:bg-dark-2">
               <h1 className="text-dark mb-4 text-3xl font-bold dark:text-white">Invalid link</h1>
@@ -60,7 +60,7 @@ const ResetPassword = () => {
   return (
     <>
       <Breadcrumb pageName="Reset Password" />
-      <section className="bg-tg-bg py-20 dark:bg-dark">
+      <section className="bg-white py-20 dark:bg-dark">
         <div className="container mx-auto">
           <div className="mx-auto max-w-[480px] rounded-2xl border border-stroke bg-white p-10 shadow-xl dark:border-dark-3 dark:bg-dark-2">
             {success ? (
