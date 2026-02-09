@@ -187,14 +187,14 @@ const Navbar = () => {
           {/* Icons Row */}
           <div className="flex items-center gap-5">
             {/* Search Icon - Mobile */}
-            <div className="relative" ref={mobileSearchRef}>
+            <div className="relative flex items-center" ref={mobileSearchRef}>
               <button onClick={() => {
                 setMobileSearchOpen(!mobileSearchOpen);
                 if (mobileSearchOpen) {
                   setSearchQuery("");
                   setSearchResults([]);
                 }
-              }} aria-label="Search">
+              }} aria-label="Search" className="flex items-center justify-center">
                 <svg
                   width="22"
                   height="22"
@@ -256,7 +256,7 @@ const Navbar = () => {
             </div>
 
             {/* Cart Icon with Badge */}
-            <Link to="/shopping-cart" aria-label="Shopping cart" className="relative">
+            <Link to="/shopping-cart" aria-label="Shopping cart" className="relative flex items-center justify-center">
               <svg
                 width="22"
                 height="22"
