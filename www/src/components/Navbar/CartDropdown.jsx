@@ -62,7 +62,7 @@ const CartDropdown = () => {
           <div
             className={`absolute top-full right-0 mt-3 w-[330px] ${openDropDown ? "block" : "hidden"}`}
           >
-            <div className="p-8 overflow-hidden bg-white rounded-lg shadow-1 dark:bg-dark-2 dark:shadow-box-dark">
+            <div className="p-8 overflow-x-hidden bg-white rounded-lg shadow-1 dark:bg-dark-2 dark:shadow-box-dark">
               {cart.length === 0 ? (
                 <div className="text-center py-6">
                   <p className="text-body-color dark:text-dark-6">Your cart is empty</p>
