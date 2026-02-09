@@ -19,6 +19,7 @@ const Navbar = () => {
 
   const [navbarOpen, setNavbarOpen] = useState(false);
   const navRef = useRef(null);
+  const hamburgerRef = useRef(null);
   const accountRef = useRef(null);
   const searchRef = useRef(null);
   const mobileSearchRef = useRef(null);
@@ -130,7 +131,9 @@ const Navbar = () => {
         return;
       }
 
-      if (navRef.current && !navRef.current.contains(event.target)) {
+      // Don't close menu if clicking hamburger (let toggle handle it)
+      if (navRef.current && !navRef.current.contains(event.target) &&
+          hamburgerRef.current && !hamburgerRef.current.contains(event.target)) {
         setNavbarOpen(false);
       }
       if (accountRef.current && !accountRef.current.contains(event.target)) {
@@ -252,82 +255,6 @@ const Navbar = () => {
               )}
             </div>
 
-            {/* Account Icon */}
-            <div className="relative" ref={accountRef}>
-              <button
-                onClick={() => setAccountMenuOpen((prev) => !prev)}
-                aria-label="Account"
-              >
-                <svg
-                  width="22"
-                  height="22"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="text-dark dark:text-white"
-                >
-                  <path
-                    d="M12 11C14.2091 11 16 9.20914 16 7C16 4.79086 14.2091 3 12 3C9.79086 3 8 4.79086 8 7C8 9.20914 9.79086 11 12 11Z"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M3 21C3 17.134 7.02944 14 12 14C16.9706 14 21 17.134 21 21"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </button>
-
-              {/* Account Dropdown - Mobile */}
-              {accountMenuOpen && (
-                <div className="absolute right-0 top-full mt-2 w-48 rounded-xl border border-stroke bg-white p-2 shadow-lg dark:border-dark-3 dark:bg-dark-2 z-50">
-                  {isAuthenticated ? (
-                    <>
-                      <Link
-                        to="/profile"
-                        className="text-body-color hover:bg-primary hover:text-white block rounded-lg px-3 py-2 text-sm font-medium transition dark:text-dark-6"
-                        onClick={() => setAccountMenuOpen(false)}
-                      >
-                        My profile
-                      </Link>
-                      <button
-                        type="button"
-                        className="text-body-color hover:bg-primary hover:text-white block w-full rounded-lg px-3 py-2 text-left text-sm font-medium transition dark:text-dark-6"
-                        onClick={() => {
-                          setAccountMenuOpen(false);
-                          logout();
-                        }}
-                      >
-                        Logout
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <Link
-                        to="/login"
-                        className="text-body-color hover:bg-primary hover:text-white block rounded-lg px-3 py-2 text-sm font-medium transition dark:text-dark-6"
-                        onClick={() => setAccountMenuOpen(false)}
-                      >
-                        Login
-                      </Link>
-                      <Link
-                        to="/signup"
-                        className="text-body-color hover:bg-primary hover:text-white block rounded-lg px-3 py-2 text-sm font-medium transition dark:text-dark-6"
-                        onClick={() => setAccountMenuOpen(false)}
-                      >
-                        Create account
-                      </Link>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-
             {/* Wishlist Icon */}
             <Link to="/wishlist" aria-label="Wishlist">
               <svg
@@ -389,6 +316,7 @@ const Navbar = () => {
 
             {/* Hamburger Menu */}
             <button
+              ref={hamburgerRef}
               onClick={handleNavbarToggle}
               aria-label="Menu"
               className="p-1"
@@ -497,6 +425,68 @@ const Navbar = () => {
                   )}
                 </li>
               ))}
+
+              {/* Account Links in Mobile Menu */}
+              <li className="border-t border-stroke dark:border-dark-3 mt-2 pt-2">
+                {isAuthenticated ? (
+                  <>
+                    <Link
+                      to="/profile"
+                      onClick={() => setNavbarOpen(false)}
+                      className="text-dark hover:bg-gray-100 dark:hover:bg-dark-3 hover:text-primary flex items-center gap-3 px-6 py-3 text-base font-medium dark:text-white"
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 11C14.2091 11 16 9.20914 16 7C16 4.79086 14.2091 3 12 3C9.79086 3 8 4.79086 8 7C8 9.20914 9.79086 11 12 11Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M3 21C3 17.134 7.02944 14 12 14C16.9706 14 21 17.134 21 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      My Profile
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNavbarOpen(false);
+                        logout();
+                      }}
+                      className="text-dark hover:bg-gray-100 dark:hover:bg-dark-3 hover:text-primary flex items-center gap-3 w-full px-6 py-3 text-base font-medium dark:text-white text-left"
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M9 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M16 17L21 12L16 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M21 12H9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      Logout
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      to="/login"
+                      onClick={() => setNavbarOpen(false)}
+                      className="text-dark hover:bg-gray-100 dark:hover:bg-dark-3 hover:text-primary flex items-center gap-3 px-6 py-3 text-base font-medium dark:text-white"
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M15 3H19C19.5304 3 20.0391 3.21071 20.4142 3.58579C20.7893 3.96086 21 4.46957 21 5V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M10 17L15 12L10 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M15 12H3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      Login
+                    </Link>
+                    <Link
+                      to="/signup"
+                      onClick={() => setNavbarOpen(false)}
+                      className="text-dark hover:bg-gray-100 dark:hover:bg-dark-3 hover:text-primary flex items-center gap-3 px-6 py-3 text-base font-medium dark:text-white"
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M16 21V19C16 17.9391 15.5786 16.9217 14.8284 16.1716C14.0783 15.4214 13.0609 15 12 15H5C3.93913 15 2.92172 15.4214 2.17157 16.1716C1.42143 16.9217 1 17.9391 1 19V21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M8.5 11C10.7091 11 12.5 9.20914 12.5 7C12.5 4.79086 10.7091 3 8.5 3C6.29086 3 4.5 4.79086 4.5 7C4.5 9.20914 6.29086 11 8.5 11Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M20 8V14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M23 11H17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      Create Account
+                    </Link>
+                  </>
+                )}
+              </li>
             </ul>
           </nav>
         )}
