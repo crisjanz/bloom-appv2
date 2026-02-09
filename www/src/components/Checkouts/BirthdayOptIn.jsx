@@ -21,9 +21,9 @@ const BirthdayOptIn = ({ value, onToggle, onChange, errors, compact = false }) =
     </label>
 
     {value.optIn && (
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-body-color dark:text-dark-6">Month</label>
+      <div className={compact ? "flex gap-2" : "grid grid-cols-1 gap-3 sm:grid-cols-3"}>
+        <div className={compact ? "flex-1 min-w-0" : "space-y-1"}>
+          {!compact && <label className="text-xs font-medium text-body-color dark:text-dark-6">Month</label>}
           <select
             value={value.month}
             onChange={(e) => onChange("month", e.target.value)}
@@ -40,8 +40,8 @@ const BirthdayOptIn = ({ value, onToggle, onChange, errors, compact = false }) =
           {errors?.birthdayMonth && <p className="text-xs text-red-500">{errors.birthdayMonth}</p>}
         </div>
 
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-body-color dark:text-dark-6">Day</label>
+        <div className={compact ? "flex-1 min-w-0" : "space-y-1"}>
+          {!compact && <label className="text-xs font-medium text-body-color dark:text-dark-6">Day</label>}
           <select
             value={value.day}
             onChange={(e) => onChange("day", e.target.value)}
@@ -58,13 +58,13 @@ const BirthdayOptIn = ({ value, onToggle, onChange, errors, compact = false }) =
           {errors?.birthdayDay && <p className="text-xs text-red-500">{errors.birthdayDay}</p>}
         </div>
 
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-body-color dark:text-dark-6">Year (optional)</label>
+        <div className={compact ? "flex-1 min-w-0" : "space-y-1"}>
+          {!compact && <label className="text-xs font-medium text-body-color dark:text-dark-6">Year (optional)</label>}
           <input
             type="number"
             value={value.year}
             onChange={(e) => onChange("year", e.target.value)}
-            placeholder="1990"
+            placeholder="Year"
             className="w-full h-10 rounded-md border border-stroke bg-transparent px-3 text-sm text-dark outline-hidden focus:border-primary dark:border-dark-3 dark:text-white"
           />
         </div>

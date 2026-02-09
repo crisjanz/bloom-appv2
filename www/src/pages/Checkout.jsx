@@ -1729,6 +1729,7 @@ const MobileRecipientForm = ({
           onChange={onChange}
           onAddressSelect={onAddressAutocompleteSelect}
           placeholder="123 Main St"
+          variant="mobile"
         />
       ) : (
         <MobileInput label="Address" name="address1" value={data.address1} onChange={onChange} error={errors.address1} placeholder="123 Main St" required />
@@ -2451,30 +2452,32 @@ const SavedRecipientControls = ({
 
   // Desktop variant
   return (
-    <div className="w-full px-3 mb-4">
-      <label className="text-sm font-semibold text-dark dark:text-white">
-        Saved recipient
-        {selectedOption !== "new" && hasOptions && (
-          <span className="ml-2 text-xs text-primary">
-            {recipientModifiedAfterAutofill ? "(modified)" : "(applied)"}
-          </span>
-        )}
-      </label>
-      <select
-        className="w-full rounded-md border border-stroke bg-transparent px-4 py-2 text-sm text-dark outline-hidden focus:border-primary dark:border-dark-3 dark:text-white"
-        value={selectedOption}
-        onChange={(event) => onSelectOption(event.target.value)}
-        disabled={loading || !hasOptions}
-      >
-        <option value="new">New recipient</option>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-      {loading && <p className="text-sm text-body-color">Loading saved recipients…</p>}
-      {error && <p className="text-sm text-red-500">{error}</p>}
+    <div className="w-full px-3">
+      <div className="mb-6">
+        <label className="mb-2.5 block text-base font-medium text-dark dark:text-white">
+          Saved recipient
+          {selectedOption !== "new" && hasOptions && (
+            <span className="ml-2 text-xs text-primary">
+              {recipientModifiedAfterAutofill ? "(modified)" : "(applied)"}
+            </span>
+          )}
+        </label>
+        <select
+          className="w-full rounded-md border border-stroke bg-transparent px-5 py-3 font-medium text-body-color outline-hidden transition focus:border-primary dark:border-dark-3 dark:text-dark-6"
+          value={selectedOption}
+          onChange={(event) => onSelectOption(event.target.value)}
+          disabled={loading || !hasOptions}
+        >
+          <option value="new">New recipient</option>
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        {loading && <p className="text-sm text-body-color mt-1">Loading saved recipients…</p>}
+        {error && <p className="text-sm text-red-500 mt-1">{error}</p>}
+      </div>
     </div>
   );
 };

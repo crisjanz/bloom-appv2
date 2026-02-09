@@ -7,24 +7,50 @@ const libraries = ["places"];
 const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY?.trim() || "";
 
 // Plain input without Google Maps autocomplete
-const PlainInput = ({ label, placeholder, value, onChange, disabled }) => (
-  <div className="w-full px-4 py-3 bg-white dark:bg-dark-2">
-    {label && (
-      <label className="block text-sm font-medium text-dark dark:text-white mb-2">
-        {label}
-      </label>
-    )}
-    <input
-      type="text"
-      name="address1"
-      value={value}
-      onChange={onChange}
-      placeholder={placeholder}
-      disabled={disabled}
-      className="w-full h-12 rounded-md border border-stroke bg-transparent px-4 text-base text-dark outline-hidden focus:border-primary placeholder:text-body-color/50 dark:border-dark-3 dark:text-white dark:placeholder:text-dark-6/50"
-    />
-  </div>
-);
+const PlainInput = ({ label, placeholder, value, onChange, disabled, variant = "desktop" }) => {
+  if (variant === "mobile") {
+    return (
+      <div className="w-full">
+        <div className="flex items-center border-b border-stroke/30 py-3 dark:border-dark-3/30">
+          {label && (
+            <label className="w-[35%] shrink-0 pr-3 text-sm font-medium text-dark dark:text-white">
+              {label}
+            </label>
+          )}
+          <input
+            type="text"
+            name="address1"
+            value={value}
+            onChange={onChange}
+            placeholder={placeholder}
+            disabled={disabled}
+            className="flex-1 bg-transparent text-base text-dark outline-hidden placeholder:text-body-color/40 dark:text-white dark:placeholder:text-dark-6/50"
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Desktop variant
+  return (
+    <div className="mb-6">
+      {label && (
+        <label className="mb-2.5 block text-base font-medium text-dark dark:text-white">
+          {label}
+        </label>
+      )}
+      <input
+        type="text"
+        name="address1"
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        disabled={disabled}
+        className="w-full rounded-md border border-stroke bg-transparent px-5 py-3 font-medium text-body-color outline-hidden transition focus:border-primary dark:border-dark-3 dark:text-dark-6"
+      />
+    </div>
+  );
+};
 
 PlainInput.propTypes = {
   label: PropTypes.string,
@@ -32,6 +58,7 @@ PlainInput.propTypes = {
   value: PropTypes.string.isRequired,
   onChange: PropTypes.func.isRequired,
   disabled: PropTypes.bool,
+  variant: PropTypes.oneOf(["mobile", "desktop"]),
 };
 
 // Inner component that uses the Google Maps hook
@@ -42,6 +69,7 @@ const GoogleAutocompleteInput = ({
   onChange,
   onAddressSelect,
   disabled,
+  variant = "desktop",
 }) => {
   const autocompleteRef = useRef(null);
 
@@ -64,13 +92,51 @@ const GoogleAutocompleteInput = ({
   };
 
   if (!isLoaded) {
-    return <PlainInput label={label} placeholder={placeholder} value={value} onChange={onChange} disabled={disabled} />;
+    return <PlainInput label={label} placeholder={placeholder} value={value} onChange={onChange} disabled={disabled} variant={variant} />;
   }
 
+  if (variant === "mobile") {
+    return (
+      <div className="w-full">
+        <div className="flex items-center border-b border-stroke/30 py-3 dark:border-dark-3/30">
+          {label && (
+            <label className="w-[35%] shrink-0 pr-3 text-sm font-medium text-dark dark:text-white">
+              {label}
+            </label>
+          )}
+          <Autocomplete
+            onLoad={(instance) => {
+              autocompleteRef.current = instance;
+            }}
+            onPlaceChanged={handlePlaceChanged}
+            options={{
+              bounds: princeGeorgeBounds,
+              strictBounds: false,
+              componentRestrictions: { country: ["ca"] },
+              fields: ["address_components", "geometry"],
+            }}
+            className="flex-1"
+          >
+            <input
+              type="text"
+              name="address1"
+              value={value}
+              onChange={onChange}
+              placeholder={placeholder}
+              disabled={disabled}
+              className="w-full bg-transparent text-base text-dark outline-hidden placeholder:text-body-color/40 dark:text-white dark:placeholder:text-dark-6/50"
+            />
+          </Autocomplete>
+        </div>
+      </div>
+    );
+  }
+
+  // Desktop variant
   return (
-    <div className="w-full px-4 py-3 bg-white dark:bg-dark-2">
+    <div className="mb-6">
       {label && (
-        <label className="block text-sm font-medium text-dark dark:text-white mb-2">
+        <label className="mb-2.5 block text-base font-medium text-dark dark:text-white">
           {label}
         </label>
       )}
@@ -94,7 +160,7 @@ const GoogleAutocompleteInput = ({
           onChange={onChange}
           placeholder={placeholder}
           disabled={disabled}
-          className="w-full h-12 rounded-md border border-stroke bg-transparent px-4 text-base text-dark outline-hidden focus:border-primary placeholder:text-body-color/50 dark:border-dark-3 dark:text-white dark:placeholder:text-dark-6/50"
+          className="w-full rounded-md border border-stroke bg-transparent px-5 py-3 font-medium text-body-color outline-hidden transition focus:border-primary dark:border-dark-3 dark:text-dark-6"
         />
       </Autocomplete>
     </div>
@@ -118,11 +184,11 @@ const AddressAutocomplete = ({
   onChange,
   onAddressSelect,
   disabled = false,
-  inputClassName = "",
+  variant = "desktop",
 }) => {
   // No API key - render plain input (no hook called)
   if (!googleMapsApiKey) {
-    return <PlainInput label={label} placeholder={placeholder} value={value} onChange={onChange} disabled={disabled} />;
+    return <PlainInput label={label} placeholder={placeholder} value={value} onChange={onChange} disabled={disabled} variant={variant} />;
   }
 
   return (
@@ -133,6 +199,7 @@ const AddressAutocomplete = ({
       onChange={onChange}
       onAddressSelect={onAddressSelect}
       disabled={disabled}
+      variant={variant}
     />
   );
 };
@@ -144,7 +211,7 @@ AddressAutocomplete.propTypes = {
   onChange: PropTypes.func.isRequired,
   onAddressSelect: PropTypes.func.isRequired,
   disabled: PropTypes.bool,
-  inputClassName: PropTypes.string,
+  variant: PropTypes.oneOf(["mobile", "desktop"]),
 };
 
 export default AddressAutocomplete;
