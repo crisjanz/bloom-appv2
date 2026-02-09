@@ -977,6 +977,7 @@ const CheckoutContent = () => {
           birthday={birthday}
           onBirthdayToggle={handleBirthdayToggle}
           onBirthdayChange={handleBirthdayChange}
+          isAuthenticated={isAuthenticated}
           payment={payment}
           paymentErrors={formErrors.payment}
           onPaymentChange={handlePaymentChange}
@@ -1212,6 +1213,7 @@ const MobileCheckout = ({
   birthday,
   onBirthdayToggle,
   onBirthdayChange,
+  isAuthenticated,
   payment,
   paymentErrors,
   onPaymentChange,
@@ -1383,6 +1385,7 @@ MobileCheckout.propTypes = {
   birthday: PropTypes.object.isRequired,
   onBirthdayToggle: PropTypes.func.isRequired,
   onBirthdayChange: PropTypes.func.isRequired,
+  isAuthenticated: PropTypes.bool.isRequired,
   payment: PropTypes.object.isRequired,
   paymentErrors: PropTypes.object.isRequired,
   onPaymentChange: PropTypes.func.isRequired,
