@@ -14,8 +14,16 @@ const AddressAutocomplete = ({
   disabled = false,
   inputClassName = "",
 }) => {
-  const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY?.trim();
+  const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY?.trim() || "";
   const autocompleteRef = useRef(null);
+
+  // Hook must be called unconditionally (React rules of hooks)
+  const { isLoaded } = useJsApiLoader({
+    id: "checkout-google-maps",
+    googleMapsApiKey,
+    libraries,
+    preventGoogleFontsLoading: true,
+  });
 
   const handlePlaceChanged = () => {
     if (!autocompleteRef.current) return;
@@ -50,19 +58,9 @@ const AddressAutocomplete = ({
     </div>
   );
 
-  if (!googleMapsApiKey) {
+  // No API key or not loaded yet - render plain input
+  if (!googleMapsApiKey || !isLoaded) {
     return renderInput();
-  }
-
-  const { isLoaded } = useJsApiLoader({
-    id: "checkout-google-maps",
-    googleMapsApiKey,
-    libraries,
-    preventGoogleFontsLoading: true,
-  });
-
-  if (!isLoaded) {
-    return renderInput({ placeholder: "Loading address search…" });
   }
 
   return (
