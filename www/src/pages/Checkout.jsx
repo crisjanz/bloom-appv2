@@ -17,6 +17,7 @@ import {
 } from "../services/checkoutService.js";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import CreateAccountModal from "../components/CreateAccountModal.jsx";
+import api from "../services/api.js";
 import BirthdayOptIn from "../components/Checkouts/BirthdayOptIn.jsx";
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
@@ -171,6 +172,11 @@ const CheckoutContent = () => {
   const [savedRecipientsError, setSavedRecipientsError] = useState("");
   const [selectedSavedRecipientOption, setSelectedSavedRecipientOption] = useState("new");
   const [recipientWasAutofilled, setRecipientWasAutofilled] = useState(false);
+
+  // Saved payment methods
+  const [savedCards, setSavedCards] = useState([]);
+  const [savedCardsLoading, setSavedCardsLoading] = useState(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("new"); // "new" or payment method ID
   const resetSavedRecipientState = useCallback(() => {
     setSavedRecipients([]);
     setSavedRecipientsError("");
@@ -201,6 +207,38 @@ const CheckoutContent = () => {
       setSavedRecipientsLoading(false);
     }
   }, [authCustomer?.id, resetSavedRecipientState]);
+
+  // Fetch saved payment methods for authenticated users
+  const fetchSavedCards = useCallback(async () => {
+    if (!authCustomer?.id) {
+      setSavedCards([]);
+      setSelectedPaymentMethod("new");
+      return;
+    }
+    setSavedCardsLoading(true);
+    try {
+      const data = await api.post("/stripe/customer/payment-methods", {
+        email: authCustomer.email,
+        phone: authCustomer.phone,
+        customerId: authCustomer.id,
+      });
+      const methods = data?.paymentMethods || [];
+      setSavedCards(methods);
+      // Auto-select first saved card if available
+      if (methods.length > 0) {
+        setSelectedPaymentMethod(methods[0].id);
+      }
+    } catch (error) {
+      console.error("Failed to fetch saved cards:", error);
+      setSavedCards([]);
+    } finally {
+      setSavedCardsLoading(false);
+    }
+  }, [authCustomer?.id, authCustomer?.email, authCustomer?.phone]);
+
+  useEffect(() => {
+    fetchSavedCards();
+  }, [fetchSavedCards]);
 
   useEffect(() => {
     setCouponInput(coupon?.code || "");
@@ -640,8 +678,9 @@ const CheckoutContent = () => {
       return;
     }
 
+    const usingSavedCard = selectedPaymentMethod !== "new";
     const cardElement = elements.getElement(CardElement);
-    if (!cardElement) {
+    if (!usingSavedCard && !cardElement) {
       setActiveStep(3);
       setSubmitError("Add your card details to continue.");
       return;
@@ -811,15 +850,20 @@ const CheckoutContent = () => {
         },
       }));
 
+      // Use saved card or new card element
+      const paymentMethodPayload = usingSavedCard
+        ? selectedPaymentMethod
+        : {
+            card: cardElement,
+            billing_details: {
+              name: [buyerPayload.firstName, buyerPayload.lastName].filter(Boolean).join(" ") || undefined,
+              email: buyerPayload.email || undefined,
+              phone: buyerPayload.phone || undefined,
+            },
+          };
+
       const confirmation = await stripe.confirmCardPayment(paymentIntent.clientSecret, {
-        payment_method: {
-          card: cardElement,
-          billing_details: {
-            name: [buyerPayload.firstName, buyerPayload.lastName].filter(Boolean).join(" ") || undefined,
-            email: buyerPayload.email || undefined,
-            phone: buyerPayload.phone || undefined,
-          },
-        },
+        payment_method: paymentMethodPayload,
         return_url: window.location.href,
       });
 
@@ -983,6 +1027,10 @@ const CheckoutContent = () => {
           onPaymentChange={handlePaymentChange}
           cardError={cardError}
           onCardChange={handleCardChange}
+          savedCards={savedCards}
+          savedCardsLoading={savedCardsLoading}
+          selectedPaymentMethod={selectedPaymentMethod}
+          onSelectPaymentMethod={setSelectedPaymentMethod}
           advanceStep={advanceStep}
           goBack={goBack}
           cart={cart}
@@ -1140,6 +1188,10 @@ const CheckoutContent = () => {
                     errors={formErrors.payment}
                     cardError={cardError}
                     onCardChange={handleCardChange}
+                    savedCards={savedCards}
+                    savedCardsLoading={savedCardsLoading}
+                    selectedPaymentMethod={selectedPaymentMethod}
+                    onSelectPaymentMethod={setSelectedPaymentMethod}
                     cart={cart}
                     formatCurrency={formatCurrency}
                     deliveryDateLabel={formatDate(deliveryDate)}
@@ -1219,6 +1271,10 @@ const MobileCheckout = ({
   onPaymentChange,
   cardError,
   onCardChange,
+  savedCards,
+  savedCardsLoading,
+  selectedPaymentMethod,
+  onSelectPaymentMethod,
   advanceStep,
   goBack,
   cart,
@@ -1313,6 +1369,10 @@ const MobileCheckout = ({
             onChange={onPaymentChange}
             cardError={cardError}
             onCardChange={onCardChange}
+            savedCards={savedCards}
+            savedCardsLoading={savedCardsLoading}
+            selectedPaymentMethod={selectedPaymentMethod}
+            onSelectPaymentMethod={onSelectPaymentMethod}
             cart={cart}
             formatCurrency={formatCurrency}
             coupon={coupon}
@@ -1391,6 +1451,10 @@ MobileCheckout.propTypes = {
   onPaymentChange: PropTypes.func.isRequired,
   cardError: PropTypes.string.isRequired,
   onCardChange: PropTypes.func.isRequired,
+  savedCards: PropTypes.array.isRequired,
+  savedCardsLoading: PropTypes.bool.isRequired,
+  selectedPaymentMethod: PropTypes.string.isRequired,
+  onSelectPaymentMethod: PropTypes.func.isRequired,
   advanceStep: PropTypes.func.isRequired,
   goBack: PropTypes.func.isRequired,
   cart: PropTypes.array.isRequired,
@@ -1777,6 +1841,10 @@ const MobilePaymentForm = ({
   onChange,
   cardError,
   onCardChange,
+  savedCards,
+  savedCardsLoading,
+  selectedPaymentMethod,
+  onSelectPaymentMethod,
   cart,
   formatCurrency,
   coupon,
@@ -1837,9 +1905,68 @@ const MobilePaymentForm = ({
       <p className="text-sm text-body-color dark:text-dark-6">
         Secure checkout powered by Stripe.
       </p>
-      <div className="rounded-md border border-stroke bg-white px-4 py-3 dark:border-dark-3 dark:bg-dark">
-        <CardElement options={CARD_ELEMENT_OPTIONS} onChange={onCardChange} />
-      </div>
+
+      {/* Saved Cards Selection */}
+      {savedCardsLoading && (
+        <p className="text-sm text-body-color">Loading saved cards...</p>
+      )}
+      {savedCards.length > 0 && (
+        <div className="space-y-2">
+          {savedCards.map((card) => (
+            <label
+              key={card.id}
+              className={`flex items-center gap-3 rounded-md border p-3 cursor-pointer transition ${
+                selectedPaymentMethod === card.id
+                  ? "border-primary bg-primary/5"
+                  : "border-stroke dark:border-dark-3"
+              }`}
+            >
+              <input
+                type="radio"
+                name="paymentMethod"
+                value={card.id}
+                checked={selectedPaymentMethod === card.id}
+                onChange={() => onSelectPaymentMethod(card.id)}
+                className="h-4 w-4 text-primary"
+              />
+              <div className="flex-1">
+                <span className="text-sm font-medium text-dark dark:text-white">
+                  {card.brand} •••• {card.last4}
+                </span>
+                <span className="ml-2 text-xs text-body-color dark:text-dark-6">
+                  Expires {card.expMonth}/{card.expYear}
+                </span>
+              </div>
+            </label>
+          ))}
+          <label
+            className={`flex items-center gap-3 rounded-md border p-3 cursor-pointer transition ${
+              selectedPaymentMethod === "new"
+                ? "border-primary bg-primary/5"
+                : "border-stroke dark:border-dark-3"
+            }`}
+          >
+            <input
+              type="radio"
+              name="paymentMethod"
+              value="new"
+              checked={selectedPaymentMethod === "new"}
+              onChange={() => onSelectPaymentMethod("new")}
+              className="h-4 w-4 text-primary"
+            />
+            <span className="text-sm font-medium text-dark dark:text-white">
+              Use a new card
+            </span>
+          </label>
+        </div>
+      )}
+
+      {/* New Card Input */}
+      {selectedPaymentMethod === "new" && (
+        <div className="rounded-md border border-stroke bg-white px-4 py-3 dark:border-dark-3 dark:bg-dark">
+          <CardElement options={CARD_ELEMENT_OPTIONS} onChange={onCardChange} />
+        </div>
+      )}
       {cardError && <p className="text-red-500 text-xs">{cardError}</p>}
     </div>
 
@@ -1925,6 +2052,10 @@ MobilePaymentForm.propTypes = {
   onChange: PropTypes.func.isRequired,
   cardError: PropTypes.string.isRequired,
   onCardChange: PropTypes.func.isRequired,
+  savedCards: PropTypes.array.isRequired,
+  savedCardsLoading: PropTypes.bool.isRequired,
+  selectedPaymentMethod: PropTypes.string.isRequired,
+  onSelectPaymentMethod: PropTypes.func.isRequired,
   cart: PropTypes.array.isRequired,
   formatCurrency: PropTypes.func.isRequired,
   coupon: PropTypes.object,
@@ -2914,6 +3045,10 @@ const PaymentForm = ({
   errors,
   cardError,
   onCardChange,
+  savedCards,
+  savedCardsLoading,
+  selectedPaymentMethod,
+  onSelectPaymentMethod,
   cart,
   formatCurrency,
   deliveryDateLabel,
@@ -2932,9 +3067,68 @@ const PaymentForm = ({
           <p className="mt-1 text-sm text-body-color dark:text-dark-6">
             Secure checkout powered by Stripe.
           </p>
-          <div className="mt-4 rounded-md border border-stroke bg-white px-4 py-3 dark:border-dark-3 dark:bg-dark">
-            <CardElement options={CARD_ELEMENT_OPTIONS} onChange={onCardChange} />
-          </div>
+
+          {/* Saved Cards Selection */}
+          {savedCardsLoading && (
+            <p className="mt-4 text-sm text-body-color">Loading saved cards...</p>
+          )}
+          {savedCards.length > 0 && (
+            <div className="mt-4 space-y-2">
+              {savedCards.map((card) => (
+                <label
+                  key={card.id}
+                  className={`flex items-center gap-3 rounded-md border p-3 cursor-pointer transition ${
+                    selectedPaymentMethod === card.id
+                      ? "border-primary bg-primary/5"
+                      : "border-stroke dark:border-dark-3"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="paymentMethodDesktop"
+                    value={card.id}
+                    checked={selectedPaymentMethod === card.id}
+                    onChange={() => onSelectPaymentMethod(card.id)}
+                    className="h-4 w-4 text-primary"
+                  />
+                  <div className="flex-1">
+                    <span className="text-sm font-medium text-dark dark:text-white">
+                      {card.brand} •••• {card.last4}
+                    </span>
+                    <span className="ml-2 text-xs text-body-color dark:text-dark-6">
+                      Expires {card.expMonth}/{card.expYear}
+                    </span>
+                  </div>
+                </label>
+              ))}
+              <label
+                className={`flex items-center gap-3 rounded-md border p-3 cursor-pointer transition ${
+                  selectedPaymentMethod === "new"
+                    ? "border-primary bg-primary/5"
+                    : "border-stroke dark:border-dark-3"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="paymentMethodDesktop"
+                  value="new"
+                  checked={selectedPaymentMethod === "new"}
+                  onChange={() => onSelectPaymentMethod("new")}
+                  className="h-4 w-4 text-primary"
+                />
+                <span className="text-sm font-medium text-dark dark:text-white">
+                  Use a new card
+                </span>
+              </label>
+            </div>
+          )}
+
+          {/* New Card Input */}
+          {selectedPaymentMethod === "new" && (
+            <div className="mt-4 rounded-md border border-stroke bg-white px-4 py-3 dark:border-dark-3 dark:bg-dark">
+              <CardElement options={CARD_ELEMENT_OPTIONS} onChange={onCardChange} />
+            </div>
+          )}
           {cardError && <p className="text-red-500 mt-2 text-sm">{cardError}</p>}
         </div>
       </div>
@@ -3036,6 +3230,10 @@ PaymentForm.propTypes = {
   errors: PropTypes.object.isRequired,
   cardError: PropTypes.string.isRequired,
   onCardChange: PropTypes.func.isRequired,
+  savedCards: PropTypes.array.isRequired,
+  savedCardsLoading: PropTypes.bool.isRequired,
+  selectedPaymentMethod: PropTypes.string.isRequired,
+  onSelectPaymentMethod: PropTypes.func.isRequired,
   cart: PropTypes.array.isRequired,
   formatCurrency: PropTypes.func.isRequired,
   deliveryDateLabel: PropTypes.string.isRequired,
