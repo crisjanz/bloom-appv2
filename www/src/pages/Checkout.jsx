@@ -233,6 +233,55 @@ const CheckoutContent = () => {
     fetchSavedRecipients();
   }, [fetchSavedRecipients]);
 
+  // Handle return from 3D Secure redirect
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const paymentIntentId = params.get("payment_intent");
+    const redirectStatus = params.get("redirect_status");
+
+    if (!paymentIntentId || redirectStatus !== "succeeded") return;
+
+    const pending = sessionStorage.getItem("pendingCheckout");
+    if (!pending) return;
+
+    const pendingData = JSON.parse(pending);
+
+    // Clear URL params
+    window.history.replaceState({}, "", window.location.pathname);
+
+    // Complete the order
+    setIsSubmitting(true);
+    createOrderDraft(pendingData.buyerId, {
+      customerId: pendingData.buyerId,
+      recipientCustomerId: pendingData.recipientCustomerId,
+      deliveryAddressId: pendingData.deliveryAddressId,
+      cardMessage: pendingData.cardMessage,
+      deliveryInstructions: pendingData.deliveryInstructions,
+      deliveryDate: pendingData.deliveryDate,
+      deliveryFee: pendingData.deliveryFee,
+      discountAmount: pendingData.discountAmount,
+      appliedDiscounts: pendingData.appliedDiscounts,
+      customProducts: pendingData.customProducts,
+      paymentIntentId,
+      paymentStatus: "succeeded",
+    })
+      .then((draftOrder) => {
+        sessionStorage.removeItem("pendingCheckout");
+        setOrderResult({
+          drafts: draftOrder.drafts,
+          buyer: pendingData.buyer,
+          deliveryDate: pendingData.deliveryDate,
+        });
+        clearCart();
+      })
+      .catch((err) => {
+        setSubmitError(err.message || "Failed to complete your order after payment.");
+      })
+      .finally(() => {
+        setIsSubmitting(false);
+      });
+  }, [clearCart]);
+
   const subtotal = useMemo(
     () => cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
     [cart],
@@ -685,6 +734,29 @@ const CheckoutContent = () => {
         bloomCustomerId: buyerId,
       });
 
+      // Build order data before payment (for 3D Secure redirect recovery)
+      const customProducts = cart.map((item) => ({
+        description: item.name,
+        price: Number(item.price).toFixed(2),
+        qty: item.quantity,
+        tax: item.isTaxable !== false,
+      }));
+
+      // Save pending checkout in case of 3D Secure redirect
+      sessionStorage.setItem("pendingCheckout", JSON.stringify({
+        buyerId,
+        buyer: { id: buyerId, ...customer },
+        recipientCustomerId,
+        deliveryAddressId,
+        cardMessage: recipient.cardMessage || null,
+        deliveryInstructions: recipient.deliveryInstructions || null,
+        deliveryDate,
+        deliveryFee,
+        discountAmount,
+        appliedDiscounts,
+        customProducts,
+      }));
+
       const confirmation = await stripe.confirmCardPayment(paymentIntent.clientSecret, {
         payment_method: {
           card: cardElement,
@@ -694,7 +766,11 @@ const CheckoutContent = () => {
             phone: buyerPayload.phone || undefined,
           },
         },
+        return_url: window.location.href,
       });
+
+      // Clear pending checkout on success (no redirect happened)
+      sessionStorage.removeItem("pendingCheckout");
 
       if (confirmation.error) {
         setCardError(confirmation.error.message || "Payment was not completed.");
@@ -704,13 +780,6 @@ const CheckoutContent = () => {
       if (!confirmation.paymentIntent || confirmation.paymentIntent.status !== "succeeded") {
         throw new Error("Payment was not completed.");
       }
-
-      const customProducts = cart.map((item) => ({
-        description: item.name,
-        price: Number(item.price).toFixed(2),
-        qty: item.quantity,
-        tax: item.isTaxable !== false,
-      }));
 
       const draftOrder = await createOrderDraft(buyerId, {
         orderType: "DELIVERY",

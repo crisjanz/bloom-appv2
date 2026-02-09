@@ -67,6 +67,50 @@ const GiftCardContent = () => {
     };
   }, []);
 
+  // Handle return from 3D Secure redirect
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const paymentIntentId = params.get("payment_intent");
+    const redirectStatus = params.get("redirect_status");
+
+    if (!paymentIntentId || redirectStatus !== "succeeded") return;
+
+    // Get pending order from sessionStorage
+    const pending = sessionStorage.getItem("pendingGiftCard");
+    if (!pending) return;
+
+    const { amount: pendingAmount, recipient: pendingRecipient, purchaser: pendingPurchaser, bloomCustomerId } = JSON.parse(pending);
+
+    // Clear URL params
+    window.history.replaceState({}, "", window.location.pathname);
+
+    // Complete the purchase
+    setIsSubmitting(true);
+    purchaseDigitalGiftCard({
+      amount: pendingAmount,
+      recipient: pendingRecipient,
+      purchaser: pendingPurchaser,
+      message: pendingRecipient.message,
+      bloomCustomerId,
+      paymentIntentId,
+    })
+      .then(() => {
+        sessionStorage.removeItem("pendingGiftCard");
+        setSuccessDetails({
+          amount: pendingAmount,
+          recipient: pendingRecipient,
+          purchaser: pendingPurchaser,
+          paymentIntentId,
+        });
+      })
+      .catch((err) => {
+        setSubmitError(err.message || "Failed to complete your gift card purchase.");
+      })
+      .finally(() => {
+        setIsSubmitting(false);
+      });
+  }, []);
+
   useEffect(() => {
     if (!customer) return;
     setPurchaser((prev) => {
@@ -273,6 +317,15 @@ const GiftCardContent = () => {
         storeName,
       });
 
+      // Save pending order in case of 3D Secure redirect
+      sessionStorage.setItem("pendingGiftCard", JSON.stringify({
+        amount,
+        recipient: trimmedRecipient,
+        purchaser: trimmedPurchaser,
+        bloomCustomerId: customer?.id || null,
+        paymentIntentId: paymentIntent.paymentIntentId,
+      }));
+
       const confirmation = await stripe.confirmCardPayment(paymentIntent.clientSecret, {
         payment_method: {
           card: cardElement,
@@ -281,7 +334,11 @@ const GiftCardContent = () => {
             email: trimmedPurchaser.email,
           },
         },
+        return_url: window.location.href,
       });
+
+      // Clear pending order on success (no redirect happened)
+      sessionStorage.removeItem("pendingGiftCard");
 
       if (confirmation.error) {
         throw new Error(confirmation.error.message || "Payment was not completed.");
