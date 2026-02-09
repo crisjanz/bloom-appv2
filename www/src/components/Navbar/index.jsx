@@ -255,26 +255,6 @@ const Navbar = () => {
               )}
             </div>
 
-            {/* Wishlist Icon */}
-            <Link to="/wishlist" aria-label="Wishlist">
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                className="text-dark dark:text-white"
-              >
-                <path
-                  d="M20.8401 4.60999C20.3294 4.09927 19.7229 3.69462 19.0555 3.41842C18.388 3.14221 17.6726 3 16.9501 3C16.2276 3 15.5122 3.14221 14.8448 3.41842C14.1773 3.69462 13.5709 4.09927 13.0601 4.60999L12.0001 5.66999L10.9401 4.60999C9.90843 3.5783 8.50915 2.9987 7.05012 2.9987C5.59109 2.9987 4.19181 3.5783 3.16012 4.60999C2.12843 5.64169 1.54883 7.04096 1.54883 8.49999C1.54883 9.95903 2.12843 11.3583 3.16012 12.39L4.22012 13.45L12.0001 21.23L19.7801 13.45L20.8401 12.39C21.3508 11.8792 21.7555 11.2728 22.0317 10.6053C22.3079 9.93789 22.4501 9.22248 22.4501 8.49999C22.4501 7.77751 22.3079 7.0621 22.0317 6.39464C21.7555 5.72718 21.3508 5.12075 20.8401 4.60999Z"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </Link>
-
             {/* Cart Icon with Badge */}
             <Link to="/shopping-cart" aria-label="Shopping cart" className="relative">
               <svg
@@ -426,8 +406,20 @@ const Navbar = () => {
                 </li>
               ))}
 
-              {/* Account Links in Mobile Menu */}
+              {/* Wishlist & Account Links in Mobile Menu */}
               <li className="border-t border-stroke dark:border-dark-3 mt-2 pt-2">
+                <Link
+                  to="/wishlist"
+                  onClick={() => setNavbarOpen(false)}
+                  className="text-dark hover:bg-gray-100 dark:hover:bg-dark-3 hover:text-primary flex items-center gap-3 px-6 py-3 text-base font-medium dark:text-white"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M20.8401 4.60999C20.3294 4.09927 19.7229 3.69462 19.0555 3.41842C18.388 3.14221 17.6726 3 16.9501 3C16.2276 3 15.5122 3.14221 14.8448 3.41842C14.1773 3.69462 13.5709 4.09927 13.0601 4.60999L12.0001 5.66999L10.9401 4.60999C9.90843 3.5783 8.50915 2.9987 7.05012 2.9987C5.59109 2.9987 4.19181 3.5783 3.16012 4.60999C2.12843 5.64169 1.54883 7.04096 1.54883 8.49999C1.54883 9.95903 2.12843 11.3583 3.16012 12.39L4.22012 13.45L12.0001 21.23L19.7801 13.45L20.8401 12.39C21.3508 11.8792 21.7555 11.2728 22.0317 10.6053C22.3079 9.93789 22.4501 9.22248 22.4501 8.49999C22.4501 7.77751 22.3079 7.0621 22.0317 6.39464C21.7555 5.72718 21.3508 5.12075 20.8401 4.60999Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  Wishlist
+                </Link>
+              </li>
+              <li>
                 {isAuthenticated ? (
                   <>
                     <Link
