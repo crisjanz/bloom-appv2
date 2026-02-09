@@ -270,7 +270,12 @@ const CheckoutContent = () => {
         setOrderResult({
           drafts: draftOrder.drafts,
           buyer: pendingData.buyer,
+          recipient: pendingData.recipient,
           deliveryDate: pendingData.deliveryDate,
+          cardMessage: pendingData.cardMessage,
+          isPickup: false,
+          cartItems: pendingData.cartItems,
+          totals: pendingData.totals,
         });
         clearCart();
       })
@@ -748,6 +753,14 @@ const CheckoutContent = () => {
         buyer: { id: buyerId, ...customer },
         recipientCustomerId,
         deliveryAddressId,
+        recipient: {
+          firstName: recipient.firstName,
+          lastName: recipient.lastName,
+          address1: recipient.address1,
+          city: recipient.city,
+          province: recipient.province,
+          postalCode: recipient.postalCode,
+        },
         cardMessage: recipient.cardMessage || null,
         deliveryInstructions: recipient.deliveryInstructions || null,
         deliveryDate,
@@ -755,6 +768,19 @@ const CheckoutContent = () => {
         discountAmount,
         appliedDiscounts,
         customProducts,
+        cartItems: cart.map((item) => ({
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          image: item.image || null,
+        })),
+        totals: {
+          subtotal,
+          deliveryFee,
+          tax: estimatedTax,
+          discount: discountAmount,
+          total: estimatedTotal,
+        },
       }));
 
       const confirmation = await stripe.confirmCardPayment(paymentIntent.clientSecret, {
@@ -803,7 +829,30 @@ const CheckoutContent = () => {
       setOrderResult({
         drafts: draftOrder.drafts,
         buyer: { id: buyerId, ...customer },
+        recipient: {
+          firstName: recipient.firstName,
+          lastName: recipient.lastName,
+          address1: recipient.address1,
+          city: recipient.city,
+          province: recipient.province,
+          postalCode: recipient.postalCode,
+        },
         deliveryDate,
+        cardMessage: recipient.cardMessage || null,
+        isPickup: false, // TODO: support pickup orders
+        cartItems: cart.map((item) => ({
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          image: item.image || null,
+        })),
+        totals: {
+          subtotal,
+          deliveryFee,
+          tax: estimatedTax,
+          discount: discountAmount,
+          total: estimatedTotal,
+        },
       });
 
       setLastOrderEmail(customer.email || "");
@@ -3220,53 +3269,163 @@ const EmptyCheckoutState = () => (
   </div>
 );
 
-const SuccessCard = ({ orderResult }) => (
-  <div className="rounded-[20px] border border-success/40 bg-white p-12 text-center shadow-xl dark:border-success/20 dark:bg-dark-2">
-    <p className="text-success text-xs font-semibold uppercase tracking-[4px]">
-      Order confirmed
-    </p>
-    <h2 className="text-dark mt-4 text-3xl font-bold dark:text-white">
-      Thank you! Your payment is complete.
-    </h2>
-    <p className="text-body-color mx-auto mt-4 max-w-2xl text-base dark:text-dark-6">
-      We’re arranging your order now and will follow up with delivery updates shortly.
-    </p>
+const SuccessCard = ({ orderResult }) => {
+  const { drafts, recipient, deliveryDate, cardMessage, isPickup, cartItems, totals, buyer } = orderResult;
+  const orderNumber = drafts?.[0]?.orderNumber || drafts?.[0]?.id || "—";
+  const recipientName = recipient ? `${recipient.firstName} ${recipient.lastName}`.trim() : "";
 
-    <div className="mt-8 rounded-2xl border border-stroke p-6 text-left dark:border-dark-3">
-      <p className="text-dark mb-3 text-lg font-semibold dark:text-white">
-        Order confirmation
-      </p>
-      <ul className="space-y-3 text-sm text-body-color dark:text-dark-6">
-        {orderResult.drafts.map((draft) => {
-          const created = draft.createdAt
-            ? new Date(draft.createdAt)
-            : new Date();
-          return (
-            <li key={draft.id} className="flex justify-between">
-              <span>Order #{draft.orderNumber || draft.id}</span>
-              <span className="font-semibold text-dark dark:text-white">
-                {created.toLocaleDateString()}
-              </span>
-            </li>
-          );
-        })}
-      </ul>
+  const formattedDate = deliveryDate
+    ? new Date(deliveryDate).toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      })
+    : null;
+
+  const formatCurrency = (amount) =>
+    new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(amount);
+
+  return (
+    <div className="mx-auto max-w-2xl px-4 py-12">
+      {/* Success Icon */}
+      <div className="mb-8 text-center">
+        <div className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-green-500 shadow-lg shadow-green-100">
+          <svg className="h-10 w-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+      </div>
+
+      {/* Main Message */}
+      <div className="mb-10 text-center">
+        <h1 className="mb-3 font-serif text-3xl text-gray-900">Thank you for your order!</h1>
+        {recipientName && formattedDate && (
+          <p className="text-lg text-gray-600">
+            <span className="font-serif text-rose-600">{recipientName}</span>
+            {isPickup ? " can pick up your order on " : " will receive your gift on "}
+            <span className="font-medium text-gray-800">{formattedDate}</span>
+          </p>
+        )}
+      </div>
+
+      {/* Order Card */}
+      <div className="mb-6 rounded-2xl bg-gray-50 p-6">
+        {/* Order Header */}
+        <div className="mb-6 flex items-center justify-between border-b border-gray-200 pb-4">
+          <div>
+            <p className="text-sm text-gray-500">Order Number</p>
+            <p className="text-xl font-semibold text-gray-800">#{orderNumber}</p>
+          </div>
+          {formattedDate && (
+            <div className="text-right">
+              <p className="text-sm text-gray-500">{isPickup ? "Pickup Date" : "Delivery Date"}</p>
+              <p className="text-xl font-semibold text-gray-800">{formattedDate}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Products */}
+        {cartItems && cartItems.length > 0 && (
+          <div className="mb-6 space-y-4 border-b border-gray-200 pb-6">
+            {cartItems.map((item, index) => (
+              <div key={index} className="flex gap-4">
+                {item.image ? (
+                  <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl bg-white shadow-sm">
+                    <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
+                  </div>
+                ) : (
+                  <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-xl bg-rose-50 text-3xl">
+                    💐
+                  </div>
+                )}
+                <div className="flex-1">
+                  <h3 className="font-medium text-gray-800">{item.name}</h3>
+                  {item.quantity > 1 && <p className="text-sm text-gray-500">Qty: {item.quantity}</p>}
+                </div>
+                <p className="font-semibold text-gray-800">{formatCurrency(item.price)}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Recipient */}
+        {recipient && !isPickup && (
+          <div className="mb-6 border-b border-gray-200 pb-6">
+            <p className="mb-2 text-sm text-gray-500">Delivering to</p>
+            <p className="font-medium text-gray-800">{recipientName}</p>
+            <p className="text-gray-600">
+              {recipient.address1}, {recipient.city}, {recipient.province} {recipient.postalCode}
+            </p>
+          </div>
+        )}
+
+        {/* Card Message */}
+        {cardMessage && (
+          <div className="mb-6 border-b border-gray-200 pb-6">
+            <p className="mb-2 text-sm text-gray-500">Your message</p>
+            <p className="italic text-gray-700">"{cardMessage}"</p>
+          </div>
+        )}
+
+        {/* Totals */}
+        {totals && (
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between text-gray-600">
+              <span>Subtotal</span>
+              <span>{formatCurrency(totals.subtotal)}</span>
+            </div>
+            {!isPickup && totals.deliveryFee > 0 && (
+              <div className="flex justify-between text-gray-600">
+                <span>Delivery</span>
+                <span>{formatCurrency(totals.deliveryFee)}</span>
+              </div>
+            )}
+            {totals.discount > 0 && (
+              <div className="flex justify-between text-green-600">
+                <span>Discount</span>
+                <span>-{formatCurrency(totals.discount)}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-gray-600">
+              <span>Tax</span>
+              <span>{formatCurrency(totals.tax)}</span>
+            </div>
+            <div className="flex justify-between border-t border-gray-200 pt-3 text-lg font-semibold text-gray-800">
+              <span>Total</span>
+              <span>{formatCurrency(totals.total)}</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="space-y-6 text-center">
+        {buyer?.email && (
+          <p className="text-gray-500">
+            Confirmation sent to <span className="font-medium text-gray-700">{buyer.email}</span>
+          </p>
+        )}
+        <a
+          href="/"
+          className="inline-block rounded-lg bg-rose-500 px-8 py-3 font-medium text-white transition-colors hover:bg-rose-600"
+        >
+          Continue Shopping
+        </a>
+      </div>
     </div>
-
-    <a
-      href="/"
-      className="bg-primary mt-8 inline-flex items-center justify-center rounded-lg px-8 py-3 text-base font-semibold text-white transition hover:bg-primary/90"
-    >
-      Back to home
-    </a>
-  </div>
-);
+  );
+};
 
 SuccessCard.propTypes = {
   orderResult: PropTypes.shape({
     drafts: PropTypes.array.isRequired,
     buyer: PropTypes.object,
+    recipient: PropTypes.object,
     deliveryDate: PropTypes.string,
+    cardMessage: PropTypes.string,
+    isPickup: PropTypes.bool,
+    cartItems: PropTypes.array,
+    totals: PropTypes.object,
   }).isRequired,
 };
 
