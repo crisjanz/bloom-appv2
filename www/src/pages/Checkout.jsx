@@ -2752,16 +2752,32 @@ SidebarSummary.propTypes = {
   onJumpToPayment: PropTypes.func.isRequired,
 };
 
-const FormStep = ({ step, title, open, onToggle, children }) => (
-  <div
-    className="mb-6 overflow-hidden rounded-md border border-stroke dark:border-dark-3"
-    data-step={step}
-  >
-    <button
-      type="button"
-      onClick={onToggle}
-      className="flex w-full items-center justify-between px-5 py-4 xl:px-8"
+const FormStep = ({ step, title, open, onToggle, children }) => {
+  const wasOpenRef = useRef(open);
+
+  // Scroll when this section opens
+  useEffect(() => {
+    const wasOpen = wasOpenRef.current;
+    wasOpenRef.current = open;
+
+    if (open && !wasOpen) {
+      setTimeout(() => {
+        const section = document.querySelector(`[data-step="${step}"]`);
+        smoothScrollTo(section, 800);
+      }, 50);
+    }
+  }, [open, step]);
+
+  return (
+    <div
+      className="mb-6 overflow-hidden rounded-md border border-stroke dark:border-dark-3"
+      data-step={step}
     >
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between px-5 py-4 xl:px-8"
+      >
       <span className="text-lg font-semibold text-dark dark:text-white">
         {title}
       </span>
@@ -2788,7 +2804,8 @@ const FormStep = ({ step, title, open, onToggle, children }) => (
       <div className="-mx-3 flex flex-wrap">{children}</div>
     </div>
   </div>
-);
+  );
+};
 
 FormStep.propTypes = {
   step: PropTypes.number.isRequired,
