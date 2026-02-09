@@ -73,32 +73,16 @@ const GiftCardContent = () => {
     const paymentIntentId = params.get("payment_intent");
     const redirectStatus = params.get("redirect_status");
 
-    if (!paymentIntentId) return;
-
-    // Clear URL params
-    window.history.replaceState({}, "", window.location.pathname);
-
-    // Handle failed payment redirect
-    if (redirectStatus !== "succeeded") {
-      // Restore form data so user can retry
-      const pending = sessionStorage.getItem("pendingGiftCard");
-      if (pending) {
-        const { amount: pendingAmount, recipient: pendingRecipient, purchaser: pendingPurchaser } = JSON.parse(pending);
-        setSelectedAmount(pendingAmount);
-        setRecipient(pendingRecipient);
-        setPurchaser(pendingPurchaser);
-      }
-      setCurrentStep(3);
-      setSubmitError("Your payment was not completed. Please try again or use a different card.");
-      sessionStorage.removeItem("pendingGiftCard");
-      return;
-    }
+    if (!paymentIntentId || redirectStatus !== "succeeded") return;
 
     // Get pending order from sessionStorage
     const pending = sessionStorage.getItem("pendingGiftCard");
     if (!pending) return;
 
     const { amount: pendingAmount, recipient: pendingRecipient, purchaser: pendingPurchaser, bloomCustomerId } = JSON.parse(pending);
+
+    // Clear URL params
+    window.history.replaceState({}, "", window.location.pathname);
 
     // Complete the purchase
     setIsSubmitting(true);
@@ -614,84 +598,35 @@ const GiftCardContent = () => {
 };
 
 const SuccessModal = ({ details, onClose }) => {
-  const formattedAmount = new Intl.NumberFormat("en-CA", {
+  const formattedTotal = new Intl.NumberFormat("en-CA", {
     style: "currency",
     currency: "CAD",
   }).format(details.amount);
 
-  const recipientName = details.recipient?.name || "Your recipient";
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4">
-      <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl">
-        {/* Top accent */}
-        <div className="h-1 rounded-t-2xl bg-gradient-to-r from-rose-400 via-rose-500 to-rose-400" />
-
-        <div className="p-8">
-          {/* Success Icon */}
-          <div className="mb-6 text-center">
-            <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-green-500 shadow-lg shadow-green-100">
-              <svg className="h-8 w-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-          </div>
-
-          {/* Main Message */}
-          <div className="mb-8 text-center">
-            <h3 className="mb-2 font-serif text-2xl text-gray-900">Gift Card Sent!</h3>
-            <p className="text-gray-600">
-              <span className="font-serif text-rose-600">{recipientName}</span> will receive their gift shortly
-            </p>
-          </div>
-
-          {/* Gift Card Details */}
-          <div className="mb-6 rounded-xl bg-gray-50 p-5">
-            {/* Amount */}
-            <div className="mb-4 flex items-center justify-between border-b border-gray-200 pb-4">
-              <span className="text-gray-500">Gift Card Amount</span>
-              <span className="text-2xl font-semibold text-gray-800">{formattedAmount}</span>
-            </div>
-
-            {/* Recipient */}
-            <div className="mb-4 border-b border-gray-200 pb-4">
-              <p className="mb-1 text-sm text-gray-500">Sent to</p>
-              <p className="font-medium text-gray-800">{details.recipient?.name || "—"}</p>
-              <p className="text-gray-600">{details.recipient?.email}</p>
-            </div>
-
-            {/* Message if provided */}
-            {details.recipient?.message && (
-              <div className="mb-4 border-b border-gray-200 pb-4">
-                <p className="mb-1 text-sm text-gray-500">Your message</p>
-                <p className="italic text-gray-700">"{details.recipient.message}"</p>
-              </div>
-            )}
-
-            {/* Purchaser */}
-            <div>
-              <p className="mb-1 text-sm text-gray-500">Receipt sent to</p>
-              <p className="text-gray-600">{details.purchaser?.email}</p>
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 rounded-lg bg-gray-100 px-6 py-3 font-medium text-gray-700 transition hover:bg-gray-200"
-            >
-              Send Another
-            </button>
-            <a
-              href="/"
-              className="flex-1 rounded-lg bg-rose-500 px-6 py-3 text-center font-medium text-white transition hover:bg-rose-600"
-            >
-              Continue Shopping
-            </a>
-          </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-2xl">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/15 text-primary">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.5 12.75l6 6 9-13.5" />
+          </svg>
         </div>
+        <h3 className="mt-4 text-2xl font-semibold text-slate-900">Gift card sent!</h3>
+        <p className="mt-3 text-sm text-slate-600">
+          We emailed {details.recipient.name || details.recipient.email} their {formattedTotal} gift card.
+          A receipt has been sent to {details.purchaser.email}.
+        </p>
+        <div className="mt-4 rounded-lg bg-slate-50 p-4 text-left text-sm text-slate-600">
+          <p className="font-medium text-slate-900">Reference</p>
+          <p>Payment Intent: {details.paymentIntentId}</p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-6 inline-flex items-center justify-center rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-dark"
+        >
+          Close
+        </button>
       </div>
     </div>
   );
@@ -703,7 +638,6 @@ SuccessModal.propTypes = {
     recipient: PropTypes.shape({
       name: PropTypes.string,
       email: PropTypes.string,
-      message: PropTypes.string,
     }).isRequired,
     purchaser: PropTypes.shape({
       name: PropTypes.string,
