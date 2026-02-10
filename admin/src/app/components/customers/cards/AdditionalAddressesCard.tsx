@@ -13,22 +13,7 @@ import {
 } from "@shared/ui/components/ui/table";
 import { ParsedAddress } from "@shared/utils/googlePlaces";
 import PhoneInput from "@shared/ui/forms/PhoneInput";
-
-interface Address {
-  id: string;
-  label?: string; // Custom label like "Home", "Office", "Mom's House"
-  firstName: string;
-  lastName: string;
-  address1: string;
-  address2?: string;
-  city: string;
-  province: string;
-  postalCode: string;
-  country: string;
-  phone?: string;
-  company?: string;
-  addressType?: string;
-}
+import { Address } from "@shared/types/customer";
 
 interface AdditionalAddressesCardProps {
   addresses: Address[];
