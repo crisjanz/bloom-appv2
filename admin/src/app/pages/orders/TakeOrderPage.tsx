@@ -487,7 +487,7 @@ export default function TakeOrderPage({
         country: address.country || "CA",
       },
       recipientAddressType: address.addressType || "RESIDENCE",
-      recipientAddressLabel: address.label || "",
+      recipientAddressLabel: address.attention || "",
       orderType: order.type || "DELIVERY",
       deliveryDate,
       deliveryTime: order.deliveryTime || "",

@@ -140,8 +140,13 @@ const RecipientPhoneMatchModal = ({
                             >
                               <div className="flex flex-wrap items-center gap-2 text-sm text-black dark:text-white">
                                 <span className="font-medium">
-                                  {address.label || "Saved address"}
+                                  {address.addressType || "RESIDENCE"}
                                 </span>
+                                {address.attention && (
+                                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                                    Attn: {address.attention}
+                                  </span>
+                                )}
                                 {preview && (
                                   <span className="text-xs text-gray-500 dark:text-gray-400">
                                     {preview}

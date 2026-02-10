@@ -191,7 +191,7 @@ export default function RecipientCard({
       });
       setRecipientCompany(address.company || "");
       setRecipientAddressType?.(address.addressType || "RESIDENCE");
-      setRecipientAddressLabel?.(address.label || "");
+      setRecipientAddressLabel?.(address.attention || "");
       const addressId =
         address && address.id !== undefined ? String(address.id) : undefined;
       setSelectedAddressId?.(addressId);
@@ -295,8 +295,8 @@ export default function RecipientCard({
     const addressId =
       address && address.id !== undefined ? String(address.id) : undefined;
     setSelectedAddressId?.(addressId);
-    if (address?.label) {
-      setRecipientAddressLabel?.(address.label);
+    if (address?.attention) {
+      setRecipientAddressLabel?.(address.attention);
     }
     if (address?.company) {
       setRecipientCompany(address.company);
@@ -708,9 +708,7 @@ export default function RecipientCard({
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              label: recipientAddressLabel?.trim() || "Home", // Use custom label or default
-              firstName: recipientFirstName.trim(),
-              lastName: recipientLastName.trim(),
+              attention: recipientAddressLabel?.trim() || "",
               phone: recipientPhone.trim(),
               address1: recipientAddress.address1.trim(),
               address2: recipientAddress.address2?.trim() || "",
@@ -1078,8 +1076,8 @@ export default function RecipientCard({
           {orderType === "DELIVERY" ? (
             <InputField
               type="text"
-              id="addressLabel"
-              placeholder="Address label"
+              id="attention"
+              placeholder="Attention (optional)"
               value={recipientAddressLabel || ""}
               onChange={(e) => setRecipientAddressLabel?.(e.target.value)}
               className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm focus:border-brand-500"

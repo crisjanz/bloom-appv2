@@ -137,19 +137,12 @@ export default function AdditionalAddressesCard({
       return;
     }
 
-    // If label is empty or not a preset option, require custom text
-    const presetLabels = ["Home", "Office", "Work", "Cottage", "Mom's House", "Dad's House"];
-    if (!presetLabels.includes(newAddress.label) && !newAddress.label?.trim()) {
-      alert("Please provide a label for this address or select a preset option");
-      return;
-    }
-
     if (editingId) {
       // Update existing address
       onUpdateAddress(editingId, newAddress as any);
       setEditingId(null);
     } else {
-      // Add new address (backend will auto-populate firstName/lastName from customer)
+      // Add new address
       onAddAddress(newAddress as any);
     }
 
@@ -159,7 +152,7 @@ export default function AdditionalAddressesCard({
 
   const resetForm = () => {
     setNewAddress({
-      label: "",
+      attention: "",
       address1: "",
       address2: "",
       city: "",
@@ -175,7 +168,7 @@ export default function AdditionalAddressesCard({
 
   const handleEdit = (address: Address) => {
     setNewAddress({
-      label: address.label || "",
+      attention: address.attention || "",
       address1: address.address1,
       address2: address.address2 || "",
       city: address.city,
@@ -212,44 +205,38 @@ export default function AdditionalAddressesCard({
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div className="md:col-span-2">
-            <Label htmlFor="newLabel">Address Label *</Label>
-            <Select
-              id="newLabel"
-              options={[
-                { value: "", label: "Select label..." },
-                { value: "Home", label: "Home" },
-                { value: "Office", label: "Office" },
-                { value: "Work", label: "Work" },
-                { value: "Cottage", label: "Cottage" },
-                { value: "Mom's House", label: "Mom's House" },
-                { value: "Dad's House", label: "Dad's House" },
-                { value: "Custom", label: "Custom..." }
-              ]}
-              value={newAddress.label === "" || ["Home", "Office", "Work", "Cottage", "Mom's House", "Dad's House"].includes(newAddress.label) ? newAddress.label : "Custom"}
-              onChange={(value) => {
-                if (value === "Custom") {
-                  handleAddressChange("label", ""); // Clear for custom entry
-                } else {
-                  handleAddressChange("label", value);
-                }
-              }}
-              placeholder="Select label"
+          <div>
+            <Label htmlFor="newAttention">Attention (optional)</Label>
+            <InputField
+              type="text"
+              id="newAttention"
+              placeholder="e.g., Reception, Attn: John Doe"
+              value={newAddress.attention || ""}
+              onChange={(e) => handleAddressChange("attention", e.target.value)}
+              className="focus:border-brand-500 focus:ring-brand-500/20"
             />
-            {(newAddress.label === "" || !["Home", "Office", "Work", "Cottage", "Mom's House", "Dad's House"].includes(newAddress.label)) && (
-              <div className="mt-2">
-                <InputField
-                  type="text"
-                  placeholder="Enter custom label (e.g., Grandma's House)"
-                  value={newAddress.label}
-                  onChange={(e) => handleAddressChange("label", e.target.value)}
-                  className="focus:border-brand-500 focus:ring-brand-500/20"
-                />
-              </div>
-            )}
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Give this address a label to easily identify it later
+              For business deliveries or specific recipient
             </p>
+          </div>
+
+          <div>
+            <Label htmlFor="newAddressType">Address Type</Label>
+            <Select
+              id="newAddressType"
+              options={[
+                { value: "RESIDENCE", label: "Residence" },
+                { value: "BUSINESS", label: "Business" },
+                { value: "HOSPITAL", label: "Hospital" },
+                { value: "FUNERAL_HOME", label: "Funeral Home" },
+                { value: "CHURCH", label: "Church" },
+                { value: "SCHOOL", label: "School" },
+                { value: "OTHER", label: "Other" }
+              ]}
+              value={newAddress.addressType || "RESIDENCE"}
+              onChange={(value) => handleAddressChange("addressType", value)}
+              placeholder="Select address type"
+            />
           </div>
 
           <div className="md:col-span-2">
@@ -409,8 +396,13 @@ export default function AdditionalAddressesCard({
                   <TableRow key={addr.id} className={editingId === addr.id ? "bg-blue-50 dark:bg-blue-900/20" : ""}>
                     <TableCell className="px-5 py-4 sm:px-6 text-start">
                       <span className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                        {addr.label || "Address"}
+                        {addr.addressType || "RESIDENCE"}
                       </span>
+                      {addr.attention && (
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          Attn: {addr.attention}
+                        </div>
+                      )}
                       {addr.company && (
                         <div className="text-xs text-gray-500 dark:text-gray-400">
                           {addr.company}

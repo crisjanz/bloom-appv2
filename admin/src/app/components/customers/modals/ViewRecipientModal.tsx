@@ -51,8 +51,13 @@ export default function ViewRecipientModal({ isOpen, onClose, recipient }: ViewR
                 key={address.id}
                 className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700 dark:border-gray-700 dark:bg-gray-800/40 dark:text-gray-200"
               >
-                <div className="font-semibold text-gray-900 dark:text-white">
-                  {[address.firstName, address.lastName].filter(Boolean).join(" ") || "Recipient"}
+                {address.attention && (
+                  <div className="font-semibold text-gray-900 dark:text-white">
+                    Attn: {address.attention}
+                  </div>
+                )}
+                <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+                  {address.addressType || "RESIDENCE"}
                 </div>
                 <pre className="mt-2 whitespace-pre-wrap font-sans text-sm">
                   {formatAddress(address)}

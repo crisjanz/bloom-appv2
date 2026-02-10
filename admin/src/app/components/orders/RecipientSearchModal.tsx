@@ -423,11 +423,14 @@ const RecipientSearchModal = ({
                         }}
                         className="flex w-full flex-col items-start gap-1 rounded-lg border border-stroke bg-white px-4 py-3 text-left transition hover:bg-gray-50 dark:border-strokedark dark:bg-boxdark dark:hover:bg-meta-4"
                       >
-                        {address.label && (
+                        {address.attention && (
                           <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                            {address.label}
+                            Attn: {address.attention}
                           </span>
                         )}
+                        <span className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                          {address.addressType || "RESIDENCE"}
+                        </span>
                         <span className="text-sm font-medium text-black dark:text-white">
                           {address.address1}
                           {address.address2 && `, ${address.address2}`}

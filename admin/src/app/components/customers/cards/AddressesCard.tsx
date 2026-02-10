@@ -74,11 +74,13 @@ export default function AddressesCard({
                 >
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="min-w-0 space-y-1">
-                      <div className="text-sm font-semibold text-gray-900 dark:text-white">
-                        {[address.firstName, address.lastName].filter(Boolean).join(" ") || "—"}
-                      </div>
+                      {address.attention && (
+                        <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                          {address.attention}
+                        </div>
+                      )}
                       <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                        {address.label || address.addressType || "Address"}
+                        {address.addressType || "RESIDENCE"}
                       </div>
                       <div className="text-sm text-gray-600 dark:text-gray-300">
                         {formatAddress(address)}
