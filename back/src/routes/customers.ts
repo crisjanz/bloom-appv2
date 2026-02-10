@@ -942,38 +942,70 @@ router.post("/:id/save-recipient", async (req, res) => {
   }
 });
 
-// POST /api/customers/:id/recipients
+// POST /api/customers/:id/recipients - Create new recipient as Customer record
 router.post("/:id/recipients", async (req, res) => {
   const { id } = req.params;
-  const { firstName, lastName, phone, address1, address2, city, province, postalCode, company, country } = req.body;
+  const { firstName, lastName, phone, email, address1, address2, city, province, postalCode, company, country } = req.body;
 
   try {
-    // Check if customer exists
-    const customer = await prisma.customer.findUnique({
+    // Check if sender customer exists
+    const sender = await prisma.customer.findUnique({
       where: { id },
     });
 
-    if (!customer) {
+    if (!sender) {
       return res.status(404).json({ error: "Customer not found" });
     }
 
-    // Always create new recipient - users may have multiple recipients with same name at different addresses
-    const newRecipient = await prisma.address.create({
+    // Create new recipient Customer record
+    const recipient = await prisma.customer.create({
       data: {
         firstName: firstName?.trim() || "",
         lastName: lastName?.trim() || "",
         phone: phone?.trim() || null,
+        email: email?.trim() || null,
+      },
+    });
+
+    // Create primary address for recipient
+    const recipientAddress = await prisma.address.create({
+      data: {
         address1: address1?.trim() || "",
         address2: address2?.trim() || null,
         city: city?.trim() || "",
         province: province?.trim() || "",
         postalCode: postalCode?.trim() || "",
         country: country?.trim() || "CA",
-        customer: { connect: { id } },
+        phone: phone?.trim() || null,
+        company: company?.trim() || null,
+        customer: { connect: { id: recipient.id } },
       },
     });
 
-    res.status(201).json(newRecipient);
+    // Set as primary address
+    await prisma.customer.update({
+      where: { id: recipient.id },
+      data: { primaryAddressId: recipientAddress.id },
+    });
+
+    // Link recipient to sender
+    await prisma.customerRecipient.create({
+      data: {
+        senderId: id,
+        recipientId: recipient.id,
+      },
+    });
+
+    // Return recipient with address
+    const recipientWithAddress = await prisma.customer.findUnique({
+      where: { id: recipient.id },
+      include: {
+        primaryAddress: true,
+        addresses: true,
+      },
+    });
+
+    res.status(201).json(recipientWithAddress);
   } catch (err) {
     console.error("Failed to save recipient:", (err as any)?.message || err);
     res.status(500).json({ error: "Failed to save recipient" });

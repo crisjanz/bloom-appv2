@@ -900,7 +900,7 @@ export default function RecipientCard({
             });
           };
 
-          addAddressOption(customer.homeAddress);
+          addAddressOption(customer.primaryAddress);
           if (Array.isArray(customer.addresses)) {
             customer.addresses.forEach(addAddressOption);
           }
