@@ -83,7 +83,7 @@ const Profile = () => {
   return (
     <>
       <Breadcrumb pageName="My Account" />
-      <section className="bg-tg-bg py-20 dark:bg-dark">
+      <section className="bg-white py-20 dark:bg-dark">
         <div className="container mx-auto">
           <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
             <div>
@@ -104,8 +104,8 @@ const Profile = () => {
                 onClick={() => setActiveTab(tab.id)}
                 className={`rounded-full px-6 py-2 text-sm font-semibold transition ${
                   activeTab === tab.id
-                    ? "bg-primary text-white"
-                    : "bg-white text-dark hover:bg-primary hover:text-white dark:bg-dark-2 dark:text-white"
+                    ? "bg-gray-800 text-white"
+                    : "bg-gray-200 text-dark hover:bg-gray-300 dark:bg-dark-2 dark:text-white dark:hover:bg-gray-700"
                 }`}
               >
                 {tab.label}
@@ -209,6 +209,7 @@ const RecipientsTab = ({ customerId, recipients, loading, error, refresh }) => {
     country: "CA",
   });
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(null);
   const [formError, setFormError] = useState("");
   const [formSuccess, setFormSuccess] = useState("");
 
@@ -257,6 +258,22 @@ const RecipientsTab = ({ customerId, recipients, loading, error, refresh }) => {
     }
   };
 
+  const handleDelete = async (recipientId) => {
+    if (!window.confirm("Remove this recipient from your saved list?")) {
+      return;
+    }
+
+    setDeleting(recipientId);
+    try {
+      await api.delete(`/customers/${customerId}/recipients/${recipientId}`);
+      await refresh();
+    } catch (error) {
+      alert(error.message || "Failed to delete recipient");
+    } finally {
+      setDeleting(null);
+    }
+  };
+
   return (
     <div className="grid gap-8 lg:grid-cols-2">
       <div>
@@ -271,15 +288,26 @@ const RecipientsTab = ({ customerId, recipients, loading, error, refresh }) => {
         <div className="space-y-4">
           {recipients.map((recipient) => (
             <div key={recipient.id} className="rounded-xl border border-stroke p-4 dark:border-dark-3">
-              <p className="text-dark text-lg font-semibold dark:text-white">
-                {recipient.firstName} {recipient.lastName}
-              </p>
-              <p className="text-body-color text-sm dark:text-dark-6">
-                {recipient.addresses?.[0]?.address1 || "No address on file"}
-              </p>
-              {recipient.phone && (
-                <p className="text-body-color text-sm dark:text-dark-6">Phone: {recipient.phone}</p>
-              )}
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <p className="text-dark text-lg font-semibold dark:text-white">
+                    {recipient.firstName} {recipient.lastName}
+                  </p>
+                  <p className="text-body-color text-sm dark:text-dark-6">
+                    {recipient.addresses?.[0]?.address1 || "No address on file"}
+                  </p>
+                  {recipient.phone && (
+                    <p className="text-body-color text-sm dark:text-dark-6">Phone: {recipient.phone}</p>
+                  )}
+                </div>
+                <button
+                  onClick={() => handleDelete(recipient.id)}
+                  disabled={deleting === recipient.id}
+                  className="text-red-600 hover:text-red-700 text-sm font-medium disabled:opacity-50"
+                >
+                  {deleting === recipient.id ? "Deleting..." : "Delete"}
+                </button>
+              </div>
             </div>
           ))}
         </div>
