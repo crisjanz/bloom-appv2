@@ -276,8 +276,6 @@ router.post('/floranext-complete', (req: Request, res: Response) => {
                 if (billingStreet && billingCity && billingProvince && billingPostalCode) {
                   const billingAddress = await tx.address.create({
                     data: {
-                      firstName,
-                      lastName,
                       address1: billingStreet,
                       address2: null,
                       city: billingCity,
@@ -286,7 +284,7 @@ router.post('/floranext-complete', (req: Request, res: Response) => {
                       country: normalizeCountry(customer.billing_country_id),
                       phone: phone || null,
                       company: null,
-                      label: 'Billing',
+                      addressType: 'BILLING',
                       customerId: senderCustomer.id,
                     },
                   });
@@ -324,8 +322,6 @@ router.post('/floranext-complete', (req: Request, res: Response) => {
               if (billingStreet && billingCity && billingProvince && billingPostalCode) {
                 const billingAddress = await tx.address.create({
                   data: {
-                    firstName,
-                    lastName,
                     address1: billingStreet,
                     address2: null,
                     city: billingCity,
@@ -334,12 +330,12 @@ router.post('/floranext-complete', (req: Request, res: Response) => {
                     country: normalizeCountry(customer.billing_country_id),
                     phone: phone || null,
                     company: null,
-                    label: 'Billing',
+                    addressType: 'BILLING',
                     customerId: senderCustomer.id,
                   },
                 });
 
-                // Set as home address
+                // Set as primary address
                 await tx.customer.update({
                   where: { id: senderCustomer.id },
                   data: { primaryAddressId: billingAddress.id },
@@ -433,8 +429,6 @@ router.post('/floranext-complete', (req: Request, res: Response) => {
                 // Create recipient's address
                 const address = await tx.address.create({
                   data: {
-                    firstName: recipientFirstName,
-                    lastName: recipientLastName,
                     address1,
                     address2: null,
                     city,
@@ -443,12 +437,12 @@ router.post('/floranext-complete', (req: Request, res: Response) => {
                     country,
                     phone: recipientPhone || null,
                     company: company || null,
-                    label: 'Imported',
+                    addressType: 'RESIDENCE',
                     customerId: recipientCustomer.id,
                   },
                 });
 
-                // Set as home address
+                // Set as primary address
                 await tx.customer.update({
                   where: { id: recipientCustomer.id },
                   data: { primaryAddressId: address.id },

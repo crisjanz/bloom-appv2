@@ -152,7 +152,7 @@ router.get('/list', async (req, res) => {
         deliveryAddress: {
           select: {
             id: true,
-            label: true,
+            attention: true,
             address1: true,
             address2: true,
             city: true,

@@ -10,11 +10,10 @@ import prisma from '../lib/prisma';
 interface AddressGroup {
   addresses: Array<{
     id: string;
-    firstName: string;
-    lastName: string;
+    attention: string | null;
     phone: string | null;
     company: string | null;
-    label: string | null;
+    addressType: string | null;
     createdAt: Date;
   }>;
   physicalLocation: string;
@@ -37,11 +36,10 @@ async function cleanDuplicateAddresses(dryRun: boolean = false) {
       where: { customerId: customer.id },
       select: {
         id: true,
-        firstName: true,
-        lastName: true,
+        attention: true,
         phone: true,
         company: true,
-        label: true,
+        addressType: true,
         address1: true,
         address2: true,
         city: true,
@@ -82,11 +80,10 @@ async function cleanDuplicateAddresses(dryRun: boolean = false) {
 
       locationMap.get(locationKey)!.addresses.push({
         id: addr.id,
-        firstName: addr.firstName,
-        lastName: addr.lastName,
+        attention: addr.attention,
         phone: addr.phone,
         company: addr.company,
-        label: addr.label,
+        addressType: addr.addressType,
         createdAt: addr.createdAt
       });
     }
@@ -105,7 +102,7 @@ async function cleanDuplicateAddresses(dryRun: boolean = false) {
       // Keep the first (oldest) address
       const [keepAddress, ...removeAddresses] = group.addresses;
 
-      console.log(`   ✅ KEEP: ${keepAddress.firstName} ${keepAddress.lastName} (${keepAddress.label || 'no label'})`);
+      console.log(`   ✅ KEEP: ${keepAddress.attention || '(no attention)'} (${keepAddress.addressType || 'no type'})`);
 
       // Merge data: update kept address with any missing info from duplicates
       const updateData: any = {};
@@ -115,6 +112,9 @@ async function cleanDuplicateAddresses(dryRun: boolean = false) {
         }
         if (!keepAddress.company && dup.company) {
           updateData.company = dup.company;
+        }
+        if (!keepAddress.attention && dup.attention) {
+          updateData.attention = dup.attention;
         }
       }
 
@@ -128,7 +128,7 @@ async function cleanDuplicateAddresses(dryRun: boolean = false) {
 
       // Remove duplicates
       for (const dup of removeAddresses) {
-        console.log(`   ❌ REMOVE: ${dup.firstName} ${dup.lastName} (${dup.label || 'no label'})`);
+        console.log(`   ❌ REMOVE: ${dup.attention || '(no attention)'} (${dup.addressType || 'no type'})`);
 
         if (!dryRun) {
           // Update any orders using this address

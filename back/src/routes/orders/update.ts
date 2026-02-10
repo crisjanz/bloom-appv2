@@ -81,8 +81,7 @@ router.put('/:id/update', async (req, res) => {
             const updatedAddress = await tx.address.update({
               where: { id: currentOrder.deliveryAddressId },
               data: {
-                firstName: addressData.firstName || '',
-                lastName: addressData.lastName || '',
+                attention: addressData.attention || null,
                 company: addressData.company || null,
                 phone: addressData.phone || '',
                 address1: addressData.address1 || '',

@@ -1015,8 +1015,8 @@ router.post("/:id/recipients", async (req, res) => {
 // PUT /api/customers/:customerId/recipients/:recipientId
 router.put("/:customerId/recipients/:recipientId", async (req, res) => {
   const { customerId, recipientId } = req.params;
-  const { firstName, lastName, phone, address1, address2, city, province, postalCode, company, country } = req.body;
-  
+  const { phone, address1, address2, city, province, postalCode, company, country } = req.body;
+
   try {
     // Verify the recipient belongs to this customer
     const existingRecipient = await prisma.address.findFirst({
@@ -1025,17 +1025,15 @@ router.put("/:customerId/recipients/:recipientId", async (req, res) => {
         customerId: customerId,
       },
     });
-    
+
     if (!existingRecipient) {
       return res.status(404).json({ error: "Recipient not found for this customer" });
     }
-    
-    // Update the recipient
+
+    // Update the recipient address
     const updatedRecipient = await prisma.address.update({
       where: { id: recipientId },
       data: {
-        firstName: firstName?.trim() || "",
-        lastName: lastName?.trim() || "",
         phone: phone?.trim() || null,
         address1: address1?.trim() || "",
         address2: address2?.trim() || null,
