@@ -1,6 +1,6 @@
 # Bloom Flower Shop – Progress Tracker
 
-**Last audited:** 2026-02-07
+**Last audited:** 2026-02-10
 Status markers: ✅ done · 🛠️ in progress · 🔜 planned · ⚠️ attention
 
 ## ✅ Production-Ready
@@ -19,6 +19,7 @@ Status markers: ✅ done · 🛠️ in progress · 🔜 planned · ⚠️ attent
 - ✅ **WWW customer-specific pricing (2026-02-06)** — Customer-linked discounts with per-period limits, admin customer selector + rolling/calendar windows, sale-price auto-apply logic, and www auto-apply + checkout discount payloads (`back/prisma/schema.prisma`, `back/src/routes/discounts.ts`, `back/src/routes/orders/create.ts`, `admin/src/app/components/discounts/CreateDiscountModal.tsx`, `www/src/contexts/CartContext.jsx`, `www/src/pages/Checkout.jsx`).
 - ✅ **House account management (2026-02-07)** — House account ledger routes, admin list/detail/statement pages, and HOUSE_ACCOUNT transaction ledger entries (`back/src/routes/house-accounts.ts`, `back/src/services/houseAccountService.ts`, `back/src/services/transactionService.ts`, `admin/src/shared/hooks/useHouseAccounts.ts`, `admin/src/app/pages/house-accounts/*`, `admin/src/shared/ui/layout/AppSidebar.tsx`, `docs/API_Endpoints.md`).
 - ✅ **Cart sync across browsers (2026-02-08)** — Logged-in customers' carts sync to database for cross-device access. Guest cart merges with server cart on login, debounced 500ms save, timestamp-based conflict resolution. (`back/prisma/schema.prisma`, `back/src/routes/customersAuth.ts`, `www/src/contexts/CartContext.jsx`, `docs/API_Endpoints.md`).
+- ✅ **Stripe card fingerprint matching (2026-02-10)** — Stripe card fingerprints are stored on successful card confirmations, `/api/customer-payment-methods/match` returns possible customer candidates, and POS now shows a consent-based match prompt that can link orders/transactions to the selected customer (`back/prisma/schema.prisma`, `back/prisma/migrations/20260201012247_birthday_gifts_and_card_fingerprints/migration.sql`, `back/src/routes/stripe.ts`, `back/src/routes/customer-payment-methods.ts`, `admin/src/app/components/pos/payment/PaymentController.tsx`, `back/src/routes/orders/update.ts`, `back/src/routes/payment-transactions.ts`, `docs/API_Endpoints.md`).
 - ✅ **External order scanning (Gemini OCR) (2026-01-26)** — Scan-to-order flow for wire/external orders with Gemini Vision OCR, mobile scan UI, and create-from-scan endpoint (`back/src/routes/orders/scan.ts`, `back/src/routes/orders/create-from-scan.ts`, `back/src/services/gemini-ocr.ts`, `admin/src/app/components/orders/ScanOrderModal.tsx`, `admin/src/app/pages/mobile/MobileScanPage.tsx`).
 - ✅ **Payment settings admin** — encrypted provider credentials, offline tenders, and UI warnings when `CONFIG_ENCRYPTION_KEY` is absent (`admin/src/app/pages/settings/payments.tsx`, `back/src/routes/settings/payments.ts`).
 - ✅ **Stripe credentials from DB** — Stripe client now loads from encrypted payment settings with cache invalidation after updates; `.env` Stripe keys removed in favor of Settings → Payments (`back/src/services/paymentProviders/PaymentProviderFactory.ts`, `back/src/routes/stripe.ts`, `back/src/routes/settings/payments.ts`).
@@ -61,7 +62,6 @@ Status markers: ✅ done · 🛠️ in progress · 🔜 planned · ⚠️ attent
 
 ## 🛠️ In Progress / Needs QA
 - 🛠️ **Birthday capture + recipient QR gift flow** — schema added (customer birthday fields, GiftToken), gift endpoints, checkout UI opt-in, public birthday gift page. QA + migrations pending.
-- 🛠️ **Stripe card fingerprint matching** — storing card fingerprints on Stripe confirmations + match endpoint; POS prompt wiring still pending.
 - 🛠️ **Split payments settlement** — UI is wired; needs backend distribution of PT lines and change logging (`admin/src/app/components/pos/payment/SplitPaymentView.tsx`, `back/src/routes/payment-transactions.ts`).
 - 🛠️ **Notification domain wiring** — `/api/notifications/*` endpoints still rely on placeholder repositories (`admin/src/domains/notifications/services/NotificationService.ts`).
 - 🛠️ **Order status history** — status transitions work, but `/api/orders/:id/history` remains a stub (`back/src/routes/orders/status.ts:101-162`).

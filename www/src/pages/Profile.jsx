@@ -317,7 +317,7 @@ const RecipientsTab = ({ customerId, recipients, loading, error, refresh }) => {
             <AddressAutocomplete
               id="address1"
               value={form.address1}
-              onChange={(value) => setForm((prev) => ({ ...prev, address1: value }))}
+              onChange={handleChange}
               onAddressSelect={handleAddressSelect}
               placeholder="Enter street address"
               className="h-12 w-full rounded-lg border border-stroke bg-transparent px-4 text-sm text-dark outline-hidden transition focus:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white"
