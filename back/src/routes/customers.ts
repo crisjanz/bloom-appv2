@@ -945,46 +945,19 @@ router.post("/:id/save-recipient", async (req, res) => {
 // POST /api/customers/:id/recipients
 router.post("/:id/recipients", async (req, res) => {
   const { id } = req.params;
-  const { firstName, lastName, phone, address1, address2, city, province, postalCode, company, country } = req.body; // 🆕 Add country
-  
+  const { firstName, lastName, phone, address1, address2, city, province, postalCode, company, country } = req.body;
+
   try {
     // Check if customer exists
     const customer = await prisma.customer.findUnique({
       where: { id },
     });
-    
+
     if (!customer) {
       return res.status(404).json({ error: "Customer not found" });
     }
-    
-    // Check if a recipient with same first and last name already exists
-    const existingRecipient = await prisma.address.findFirst({
-      where: {
-        customerId: id,
-        firstName: firstName?.trim() || "",
-        lastName: lastName?.trim() || "",
-      },
-    });
-    
-    if (existingRecipient) {
-      // Update existing recipient
-      const updatedRecipient = await prisma.address.update({
-        where: { id: existingRecipient.id },
-        data: {
-          phone: phone?.trim() || null,
-          address1: address1?.trim() || "",
-          address2: address2?.trim() || null,
-          city: city?.trim() || "",
-          province: province?.trim() || "",
-          postalCode: postalCode?.trim() || "",
-          country: country?.trim() || "CA", // 🆕 Add country support
-        },
-      });
 
-      return res.json(updatedRecipient);
-    }
-    
-    // Create new recipient if no match found
+    // Always create new recipient - users may have multiple recipients with same name at different addresses
     const newRecipient = await prisma.address.create({
       data: {
         firstName: firstName?.trim() || "",
@@ -995,7 +968,7 @@ router.post("/:id/recipients", async (req, res) => {
         city: city?.trim() || "",
         province: province?.trim() || "",
         postalCode: postalCode?.trim() || "",
-        country: country?.trim() || "CA", // 🆕 Add country support
+        country: country?.trim() || "CA",
         customer: { connect: { id } },
       },
     });

@@ -3,6 +3,7 @@ import PropTypes from "prop-types";
 import { Navigate } from "react-router-dom";
 import Breadcrumb from "../components/Breadcrumb.jsx";
 import PaymentMethodsTab from "../components/Profile/PaymentMethodsTab.jsx";
+import AddressAutocomplete from "../components/AddressAutocomplete.jsx";
 import { useAuth } from "../contexts/AuthContext.jsx";
 import authService from "../services/authService.js";
 import api from "../services/api.js";
@@ -216,6 +217,18 @@ const RecipientsTab = ({ customerId, recipients, loading, error, refresh }) => {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleAddressSelect = (parsedAddress) => {
+    setForm((prev) => ({
+      ...prev,
+      address1: parsedAddress.address1,
+      address2: parsedAddress.address2 || "",
+      city: parsedAddress.city,
+      province: parsedAddress.province,
+      postalCode: parsedAddress.postalCode,
+      country: parsedAddress.country || "CA",
+    }));
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setSaving(true);
@@ -297,13 +310,19 @@ const RecipientsTab = ({ customerId, recipients, loading, error, refresh }) => {
             value={form.phone}
             onChange={handleChange}
           />
-          <Input
-            label="Address"
-            name="address1"
-            value={form.address1}
-            onChange={handleChange}
-            required
-          />
+          <div>
+            <label className="text-dark mb-2 block text-sm font-medium dark:text-white" htmlFor="address1">
+              Address
+            </label>
+            <AddressAutocomplete
+              id="address1"
+              value={form.address1}
+              onChange={(value) => setForm((prev) => ({ ...prev, address1: value }))}
+              onAddressSelect={handleAddressSelect}
+              placeholder="Enter street address"
+              className="h-12 w-full rounded-lg border border-stroke bg-transparent px-4 text-sm text-dark outline-hidden transition focus:border-primary dark:border-dark-3 dark:bg-dark-2 dark:text-white"
+            />
+          </div>
           <Input
             label="Apartment / Suite"
             name="address2"
