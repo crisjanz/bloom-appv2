@@ -14,8 +14,7 @@ interface DuplicateCustomer {
 
 interface CustomerAddress {
   id: string;
-  firstName: string;
-  lastName: string;
+  attention?: string;
   address1: string;
   address2: string | null;
   city: string;
@@ -24,7 +23,7 @@ interface CustomerAddress {
   country: string;
   phone: string | null;
   company: string | null;
-  label: string | null;
+  addressType?: string;
   customerId: string;
   orderCount: number;
 }

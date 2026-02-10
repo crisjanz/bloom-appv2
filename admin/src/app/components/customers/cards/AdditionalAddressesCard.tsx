@@ -100,7 +100,7 @@ export default function AdditionalAddressesCard({
   onUpdateAddress,
   onDeleteAddress,
 }: AdditionalAddressesCardProps) {
-  const [newAddress, setNewAddress] = useState<Omit<Address, "id" | "firstName" | "lastName">>({
+  const [newAddress, setNewAddress] = useState<Omit<Address, "id">>({
     label: "",
     address1: "",
     address2: "",
