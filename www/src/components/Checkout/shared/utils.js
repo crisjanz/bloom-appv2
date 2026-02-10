@@ -49,36 +49,23 @@ export const buildSavedRecipientOptions = (recipients) => {
 
   recipients.forEach((recipient) => {
     const baseLabel = formatRecipientLabel(recipient);
-    const addressList = [];
 
-    if (recipient.homeAddress) {
-      addressList.push({ ...recipient.homeAddress, __home: true });
+    // Use primaryAddress as the default address for this recipient
+    let defaultAddress = null;
+
+    if (recipient.primaryAddress) {
+      defaultAddress = recipient.primaryAddress;
+    } else if (Array.isArray(recipient.addresses) && recipient.addresses.length > 0) {
+      // Fallback: use first address if no primary address
+      defaultAddress = recipient.addresses[0];
     }
 
-    if (Array.isArray(recipient.addresses)) {
-      recipient.addresses.forEach((address) => {
-        addressList.push(address);
-      });
-    }
-
-    if (addressList.length === 0) {
-      options.push({
-        value: `recipient-${recipient.id}`,
-        label: baseLabel,
-        recipient,
-        address: null,
-      });
-      return;
-    }
-
-    addressList.forEach((address, index) => {
-      const suffix = formatAddressLabel(address, index);
-      options.push({
-        value: `recipient-${recipient.id}::${address.id || index}`,
-        label: `${baseLabel} — ${suffix}`,
-        recipient,
-        address,
-      });
+    // Create ONE option per recipient (not one per address)
+    options.push({
+      value: `recipient-${recipient.id}`,
+      label: defaultAddress ? `${baseLabel} — ${formatAddressLabel(defaultAddress, 0)}` : baseLabel,
+      recipient,
+      address: defaultAddress,
     });
   });
 

@@ -192,6 +192,7 @@ model Customer {
   birthdayUpdatedAt   DateTime?
   notes               String?
   homeAddressId       String?              @unique
+  primaryAddressId    String?              @unique
   password              String?
   passwordResetToken    String?
   passwordResetExpires  DateTime?
@@ -201,6 +202,7 @@ model Customer {
   updatedAt           DateTime             @updatedAt
   addresses           Address[]            @relation("MyAddresses")
   homeAddress         Address?             @relation("HomeAddress", fields: [homeAddressId], references: [id])
+  primaryAddress      Address?             @relation("PrimaryAddress", fields: [primaryAddressId], references: [id])
   ordersAsBuyer       Order[]              @relation("BuyerOrders")
   ordersAsRecipient   Order[]              @relation("RecipientOrders")
   savedBySenders      CustomerRecipient[]  @relation("Recipients")
@@ -245,6 +247,7 @@ model Address {
   label               String?
   firstName           String?
   lastName            String?
+  attention           String?
   address1            String
   address2            String?
   city                String
@@ -253,12 +256,13 @@ model Address {
   country             String       @default("CA")
   phone               String?
   company             String?      @db.VarChar(255)
-  addressType         AddressType? @default(RESIDENCE)
+  addressType         String?      @default("RESIDENCE")
   customerId          String?
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @default(now()) @updatedAt
   customer            Customer?    @relation("MyAddresses", fields: [customerId], references: [id])
   homeOf              Customer?    @relation("HomeAddress")
+  primaryOf           Customer?    @relation("PrimaryAddress")
   ordersDeliveredHere Order[]      @relation("DeliveryAddress")
 
   @@index([country])

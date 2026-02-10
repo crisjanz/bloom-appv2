@@ -339,8 +339,7 @@ router.post('/floranext-recipients', (req, res) => {
 
             const address = await tx.address.create({
               data: {
-                firstName,
-                lastName,
+                attention: `${firstName} ${lastName}`.trim(),
                 address1,
                 address2: null,
                 city,
@@ -349,7 +348,7 @@ router.post('/floranext-recipients', (req, res) => {
                 country,
                 phone,
                 company: company || null,
-                label: 'Imported',
+                addressType: 'RESIDENCE',
                 customerId: recipientCustomer.id,
               },
             });
@@ -357,7 +356,7 @@ router.post('/floranext-recipients', (req, res) => {
             await tx.customer.update({
               where: { id: recipientCustomer.id },
               data: {
-                homeAddressId: address.id,
+                primaryAddressId: address.id,
               },
             });
 

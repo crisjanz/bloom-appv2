@@ -11,9 +11,7 @@ import { Address } from "@shared/types/customer";
 
 export interface AddressFormValues {
   id?: string;
-  label?: string;
-  firstName?: string; // Optional - auto-populated from Customer
-  lastName?: string;  // Optional - auto-populated from Customer
+  attention?: string; // For business deliveries: "Attn: Reception"
   address1: string;
   address2?: string;
   city: string;
@@ -83,17 +81,8 @@ const phoneCountries = [
   { code: "FR", label: "+33" },
 ];
 
-const presetLabels = [
-  { value: "Home", label: "Home" },
-  { value: "Office", label: "Office" },
-  { value: "Work", label: "Work" },
-  { value: "Mom's House", label: "Mom's House" },
-  { value: "Dad's House", label: "Dad's House" },
-  { value: "Cottage", label: "Cottage" },
-];
-
 const emptyForm: AddressFormValues = {
-  label: "",
+  attention: "",
   address1: "",
   address2: "",
   city: "",
@@ -120,7 +109,7 @@ export default function AddAddressModal({
       if (initialAddress) {
         setForm({
           id: initialAddress.id,
-          label: initialAddress.label || "",
+          attention: initialAddress.attention || "",
           address1: initialAddress.address1 || "",
           address2: initialAddress.address2 || "",
           city: initialAddress.city || "",
@@ -188,13 +177,12 @@ export default function AddAddressModal({
 
         <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <Label htmlFor="address-label">Label</Label>
-            <Select
-              options={presetLabels}
-              value={form.label || ""}
-              placeholder="Choose preset or type custom label"
-              onChange={(value) => handleFieldChange("label", value)}
-              allowCustomValue
+            <Label htmlFor="address-attention">Attention (optional)</Label>
+            <InputField
+              id="address-attention"
+              value={form.attention || ""}
+              onChange={(event) => handleFieldChange("attention", event.target.value)}
+              placeholder="e.g., Reception, Attn: John Doe"
             />
           </div>
           <div>

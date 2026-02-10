@@ -193,10 +193,10 @@ const RecipientSearchModal = ({
 
                 // Check if customer has multiple addresses
                 const addresses = [];
-                if (fullCustomer.homeAddress) addresses.push(fullCustomer.homeAddress);
+                if (fullCustomer.primaryAddress) addresses.push(fullCustomer.primaryAddress);
                 if (Array.isArray(fullCustomer.addresses)) {
                   fullCustomer.addresses.forEach((addr: any) => {
-                    if (!fullCustomer.homeAddress || addr.id !== fullCustomer.homeAddress.id) {
+                    if (!fullCustomer.primaryAddress || addr.id !== fullCustomer.primaryAddress.id) {
                       addresses.push(addr);
                     }
                   });
@@ -370,7 +370,7 @@ const RecipientSearchModal = ({
                 </p>
               </div>
               <div className="max-h-96 space-y-2 overflow-y-auto">
-                {selectedCustomerForAddresses.homeAddress && (
+                {selectedCustomerForAddresses.primaryAddress && (
                   <button
                     type="button"
                     onClick={() => {
@@ -383,21 +383,21 @@ const RecipientSearchModal = ({
                       <span className="rounded bg-brand-500 px-2 py-0.5 text-xs font-medium text-white">
                         Home Address
                       </span>
-                      {selectedCustomerForAddresses.homeAddress.label && (
+                      {selectedCustomerForAddresses.primaryAddress.label && (
                         <span className="text-xs text-gray-600 dark:text-gray-400">
-                          {selectedCustomerForAddresses.homeAddress.label}
+                          {selectedCustomerForAddresses.primaryAddress.label}
                         </span>
                       )}
                     </div>
                     <span className="text-sm font-medium text-black dark:text-white">
-                      {selectedCustomerForAddresses.homeAddress.address1}
-                      {selectedCustomerForAddresses.homeAddress.address2 &&
-                        `, ${selectedCustomerForAddresses.homeAddress.address2}`}
+                      {selectedCustomerForAddresses.primaryAddress.address1}
+                      {selectedCustomerForAddresses.primaryAddress.address2 &&
+                        `, ${selectedCustomerForAddresses.primaryAddress.address2}`}
                     </span>
                     <span className="text-xs text-gray-600 dark:text-gray-400">
-                      {selectedCustomerForAddresses.homeAddress.city},{" "}
-                      {selectedCustomerForAddresses.homeAddress.province}{" "}
-                      {selectedCustomerForAddresses.homeAddress.postalCode}
+                      {selectedCustomerForAddresses.primaryAddress.city},{" "}
+                      {selectedCustomerForAddresses.primaryAddress.province}{" "}
+                      {selectedCustomerForAddresses.primaryAddress.postalCode}
                     </span>
                   </button>
                 )}
@@ -405,8 +405,8 @@ const RecipientSearchModal = ({
                   selectedCustomerForAddresses.addresses
                     .filter(
                       (addr: any) =>
-                        !selectedCustomerForAddresses.homeAddress ||
-                        addr.id !== selectedCustomerForAddresses.homeAddress.id,
+                        !selectedCustomerForAddresses.primaryAddress ||
+                        addr.id !== selectedCustomerForAddresses.primaryAddress.id,
                     )
                     .map((address: any, index: number) => (
                       <button

@@ -222,7 +222,7 @@ router.post('/create', async (req, res) => {
           orderItems: true,
           recipientCustomer: {
             include: {
-              homeAddress: true,
+              primaryAddress: true,
               addresses: true,
             }
           },
@@ -256,7 +256,7 @@ router.post('/create', async (req, res) => {
             customer: true,
             recipientCustomer: {
               include: {
-                homeAddress: true,
+                primaryAddress: true,
                 addresses: true,
               }
             },
@@ -502,7 +502,7 @@ router.post('/save-draft', async (req, res) => {
           orderItems: true,
           recipientCustomer: {
             include: {
-              homeAddress: true,
+              primaryAddress: true,
               addresses: true,
             }
           },

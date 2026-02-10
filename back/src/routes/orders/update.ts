@@ -23,7 +23,7 @@ router.put('/:id/update', async (req, res) => {
           customer: true,
           recipientCustomer: {
             include: {
-              homeAddress: true,
+              primaryAddress: true,
               addresses: true,
             }
           },
@@ -259,7 +259,7 @@ router.put('/:id/update', async (req, res) => {
           customer: true,
           recipientCustomer: {
             include: {
-              homeAddress: true,
+              primaryAddress: true,
               addresses: true,
             }
           },

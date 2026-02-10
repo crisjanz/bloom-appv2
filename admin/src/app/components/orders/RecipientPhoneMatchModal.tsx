@@ -13,8 +13,8 @@ type RecipientPhoneMatchModalProps = {
 const buildAddressList = (customer: any) => {
   const addresses: any[] = [];
 
-  if (customer?.homeAddress) {
-    addresses.push({ ...customer.homeAddress, __source: "home" });
+  if (customer?.primaryAddress) {
+    addresses.push({ ...customer.primaryAddress, __source: "primary" });
   }
 
   if (Array.isArray(customer?.addresses)) {

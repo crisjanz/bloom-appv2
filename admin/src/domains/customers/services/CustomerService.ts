@@ -80,7 +80,7 @@ export class CustomerService {
     await this.checkForDuplicates(data)
 
     // Create customer with defaults
-    const { preferences: prefInput, homeAddress, ...rest } = data
+    const { preferences: prefInput, primaryAddress, ...rest } = data
 
     const customerData: Partial<Customer> = {
       ...rest,
@@ -94,7 +94,7 @@ export class CustomerService {
       updatedAt: new Date(),
       id: this.generateCustomerId(),
       preferences: mergePreferences(undefined, prefInput),
-      addresses: homeAddress ? [{ ...homeAddress }] : undefined,
+      addresses: primaryAddress ? [{ ...primaryAddress }] : undefined,
       subscriptions: [],
     }
 
@@ -125,7 +125,7 @@ export class CustomerService {
       throw new Error(`Validation failed: ${validation.errors.map(e => e.message).join(', ')}`)
     }
 
-    const { preferences: prefUpdate, homeAddress, ...rest } = data
+    const { preferences: prefUpdate, primaryAddress, ...rest } = data
 
     const updatePreferences = prefUpdate
       ? mergePreferences(existingCustomer.preferences, prefUpdate)
@@ -137,7 +137,7 @@ export class CustomerService {
       id,
       updatedAt: new Date(),
       preferences: updatePreferences,
-      addresses: homeAddress ? [{ ...homeAddress }] : existingCustomer.addresses,
+      addresses: primaryAddress ? [{ ...primaryAddress }] : existingCustomer.addresses,
     };
 
     const updatedCustomer = await this.customerRepository.save(updatePayload)

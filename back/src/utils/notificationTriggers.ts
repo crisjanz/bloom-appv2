@@ -42,7 +42,7 @@ export async function triggerStatusNotifications(order: any, newStatus: string, 
         customer: true,
         recipientCustomer: {
           include: {
-            homeAddress: true,
+            primaryAddress: true,
             addresses: true,
           }
         },

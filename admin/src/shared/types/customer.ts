@@ -8,16 +8,14 @@ export interface Customer {
   isHouseAccount?: boolean;
   houseAccountTerms?: string;
   houseAccountNotes?: string;
-  homeAddress?: Address;
+  primaryAddress?: Address;
   createdAt?: string;
   updatedAt?: string;
 }
 
 export interface Address {
   id: string;
-  label?: string; // Custom label like "Home", "Office", "Mom's House"
-  firstName: string;
-  lastName: string;
+  attention?: string; // For business deliveries: "Attn: Reception"
   address1: string;
   address2?: string;
   city: string;
@@ -26,7 +24,7 @@ export interface Address {
   country: string;
   phone?: string;
   company?: string;
-  addressType?: string; // RESIDENCE, BUSINESS, etc. - for delivery calculations
+  addressType?: string; // String field - UI provides common options (RESIDENCE, BUSINESS, HOSPITAL, FUNERAL_HOME, Custom)
   customerId?: string;
   createdAt?: string;
   updatedAt?: string;

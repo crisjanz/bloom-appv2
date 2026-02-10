@@ -267,7 +267,7 @@ router.post('/floranext-complete', (req: Request, res: Response) => {
               }
 
               // Create billing address if customer has no home address and import has billing data
-              if (!senderCustomer.homeAddressId) {
+              if (!senderCustomer.primaryAddressId) {
                 const billingStreet = clean(customer.billing_street);
                 const billingCity = clean(customer.billing_city);
                 const billingProvince = clean(customer.billing_region);
@@ -294,7 +294,7 @@ router.post('/floranext-complete', (req: Request, res: Response) => {
                   // Set as home address
                   await tx.customer.update({
                     where: { id: senderCustomer.id },
-                    data: { homeAddressId: billingAddress.id },
+                    data: { primaryAddressId: billingAddress.id },
                   });
                 }
               }
@@ -342,7 +342,7 @@ router.post('/floranext-complete', (req: Request, res: Response) => {
                 // Set as home address
                 await tx.customer.update({
                   where: { id: senderCustomer.id },
-                  data: { homeAddressId: billingAddress.id },
+                  data: { primaryAddressId: billingAddress.id },
                 });
               }
             }
@@ -451,7 +451,7 @@ router.post('/floranext-complete', (req: Request, res: Response) => {
                 // Set as home address
                 await tx.customer.update({
                   where: { id: recipientCustomer.id },
-                  data: { homeAddressId: address.id },
+                  data: { primaryAddressId: address.id },
                 });
 
                 // Link recipient to sender

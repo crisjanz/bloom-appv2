@@ -10,7 +10,7 @@ const router = express.Router();
 // PUT update address by ID
 router.put('/addresses/:id', async (req, res) => {
   const { id } = req.params;
-  const { label, firstName, lastName, address1, address2, city, province, postalCode, phone, country, company, addressType } = req.body;
+  const { attention, address1, address2, city, province, postalCode, phone, country, company, addressType } = req.body;
 
   try {
     const updateData: any = {
@@ -23,18 +23,9 @@ router.put('/addresses/:id', async (req, res) => {
       country: country?.trim() || "CA",
     };
 
-    // Only update label if provided
-    if (label !== undefined) {
-      updateData.label = label?.trim() || null;
-    }
-
-    // Auto-populate firstName/lastName from customer if not provided in request
-    // This maintains backwards compatibility while supporting new UI that doesn't send these fields
-    if (firstName !== undefined) {
-      updateData.firstName = firstName?.trim() || null;
-    }
-    if (lastName !== undefined) {
-      updateData.lastName = lastName?.trim() || null;
+    // Update attention field (for business deliveries: "Attn: Reception")
+    if (attention !== undefined) {
+      updateData.attention = attention?.trim() || null;
     }
 
     // Update optional fields
@@ -311,7 +302,7 @@ router.put('/:id', async (req, res) => {
     email,
     phone,
     notes,
-    homeAddress,
+    primaryAddress,
     isHouseAccount,
     houseAccountTerms,
     houseAccountNotes,
@@ -324,26 +315,26 @@ router.put('/:id', async (req, res) => {
   try {
     let addressIdToUse: string | null = null;
 
-    if (homeAddress) {
+    if (primaryAddress) {
       // Clean fallback values
       const requiredFields = {
-        firstName: homeAddress.firstName || "Home",
-        lastName: homeAddress.lastName || "Address",
-        address1: homeAddress.address1 || "",
-        city: homeAddress.city || "",
-        province: homeAddress.province || "",
-        postalCode: homeAddress.postalCode || "",
-        country: homeAddress.country || "CA", // 🆕 Add country support
+        address1: primaryAddress.address1 || "",
+        city: primaryAddress.city || "",
+        province: primaryAddress.province || "",
+        postalCode: primaryAddress.postalCode || "",
+        country: primaryAddress.country || "CA",
       };
 
       const optionalFields = {
-        address2: homeAddress.address2 || null,
-        phone: homeAddress.phone || null,
+        attention: primaryAddress.attention || null,
+        address2: primaryAddress.address2 || null,
+        phone: primaryAddress.phone || null,
+        addressType: primaryAddress.addressType || "RESIDENCE",
       };
 
-      if (homeAddress.id) {
+      if (primaryAddress.id) {
         const updated = await prisma.address.update({
-          where: { id: homeAddress.id },
+          where: { id: primaryAddress.id },
           data: { ...requiredFields, ...optionalFields },
         });
         addressIdToUse = updated.id;
@@ -403,11 +394,11 @@ router.put('/:id', async (req, res) => {
       data: {
         ...updateData,
         ...(addressIdToUse && {
-          homeAddress: { connect: { id: addressIdToUse } },
+          primaryAddress: { connect: { id: addressIdToUse } },
         }),
       },
       include: {
-        homeAddress: true,
+        primaryAddress: true,
         addresses: true,
       },
     });
@@ -585,8 +576,7 @@ router.post("/merge", async (req, res) => {
           // Create new address for target customer
           const newAddress = await prisma.address.create({
             data: {
-              firstName: addr.firstName,
-              lastName: addr.lastName,
+              attention: addr.attention,
               phone: addr.phone,
               address1: addr.address1,
               address2: addr.address2,
@@ -595,7 +585,6 @@ router.post("/merge", async (req, res) => {
               postalCode: addr.postalCode,
               country: addr.country,
               company: addr.company,
-              label: addr.label,
               addressType: addr.addressType,
               customerId: targetId
             }
@@ -847,7 +836,7 @@ router.get("/:id/recipients", async (req, res) => {
         include: {
           recipient: {
             include: {
-              homeAddress: true,
+              primaryAddress: true,
               addresses: true,
             },
           },
@@ -874,7 +863,7 @@ router.get("/:id/recipients", async (req, res) => {
       include: {
         recipient: {
           include: {
-            homeAddress: true,
+            primaryAddress: true,
             addresses: true,
           },
         },
@@ -939,7 +928,7 @@ router.post("/:id/save-recipient", async (req, res) => {
       include: {
         recipient: {
           include: {
-            homeAddress: true,
+            primaryAddress: true,
             addresses: true,
           },
         },
@@ -1095,22 +1084,9 @@ router.post('/:id/addresses', async (req, res) => {
       data.country = "CA";
     }
 
-    // Auto-populate firstName/lastName from customer if not provided
-    if (!data.firstName || !data.lastName) {
-      const customer = await prisma.customer.findUnique({
-        where: { id },
-        select: { firstName: true, lastName: true },
-      });
-
-      if (customer) {
-        data.firstName = data.firstName || customer.firstName;
-        data.lastName = data.lastName || customer.lastName;
-      }
-    }
-
-    // Ensure label field is included
-    if (!data.label) {
-      data.label = "Address"; // Default label
+    // Ensure addressType has a default value
+    if (!data.addressType) {
+      data.addressType = "RESIDENCE";
     }
 
     const address = await prisma.address.create({
@@ -1219,7 +1195,7 @@ router.get("/:id", async (req, res) => {
     const customer = await prisma.customer.findUnique({
       where: { id },
       include: {
-        homeAddress: true,
+        primaryAddress: true,
         addresses: true,
       },
     });

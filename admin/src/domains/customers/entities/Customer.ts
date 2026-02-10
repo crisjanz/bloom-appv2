@@ -147,7 +147,7 @@ export interface CreateCustomerData {
   email?: string
   customerType?: CustomerType
   businessName?: string
-  homeAddress?: Omit<Address, 'id'>
+  primaryAddress?: Omit<Address, 'id'>
   preferences?: Partial<CustomerPreferences>
   tags?: string[]
   notes?: string

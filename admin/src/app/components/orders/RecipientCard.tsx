@@ -158,8 +158,8 @@ export default function RecipientCard({
     if (!customer) return undefined;
     // Priority 1: If a specific address was selected from the search modal
     if (customer.selectedAddress) return customer.selectedAddress;
-    // Priority 2: Home address
-    if (customer.homeAddress) return customer.homeAddress;
+    // Priority 2: Primary address
+    if (customer.primaryAddress) return customer.primaryAddress;
     // Priority 3: Addresses array (first default, or first available)
     if (Array.isArray(customer.addresses) && customer.addresses.length > 0) {
       const defaultAddress = customer.addresses.find(

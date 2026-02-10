@@ -37,7 +37,7 @@ const emptyCustomer: Customer = {
   isHouseAccount: false,
   houseAccountTerms: "NET_30",
   houseAccountNotes: "",
-  homeAddress: undefined,
+  primaryAddress: undefined,
 };
 
 const RECIPIENTS_PER_PAGE = 25;
@@ -97,9 +97,9 @@ export default function CustomerFormPage() {
         ...data,
       }));
 
-      const homeAddressId = data.homeAddress?.id;
+      const primaryAddressId = data.primaryAddress?.id;
       const additionalAddresses: Address[] = (data.addresses || []).filter(
-        (address: Address) => address.id !== homeAddressId
+        (address: Address) => address.id !== primaryAddressId
       );
       setAddresses(additionalAddresses);
     } catch (err) {
@@ -162,13 +162,13 @@ export default function CustomerFormPage() {
   }, [loadRecipients]);
 
   const displayAddresses = useMemo(() => {
-    const homeAddress = customer.homeAddress;
-    const filteredAdditional = homeAddress
-      ? addresses.filter((address) => address.id !== homeAddress.id)
+    const primaryAddress = customer.primaryAddress;
+    const filteredAdditional = primaryAddress
+      ? addresses.filter((address) => address.id !== primaryAddress.id)
       : addresses;
 
-    return homeAddress ? [homeAddress, ...filteredAdditional] : filteredAdditional;
-  }, [addresses, customer.homeAddress]);
+    return primaryAddress ? [primaryAddress, ...filteredAdditional] : filteredAdditional;
+  }, [addresses, customer.primaryAddress]);
 
   const handleCustomerChange = (field: keyof Customer, value: any) => {
     setCustomer((prev) => ({
@@ -195,7 +195,7 @@ export default function CustomerFormPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...customer,
-          homeAddress: customer.homeAddress,
+          primaryAddress: customer.primaryAddress,
         }),
       });
 
@@ -211,9 +211,9 @@ export default function CustomerFormPage() {
           ...result,
         }));
 
-        const homeAddressId = result.homeAddress?.id;
+        const primaryAddressId = result.primaryAddress?.id;
         const additionalAddresses: Address[] = (result.addresses || []).filter(
-          (address: Address) => address.id !== homeAddressId
+          (address: Address) => address.id !== primaryAddressId
         );
         setAddresses(additionalAddresses);
         await loadRecipients(0);
@@ -277,10 +277,10 @@ export default function CustomerFormPage() {
 
     setCustomer((prev) => ({
       ...prev,
-      homeAddress:
-        prev.homeAddress && prev.homeAddress.id === savedAddress.id
+      primaryAddress:
+        prev.primaryAddress && prev.primaryAddress.id === savedAddress.id
           ? savedAddress
-          : prev.homeAddress ?? (!isUpdate ? savedAddress : prev.homeAddress),
+          : prev.primaryAddress ?? (!isUpdate ? savedAddress : prev.primaryAddress),
     }));
   };
 
@@ -304,7 +304,7 @@ export default function CustomerFormPage() {
 
       setCustomer((prev) => ({
         ...prev,
-        homeAddress: prev.homeAddress && prev.homeAddress.id === addressId ? undefined : prev.homeAddress,
+        primaryAddress: prev.primaryAddress && prev.primaryAddress.id === addressId ? undefined : prev.primaryAddress,
       }));
     } catch (err) {
       console.error(err);
