@@ -312,6 +312,42 @@ export default function CustomerFormPage() {
     }
   };
 
+  const handleSetPrimaryAddress = async (addressId: string) => {
+    if (!customerId) {
+      setError("Save the customer before setting primary address.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/customers/${customerId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: customer.firstName,
+          lastName: customer.lastName,
+          email: customer.email,
+          phone: customer.phone,
+          notes: customer.notes,
+          primaryAddress: { id: addressId },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to set primary address.");
+      }
+
+      const updatedCustomer = await response.json();
+      setCustomer((prev) => ({
+        ...prev,
+        primaryAddress: updatedCustomer.primaryAddress,
+      }));
+      setError("");
+    } catch (err) {
+      console.error(err);
+      setError("Failed to set primary address.");
+    }
+  };
+
   const handleAddRecipient = () => {
     setIsRecipientModalOpen(true);
   };
@@ -446,11 +482,13 @@ export default function CustomerFormPage() {
 
         <AddressesCard
           addresses={displayAddresses}
+          primaryAddressId={customer.primaryAddress?.id}
           expanded={expandedSections.addresses}
           onToggle={(next) => toggleSection("addresses", next)}
           onAdd={() => handleOpenAddressModal()}
           onEdit={(address) => handleOpenAddressModal(address)}
           onDelete={handleDeleteAddress}
+          onSetPrimary={handleSetPrimaryAddress}
           disabled={!customerId}
         />
 
