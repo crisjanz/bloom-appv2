@@ -319,6 +319,13 @@ export default function CustomerFormPage() {
     }
 
     try {
+      // Find the full address object from our local state
+      const addressToSet = addresses.find(addr => addr.id === addressId);
+      if (!addressToSet) {
+        setError("Address not found.");
+        return;
+      }
+
       const response = await fetch(`/api/customers/${customerId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -328,7 +335,7 @@ export default function CustomerFormPage() {
           email: customer.email,
           phone: customer.phone,
           notes: customer.notes,
-          primaryAddress: { id: addressId },
+          primaryAddress: addressToSet, // Send full address object
         }),
       });
 
