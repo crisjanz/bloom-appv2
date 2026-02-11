@@ -134,11 +134,17 @@ const DeliveryPage: React.FC = () => {
   }, [displayData]);
 
   const handleUnreadCountsUpdated = useCallback(
-    (payload: { orderId: string; orderUnreadCount: number }) => {
+    (payload: { orderId: string; orderUnreadCount: number; totalUnreadCount: number }) => {
       setUnreadCounts((prev) => ({
         ...prev,
         [payload.orderId]: payload.orderUnreadCount
       }));
+      // Update header bell badge immediately
+      window.dispatchEvent(
+        new CustomEvent('communications:unread-updated', {
+          detail: { totalUnreadCount: payload.totalUnreadCount }
+        })
+      );
     },
     []
   );

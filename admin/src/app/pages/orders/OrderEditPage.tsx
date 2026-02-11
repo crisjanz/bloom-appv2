@@ -183,6 +183,12 @@ const OrderEditPage: React.FC = () => {
     (payload: { orderId: string; orderUnreadCount: number; totalUnreadCount: number }) => {
       if (!order?.id || payload.orderId !== order.id) return;
       setUnreadCount(payload.orderUnreadCount);
+      // Update header bell badge immediately
+      window.dispatchEvent(
+        new CustomEvent('communications:unread-updated', {
+          detail: { totalUnreadCount: payload.totalUnreadCount }
+        })
+      );
     },
     [order?.id]
   );
