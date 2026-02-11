@@ -133,9 +133,7 @@ router.get('/delivery', async (req, res) => {
       deliveryAddress: {
         select: {
           id: true,
-          label: true,
-          firstName: true,
-          lastName: true,
+          attention: true,
           company: true,
           phone: true,
           address1: true,
@@ -143,7 +141,8 @@ router.get('/delivery', async (req, res) => {
           city: true,
           province: true,
           postalCode: true,
-          country: true
+          country: true,
+          addressType: true
         }
       },
       orderItems: {
