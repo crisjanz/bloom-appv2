@@ -2,6 +2,7 @@ import PageMeta from "@shared/ui/common/PageMeta";
 import { useDashboardMetrics, useRevenueTrend } from "@shared/hooks/useDashboard";
 import MetricCard from "@app/components/dashboard/MetricCard";
 import RevenueTrendChart from "@app/components/dashboard/RevenueTrendChart";
+import RecentPrintsWidget from "@app/components/dashboard/RecentPrintsWidget";
 import { formatCurrency } from "@shared/utils/currency";
 import { GridIcon } from "@shared/assets/icons";
 
@@ -91,11 +92,16 @@ export default function DashboardHome() {
           />
         </div>
 
-        {!trendLoading && revenueTrend.length > 0 && (
-          <div className="mb-6">
-            <RevenueTrendChart data={revenueTrend} />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          {!trendLoading && revenueTrend.length > 0 && (
+            <div className="lg:col-span-2">
+              <RevenueTrendChart data={revenueTrend} />
+            </div>
+          )}
+          <div className="lg:col-span-1">
+            <RecentPrintsWidget />
           </div>
-        )}
+        </div>
       </div>
     </>
   );

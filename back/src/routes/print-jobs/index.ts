@@ -20,6 +20,68 @@ const createJobSchema = z.object({
   priority: z.number().int().optional()
 });
 
+// Get print job stats for header badge (failed + stuck pending)
+router.get('/stats', async (req, res) => {
+  try {
+    const stuckThresholdSeconds = 30;
+    const stuckThreshold = new Date(Date.now() - stuckThresholdSeconds * 1000);
+
+    const [failedCount, stuckPendingCount] = await Promise.all([
+      prisma.printJob.count({
+        where: { status: PrintJobStatus.FAILED }
+      }),
+      prisma.printJob.count({
+        where: {
+          status: PrintJobStatus.PENDING,
+          createdAt: { lt: stuckThreshold }
+        }
+      })
+    ]);
+
+    res.json({
+      success: true,
+      failedCount,
+      stuckPendingCount,
+      totalIssues: failedCount + stuckPendingCount
+    });
+  } catch (error) {
+    console.error('Error fetching print job stats:', error);
+    res.status(500).json({ error: 'Failed to fetch print job stats' });
+  }
+});
+
+// Get recent print jobs for dashboard widget
+router.get('/recent', async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit as string) || 10, 50);
+    const stuckThresholdSeconds = 30;
+    const stuckThreshold = new Date(Date.now() - stuckThresholdSeconds * 1000);
+
+    const jobs = await prisma.printJob.findMany({
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        order: {
+          select: {
+            orderNumber: true
+          }
+        }
+      }
+    });
+
+    // Add isStuck flag for pending jobs older than threshold
+    const jobsWithStatus = jobs.map(job => ({
+      ...job,
+      isStuck: job.status === PrintJobStatus.PENDING && job.createdAt < stuckThreshold
+    }));
+
+    res.json({ success: true, jobs: jobsWithStatus });
+  } catch (error) {
+    console.error('Error fetching recent print jobs:', error);
+    res.status(500).json({ error: 'Failed to fetch recent print jobs' });
+  }
+});
+
 router.get('/pending', async (req, res) => {
   try {
     const { agentId, limit } = req.query;
@@ -78,6 +140,18 @@ router.patch('/:id/status', async (req, res) => {
   }
 });
 
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await prisma.printJob.delete({ where: { id } });
+    console.log(`🗑️ Print job ${id} deleted`);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting print job:', error);
+    res.status(500).json({ error: 'Failed to delete print job' });
+  }
+});
+
 router.post('/:id/retry', async (req, res) => {
   try {
     const { id } = req.params;
@@ -87,13 +161,14 @@ router.post('/:id/retry', async (req, res) => {
       return res.status(404).json({ error: 'Print job not found' });
     }
 
-    if (job.status !== PrintJobStatus.FAILED) {
-      return res.status(400).json({ error: 'Only failed jobs can be retried' });
+    // Allow retry for FAILED or stuck PENDING jobs
+    if (job.status !== PrintJobStatus.FAILED && job.status !== PrintJobStatus.PENDING) {
+      return res.status(400).json({ error: 'Only failed or pending jobs can be retried' });
     }
 
     const retried = await printService.retryJob(id);
     console.log(`🔄 Print job ${id} queued for retry`);
-    res.json(retried);
+    res.json({ success: true, job: retried });
   } catch (error) {
     console.error('Error retrying print job:', error);
     res.status(500).json({ error: 'Failed to retry print job' });
