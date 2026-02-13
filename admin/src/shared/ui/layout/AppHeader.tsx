@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { useSidebar } from "@app/contexts/SidebarContext";
 import { ThemeToggleButton } from "../common/ThemeToggleButton";
+import LegacyOrderSearch from "../header/LegacyOrderSearch";
 import NotificationDropdown from "../header/NotificationDropdown";
 import PrintStatusDropdown from "../header/PrintStatusDropdown";
 import UserDropdown from "../header/UserDropdown";
@@ -113,6 +114,7 @@ const AppHeader: React.FC = () => {
         >
           <div className="flex items-center gap-2 2xsm:gap-3">
             <ThemeToggleButton />
+            <LegacyOrderSearch />
             <PrintStatusDropdown />
             <NotificationDropdown />
           </div>
