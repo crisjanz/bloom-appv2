@@ -1,6 +1,6 @@
 # Bloom Flower Shop – Progress Tracker
 
-**Last audited:** 2026-02-10
+**Last audited:** 2026-02-12
 Status markers: ✅ done · 🛠️ in progress · 🔜 planned · ⚠️ attention
 
 ## ✅ Production-Ready
@@ -59,6 +59,8 @@ Status markers: ✅ done · 🛠️ in progress · 🔜 planned · ⚠️ attent
 - ✅ **POS auto-save drafts (2026-01-28)** — Auto-save POS and TakeOrder carts to localStorage on changes (debounced). Unified draft modal showing both local auto-saved drafts and DB-saved drafts with visual distinction. Local drafts auto-purge after 10 days. DB drafts save without name prompt (auto-numbered). Includes POS tab filtering fix, default starting tab setting, custom item modal with reporting categories, and profile page wired to auth context. (`admin/src/shared/utils/posLocalDrafts.ts`, `admin/src/shared/utils/takeOrderLocalDrafts.ts`, `admin/src/app/pages/pos/POSPage.tsx`, `admin/src/app/pages/orders/TakeOrderPage.tsx`, `admin/src/app/components/orders/TakeOrderDraftModal.tsx`, `admin/src/app/components/pos/POSCartSummary.tsx`, `admin/src/app/components/settings/pos/POSTabsCard.tsx`).
 - ✅ **Global search (2026-02-07)** — Header search bar with smart detection: searches customers (by name, phone, email), products (by name, SKU), and orders (by number). Parallel API calls, grouped dropdown results, keyboard navigation, Cmd+K shortcut. Phone numbers auto-strip formatting for search. (`admin/src/shared/ui/header/GlobalSearch.tsx`, `admin/src/shared/ui/layout/AppHeader.tsx`, `back/src/routes/orders/list.ts`).
 - ✅ **Notification bell (2026-02-07)** — Real-time notifications for SMS responses and new web orders. SMS uses existing WebSocket, web orders poll every 60s with localStorage "seen" tracking. Badge count, click-to-navigate to order, grouped by type. (`admin/src/shared/ui/header/NotificationDropdown.tsx`, `back/src/routes/communications.ts`, `back/src/routes/orders/list.ts`).
+- ✅ **Print job monitoring (2026-02-12)** — Header printer icon shows failed/stuck jobs (pending >30s) with badge count. Dropdown lists recent jobs with retry/delete buttons. Dashboard widget shows last 8 jobs with status. Backend endpoints for stats, recent jobs, retry, and delete. (`admin/src/shared/ui/header/PrintStatusDropdown.tsx`, `admin/src/app/components/dashboard/RecentPrintsWidget.tsx`, `back/src/routes/print-jobs/index.ts`).
+- ✅ **Legacy order search (2026-02-12)** — Floranext order history lookup from header clock icon. Global search modal searches by customer/recipient name, phone, email, address. Shows order details including items, prices, delivery date. JSON file storage (no DB). Export script fetches all orders with phones and items from Floranext detail pages. (`admin/src/shared/ui/header/LegacyOrderSearch.tsx`, `back/src/routes/legacy-orders/index.ts`, `scripts/export_legacy_orders.py`).
 
 ## 🛠️ In Progress / Needs QA
 - 🛠️ **Birthday capture + recipient QR gift flow** — schema added (customer birthday fields, GiftToken), gift endpoints, checkout UI opt-in, public birthday gift page. QA + migrations pending.
