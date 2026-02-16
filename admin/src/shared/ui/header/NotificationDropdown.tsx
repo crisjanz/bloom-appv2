@@ -59,6 +59,13 @@ function markWebOrderSeen(orderId: string) {
   localStorage.setItem(SEEN_WEB_ORDERS_KEY, JSON.stringify(arr));
 }
 
+function markAllWebOrdersSeen(orderIds: string[]) {
+  const seen = getSeenWebOrders();
+  orderIds.forEach((id) => seen.add(id));
+  const arr = Array.from(seen).slice(-100);
+  localStorage.setItem(SEEN_WEB_ORDERS_KEY, JSON.stringify(arr));
+}
+
 export default function NotificationDropdown() {
   const navigate = useNavigate();
   const apiClient = useApiClient();
@@ -133,6 +140,17 @@ export default function NotificationDropdown() {
     navigate(`/orders/${order.id}`);
   };
 
+  const handleDismissWebOrder = (e: React.MouseEvent, orderId: string) => {
+    e.stopPropagation();
+    markWebOrderSeen(orderId);
+    setUnseenWebOrders((prev) => prev.filter((o) => o.id !== orderId));
+  };
+
+  const handleClearAll = () => {
+    markAllWebOrdersSeen(unseenWebOrders.map((o) => o.id));
+    setUnseenWebOrders([]);
+  };
+
   const getCustomerName = (notification: SmsNotification) => {
     const recipient = notification.order.recipientCustomer;
     const customer = notification.order.customer;
@@ -181,9 +199,19 @@ export default function NotificationDropdown() {
         className="absolute -right-[240px] mt-[17px] flex h-auto max-h-[480px] w-[350px] flex-col rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg dark:border-gray-800 dark:bg-gray-dark sm:w-[361px] lg:right-0"
       >
         <div className="flex items-center justify-between pb-3 mb-3 border-b border-gray-100 dark:border-gray-700">
-          <h5 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
-            Notifications
-          </h5>
+          <div className="flex items-center gap-3">
+            <h5 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+              Notifications
+            </h5>
+            {totalCount > 0 && (
+              <button
+                onClick={handleClearAll}
+                className="text-xs text-brand-500 hover:text-brand-600 dark:text-brand-400 dark:hover:text-brand-300"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
           <button
             onClick={closeDropdown}
             className="text-gray-500 transition dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
@@ -267,11 +295,19 @@ export default function NotificationDropdown() {
                     New Web Orders
                   </div>
                   {unseenWebOrders.map((order) => (
-                    <button
+                    <div
                       key={order.id}
+                      className="group relative flex w-full gap-3 rounded-lg p-3 text-left hover:bg-gray-100 dark:hover:bg-white/5 cursor-pointer"
                       onClick={() => handleWebOrderClick(order)}
-                      className="flex w-full gap-3 rounded-lg p-3 text-left hover:bg-gray-100 dark:hover:bg-white/5"
                     >
+                      <button
+                        onClick={(e) => handleDismissWebOrder(e, order.id)}
+                        className="absolute right-2 top-2 hidden group-hover:flex items-center justify-center h-5 w-5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-200 dark:hover:text-gray-200 dark:hover:bg-gray-700"
+                      >
+                        <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
                       <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-green-100 dark:bg-green-900">
                         <svg
                           className="h-5 w-5 text-green-600 dark:text-green-400"
@@ -305,7 +341,7 @@ export default function NotificationDropdown() {
                           ${(order.grandTotal / 100).toFixed(2)}
                         </div>
                       </div>
-                    </button>
+                    </div>
                   ))}
                 </>
               )}
