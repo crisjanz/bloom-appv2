@@ -1208,10 +1208,10 @@ export default function RecipientCard({
                   <button
                     type="button"
                     onClick={() => handleRemovePhoneField(index)}
-                    className="text-red-600 hover:text-red-700 dark:text-red-400"
+                    className="p-1 rounded-full text-red-400 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
                     title="Remove phone"
                   >
-                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
@@ -1456,10 +1456,10 @@ export default function RecipientCard({
                   <button
                     type="button"
                     onClick={() => handleRemovePhoneField(index)}
-                    className="text-red-600 hover:text-red-700 dark:text-red-400"
+                    className="p-1 rounded-full text-red-400 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
                     title="Remove phone"
                   >
-                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>

@@ -248,7 +248,7 @@ export default function PrintStatusDropdown() {
                     <button
                       onClick={() => handleDelete(job.id)}
                       disabled={deleting === job.id}
-                      className="p-1 text-red-500 hover:text-red-700 disabled:opacity-50"
+                      className="p-1 rounded-full text-red-400 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50"
                       title="Delete"
                     >
                       {deleting === job.id ? (

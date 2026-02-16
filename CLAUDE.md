@@ -145,6 +145,12 @@
 - `LoadingButton` from `@shared/ui/components/ui/button/LoadingButton` - Buttons with loading states
 - `FormFooter` from `@shared/ui/components/ui/form/FormFooter` - Standard Cancel/Save button layout
 
+**Inline Dismiss/Delete Buttons (X icon on list items):**
+- Standard class: `p-1 rounded-full text-red-400 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors`
+- Icon: `<svg className="w-4 h-4">` with X path `d="M6 18L18 6M6 6l12 12"`
+- Use for: removing items from lists, dismissing notifications, deleting inline entries
+- Do NOT use for modal close buttons (those use the shared Modal component)
+
 **Error Display:**
 - `FormError` from `@shared/ui/components/ui/form/FormError` - Standardized error messages
 

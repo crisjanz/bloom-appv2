@@ -246,11 +246,12 @@ export default function NotificationDropdown() {
                   <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
                     SMS Responses
                   </div>
+                  <div className="space-y-2">
                   {smsNotifications.map((notification) => (
                     <button
                       key={notification.id}
                       onClick={() => handleSmsClick(notification)}
-                      className="flex w-full gap-3 rounded-lg p-3 text-left hover:bg-gray-100 dark:hover:bg-white/5"
+                      className="flex w-full gap-3 rounded-lg p-2.5 text-left bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700"
                     >
                       <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900">
                         <svg
@@ -285,6 +286,7 @@ export default function NotificationDropdown() {
                       </div>
                     </button>
                   ))}
+                  </div>
                 </>
               )}
 
@@ -294,17 +296,19 @@ export default function NotificationDropdown() {
                   <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mt-2">
                     New Web Orders
                   </div>
+                  <div className="space-y-2">
                   {unseenWebOrders.map((order) => (
                     <div
                       key={order.id}
-                      className="group relative flex w-full gap-3 rounded-lg p-3 text-left hover:bg-gray-100 dark:hover:bg-white/5 cursor-pointer"
+                      className="group relative flex w-full gap-3 rounded-lg p-2.5 text-left bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
                       onClick={() => handleWebOrderClick(order)}
                     >
                       <button
                         onClick={(e) => handleDismissWebOrder(e, order.id)}
-                        className="absolute right-2 top-2 hidden group-hover:flex items-center justify-center h-5 w-5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-200 dark:hover:text-gray-200 dark:hover:bg-gray-700"
+                        className="absolute right-2 top-2 p-1 rounded-full text-red-400 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                        title="Dismiss"
                       >
-                        <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                       </button>
@@ -343,6 +347,7 @@ export default function NotificationDropdown() {
                       </div>
                     </div>
                   ))}
+                  </div>
                 </>
               )}
             </>

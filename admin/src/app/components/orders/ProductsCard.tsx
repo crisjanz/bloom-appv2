@@ -752,7 +752,7 @@ export default function ProductsCard({
                       <button
                         type="button"
                         onClick={() => handleRemoveProduct(idx)}
-                        className="flex h-7 w-7 items-center justify-center rounded-full text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        className="p-1 rounded-full text-red-400 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
                         title={customProducts.length === 1 ? "Clear item" : "Remove item"}
                       >
                         <svg
