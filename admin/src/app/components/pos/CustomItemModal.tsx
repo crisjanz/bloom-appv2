@@ -1,9 +1,7 @@
-// components/pos/CustomItemModal.tsx - Fixed to use correct hook API
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Modal } from '@shared/ui/components/ui/modal';
-import InputField from '@shared/ui/forms/input/InputField';
 import Select from '@shared/ui/forms/Select';
-import Label from '@shared/ui/forms/Label';
+
 type Props = {
   open: boolean;
   onClose: () => void;
@@ -21,6 +19,7 @@ export default function CustomItemModal({ open, onClose, onConfirm }: Props) {
   const [selectedReportingCategory, setSelectedReportingCategory] = useState('');
   const [reportingCategories, setReportingCategories] = useState<{ id: string; name: string }[]>([]);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const priceRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
@@ -28,6 +27,8 @@ export default function CustomItemModal({ open, onClose, onConfirm }: Props) {
       setPrice('');
       setSelectedReportingCategory(reportingCategories.length > 0 ? reportingCategories[0].id : '');
       setErrors({});
+      // Focus price field after modal opens
+      setTimeout(() => priceRef.current?.focus(), 100);
     }
   }, [open]);
 
@@ -65,7 +66,7 @@ export default function CustomItemModal({ open, onClose, onConfirm }: Props) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
 
     const customItem = {
@@ -85,8 +86,13 @@ export default function CustomItemModal({ open, onClose, onConfirm }: Props) {
     onClose();
   };
 
+  const handlePriceChange = (value: string) => {
+    const cleaned = value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
+    setPrice(cleaned);
+  };
+
   const reportingCategoryOptions = [
-    { value: '', label: 'Select reporting category (optional)' },
+    { value: '', label: 'None' },
     ...reportingCategories.map(cat => ({ value: cat.id, label: cat.name }))
   ];
 
@@ -96,23 +102,44 @@ export default function CustomItemModal({ open, onClose, onConfirm }: Props) {
       onClose={handleCancel}
       className="max-w-md"
     >
-      <div className="p-6">
-        {/* Header */}
-        <h2 className="text-xl font-semibold text-black dark:text-white mb-6">Add Custom Item</h2>
+      {/* Header — matches ProductVariantModal */}
+      <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <h3 className="text-lg font-semibold text-black dark:text-white mb-2">
+              Custom Item
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Enter item details and price
+            </p>
+          </div>
+          <button
+            onClick={handleCancel}
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Product Name */}
+      {/* Form */}
+      <form onSubmit={handleSubmit}>
+        <div className="p-6 space-y-4">
+          {/* Name — styled as a variant-like row */}
           <div>
-            <Label htmlFor="customItemName">Product Name *</Label>
-            <InputField
+            <label className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1.5 block">
+              Item Name
+            </label>
+            <input
               type="text"
-              id="customItemName"
-              placeholder="Enter product name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className={`focus:border-brand-500 focus:ring-brand-500/20 ${
-                errors.name ? 'border-red-500' : ''
+              className={`w-full px-4 py-3 rounded-xl border bg-transparent text-black dark:text-white font-medium transition-all duration-200 focus:outline-none focus:border-brand-500 ${
+                errors.name
+                  ? 'border-red-500'
+                  : 'border-gray-200 dark:border-gray-700'
               }`}
             />
             {errors.name && (
@@ -120,25 +147,27 @@ export default function CustomItemModal({ open, onClose, onConfirm }: Props) {
             )}
           </div>
 
-          {/* Price */}
+          {/* Price — large, prominent input matching variant price style */}
           <div>
-            <Label htmlFor="customItemPrice">Price *</Label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400">
-                $
-              </span>
-              <InputField
-                type="number"
-                id="customItemPrice"
+            <label className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1.5 block">
+              Price
+            </label>
+            <div
+              className={`flex items-center px-4 py-3 rounded-xl border transition-all duration-200 focus-within:border-brand-500 ${
+                errors.price
+                  ? 'border-red-500'
+                  : 'border-gray-200 dark:border-gray-700'
+              }`}
+            >
+              <span className="text-lg font-bold text-brand-500">$</span>
+              <input
+                ref={priceRef}
+                type="text"
+                inputMode="decimal"
                 placeholder="0.00"
                 value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                className={`pl-8 focus:border-brand-500 focus:ring-brand-500/20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
-                  errors.price ? 'border-red-500' : ''
-                }`}
-                autoFocus
-                min="0"
-                step={0.01}
+                onChange={(e) => handlePriceChange(e.target.value)}
+                className="flex-1 text-lg font-bold text-brand-500 bg-transparent border-none outline-none ml-1 p-0 m-0 placeholder-gray-400 dark:placeholder-gray-600"
               />
             </div>
             {errors.price && (
@@ -147,33 +176,37 @@ export default function CustomItemModal({ open, onClose, onConfirm }: Props) {
           </div>
 
           {/* Reporting Category */}
-          <div>
-            <Label htmlFor="customItemReportingCategory">Reporting Category</Label>
-            <Select
-              options={reportingCategoryOptions}
-              value={selectedReportingCategory}
-              onChange={(value) => setSelectedReportingCategory(value)}
-            />
-          </div>
+          {reportingCategories.length > 0 && (
+            <div>
+              <label className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1.5 block">
+                Reporting Category
+              </label>
+              <Select
+                options={reportingCategoryOptions}
+                value={selectedReportingCategory}
+                onChange={(value) => setSelectedReportingCategory(value)}
+              />
+            </div>
+          )}
+        </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-3 pt-4">
-            <button
-              type="button"
-              onClick={handleCancel}
-              className="flex-1 py-3 px-4 border border-stroke dark:border-strokedark text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg font-medium transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="flex-1 py-3 px-4 bg-brand-500 hover:bg-brand-600 text-white rounded-lg font-medium transition-colors"
-            >
-              Add to Cart
-            </button>
-          </div>
-        </form>
-      </div>
+        {/* Footer — matches ProductVariantModal */}
+        <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex gap-3">
+          <button
+            type="button"
+            onClick={handleCancel}
+            className="flex-1 py-3 px-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors font-medium"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="flex-1 py-3 px-4 bg-brand-500 hover:bg-brand-600 text-white rounded-xl font-medium transition-colors"
+          >
+            Add to Cart
+          </button>
+        </div>
+      </form>
     </Modal>
   );
 }

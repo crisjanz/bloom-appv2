@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Modal } from '@shared/ui/components/ui/modal';
-import { centsToDollars, dollarsToCents, formatCurrency } from '@shared/utils/currency';
+import { centsToDollars, dollarsToCents, formatCurrency, parseUserCurrency } from '@shared/utils/currency';
 
 type Variant = {
   id: string;
@@ -28,6 +28,26 @@ type Props = {
 };
 
 export default function ProductVariantModal({ open, product, onClose, onSelectVariant }: Props) {
+  const [editingVariantId, setEditingVariantId] = useState<string | null>(null);
+  const [priceOverrides, setPriceOverrides] = useState<Record<string, string>>({});
+  const priceInputRef = useRef<HTMLInputElement>(null);
+
+  // Reset state when modal opens/closes or product changes
+  useEffect(() => {
+    if (!open) {
+      setEditingVariantId(null);
+      setPriceOverrides({});
+    }
+  }, [open, product?.id]);
+
+  // Focus input when editing starts
+  useEffect(() => {
+    if (editingVariantId && priceInputRef.current) {
+      priceInputRef.current.focus();
+      priceInputRef.current.select();
+    }
+  }, [editingVariantId]);
+
   if (!open || !product) return null;
 
   const basePriceCents = dollarsToCents(product.price || 0);
@@ -70,12 +90,42 @@ export default function ProductVariantModal({ open, product, onClose, onSelectVa
   });
 
   const handleVariantSelect = (variant: any) => {
+    const overrideStr = priceOverrides[variant.id];
+    const finalPriceCents = overrideStr != null
+      ? parseUserCurrency(overrideStr)
+      : variant.displayPriceCents;
     const selectedVariant = {
       ...variant,
-      price: variant.displayPrice
+      price: centsToDollars(finalPriceCents),
+      displayPriceCents: finalPriceCents,
     };
     onSelectVariant(selectedVariant);
     onClose();
+  };
+
+  const handlePriceTap = (e: React.MouseEvent, variantId: string, currentCents: number) => {
+    e.stopPropagation();
+    if (editingVariantId === variantId) return;
+    setEditingVariantId(variantId);
+    if (priceOverrides[variantId] == null) {
+      setPriceOverrides(prev => ({ ...prev, [variantId]: centsToDollars(currentCents).toFixed(2) }));
+    }
+  };
+
+  const handlePriceChange = (variantId: string, value: string) => {
+    // Allow only numbers and one decimal point
+    const cleaned = value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
+    setPriceOverrides(prev => ({ ...prev, [variantId]: cleaned }));
+  };
+
+  const handlePriceBlur = () => {
+    setEditingVariantId(null);
+  };
+
+  const handlePriceKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      setEditingVariantId(null);
+    }
   };
 
   const getProductImage = () => {
@@ -134,14 +184,22 @@ export default function ProductVariantModal({ open, product, onClose, onSelectVa
               No variants available
             </div>
           ) : (
-            displayVariants.map((variant) => (
-              <button
-                key={variant.id}
-                onClick={() => handleVariantSelect(variant)}
-                className="w-full p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-brand-500 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 text-left group"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
+            displayVariants.map((variant) => {
+              const currentCents = variant.displayPriceCents ?? dollarsToCents(variant.displayPrice);
+              const isEditing = editingVariantId === variant.id;
+              const hasOverride = priceOverrides[variant.id] != null;
+              const displayCents = hasOverride ? parseUserCurrency(priceOverrides[variant.id]) : currentCents;
+
+              return (
+                <div
+                  key={variant.id}
+                  className="w-full p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-brand-500 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 text-left group flex items-center justify-between"
+                >
+                  {/* Name area — tapping adds to cart */}
+                  <button
+                    className="flex-1 text-left"
+                    onClick={() => handleVariantSelect(variant)}
+                  >
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-black dark:text-white group-hover:text-brand-500">
                         {variant.displayName}
@@ -158,15 +216,36 @@ export default function ProductVariantModal({ open, product, onClose, onSelectVa
                         {formatCurrency(Math.abs(variant.priceDifferenceCents ?? 0))} vs base
                       </p>
                     )}
-                  </div>
-                  <div className="text-right">
-                    <div className="text-lg font-bold text-brand-500">
-                      {formatCurrency(variant.displayPriceCents ?? dollarsToCents(variant.displayPrice))}
-                    </div>
+                  </button>
+
+                  {/* Price area — tapping makes it editable */}
+                  <div
+                    className="text-right shrink-0 ml-4 cursor-pointer"
+                    onClick={(e) => handlePriceTap(e, variant.id, currentCents)}
+                  >
+                    {isEditing ? (
+                      <div className="flex items-center justify-end">
+                        <span className="text-lg font-bold text-brand-500">$</span>
+                        <input
+                          ref={priceInputRef}
+                          type="text"
+                          inputMode="decimal"
+                          value={priceOverrides[variant.id] || ''}
+                          onChange={(e) => handlePriceChange(variant.id, e.target.value)}
+                          onBlur={handlePriceBlur}
+                          onKeyDown={handlePriceKeyDown}
+                          className="text-lg font-bold text-brand-500 bg-transparent border-none outline-none w-20 text-right p-0 m-0"
+                        />
+                      </div>
+                    ) : (
+                      <div className="text-lg font-bold text-brand-500">
+                        {formatCurrency(displayCents)}
+                      </div>
+                    )}
                   </div>
                 </div>
-              </button>
-            ))
+              );
+            })
           )}
         </div>
 
