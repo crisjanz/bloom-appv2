@@ -297,7 +297,7 @@ Before claiming the feature is done, provide:
 
 2. **Update:**
    - Mark feature as ✅ Completed in Progress_Tracker
-   - Archive or delete this plan
+   - **REQUIRED**: Move this file to `/docs/FEATURE_PLANS/archive/` after all checklist items are verified.
 
 3. **Deploy:**
    - Commit with message: "feat: [feature description]"
