@@ -300,18 +300,9 @@ export default function NotificationDropdown() {
                   {unseenWebOrders.map((order) => (
                     <div
                       key={order.id}
-                      className="group relative flex w-full gap-3 rounded-lg p-2.5 text-left bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                      className="group flex w-full items-center gap-3 rounded-lg p-2.5 text-left bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
                       onClick={() => handleWebOrderClick(order)}
                     >
-                      <button
-                        onClick={(e) => handleDismissWebOrder(e, order.id)}
-                        className="absolute right-2 top-2 p-1 rounded-full text-red-400 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
-                        title="Dismiss"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
                       <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-green-100 dark:bg-green-900">
                         <svg
                           className="h-5 w-5 text-green-600 dark:text-green-400"
@@ -345,6 +336,15 @@ export default function NotificationDropdown() {
                           ${(order.grandTotal / 100).toFixed(2)}
                         </div>
                       </div>
+                      <button
+                        onClick={(e) => handleDismissWebOrder(e, order.id)}
+                        className="flex-shrink-0 p-1 rounded-full text-red-400 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                        title="Dismiss"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
                     </div>
                   ))}
                   </div>
