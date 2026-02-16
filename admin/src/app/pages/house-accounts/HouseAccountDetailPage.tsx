@@ -12,7 +12,9 @@ import Switch from '@shared/ui/forms/switch/Switch';
 import { DollarLineIcon, DownloadIcon, PlusIcon, SaveIcon } from '@shared/assets/icons';
 import { formatCurrency } from '@shared/utils/currency';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
+import useOrderNumberPrefix from '@shared/hooks/useOrderNumberPrefix';
 import useHouseAccounts, { HouseAccountDetailResponse, HouseAccountLedgerEntry } from '@shared/hooks/useHouseAccounts';
+import { formatOrderNumber } from '@shared/utils/formatOrderNumber';
 import ApplyPaymentModal from './components/ApplyPaymentModal';
 import AddAdjustmentModal from './components/AddAdjustmentModal';
 
@@ -43,6 +45,7 @@ const formatSignedCurrency = (amount: number) => {
 };
 
 export default function HouseAccountDetailPage() {
+  const orderNumberPrefix = useOrderNumberPrefix();
   const { customerId } = useParams<{ customerId: string }>();
   const navigate = useNavigate();
   const { formatDate, loading: timezoneLoading } = useBusinessTimezone();
@@ -239,7 +242,7 @@ export default function HouseAccountDetailPage() {
                   to={`/orders/${entry.order.id}`}
                   className="text-sm text-brand-500 hover:text-brand-600"
                 >
-                  #{entry.order.orderNumber}
+                  #{formatOrderNumber(entry.order.orderNumber, orderNumberPrefix)}
                 </Link>
                 {entry.reference ? (
                   <span className="text-xs text-gray-500 dark:text-gray-400">{entry.reference}</span>

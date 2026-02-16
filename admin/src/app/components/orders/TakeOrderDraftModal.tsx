@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { Modal } from '@shared/ui/components/ui/modal';
 import { formatCurrency } from '@shared/utils/currency';
 import { useApiClient } from '@shared/hooks/useApiClient';
+import useOrderNumberPrefix from '@shared/hooks/useOrderNumberPrefix';
 import type { TakeOrderLocalDraft } from '@shared/utils/takeOrderLocalDrafts';
+import { formatOrderNumber } from '@shared/utils/formatOrderNumber';
 
 const formatRelativeTime = (dateString: string) => {
   const savedAt = new Date(dateString).getTime();
@@ -57,6 +59,7 @@ export default function TakeOrderDraftModal({
   onNotify,
 }: Props) {
   const apiClient = useApiClient();
+  const orderNumberPrefix = useOrderNumberPrefix();
   const [drafts, setDrafts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -211,7 +214,7 @@ export default function TakeOrderDraftModal({
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <div className="font-medium text-gray-900 dark:text-white">
-                            Draft #{draft.orderNumber ?? draft.id}
+                            Draft #{draft.orderNumber ? formatOrderNumber(draft.orderNumber, orderNumberPrefix) : draft.id}
                           </div>
                           <div className="text-sm text-gray-500 dark:text-gray-400">
                             {draft.customer

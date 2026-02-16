@@ -7,6 +7,7 @@ import { printSettingsService } from '../../services/printSettingsService';
 import { buildReceiptPdf } from '../../templates/receipt-pdf';
 import { buildThermalReceipt } from '../../templates/receipt-thermal';
 import paymentProviderFactory from '../../services/paymentProviders/PaymentProviderFactory';
+import { getOrderNumberPrefix } from '../../utils/orderNumberSettings';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -133,6 +134,8 @@ router.post('/create', async (req, res) => {
         }
       });
     }
+
+    const orderNumberPrefix = await getOrderNumberPrefix(prisma);
 
     const createdOrders = [];
     const printActions: Array<Record<string, any>> = [];
@@ -297,7 +300,8 @@ router.post('/create', async (req, res) => {
               orderId: updatedOrder.id,
               order: updatedOrder as any,
               template: 'delivery-ticket-v1',
-              priority: 10
+              priority: 10,
+              orderNumberPrefix,
             });
             printActions.push({ orderId: updatedOrder.id, orderNumber: updatedOrder.orderNumber, ...result });
           } catch (error) {
@@ -316,12 +320,12 @@ router.post('/create', async (req, res) => {
             let template = 'receipt-pdf-v1';
 
             if (config.destination === 'electron-agent') {
-              const pdfBuffer = await buildReceiptPdf(orderWithTransactions);
+              const pdfBuffer = await buildReceiptPdf(orderWithTransactions, orderNumberPrefix);
               jobOrder = { ...orderWithTransactions, pdfBase64: pdfBuffer.toString('base64') };
             }
 
             if (config.destination === 'receipt-agent') {
-              const thermalBuffer = await buildThermalReceipt(orderWithTransactions);
+              const thermalBuffer = await buildThermalReceipt(orderWithTransactions, orderNumberPrefix);
               jobOrder = { ...orderWithTransactions, thermalCommands: thermalBuffer.toString('base64') };
               template = 'receipt-thermal-v1';
             }

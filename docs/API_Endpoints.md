@@ -339,6 +339,8 @@ Each variant can optionally reference one of the product's images via `featuredI
 - ✅ PUT `/api/settings/payments` — update provider credentials with encryption.
 - ✅ GET `/api/settings/operations` — wire-out operations settings (`back/src/routes/settings/operations.ts`)
 - ✅ PUT `/api/settings/operations` — update wire service name and default fee.
+- ✅ GET `/api/settings/order-settings` — fetch order display settings (`orderNumberPrefix`) from `ShopProfile.settings` (`back/src/routes/settings/order-settings.ts`)
+- ✅ PUT `/api/settings/order-settings` — update `orderNumberPrefix` (alphanumeric, max 5 chars; empty disables prefix).
 - ✅ GET `/api/print-settings` — fetch print routing settings (auto-creates defaults).
 - ✅ PUT `/api/print-settings` — update print routing settings.
 - ✅ GET `/api/email-settings` — fetch email + SMS configuration (auto-creates defaults).

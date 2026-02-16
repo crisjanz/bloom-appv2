@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { Dropdown } from "../components/ui/dropdown/Dropdown";
 import { useApiClient } from "@shared/hooks/useApiClient";
+import useOrderNumberPrefix from "@shared/hooks/useOrderNumberPrefix";
+import { formatOrderNumber } from "@shared/utils/formatOrderNumber";
 
 type PrintJob = {
   id: string;
@@ -31,6 +33,7 @@ function formatTimeAgo(dateStr: string): string {
 
 export default function PrintStatusDropdown() {
   const apiClient = useApiClient();
+  const orderNumberPrefix = useOrderNumberPrefix();
   const [isOpen, setIsOpen] = useState(false);
   const [issueCount, setIssueCount] = useState(0);
   const [recentJobs, setRecentJobs] = useState<PrintJob[]>([]);
@@ -210,7 +213,7 @@ export default function PrintStatusDropdown() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <span className="font-medium text-sm text-gray-800 dark:text-white">
-                        {job.order ? `#${job.order.orderNumber}` : "Unknown"}
+                        {job.order ? `#${formatOrderNumber(job.order.orderNumber, orderNumberPrefix)}` : "Unknown"}
                       </span>
                       <span className="text-xs text-gray-500 dark:text-gray-400">
                         {formatTimeAgo(job.createdAt)}

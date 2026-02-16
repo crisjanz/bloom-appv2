@@ -3,10 +3,12 @@ import { useSearchParams } from 'react-router-dom';
 import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api';
 import SignaturePad from 'react-signature-canvas';
 import { useApiClient } from '@shared/hooks/useApiClient';
+import useOrderNumberPrefix from '@shared/hooks/useOrderNumberPrefix';
 import { CheckCircleIcon } from '@shared/assets/icons';
 import { Modal } from '@shared/ui/components/ui/modal';
 import InputField from '@shared/ui/forms/input/InputField';
 import TextArea from '@shared/ui/forms/input/TextArea';
+import { formatOrderNumber } from '@shared/utils/formatOrderNumber';
 
 type Address = {
   address1?: string;
@@ -87,6 +89,7 @@ function formatGeocodeAddress(address?: Address) {
 
 export default function DriverRoutePage() {
   const apiClient = useApiClient();
+  const orderNumberPrefix = useOrderNumberPrefix();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token') || '';
 
@@ -378,7 +381,9 @@ export default function DriverRoutePage() {
         <div className="bg-white shadow-sm">
           <div className="p-4 border-b">
             <h1 className="text-lg font-semibold text-gray-900">
-              {data.type === 'route' ? data.route.name || 'Driver Route' : `Order #${data.order.orderNumber}`}
+              {data.type === 'route'
+                ? data.route.name || 'Driver Route'
+                : `Order #${formatOrderNumber(data.order.orderNumber, orderNumberPrefix)}`}
             </h1>
             {data.type === 'route' && (
               <p className="text-sm text-gray-600">
@@ -475,7 +480,9 @@ export default function DriverRoutePage() {
                           )}
                         </div>
                         <div>
-                          <div className="font-semibold">Order #{stop.order?.orderNumber}</div>
+                          <div className="font-semibold">
+                            Order #{formatOrderNumber(stop.order?.orderNumber, orderNumberPrefix)}
+                          </div>
                           <div className="text-xs text-gray-600">
                             {stop.order?.recipient?.firstName} {stop.order?.recipient?.lastName}
                           </div>
@@ -509,7 +516,9 @@ export default function DriverRoutePage() {
               ))
             ) : (
               <div className="rounded border border-gray-200 bg-white p-4 shadow-sm">
-                <div className="font-semibold text-gray-900">Order #{data.order.orderNumber}</div>
+                <div className="font-semibold text-gray-900">
+                  Order #{formatOrderNumber(data.order.orderNumber, orderNumberPrefix)}
+                </div>
                 <div className="text-sm text-gray-600">
                   {data.order.recipient.firstName} {data.order.recipient.lastName}
                 </div>
@@ -539,7 +548,9 @@ export default function DriverRoutePage() {
       >
         {selectedStop && (
           <div className="p-5">
-            <h2 className="text-lg font-semibold mb-3">Order #{selectedStop.order?.orderNumber}</h2>
+            <h2 className="text-lg font-semibold mb-3">
+              Order #{formatOrderNumber(selectedStop.order?.orderNumber, orderNumberPrefix)}
+            </h2>
             <div className="text-sm text-gray-700 mb-3">
               {selectedStop.order?.recipient?.firstName} {selectedStop.order?.recipient?.lastName}
             </div>

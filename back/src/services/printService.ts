@@ -4,6 +4,7 @@ import { buildRouteViewUrl, generateRouteToken } from '../utils/routeToken';
 import { printSettingsService } from './printSettingsService';
 import { buildOrderTicketPdf } from '../templates/order-ticket-pdf';
 import { generateOrderQRCodeBuffer } from '../utils/qrCodeGenerator';
+import { getOrderNumberPrefix } from '../utils/orderNumberSettings';
 
 const prisma = new PrismaClient();
 
@@ -39,6 +40,7 @@ export class PrintService {
     order: Order;
     template: string;
     priority?: number;
+    orderNumberPrefix?: string;
   }): Promise<PrintJobRoutingResult> {
     try {
       const config = await printSettingsService.getConfigForType(params.type);
@@ -52,6 +54,8 @@ export class PrintService {
       let driverRouteUrl: string | null = null;
 
       if (params.type === PrintJobType.ORDER_TICKET) {
+        const orderNumberPrefix = params.orderNumberPrefix ?? await getOrderNumberPrefix(prisma);
+
         try {
           const orderId = params.orderId || (params.order as any)?.id;
 
@@ -71,7 +75,10 @@ export class PrintService {
         if (config.destination !== 'browser') {
           try {
             const qrBuffer = driverRouteUrl ? await generateOrderQRCodeBuffer(driverRouteUrl) : null;
-            const pdfBuffer = await buildOrderTicketPdf(jobData, { qrCodeBuffer: qrBuffer });
+            const pdfBuffer = await buildOrderTicketPdf(jobData, {
+              qrCodeBuffer: qrBuffer,
+              orderNumberPrefix,
+            });
             jobData = { ...jobData, pdfBase64: pdfBuffer.toString('base64') };
           } catch (error) {
             console.error('Failed to generate order ticket PDF for print job:', error);

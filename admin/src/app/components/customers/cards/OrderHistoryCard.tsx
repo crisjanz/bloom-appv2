@@ -9,6 +9,8 @@ import {
 } from "@shared/ui/components/ui/table";
 import { Link } from "react-router-dom";
 import { formatCurrency } from "@shared/utils/currency";
+import useOrderNumberPrefix from "@shared/hooks/useOrderNumberPrefix";
+import { formatOrderNumber } from "@shared/utils/formatOrderNumber";
 
 interface OrderHistoryCardProps {
   customerId: string;
@@ -18,6 +20,7 @@ interface OrderHistoryCardProps {
 
 export default function OrderHistoryCard({ customerId, expanded, onToggle }: OrderHistoryCardProps) {
   const { orders, loading, customerMetrics } = useCustomerOrderHistory(customerId);
+  const orderNumberPrefix = useOrderNumberPrefix();
 
   // Format date
   const formatDate = (date: Date | string) => {
@@ -158,7 +161,9 @@ export default function OrderHistoryCard({ customerId, expanded, onToggle }: Ord
                   <TableRow key={order.id}>
                     <TableCell className="px-5 py-4 text-start">
                       <span className="font-medium text-gray-900 text-theme-sm dark:text-white">
-                        #{order.orderNumber || order.id.slice(-8).toUpperCase()}
+                        #{order.orderNumber
+                          ? formatOrderNumber(order.orderNumber, orderNumberPrefix)
+                          : order.id.slice(-8).toUpperCase()}
                       </span>
                     </TableCell>
                     <TableCell className="px-5 py-4 text-start">

@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import GoogleMapsProvider from "@shared/ui/forms/GoogleMapsProvider";
+import { OrderSettingsProvider } from "./contexts/OrderSettingsContext";
 
 import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
@@ -79,10 +80,11 @@ import BirthdayGiftsPage from "./pages/marketing/BirthdayGiftsPage";
 export default function App() {
   return (
     <AuthProvider>
-      <GoogleMapsProvider>
-        <Router>
-          <ScrollToTop />
-          <Routes>
+      <OrderSettingsProvider>
+        <GoogleMapsProvider>
+          <Router>
+            <ScrollToTop />
+            <Routes>
           {/* Public routes */}
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
@@ -189,9 +191,10 @@ export default function App() {
           </Route>
 
           {/* Fallback route */}
-        </Routes>
-      </Router>
-    </GoogleMapsProvider>
+          </Routes>
+        </Router>
+      </GoogleMapsProvider>
+    </OrderSettingsProvider>
     </AuthProvider>
   );
 }

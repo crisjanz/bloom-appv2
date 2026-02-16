@@ -5,10 +5,12 @@ import SmsComposer from './SmsComposer';
 import { Modal } from '@shared/ui/components/ui/modal';
 import { formatCurrency } from '@shared/utils/currency';
 import { useApiClient } from '@shared/hooks/useApiClient';
+import useOrderNumberPrefix from '@shared/hooks/useOrderNumberPrefix';
 import { useCommunicationsSocket, CommunicationsSocketEvent } from '@shared/hooks/useCommunicationsSocket';
 import { ChevronDownIcon } from '@shared/assets/icons';
 import { formatPhoneDisplay } from '@shared/ui/forms/PhoneInput';
 import DeliveryEditModal from '@app/components/orders/edit/modals/DeliveryEditModal';
+import { formatOrderNumber } from '@shared/utils/formatOrderNumber';
 
 interface OrderCommunicationModalProps {
   isOpen: boolean;
@@ -35,6 +37,7 @@ export default function OrderCommunicationModal({
   onUnreadCountsUpdated
 }: OrderCommunicationModalProps) {
   const apiClient = useApiClient();
+  const orderNumberPrefix = useOrderNumberPrefix();
   const [communications, setCommunications] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [additionalPhones, setAdditionalPhones] = useState<string[]>([]);
@@ -329,7 +332,7 @@ export default function OrderCommunicationModal({
         {/* Header */}
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Customer Communication - Order #{order?.orderNumber}
+            Customer Communication - Order #{formatOrderNumber(order?.orderNumber, orderNumberPrefix)}
           </h2>
         </div>
 
@@ -464,7 +467,9 @@ export default function OrderCommunicationModal({
                         key={ro.id}
                         className="text-xs bg-gray-50 dark:bg-gray-800 rounded px-2 py-1"
                       >
-                        <span className="font-medium">#{ro.orderNumber}</span>
+                        <span className="font-medium">
+                          #{formatOrderNumber(ro.orderNumber, orderNumberPrefix)}
+                        </span>
                         {ro.deliveryDate && (
                           <span className="text-gray-500 ml-2">
                             {new Date(ro.deliveryDate).toLocaleDateString()}

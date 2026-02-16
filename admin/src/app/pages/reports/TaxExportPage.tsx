@@ -12,6 +12,8 @@ import {
 import ReportMetricCard from '@app/components/reports/ReportMetricCard';
 import { getMonthRange } from '@app/components/reports/dateUtils';
 import { useTaxExport } from '@domains/reports/hooks/useTaxExport';
+import useOrderNumberPrefix from '@shared/hooks/useOrderNumberPrefix';
+import { formatOrderNumber } from '@shared/utils/formatOrderNumber';
 import type { TaxExportRow, TaxExportTotals } from '@domains/reports/types';
 
 const formatCurrency = (value: string) => `$${parseFloat(value || '0').toFixed(2)}`;
@@ -93,6 +95,7 @@ const formatLabel = (value?: string | null) => {
 };
 
 const TaxExportPage: React.FC = () => {
+  const orderNumberPrefix = useOrderNumberPrefix();
   const defaultRange = useMemo(() => getMonthRange(), []);
   const initialTaxRange = useMemo(
     () => ({ startDate: defaultRange.start, endDate: defaultRange.end }),
@@ -262,7 +265,9 @@ const TaxExportPage: React.FC = () => {
                 <TableBody>
                   {data.data.map((row) => (
                     <TableRow key={row.orderNumber} className="border-b border-gray-100 last:border-none dark:border-gray-700">
-                      <TableCell className="font-medium text-gray-900 dark:text-white">#{row.orderNumber}</TableCell>
+                      <TableCell className="font-medium text-gray-900 dark:text-white">
+                        #{formatOrderNumber(row.orderNumber, orderNumberPrefix)}
+                      </TableCell>
                       <TableCell className="text-sm text-gray-600 dark:text-gray-300">{row.date}</TableCell>
                       <TableCell className="text-sm text-gray-700 dark:text-gray-200">{row.customerName}</TableCell>
                       <TableCell className="text-right text-sm text-gray-700 dark:text-gray-200">

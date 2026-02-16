@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
+import useOrderNumberPrefix from '@shared/hooks/useOrderNumberPrefix';
 import { ChevronLeftIcon, PhotoIcon, LinkIcon, ArrowUpIcon, CheckCircleIcon, SaveIcon } from '@shared/assets/icons';
+import { formatOrderNumber } from '@shared/utils/formatOrderNumber';
 
 interface Order {
   id: string;
@@ -40,6 +42,7 @@ interface Order {
 const FulfillmentPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const orderNumberPrefix = useOrderNumberPrefix();
   const { formatDate } = useBusinessTimezone();
 
   const [order, setOrder] = useState<Order | null>(null);
@@ -715,7 +718,7 @@ const FulfillmentPage: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-                Order #{order.orderNumber}
+                Order #{formatOrderNumber(order.orderNumber, orderNumberPrefix)}
               </h1>
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 {order.recipientCustomer

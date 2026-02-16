@@ -9,11 +9,13 @@ import PaymentController from '@app/components/pos/payment/PaymentController';
 import TakeOrderOverlay from '@app/components/pos/TakeOrderOverlay';
 import GiftCardSaleModal from '@app/components/gift-cards/GiftCardSaleModal';
 import { useApiClient } from '@shared/hooks/useApiClient';
+import useOrderNumberPrefix from '@shared/hooks/useOrderNumberPrefix';
 import { useTaxRates } from '@shared/hooks/useTaxRates';
 import { useBarcodeScanner } from '@shared/hooks/useBarcodeScanner';
 import { getOrCreateGuestCustomer } from '@shared/utils/customerHelpers';
 import { Modal } from '@shared/ui/components/ui/modal';
 import { centsToDollars, coerceCents, dollarsToCents, formatCurrency } from '@shared/utils/currency';
+import { formatOrderNumber } from '@shared/utils/formatOrderNumber';
 import {
   GiftCardSaleData,
   getGiftCardInfo,
@@ -72,6 +74,7 @@ export default function POSPage() {
   const [selectedProductForVariants, setSelectedProductForVariants] = useState(null);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const apiClient = useApiClient();
+  const orderNumberPrefix = useOrderNumberPrefix();
   const [cartSessionId, setCartSessionId] = useState<string>(() => generateUUID());
   const [localDrafts, setLocalDrafts] = useState<LocalDraft[]>([]);
   const [draftToast, setDraftToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -436,9 +439,13 @@ export default function POSPage() {
       console.log(`💰 Order ${orderIndex} total: $${orderTotal}, number: ${orderNumber}`);
       
       // Create single consolidated item for the entire order
+      const orderLabelNumber = order.orderNumber
+        ? formatOrderNumber(order.orderNumber, orderNumberPrefix)
+        : `${orderNumber}`;
+
       const orderItem = {
         id: `order-${orderId || orderIndex}-${Date.now()}`,
-        name: `Order #${orderNumber}`,
+        name: `Order #${orderLabelNumber}`,
         category: 'TakeOrder',
         price: orderTotal,
         quantity: 1,
@@ -931,6 +938,7 @@ export default function POSPage() {
       <DraftModal
         isOpen={showDraftModal}
         onClose={() => setShowDraftModal(false)}
+        orderNumberPrefix={orderNumberPrefix}
         localDrafts={localDrafts}
         onLoadLocalDraft={handleLoadLocalDraft}
         onDeleteLocalDraft={handleDeleteLocalDraft}
@@ -944,6 +952,7 @@ export default function POSPage() {
 type DraftModalProps = {
   isOpen: boolean;
   onClose: () => void;
+  orderNumberPrefix: string;
   localDrafts: LocalDraft[];
   onLoadLocalDraft: (draft: LocalDraft) => void;
   onDeleteLocalDraft: (draftId: string) => void;
@@ -954,6 +963,7 @@ type DraftModalProps = {
 function DraftModal({
   isOpen,
   onClose,
+  orderNumberPrefix,
   localDrafts,
   onLoadLocalDraft,
   onDeleteLocalDraft,
@@ -1136,7 +1146,7 @@ function DraftModal({
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <div className="font-medium text-gray-900 dark:text-white">
-                            Draft #{draft.orderNumber ?? draft.id}
+                            Draft #{draft.orderNumber ? formatOrderNumber(draft.orderNumber, orderNumberPrefix) : draft.id}
                           </div>
                           <div className="text-sm text-gray-500 dark:text-gray-400">
                             {draft.customer

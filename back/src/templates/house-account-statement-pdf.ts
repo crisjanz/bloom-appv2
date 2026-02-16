@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
 import { formatCurrency, generatePdfBuffer } from '../utils/pdfGenerator';
+import { formatOrderNumber } from '../utils/formatOrderNumber';
 
 export interface HouseAccountStatementCharge {
   date: Date | string;
@@ -57,6 +58,7 @@ export interface HouseAccountStatementPdfPayload {
   statement: HouseAccountStatementData;
   storeInfo?: StoreInfo | null;
   generatedAt: Date;
+  orderNumberPrefix?: string;
 }
 
 const MARGIN = 40;
@@ -88,6 +90,8 @@ const buildStoreLine = (storeInfo?: StoreInfo | null) => {
 export async function buildHouseAccountStatementPdf(
   payload: HouseAccountStatementPdfPayload
 ): Promise<Buffer> {
+  const orderNumberPrefix = payload.orderNumberPrefix || '';
+
   return generatePdfBuffer((doc) => {
     const { statement, storeInfo, generatedAt } = payload;
     const pageWidth = doc.page.width;
@@ -233,7 +237,7 @@ export async function buildHouseAccountStatementPdf(
       ],
       statement.charges.map((entry) => [
         formatDateValue(entry.date),
-        entry.orderNumber ? `#${entry.orderNumber}` : '-',
+        entry.orderNumber ? `#${formatOrderNumber(entry.orderNumber, orderNumberPrefix)}` : '-',
         entry.reference || '-',
         entry.description,
         formatSignedCurrency(entry.amount),

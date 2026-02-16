@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeftIcon, TruckIcon, ClockIcon } from '@shared/assets/icons';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
+import useOrderNumberPrefix from '@shared/hooks/useOrderNumberPrefix';
+import { formatOrderNumber } from '@shared/utils/formatOrderNumber';
 
 type MobileOrder = {
   id: string;
@@ -94,7 +96,7 @@ const buildMapLink = (address: string) => {
   return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
 };
 
-const formatStopRecipient = (stop: RouteStop) => {
+const formatStopRecipient = (stop: RouteStop, orderNumberPrefix: string) => {
   const recipient = stop.order.recipientCustomer
     ? `${stop.order.recipientCustomer.firstName || ''} ${stop.order.recipientCustomer.lastName || ''}`.trim()
     : '';
@@ -104,11 +106,12 @@ const formatStopRecipient = (stop: RouteStop) => {
     return stop.order.deliveryAddress.address1;
   }
 
-  return `Order #${stop.order.orderNumber}`;
+  return `Order #${formatOrderNumber(stop.order.orderNumber, orderNumberPrefix)}`;
 };
 
 export default function MobileDeliveryPage() {
   const navigate = useNavigate();
+  const orderNumberPrefix = useOrderNumberPrefix();
   const { timezone, loading: timezoneLoading, getBusinessDateString, formatDate } = useBusinessTimezone();
   const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [hasDateOverride, setHasDateOverride] = useState(false);
@@ -267,7 +270,7 @@ export default function MobileDeliveryPage() {
       >
         <div className="flex-1">
           <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-            <span className="font-semibold text-gray-900 dark:text-white">#{order.orderNumber}</span>
+            <span className="font-semibold text-gray-900 dark:text-white">#{formatOrderNumber(order.orderNumber, orderNumberPrefix)}</span>
             <span className="px-2 py-0.5 rounded-full text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
               {typeLabel}
             </span>
@@ -378,7 +381,7 @@ export default function MobileDeliveryPage() {
                       <span className="font-semibold text-gray-900 dark:text-white">
                         {stop.sequence}.
                       </span>{' '}
-                      #{stop.order.orderNumber} · {formatStopRecipient(stop)}
+                      #{formatOrderNumber(stop.order.orderNumber, orderNumberPrefix)} · {formatStopRecipient(stop, orderNumberPrefix)}
                     </div>
                   ))}
                 </div>
@@ -421,7 +424,7 @@ export default function MobileDeliveryPage() {
                     />
                     <div className="flex-1">
                       <div className="text-sm font-semibold text-gray-900 dark:text-white">
-                        #{order.orderNumber} · {formatRecipientName(order)}
+                        #{formatOrderNumber(order.orderNumber, orderNumberPrefix)} · {formatRecipientName(order)}
                       </div>
                       {addressLine && (
                         <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">

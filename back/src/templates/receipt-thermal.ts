@@ -3,6 +3,7 @@ const ThermalPrinter = (thermalPrinter as any).ThermalPrinter;
 const PrinterTypes = (thermalPrinter as any).PrinterTypes;
 import { formatCurrency, formatDateTime } from '../utils/pdfGenerator';
 import { PrismaClient } from '@prisma/client';
+import { formatOrderNumber } from '../utils/formatOrderNumber';
 
 const prisma = new PrismaClient();
 
@@ -33,8 +34,9 @@ const shortenTitle = (title: string, maxWords = 3): string => {
   return words.slice(0, maxWords).join(' ');
 };
 
-export async function buildThermalReceipt(order: any): Promise<Buffer> {
+export async function buildThermalReceipt(order: any, orderNumberPrefix: string = ''): Promise<Buffer> {
   const storeSettings = await prisma.storeSettings.findFirst();
+  const formattedOrderNumber = formatOrderNumber(order.orderNumber ?? order.id, orderNumberPrefix);
 
   const printer = new ThermalPrinter({
     type: PrinterTypes.STAR,
@@ -61,7 +63,7 @@ export async function buildThermalReceipt(order: any): Promise<Buffer> {
     printer.println(`Tax ID: ${storeSettings.taxId}`);
   }
   printer.newLine();
-  printer.println(`Order #${order.orderNumber ?? order.id}`);
+  printer.println(`Order #${formattedOrderNumber}`);
   printer.println(`Date: ${formatDateTime(order.createdAt)}`);
   printer.newLine();
 

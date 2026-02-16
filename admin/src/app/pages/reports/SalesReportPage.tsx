@@ -21,8 +21,10 @@ import { useSalesReports } from '@domains/reports/hooks/useSalesReports';
 import type { SalesOrder } from '@domains/reports/types';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
 import { useApiClient } from '@shared/hooks/useApiClient';
+import useOrderNumberPrefix from '@shared/hooks/useOrderNumberPrefix';
 import type { OrderStatus } from '@shared/utils/orderStatusHelpers';
 import { formatCurrency } from '@shared/utils/currency';
+import { formatOrderNumber } from '@shared/utils/formatOrderNumber';
 
 type DatePreset = 'TODAY' | 'WEEK' | 'MONTH' | 'CUSTOM';
 
@@ -55,6 +57,7 @@ const formatLabel = (value: string) => {
 const SalesReportPage: React.FC = () => {
   const defaultRange = useMemo(() => getMonthRange(), []);
   const apiClient = useApiClient();
+  const orderNumberPrefix = useOrderNumberPrefix();
 
   const [datePreset, setDatePreset] = useState<DatePreset>('MONTH');
   const [customStartDate, setCustomStartDate] = useState<string>(defaultRange.start);
@@ -214,7 +217,9 @@ const SalesReportPage: React.FC = () => {
     return (
       <TableRow key={order.id} className="border-b border-gray-100 last:border-none dark:border-gray-700">
         <TableCell className="text-sm text-gray-600 dark:text-gray-300">{createdAt}</TableCell>
-        <TableCell className="font-medium text-gray-900 dark:text-white">#{order.orderNumber}</TableCell>
+        <TableCell className="font-medium text-gray-900 dark:text-white">
+          #{formatOrderNumber(order.orderNumber, orderNumberPrefix)}
+        </TableCell>
         <TableCell className="text-sm text-gray-700 dark:text-gray-200">
           {order.customer
             ? `${order.customer.firstName ?? ''} ${order.customer.lastName ?? ''}`.trim() || 'Guest'

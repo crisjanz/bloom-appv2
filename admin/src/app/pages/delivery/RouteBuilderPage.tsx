@@ -4,9 +4,11 @@ import PageBreadcrumb from '@shared/ui/common/PageBreadCrumb';
 import ComponentCard from '@shared/ui/common/ComponentCard';
 import Button from '@shared/ui/components/ui/button/Button';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
+import useOrderNumberPrefix from '@shared/hooks/useOrderNumberPrefix';
 import { useApiClient } from '@shared/hooks/useApiClient';
 import useRoutes, { Route, RouteStop } from '@shared/hooks/useRoutes';
 import { OrdersMapButton, formatOrderAddress } from '@shared/ui/components/OrdersMapButton';
+import { formatOrderNumber } from '@shared/utils/formatOrderNumber';
 
 type DeliveryOrder = {
   id: string;
@@ -19,6 +21,7 @@ type DeliveryOrder = {
 
 export default function RouteBuilderPage() {
   const { timezone, loading: tzLoading, getBusinessDateString } = useBusinessTimezone();
+  const orderNumberPrefix = useOrderNumberPrefix();
   const apiClient = useApiClient();
 
   const [selectedDate, setSelectedDate] = useState<string>('');
@@ -175,7 +178,7 @@ export default function RouteBuilderPage() {
     const content = (
       <div className="rounded border border-stroke bg-white p-3 shadow-sm dark:border-strokedark dark:bg-boxdark">
         <div className="flex items-center justify-between">
-          <span className="font-semibold">#{order.orderNumber}</span>
+          <span className="font-semibold">#{formatOrderNumber(order.orderNumber, orderNumberPrefix)}</span>
           {draggable ? null : (
             <input
               type="checkbox"
@@ -227,7 +230,7 @@ export default function RouteBuilderPage() {
           >
             <div className="flex items-center justify-between">
               <span className="font-semibold">
-                {index + 1}. #{order.orderNumber}
+                {index + 1}. #{formatOrderNumber(order.orderNumber, orderNumberPrefix)}
               </span>
               <span className="text-xs uppercase text-primary">{stop.status}</span>
             </div>
@@ -306,7 +309,7 @@ export default function RouteBuilderPage() {
                     <OrdersMapButton
                       locations={route.stops.map((stop) => ({
                         address: formatOrderAddress(stop.order?.deliveryAddress),
-                        label: `#${stop.order?.orderNumber}`,
+                        label: `#${formatOrderNumber(stop.order?.orderNumber, orderNumberPrefix)}`,
                       }))}
                     />
                     <Button variant="outline" onClick={() => handleDeleteRoute(route.id)}>

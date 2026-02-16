@@ -18,11 +18,13 @@ import Label from '@shared/ui/forms/Label';
 import Button from '@shared/ui/components/ui/button/Button';
 import StatusSelect from '@shared/ui/forms/StatusSelect';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
+import useOrderNumberPrefix from '@shared/hooks/useOrderNumberPrefix';
 import { formatPhoneDisplay } from '@shared/ui/forms/PhoneInput';
 import { getStatusOptions, OrderType as FulfillmentOrderType } from '@shared/utils/orderStatusHelpers';
 import { useNavigate } from 'react-router';
 import useRoutes from '@shared/hooks/useRoutes';
 import { dollarsToCents, formatCurrency } from '@shared/utils/currency';
+import { formatOrderNumber } from '@shared/utils/formatOrderNumber';
 import { useCommunicationsSocket, CommunicationsSocketEvent } from '@shared/hooks/useCommunicationsSocket';
 // MIGRATION: Use domain hook for delivery management
 import { useDeliveryManagement } from '@domains/orders/hooks/useDeliveryManagement';
@@ -81,6 +83,7 @@ const normalizeOrderType = (type: DeliveryOrder['type']): FulfillmentOrderType =
 
 const DeliveryPage: React.FC = () => {
   const { timezone, loading: timezoneLoading, formatDate: formatBusinessDate, getBusinessDateString } = useBusinessTimezone();
+  const orderNumberPrefix = useOrderNumberPrefix();
   const navigate = useNavigate();
   
   // MIGRATION: Use domain hook for delivery management (only for status updates)
@@ -128,10 +131,10 @@ const DeliveryPage: React.FC = () => {
       .filter((order: DeliveryOrder) => order.deliveryAddress)
       .map((order: DeliveryOrder) => ({
         address: formatOrderAddress(order.deliveryAddress),
-        label: `#${order.orderNumber}`,
+        label: `#${formatOrderNumber(order.orderNumber, orderNumberPrefix)}`,
       }))
       .filter((loc) => loc.address);
-  }, [displayData]);
+  }, [displayData, orderNumberPrefix]);
 
   const handleUnreadCountsUpdated = useCallback(
     (payload: { orderId: string; orderUnreadCount: number; totalUnreadCount: number }) => {
@@ -572,7 +575,7 @@ const DeliveryPage: React.FC = () => {
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
           <span className="font-semibold text-gray-900 dark:text-white">
-            #{order.orderNumber}
+            #{formatOrderNumber(order.orderNumber, orderNumberPrefix)}
           </span>
           {assignedOrderIds.has(order.id) && (
             <span className="px-2 py-0.5 text-xs font-medium rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">

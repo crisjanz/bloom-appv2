@@ -9,6 +9,8 @@ import Select from '@shared/ui/forms/Select';
 import DatePicker from '@shared/ui/forms/date-picker';
 import ScanExternalOrderModal from '@app/components/orders/ScanExternalOrderModal';
 import { formatCurrency } from '@shared/utils/currency';
+import useOrderNumberPrefix from '@shared/hooks/useOrderNumberPrefix';
+import { formatOrderNumber } from '@shared/utils/formatOrderNumber';
 
 type ExternalOrderFilters = {
   provider: string;
@@ -55,6 +57,7 @@ const statusOptions = [
 ];
 
 export default function ExternalOrdersPage() {
+  const orderNumberPrefix = useOrderNumberPrefix();
   const [orders, setOrders] = useState<ExternalOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [providers, setProviders] = useState<ExternalProvider[]>([]);
@@ -135,7 +138,7 @@ export default function ExternalOrdersPage() {
     {
       key: 'orderNumber',
       header: 'Order #',
-      render: (order: ExternalOrder) => `#${order.orderNumber || 0}`,
+      render: (order: ExternalOrder) => `#${formatOrderNumber(order.orderNumber || 0, orderNumberPrefix)}`,
     },
     {
       key: 'externalSource',

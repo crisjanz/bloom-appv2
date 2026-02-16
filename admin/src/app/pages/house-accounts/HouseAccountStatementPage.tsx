@@ -7,6 +7,8 @@ import FormError from '@shared/ui/components/ui/form/FormError';
 import StandardTable, { ColumnDef } from '@shared/ui/components/ui/table/StandardTable';
 import { DownloadIcon } from '@shared/assets/icons';
 import { formatCurrency } from '@shared/utils/currency';
+import useOrderNumberPrefix from '@shared/hooks/useOrderNumberPrefix';
+import { formatOrderNumber } from '@shared/utils/formatOrderNumber';
 import { getMonthRange } from '@app/components/reports/dateUtils';
 import { useApiClient } from '@shared/hooks/useApiClient';
 import useHouseAccounts, { HouseAccountStatement } from '@shared/hooks/useHouseAccounts';
@@ -54,6 +56,7 @@ const formatDate = (value: string) => {
 };
 
 export default function HouseAccountStatementPage() {
+  const orderNumberPrefix = useOrderNumberPrefix();
   const { customerId } = useParams<{ customerId: string }>();
   const apiClient = useApiClient();
   const { getStatement } = useHouseAccounts();
@@ -163,10 +166,12 @@ export default function HouseAccountStatementPage() {
               to={`/orders/${row.orderId}`}
               className="text-sm text-brand-500 hover:text-brand-600"
             >
-              #{row.orderNumber}
+              #{formatOrderNumber(row.orderNumber, orderNumberPrefix)}
             </Link>
           ) : (
-            <span className="text-sm text-gray-600 dark:text-gray-400">#{row.orderNumber}</span>
+            <span className="text-sm text-gray-600 dark:text-gray-400">
+              #{formatOrderNumber(row.orderNumber, orderNumberPrefix)}
+            </span>
           )
         ) : (
           <span className="text-sm text-gray-600 dark:text-gray-400">—</span>

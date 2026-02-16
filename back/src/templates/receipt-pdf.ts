@@ -1,5 +1,6 @@
 import { formatCurrency, formatDateTime, generatePdfBuffer } from '../utils/pdfGenerator';
 import { PrismaClient } from '@prisma/client';
+import { formatOrderNumber } from '../utils/formatOrderNumber';
 
 const prisma = new PrismaClient();
 
@@ -8,8 +9,9 @@ const shortenTitle = (title: string, maxWords = 3): string => {
   return words.slice(0, maxWords).join(' ');
 };
 
-export async function buildReceiptPdf(order: any): Promise<Buffer> {
+export async function buildReceiptPdf(order: any, orderNumberPrefix: string = ''): Promise<Buffer> {
   const storeSettings = await prisma.storeSettings.findFirst();
+  const formattedOrderNumber = formatOrderNumber(order.orderNumber ?? order.id, orderNumberPrefix);
 
   // 80mm width thermal receipt format (227 points)
   const pageWidth = 227;
@@ -49,7 +51,7 @@ export async function buildReceiptPdf(order: any): Promise<Buffer> {
 
     doc.y += 8;
     yPos = doc.y;
-    doc.fontSize(9).text(`Order #${order.orderNumber ?? order.id}`, margin, yPos, { width: contentWidth, align: 'center', lineBreak: false });
+    doc.fontSize(9).text(`Order #${formattedOrderNumber}`, margin, yPos, { width: contentWidth, align: 'center', lineBreak: false });
     doc.y = yPos + 10;
     yPos = doc.y;
     doc.text(`Date: ${formatDateTime(order.createdAt)}`, margin, yPos, { width: contentWidth, align: 'center', lineBreak: false });

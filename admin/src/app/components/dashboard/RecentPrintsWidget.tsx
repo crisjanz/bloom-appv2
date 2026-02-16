@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useApiClient } from "@shared/hooks/useApiClient";
+import useOrderNumberPrefix from "@shared/hooks/useOrderNumberPrefix";
+import { formatOrderNumber } from "@shared/utils/formatOrderNumber";
 
 type PrintJob = {
   id: string;
@@ -30,6 +32,7 @@ function formatTimeAgo(dateStr: string): string {
 
 export default function RecentPrintsWidget() {
   const apiClient = useApiClient();
+  const orderNumberPrefix = useOrderNumberPrefix();
   const [jobs, setJobs] = useState<PrintJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [retrying, setRetrying] = useState<string | null>(null);
@@ -162,7 +165,7 @@ export default function RecentPrintsWidget() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-sm text-gray-900 dark:text-white">
-                    {job.order ? `Order #${job.order.orderNumber}` : "Unknown"}
+                    {job.order ? `Order #${formatOrderNumber(job.order.orderNumber, orderNumberPrefix)}` : "Unknown"}
                   </span>
                   <span className="text-xs text-gray-500 dark:text-gray-400">
                     {formatTimeAgo(job.createdAt)}

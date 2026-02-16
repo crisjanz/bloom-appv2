@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
 import { formatCurrency, generatePdfBuffer } from '../utils/pdfGenerator';
+import { formatOrderNumber } from '../utils/formatOrderNumber';
 
 export interface SalesReportOrderRow {
   createdAt: Date | string;
@@ -35,6 +36,7 @@ export interface SalesReportFilters {
 export interface SalesReportPdfPayload {
   shopName?: string | null;
   generatedAt: Date;
+  orderNumberPrefix?: string;
   filters: SalesReportFilters;
   summary: SalesReportSummary;
   paymentBreakdown: SalesReportBreakdownEntry[];
@@ -75,6 +77,8 @@ const formatRange = (filters: SalesReportFilters) => {
 };
 
 export async function buildSalesReportPdf(payload: SalesReportPdfPayload): Promise<Buffer> {
+  const orderNumberPrefix = payload.orderNumberPrefix || '';
+
   return generatePdfBuffer((doc) => {
     const pageWidth = doc.page.width;
     const pageHeight = doc.page.height;
@@ -212,7 +216,7 @@ export async function buildSalesReportPdf(payload: SalesReportPdfPayload): Promi
       let x = MARGIN;
       doc.text(formatDate(order.createdAt), x + 4, y + 6, { width: columns.date - 8 });
       x += columns.date;
-      doc.text(order.orderNumber ? `#${order.orderNumber}` : '-', x + 4, y + 6, {
+      doc.text(order.orderNumber ? `#${formatOrderNumber(order.orderNumber, orderNumberPrefix)}` : '-', x + 4, y + 6, {
         width: columns.order - 8,
       });
       x += columns.order;

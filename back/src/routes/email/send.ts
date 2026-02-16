@@ -4,6 +4,8 @@ import { emailService } from '../../services/emailService';
 import { buildInvoicePdf } from '../../templates/invoice-pdf';
 import { buildReceiptEmail } from '../../templates/email/receipt-email';
 import { buildInvoiceEmail } from '../../templates/email/invoice-email';
+import { formatOrderNumber } from '../../utils/formatOrderNumber';
+import { getOrderNumberPrefix } from '../../utils/orderNumberSettings';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -44,11 +46,13 @@ router.post('/receipt/:orderId', async (req, res) => {
       return res.status(400).json({ error: 'Customer email is missing for this order' });
     }
 
-    const html = buildReceiptEmail(order);
+    const orderNumberPrefix = await getOrderNumberPrefix(prisma);
+    const formattedOrderNumber = formatOrderNumber(order.orderNumber ?? order.id, orderNumberPrefix);
+    const html = buildReceiptEmail(order, orderNumberPrefix);
 
     const success = await emailService.sendEmail({
       to: toEmail,
-      subject: `Your receipt from Bloom Flowers (${order.orderNumber ?? order.id})`,
+      subject: `Your receipt from Bloom Flowers (${formattedOrderNumber})`,
       html,
     });
 
@@ -78,13 +82,15 @@ router.post('/invoice/:orderId', async (req, res) => {
       return res.status(400).json({ error: 'Customer email is missing for this order' });
     }
 
-    const pdfBuffer = await buildInvoicePdf(order);
-    const html = buildInvoiceEmail(order);
-    const filename = `invoice-${order.orderNumber ?? order.id}.pdf`;
+    const orderNumberPrefix = await getOrderNumberPrefix(prisma);
+    const formattedOrderNumber = formatOrderNumber(order.orderNumber ?? order.id, orderNumberPrefix);
+    const pdfBuffer = await buildInvoicePdf(order, orderNumberPrefix);
+    const html = buildInvoiceEmail(order, orderNumberPrefix);
+    const filename = `invoice-${formattedOrderNumber}.pdf`;
 
     const success = await emailService.sendEmail({
       to: toEmail,
-      subject: `Your invoice from Bloom Flowers (${order.orderNumber ?? order.id})`,
+      subject: `Your invoice from Bloom Flowers (${formattedOrderNumber})`,
       html,
       attachments: [
         {

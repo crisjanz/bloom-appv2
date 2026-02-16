@@ -1,6 +1,7 @@
 import path from 'path';
 import { PrismaClient } from '@prisma/client';
 import { formatCurrency, formatDateTime, generatePdfBuffer } from '../utils/pdfGenerator';
+import { formatOrderNumber } from '../utils/formatOrderNumber';
 
 const prisma = new PrismaClient();
 const DEJAVU_SANS_OBLIQUE = path.join(__dirname, '..', 'assets', 'fonts', 'DejaVuSans-Oblique.ttf');
@@ -57,12 +58,13 @@ const wrapText = (doc: any, text: string, maxWidth: number, maxLines?: number) =
 
 export async function buildOrderTicketPdf(
   order: any,
-  options?: { qrCodeBuffer?: Buffer | null }
+  options?: { qrCodeBuffer?: Buffer | null; orderNumberPrefix?: string }
 ): Promise<Buffer> {
   const storeSettings = await prisma.storeSettings.findFirst();
   const qrCodeBuffer = options?.qrCodeBuffer ?? null;
+  const orderNumberPrefix = options?.orderNumberPrefix ?? '';
 
-  const orderNumber = order.orderNumber ?? order.id ?? 'N/A';
+  const orderNumber = formatOrderNumber(order.orderNumber ?? order.id, orderNumberPrefix);
   const deliveryDateLabel = order.deliveryDate ? formatShortDate(order.deliveryDate) : 'TBD';
   const deliveryTimeLabel = order.deliveryTime || 'TBD';
   const orderDateLabel = formatDateTime(order.createdAt);

@@ -45,6 +45,7 @@ import {
 import taxRatesRouter from './routes/settings/tax-rates';
 import paymentSettingsRouter from './routes/settings/payments';
 import operationsSettingsRouter from './routes/settings/operations';
+import orderSettingsRouter from './routes/settings/order-settings';
 import emailRouter from './routes/email';
 import emailSendRouter from './routes/email/send';
 import smsRouter from './routes/sms';
@@ -230,6 +231,7 @@ app.use('/api/payment-transactions', paymentTransactionsRouter);
 app.use('/api', refundsRouter);
 app.use('/api/settings/payments', paymentSettingsRouter);
 app.use('/api/settings/operations', operationsSettingsRouter);
+app.use('/api/settings/order-settings', orderSettingsRouter);
 app.get('/api/settings/pos-tabs', getPOSTabs);
 app.post('/api/settings/pos-tabs', savePOSTabs);
 app.use('/api/settings/tax-rates', taxRatesRouter);

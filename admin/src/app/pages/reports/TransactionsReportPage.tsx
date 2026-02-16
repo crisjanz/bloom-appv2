@@ -7,12 +7,14 @@ import DatePicker from '@shared/ui/forms/date-picker';
 import { getMonthRange, getTodayRange, getWeekRange } from '@app/components/reports/dateUtils';
 import { useTransactionReport } from '@domains/payments/hooks/useTransactionReport';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
+import useOrderNumberPrefix from '@shared/hooks/useOrderNumberPrefix';
 import type { PaymentTransactionReport } from '@domains/payments/types/transactionReports';
 import usePaymentSettingsConfig from '@domains/payments/hooks/usePaymentSettingsConfig';
 import StandardTable, { ColumnDef } from '@shared/ui/components/ui/table/StandardTable';
 import { getPaymentStatusColor } from '@shared/utils/statusColors';
 import RefundModal from '@app/components/refunds/RefundModal';
 import { formatCurrency } from '@shared/utils/currency';
+import { formatOrderNumber } from '@shared/utils/formatOrderNumber';
 
 type DatePreset = 'TODAY' | 'WEEK' | 'MONTH' | 'CUSTOM';
 
@@ -84,6 +86,7 @@ const channelLabels: Record<string, string> = {
 };
 
 const TransactionsReportPage: React.FC = () => {
+  const orderNumberPrefix = useOrderNumberPrefix();
   const defaultRange = useMemo(() => getWeekRange(), []);
   const [datePreset, setDatePreset] = useState<DatePreset>('WEEK');
   const [customStartDate, setCustomStartDate] = useState<string>(defaultRange.start);
@@ -382,7 +385,7 @@ const TransactionsReportPage: React.FC = () => {
 
         return firstOrder ? (
           <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-            #{firstOrder}{hasMultiple && ` +${orderNumbers.length - 1}`}
+            #{formatOrderNumber(firstOrder, orderNumberPrefix)}{hasMultiple && ` +${orderNumbers.length - 1}`}
           </span>
         ) : (
           <span className="text-sm text-gray-500 dark:text-gray-400">—</span>

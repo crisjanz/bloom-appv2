@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeftIcon, CheckCircleIcon, CameraIcon } from '@shared/assets/icons';
 import Select from '@shared/ui/forms/Select';
+import useOrderNumberPrefix from '@shared/hooks/useOrderNumberPrefix';
+import { formatOrderNumber } from '@shared/utils/formatOrderNumber';
 
 // Wire order data structure (FTD, DoorDash)
 interface WireOrderData {
@@ -105,6 +107,7 @@ const BUILTIN_PROVIDERS = [
 
 export default function MobileScanPage() {
   const navigate = useNavigate();
+  const orderNumberPrefix = useOrderNumberPrefix();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [parsedData, setParsedData] = useState<ParsedData | null>(null);
@@ -677,7 +680,9 @@ export default function MobileScanPage() {
                 <>
                   <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4 text-center">
                     <p className="font-semibold text-green-900 dark:text-green-100">Order Created!</p>
-                    <p className="text-sm text-green-700 dark:text-green-300">#{createdOrder.orderNumber}</p>
+                    <p className="text-sm text-green-700 dark:text-green-300">
+                      #{formatOrderNumber(createdOrder.orderNumber, orderNumberPrefix)}
+                    </p>
                   </div>
                   <button
                     onClick={handleScanAnother}

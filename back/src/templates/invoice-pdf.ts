@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { formatCurrency, formatDateTime, generatePdfBuffer } from '../utils/pdfGenerator';
+import { formatOrderNumber } from '../utils/formatOrderNumber';
 
 const prisma = new PrismaClient();
 
@@ -70,7 +71,7 @@ const drawTextBlock = (
   return y + doc.heightOfString(text, { width, align }) + 2;
 };
 
-export async function buildInvoicePdf(order: any): Promise<Buffer> {
+export async function buildInvoicePdf(order: any, orderNumberPrefix: string = ''): Promise<Buffer> {
   const storeSettings = await prisma.storeSettings.findFirst();
 
   const businessName = storeSettings?.storeName || 'Bloom Flowers';
@@ -99,7 +100,7 @@ export async function buildInvoicePdf(order: any): Promise<Buffer> {
     .filter(Boolean)
     .concat(buildAddressLines(order.deliveryAddress));
 
-  const orderNumber = order.orderNumber ?? order.id ?? 'N/A';
+  const orderNumber = formatOrderNumber(order.orderNumber ?? order.id, orderNumberPrefix);
   const issueDate = formatDateTime(order.createdAt) || 'N/A';
 
   const fulfillmentLabel = order.type === 'PICKUP' ? 'Pickup Date' : 'Delivery Date';

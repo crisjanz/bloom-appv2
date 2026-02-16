@@ -17,6 +17,7 @@ import { buildThermalReceipt } from '../../templates/receipt-thermal';
 import { loadLocalPdf, storePdf } from '../../utils/pdfStorage';
 import { buildRouteViewUrl, generateRouteToken } from '../../utils/routeToken';
 import { generateOrderQRCode, generateOrderQRCodeBuffer } from '../../utils/qrCodeGenerator';
+import { getOrderNumberPrefix } from '../../utils/orderNumberSettings';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -391,6 +392,7 @@ router.post('/receipt/:orderId', async (req, res) => {
     }
 
     const config = await printSettingsService.getConfigForType(PrintJobType.RECEIPT);
+    const orderNumberPrefix = await getOrderNumberPrefix(prisma);
     if (!config.enabled) {
       return res.json({ action: 'skipped', reason: 'disabled', type: PrintJobType.RECEIPT });
     }
@@ -401,7 +403,7 @@ router.post('/receipt/:orderId', async (req, res) => {
     };
 
     if (config.destination === 'browser') {
-      const pdfBuffer = await buildReceiptPdf(orderWithTransactions);
+      const pdfBuffer = await buildReceiptPdf(orderWithTransactions, orderNumberPrefix);
       const stored = await storePdf(pdfBuffer, `receipt-${order.orderNumber ?? order.id}`);
       return res.json({ action: 'browser-print', pdfUrl: stored.url });
     }
@@ -410,11 +412,11 @@ router.post('/receipt/:orderId', async (req, res) => {
     let template = 'receipt-pdf-v1';
 
     if (config.destination === 'receipt-agent') {
-      const thermalBuffer = await buildThermalReceipt(orderWithTransactions);
+      const thermalBuffer = await buildThermalReceipt(orderWithTransactions, orderNumberPrefix);
       jobData.thermalCommands = thermalBuffer.toString('base64');
       template = 'receipt-thermal-v1';
     } else {
-      const pdfBuffer = await buildReceiptPdf(orderWithTransactions);
+      const pdfBuffer = await buildReceiptPdf(orderWithTransactions, orderNumberPrefix);
       jobData.pdfBase64 = pdfBuffer.toString('base64');
     }
 
@@ -443,17 +445,18 @@ router.post('/invoice/:orderId', async (req, res) => {
     }
 
     const config = await printSettingsService.getConfigForType(PrintJobType.REPORT);
+    const orderNumberPrefix = await getOrderNumberPrefix(prisma);
     if (!config.enabled) {
       return res.json({ action: 'skipped', reason: 'disabled', type: PrintJobType.REPORT });
     }
 
     if (config.destination === 'browser') {
-      const pdfBuffer = await buildInvoicePdf(order);
+      const pdfBuffer = await buildInvoicePdf(order, orderNumberPrefix);
       const stored = await storePdf(pdfBuffer, `invoice-${order.orderNumber ?? order.id}`);
       return res.json({ action: 'browser-print', pdfUrl: stored.url });
     }
 
-    const pdfBuffer = await buildInvoicePdf(order);
+    const pdfBuffer = await buildInvoicePdf(order, orderNumberPrefix);
     const jobData: any = {
       ...order,
       pdfBase64: pdfBuffer.toString('base64'),
@@ -484,6 +487,7 @@ router.post('/order-ticket/:orderId', async (req, res) => {
     }
 
     const config = await printSettingsService.getConfigForType(PrintJobType.ORDER_TICKET);
+    const orderNumberPrefix = await getOrderNumberPrefix(prisma);
     if (!config.enabled) {
       return res.json({ action: 'skipped', reason: 'disabled', type: PrintJobType.ORDER_TICKET });
     }
@@ -498,7 +502,10 @@ router.post('/order-ticket/:orderId', async (req, res) => {
         console.error('Failed to generate driver route QR for order ticket:', error);
       }
 
-      const pdfBuffer = await buildOrderTicketPdf(order, { qrCodeBuffer: qrBuffer });
+      const pdfBuffer = await buildOrderTicketPdf(order, {
+        qrCodeBuffer: qrBuffer,
+        orderNumberPrefix,
+      });
       const stored = await storePdf(pdfBuffer, `order-ticket-${order.orderNumber ?? order.id}`);
       return res.json({ action: 'browser-print', pdfUrl: stored.url });
     }
@@ -509,6 +516,7 @@ router.post('/order-ticket/:orderId', async (req, res) => {
       order: order as any,
       template: 'delivery-ticket-v1',
       priority: 10,
+      orderNumberPrefix,
     });
 
     res.json(result);
@@ -656,9 +664,11 @@ router.post('/sales-report', async (req, res) => {
     const statusLabel = filters.status && filters.status !== 'ALL' ? formatLabel(filters.status) : 'All';
     const sourceLabel = filters.orderSource && filters.orderSource !== 'ALL' ? formatLabel(filters.orderSource) : 'All';
 
+    const orderNumberPrefix = await getOrderNumberPrefix(prisma);
     const pdfBuffer = await buildSalesReportPdf({
       shopName: storeSettings?.storeName || 'In Your Vase Flowers',
       generatedAt: new Date(),
+      orderNumberPrefix,
       filters: {
         startDate: filters.startDate || null,
         endDate: filters.endDate || null,
@@ -728,10 +738,12 @@ router.post('/house-account-statement', async (req, res) => {
       }),
     ]);
 
+    const orderNumberPrefix = await getOrderNumberPrefix(prisma);
     const pdfBuffer = await buildHouseAccountStatementPdf({
       statement,
       storeInfo: storeSettings || null,
       generatedAt: new Date(),
+      orderNumberPrefix,
     });
 
     return respondWithDocumentPrint({
@@ -973,7 +985,11 @@ router.get('/preview/ticket', async (req, res) => {
       console.error('Failed to generate driver route QR for ticket preview:', error);
     }
 
-    const pdfBuffer = await buildOrderTicketPdf(order, { qrCodeBuffer: qrBuffer });
+    const orderNumberPrefix = await getOrderNumberPrefix(prisma);
+    const pdfBuffer = await buildOrderTicketPdf(order, {
+      qrCodeBuffer: qrBuffer,
+      orderNumberPrefix,
+    });
     const stored = await storePdf(pdfBuffer, `preview-ticket-${Date.now()}`);
     res.json({ pdfUrl: stored.url });
   } catch (error) {
@@ -1013,7 +1029,8 @@ router.get('/preview/receipt', async (req, res) => {
       transactions: getOrderTransactions(order),
     };
 
-    const pdfBuffer = await buildReceiptPdf(orderWithTransactions);
+    const orderNumberPrefix = await getOrderNumberPrefix(prisma);
+    const pdfBuffer = await buildReceiptPdf(orderWithTransactions, orderNumberPrefix);
     const stored = await storePdf(pdfBuffer, `preview-receipt-${Date.now()}`);
     res.json({ pdfUrl: stored.url });
   } catch (error) {
@@ -1039,7 +1056,8 @@ router.get('/preview/invoice', async (req, res) => {
       return res.status(404).json({ error: 'No completed orders found for preview' });
     }
 
-    const pdfBuffer = await buildInvoicePdf(order);
+    const orderNumberPrefix = await getOrderNumberPrefix(prisma);
+    const pdfBuffer = await buildInvoicePdf(order, orderNumberPrefix);
     const stored = await storePdf(pdfBuffer, `preview-invoice-${Date.now()}`);
     res.json({ pdfUrl: stored.url });
   } catch (error) {
@@ -1079,7 +1097,8 @@ router.get('/preview/thermal', async (req, res) => {
       transactions: getOrderTransactions(order),
     };
 
-    const pdfBuffer = await buildReceiptPdf(orderWithTransactions);
+    const orderNumberPrefix = await getOrderNumberPrefix(prisma);
+    const pdfBuffer = await buildReceiptPdf(orderWithTransactions, orderNumberPrefix);
     const stored = await storePdf(pdfBuffer, `preview-thermal-${Date.now()}`);
     res.json({ pdfUrl: stored.url });
   } catch (error) {

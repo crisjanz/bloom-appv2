@@ -3,8 +3,10 @@ import { Modal } from '@shared/ui/components/ui/modal';
 import { EnvelopeIcon } from '@shared/assets/icons';
 import { ReactComponent as PrinterIcon } from '@shared/assets/icons/more-icons/printer.svg?react';
 import { useApiClient } from '@shared/hooks/useApiClient';
+import useOrderNumberPrefix from '@shared/hooks/useOrderNumberPrefix';
 import FormError from '@shared/ui/components/ui/form/FormError';
 import InputField from '@shared/ui/forms/input/InputField';
+import { formatOrderNumber } from '@shared/utils/formatOrderNumber';
 
 interface ReceiptInvoiceModalProps {
   isOpen: boolean;
@@ -24,6 +26,7 @@ export default function ReceiptInvoiceModal({
   defaultEmail,
 }: ReceiptInvoiceModalProps) {
   const apiClient = useApiClient();
+  const orderNumberPrefix = useOrderNumberPrefix();
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -137,7 +140,7 @@ export default function ReceiptInvoiceModal({
           {mode === 'print' ? 'Print Options' : 'Email Options'}
         </h2>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-          Order #{orderNumber}
+          Order #{formatOrderNumber(orderNumber, orderNumberPrefix)}
         </p>
 
         {error && <FormError error={error} className="mb-4" />}

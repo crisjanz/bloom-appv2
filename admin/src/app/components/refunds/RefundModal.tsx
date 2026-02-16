@@ -4,6 +4,8 @@ import { CheckCircleIcon, DollarLineIcon, ListIcon } from "@shared/assets/icons"
 import InputField from "@shared/ui/forms/input/InputField";
 import Select from "@shared/ui/forms/Select";
 import { centsToDollars, formatCurrency, parseUserCurrency } from "@shared/utils/currency";
+import useOrderNumberPrefix from "@shared/hooks/useOrderNumberPrefix";
+import { formatOrderNumber } from "@shared/utils/formatOrderNumber";
 
 type RefundModalProps = {
   isOpen: boolean;
@@ -15,6 +17,7 @@ type RefundModalProps = {
 type RefundStep = "type" | "details" | "confirm";
 
 const RefundModal = ({ isOpen, transactionNumber, onClose, onRefundComplete }: RefundModalProps) => {
+  const orderNumberPrefix = useOrderNumberPrefix();
   const [step, setStep] = useState<RefundStep>("type");
   const [loading, setLoading] = useState(false);
   const [transaction, setTransaction] = useState<any>(null);
@@ -93,9 +96,11 @@ const RefundModal = ({ isOpen, transactionNumber, onClose, onRefundComplete }: R
     () =>
       orders.map((order) => ({
         value: order.orderId,
-        label: `#${order.orderNumber || order.orderId} • ${formatCurrency(order.refundable)}`
+        label: `#${order.orderNumber
+          ? formatOrderNumber(order.orderNumber, orderNumberPrefix)
+          : order.orderId} • ${formatCurrency(order.refundable)}`
       })),
-    [orders]
+    [orderNumberPrefix, orders]
   );
 
   const paymentMethodOptions = useMemo(() => {

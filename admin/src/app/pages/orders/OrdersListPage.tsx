@@ -11,6 +11,8 @@ import StatusBadge from '@app/components/orders/StatusBadge';
 import Label from '@shared/ui/forms/Label';
 import Select from '@shared/ui/forms/Select';
 import DatePicker from '@shared/ui/forms/date-picker';
+import useOrderNumberPrefix from '@shared/hooks/useOrderNumberPrefix';
+import { formatOrderNumber } from '@shared/utils/formatOrderNumber';
 import { statusOptions as importedStatusOptions } from '@app/components/orders/types';
 import { getStatusDisplayText } from '@shared/utils/orderStatusHelpers';
 import { getOrderStatusColor } from '@shared/utils/statusColors';
@@ -51,6 +53,7 @@ interface Order {
 
 const OrdersListPage: React.FC = () => {
   const navigate = useNavigate();
+  const orderNumberPrefix = useOrderNumberPrefix();
   const { formatDate: formatBusinessDate, getBusinessDateString, loading: timezoneLoading } = useBusinessTimezone();
 
   // Hooks
@@ -225,7 +228,7 @@ const OrdersListPage: React.FC = () => {
       render: (order) => (
         <div>
           <div className="text-sm font-medium text-gray-800 dark:text-white/90 whitespace-nowrap">
-            #{order.orderNumber}
+            #{formatOrderNumber(order.orderNumber, orderNumberPrefix)}
           </div>
           <div className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
             {formatDate(order.createdAt)}

@@ -3,6 +3,8 @@ import { useNavigate } from "react-router";
 import { Dropdown } from "../components/ui/dropdown/Dropdown";
 import { useApiClient } from "@shared/hooks/useApiClient";
 import { useCommunicationsSocket } from "@shared/hooks/useCommunicationsSocket";
+import useOrderNumberPrefix from "@shared/hooks/useOrderNumberPrefix";
+import { formatOrderNumber } from "@shared/utils/formatOrderNumber";
 
 function formatTimeAgo(dateStr: string): string {
   const date = new Date(dateStr);
@@ -60,6 +62,7 @@ function markWebOrderSeen(orderId: string) {
 export default function NotificationDropdown() {
   const navigate = useNavigate();
   const apiClient = useApiClient();
+  const orderNumberPrefix = useOrderNumberPrefix();
   const [isOpen, setIsOpen] = useState(false);
 
   const [smsNotifications, setSmsNotifications] = useState<SmsNotification[]>([]);
@@ -239,7 +242,7 @@ export default function NotificationDropdown() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between">
                           <span className="font-medium text-gray-800 dark:text-white">
-                            Order #{notification.order.orderNumber}
+                            Order #{formatOrderNumber(notification.order.orderNumber, orderNumberPrefix)}
                           </span>
                           <span className="text-xs text-gray-500 dark:text-gray-400">
                             {formatTime(notification.createdAt)}
@@ -287,7 +290,7 @@ export default function NotificationDropdown() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between">
                           <span className="font-medium text-gray-800 dark:text-white">
-                            Order #{order.orderNumber}
+                            Order #{formatOrderNumber(order.orderNumber, orderNumberPrefix)}
                           </span>
                           <span className="text-xs text-gray-500 dark:text-gray-400">
                             {formatTime(order.createdAt)}

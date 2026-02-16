@@ -1,6 +1,8 @@
 import { formatCurrency, formatDateTime } from '../../utils/pdfGenerator';
+import { formatOrderNumber } from '../../utils/formatOrderNumber';
 
-export function buildReceiptEmail(order: any): string {
+export function buildReceiptEmail(order: any, orderNumberPrefix: string = ''): string {
+  const formattedOrderNumber = formatOrderNumber(order.orderNumber ?? order.id, orderNumberPrefix);
   const customerName = [order.customer?.firstName, order.customer?.lastName]
     .filter(Boolean)
     .join(' ');
@@ -30,7 +32,7 @@ export function buildReceiptEmail(order: any): string {
   return `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #1f2937;">
       <h2 style="margin: 0 0 8px;">Bloom Flowers</h2>
-      <p style="margin: 0 0 16px;">Receipt for order #${order.orderNumber ?? order.id}</p>
+      <p style="margin: 0 0 16px;">Receipt for order #${formattedOrderNumber}</p>
       <p style="margin: 0 0 16px;">Date: ${formatDateTime(order.createdAt)}</p>
 
       <p style="margin: 0 0 16px;">Hello ${customerName || 'Customer'},</p>

@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { useApiClient } from '@shared/hooks/useApiClient';
+import useOrderNumberPrefix from '@shared/hooks/useOrderNumberPrefix';
+import { formatOrderNumber } from '@shared/utils/formatOrderNumber';
 
 type Customer = {
   id: string;
@@ -32,6 +34,7 @@ type SearchResults = {
 export default function GlobalSearch() {
   const navigate = useNavigate();
   const apiClient = useApiClient();
+  const orderNumberPrefix = useOrderNumberPrefix();
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -257,7 +260,7 @@ export default function GlobalSearch() {
                 </span>
                 <div>
                   <div className="font-medium text-gray-900 dark:text-white">
-                    Order #{results.order.orderNumber}
+                    Order #{formatOrderNumber(results.order.orderNumber, orderNumberPrefix)}
                   </div>
                   <div className="text-sm text-gray-500 dark:text-gray-400">
                     {results.order.customer

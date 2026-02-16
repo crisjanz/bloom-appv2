@@ -5,6 +5,8 @@ import { Order } from '../types';
 import { getStatusOptions } from '@shared/utils/orderStatusHelpers';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
 import { PhoneIcon } from '@shared/assets/icons';
+import useOrderNumberPrefix from '@shared/hooks/useOrderNumberPrefix';
+import { formatOrderNumber } from '@shared/utils/formatOrderNumber';
 
 interface OrderHeaderProps {
   order: Order;
@@ -27,6 +29,7 @@ const OrderHeader: React.FC<OrderHeaderProps> = ({
 }) => {
   const statusOptions = getStatusOptions(order.type);
   const { formatDate, loading: timezoneLoading } = useBusinessTimezone();
+  const orderNumberPrefix = useOrderNumberPrefix();
   const showUnreadBadge = typeof unreadCount === 'number' && unreadCount > 0;
   const unreadLabel = showUnreadBadge ? (unreadCount > 9 ? '9+' : `${unreadCount}`) : '';
 
@@ -51,7 +54,7 @@ const OrderHeader: React.FC<OrderHeaderProps> = ({
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-              Order #{order.orderNumber}
+              Order #{formatOrderNumber(order.orderNumber, orderNumberPrefix)}
             </h1>
             {order.orderSource && (
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
