@@ -137,6 +137,20 @@ const MobilePaymentForm = ({
         </div>
       )}
       {cardError && <p className="text-red-500 text-xs">{cardError}</p>}
+
+      {/* Save Card Checkbox - only show for new card */}
+      {selectedPaymentMethod === "new" && (
+        <label className="mt-1 flex items-center gap-2 text-sm text-body-color dark:text-dark-6">
+          <input
+            type="checkbox"
+            name="saveCard"
+            checked={data.saveCard}
+            onChange={onChange}
+            className="h-4 w-4 rounded border border-stroke text-primary focus:ring-primary"
+          />
+          Save card for future purchases
+        </label>
+      )}
     </div>
 
     <MobileSectionHeader>Additional Notes</MobileSectionHeader>

@@ -76,4 +76,5 @@ export const initialPayment = {
   method: "CARD",
   notes: "",
   agreeToTerms: true,
+  saveCard: true,
 };

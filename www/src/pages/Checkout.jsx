@@ -744,11 +744,13 @@ const CheckoutContent = () => {
       const idempotencyKey = checkoutIdempotencyKeyRef.current || generateIdempotencyKey();
       checkoutIdempotencyKeyRef.current = idempotencyKey;
 
+      const shouldSaveCard = selectedPaymentMethod === "new" && payment.saveCard;
       const paymentIntent = await createCheckoutPaymentIntent({
         amountInCents,
         customer: buyerPayload,
         bloomCustomerId: buyerId,
         idempotencyKey,
+        saveCard: shouldSaveCard,
       });
 
       // Build order data before payment (for 3D Secure redirect recovery)

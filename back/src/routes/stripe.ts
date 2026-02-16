@@ -543,6 +543,7 @@ router.post('/payment-intent', async (req, res) => {
       metadata = {},
       orderIds = [],
       idempotencyKey,
+      saveCard = true,
     } = req.body;
 
     const parsedAmount = Number(amount);
@@ -572,6 +573,8 @@ router.post('/payment-intent', async (req, res) => {
     if (bloomCustomerId) {
       metadataPayload.bloomCustomerId = bloomCustomerId;
     }
+    // Track saveCard preference so confirm route knows whether to store card in DB
+    metadataPayload.saveCard = saveCard ? 'true' : 'false';
 
     const stripe = await paymentProviderFactory.getStripeClient();
 
@@ -614,7 +617,7 @@ router.post('/payment-intent', async (req, res) => {
         metadata: metadataPayload,
         automatic_payment_methods: { enabled: true, allow_redirects: 'always' },
         receipt_email: customerEmail,
-        setup_future_usage: resolvedCustomerId ? 'off_session' : undefined,
+        setup_future_usage: (saveCard && resolvedCustomerId) ? 'off_session' : undefined,
       }, stripeRequestOptions);
     } catch (error: any) {
       if (error?.code === 'resource_missing' && error?.param === 'customer') {
@@ -644,7 +647,7 @@ router.post('/payment-intent', async (req, res) => {
           metadata: metadataPayload,
           automatic_payment_methods: { enabled: true, allow_redirects: 'always' },
           receipt_email: customerEmail,
-          setup_future_usage: resolvedCustomerId ? 'off_session' : undefined,
+          setup_future_usage: saveCard ? 'off_session' : undefined,
         }, stripeRequestOptions);
       } else {
         throw error;
@@ -710,7 +713,10 @@ router.post('/payment-intent/:id/confirm', async (req, res) => {
     const stripeCustomerId =
       typeof detailedIntent.customer === 'string' ? detailedIntent.customer : undefined;
 
-    if (fingerprint && bloomCustomerId) {
+    // Only save card to DB if customer opted in (saveCard metadata flag)
+    const shouldSaveCard = (detailedIntent.metadata as any)?.saveCard !== 'false';
+
+    if (fingerprint && bloomCustomerId && shouldSaveCard) {
       const existing = await prisma.customerPaymentMethod.findFirst({
         where: { customerId: bloomCustomerId, cardFingerprint: fingerprint }
       });
