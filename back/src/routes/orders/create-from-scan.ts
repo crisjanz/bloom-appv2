@@ -378,6 +378,34 @@ router.post('/create-from-floranext', async (req, res) => {
       });
     }
 
+    // 2b. Save sender address if available
+    if (orderData.sender.address) {
+      const existingSenderAddress = await prisma.address.findFirst({
+        where: {
+          customerId: senderCustomer.id,
+          address1: orderData.sender.address,
+          city: orderData.sender.city,
+          province: orderData.sender.province,
+          postalCode: orderData.sender.postalCode,
+        },
+      });
+
+      if (!existingSenderAddress) {
+        await prisma.address.create({
+          data: {
+            customerId: senderCustomer.id,
+            address1: orderData.sender.address,
+            company: orderData.sender.company || null,
+            city: orderData.sender.city,
+            province: orderData.sender.province,
+            postalCode: orderData.sender.postalCode,
+            country: orderData.sender.country || 'CA',
+          },
+        });
+        console.log(`📍 Created new address for sender ${senderCustomer.id}`);
+      }
+    }
+
     // 3. Parse recipient name
     const recipientNameParts = orderData.recipient.name.trim().split(/\s+/);
     const recipientFirstName = recipientNameParts[0] || 'Recipient';
