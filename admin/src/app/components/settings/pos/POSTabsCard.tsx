@@ -6,11 +6,11 @@ import Label from '@shared/ui/forms/Label';
 import { useProducts } from '@shared/hooks/useProductsNew';
 import { usePOSTabs } from '@shared/hooks/usePOSTabsNew';
 import Checkbox from '@shared/ui/forms/input/Checkbox';
+import { toast } from 'sonner';
 
 export default function POSTabsCard() {
   const [selectedTab, setSelectedTab] = useState('tab1');
   const [saving, setSaving] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
   const [searchFilter, setSearchFilter] = useState('');
   const [hideAssigned, setHideAssigned] = useState(false);
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
@@ -50,13 +50,13 @@ export default function POSTabsCard() {
 
   const handleSave = async () => {
     setSaving(true);
-    setSuccessMessage('');
     
     const result = await saveTabs(tabs, defaultTab);
     
     if (result.success) {
-      setSuccessMessage('POS tab configuration saved successfully!');
-      setTimeout(() => setSuccessMessage(''), 3000);
+      toast.success('POS tab configuration saved');
+    } else {
+      toast.error(result.error || 'Failed to save POS tab configuration');
     }
     
     setSaving(false);
@@ -116,14 +116,6 @@ export default function POSTabsCard() {
   return (
     <ComponentCard title="POS Tab Configuration">
       <div className="space-y-6">
-        
-        {/* Success Message */}
-        {successMessage && (
-          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-            <p className="text-green-800 dark:text-green-200">{successMessage}</p>
-          </div>
-        )}
-        
         {/* Tab Names Configuration */}
         <div>
           <h3 className="text-lg font-medium text-black dark:text-white mb-4">Tab Names</h3>

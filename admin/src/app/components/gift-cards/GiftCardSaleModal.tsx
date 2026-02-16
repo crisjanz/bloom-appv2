@@ -13,6 +13,7 @@ import {
   normalizeGiftCardNumber,
   validateGiftCardAmount,
 } from '@shared/utils/giftCardHelpers';
+import { toast } from 'sonner';
 
 type GiftCardSaleMode = 'physical' | 'electronic';
 
@@ -158,22 +159,26 @@ export default function GiftCardSaleModal({
     setError(null);
     if (!cardNumber) {
       setError('Card number is required.');
+      toast.error('Card number is required');
       return;
     }
 
     if (cardStatusError) {
       setError(cardStatusError);
+      toast.error(cardStatusError);
       return;
     }
 
     if (!selectedAmount || selectedAmount <= 0) {
       setError('Select a gift card amount.');
+      toast.error('Select a gift card amount');
       return;
     }
 
     const validation = validateGiftCardAmount(selectedAmount / 100);
     if (!validation.valid) {
       setError(validation.error || 'Invalid gift card amount.');
+      toast.error(validation.error || 'Invalid gift card amount');
       return;
     }
 
@@ -181,10 +186,12 @@ export default function GiftCardSaleModal({
       const emailValue = recipientEmail.trim();
       if (!emailValue) {
         setError('Recipient email is required.');
+        toast.error('Recipient email is required');
         return;
       }
       if (!isValidEmail(emailValue)) {
         setError('Enter a valid recipient email.');
+        toast.error('Enter a valid recipient email');
         return;
       }
     }
@@ -197,6 +204,7 @@ export default function GiftCardSaleModal({
       recipientName: recipientName.trim() || undefined,
       message: message.trim() || undefined,
     });
+    toast.success('Gift card added to cart');
     onClose();
   };
 

@@ -3,6 +3,7 @@ import InputField from "@shared/ui/forms/input/InputField";
 import TextArea from "@shared/ui/forms/input/TextArea";
 import SelectField from "@shared/ui/forms/Select";
 import Button from "@shared/ui/components/ui/button/Button";
+import { toast } from "sonner";
 
 type MessageSuggestion = {
   id: string;
@@ -27,6 +28,7 @@ export default function MessageSuggestionsCard() {
   const handleAdd = async () => {
     if (!label || !message) {
       console.error("Missing required fields", { label, message });
+      toast.error("Select a category and enter a message");
       return;
     }
 
@@ -45,12 +47,15 @@ export default function MessageSuggestionsCard() {
         setMessages([...messages, newMsg]);
         setLabel(null);
         setMessage("");
+        toast.success("Message suggestion added");
       } else {
         const errorData = await res.text();
         console.error("Failed to add message:", res.status, errorData);
+        toast.error("Failed to add message suggestion");
       }
     } catch (error) {
       console.error("Error adding message:", error);
+      toast.error("Failed to add message suggestion");
     }
   };
 
@@ -64,11 +69,14 @@ export default function MessageSuggestionsCard() {
       });
       if (res.ok) {
         setMessages(messages.filter((msg) => msg.id !== id));
+        toast.success("Message suggestion deleted");
       } else {
         console.error("Failed to delete message:", res.status, await res.text());
+        toast.error("Failed to delete message suggestion");
       }
     } catch (error) {
       console.error("Error deleting message:", error);
+      toast.error("Failed to delete message suggestion");
     }
   };
 

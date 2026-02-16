@@ -11,6 +11,7 @@ import {
   TableRow,
 } from "@shared/ui/components/ui/table";
 import Badge from "@shared/ui/components/ui/badge/Badge";
+import { toast } from "sonner";
 
 type Product = {
   id: string;
@@ -66,7 +67,7 @@ export default function CategoriesPage() {
       setTreeCategories(treeData);
     } catch (error) {
       console.error("Error fetching categories:", error);
-      alert("Failed to load categories");
+      toast.error("Failed to load categories");
     }
   };
 
@@ -129,13 +130,14 @@ export default function CategoriesPage() {
         await fetchCategories(); // Refresh both flat and tree data
         setNewName("");
         setSelectedParentId("");
+        toast.success("Category added");
       } else {
         const error = await res.json();
-        alert(error.error || "Failed to add category");
+        toast.error(error.error || "Failed to add category");
       }
     } catch (error) {
       console.error("Error adding category:", error);
-      alert("Failed to add category");
+      toast.error("Failed to add category");
     } finally {
       setIsSubmitting(false);
     }
@@ -166,13 +168,14 @@ export default function CategoriesPage() {
       if (res.ok) {
         await fetchCategories();
         handleCancelEdit();
+        toast.success("Category updated");
       } else {
         const error = await res.json();
-        alert(error.error || "Failed to update category");
+        toast.error(error.error || "Failed to update category");
       }
     } catch (error) {
       console.error("Error updating category:", error);
-      alert("Failed to update category");
+      toast.error("Failed to update category");
     } finally {
       setIsSubmitting(false);
     }
@@ -196,13 +199,14 @@ export default function CategoriesPage() {
       
       if (res.ok) {
         await fetchCategories();
+        toast.success("Category deleted");
       } else {
         const error = await res.json();
-        alert(error.error || "Failed to delete category");
+        toast.error(error.error || "Failed to delete category");
       }
     } catch (error) {
       console.error("Error deleting category:", error);
-      alert("Failed to delete category");
+      toast.error("Failed to delete category");
     }
   };
 

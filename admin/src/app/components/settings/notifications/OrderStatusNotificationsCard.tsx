@@ -4,6 +4,7 @@ import InputField from "@shared/ui/forms/input/InputField";
 import TextArea from "@shared/ui/forms/input/TextArea";
 import Button from "@shared/ui/components/ui/button/Button";
 import Switch from "@shared/ui/forms/switch/Switch";
+import { toast } from "sonner";
 // MIGRATION: Use notification domain for settings management
 // TODO: Re-enable when notification domain is fully set up
 // import { useNotificationSettings } from "@domains/notifications/hooks/useNotifications";
@@ -187,6 +188,7 @@ const OrderStatusNotificationsCard = () => {
       if (updateOrderNotificationSettings) {
         await updateOrderNotificationSettings(settings);
         console.log('Notification settings saved via domain hook');
+        toast.success('Notification settings saved');
       } else {
         const response = await fetch('/api/settings/notifications/order-status', {
           method: 'POST',
@@ -196,12 +198,15 @@ const OrderStatusNotificationsCard = () => {
 
         if (response.ok) {
           console.log('Notification settings saved successfully');
+          toast.success('Notification settings saved');
         } else {
           console.error('Failed to save notification settings');
+          toast.error('Failed to save notification settings');
         }
       }
     } catch (error) {
       console.error('Error saving notification settings:', error);
+      toast.error('Failed to save notification settings');
     } finally {
       setIsSaving(false);
     }

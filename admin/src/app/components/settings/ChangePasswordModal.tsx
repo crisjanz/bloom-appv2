@@ -5,6 +5,7 @@ import FormError from "@shared/ui/components/ui/form/FormError";
 import FormFooter from "@shared/ui/components/ui/form/FormFooter";
 import { EyeCloseIcon, EyeIcon, LockIcon, SaveIcon } from "@shared/assets/icons";
 import { useApiClient } from "@shared/hooks/useApiClient";
+import { toast } from "sonner";
 
 interface ChangePasswordModalProps {
   isOpen: boolean;
@@ -91,9 +92,12 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ isOpen, onClo
         throw new Error(message);
       }
 
+      toast.success("Password updated");
       onClose();
     } catch (err: any) {
-      setServerError(err?.message ?? "Failed to change password");
+      const message = err?.message ?? "Failed to change password";
+      setServerError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }

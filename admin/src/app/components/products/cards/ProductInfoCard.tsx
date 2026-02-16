@@ -4,6 +4,7 @@ import ComponentCard from "@shared/ui/common/ComponentCard";
 import Textarea from "@shared/ui/forms/input/TextArea";
 import ImageCropModal from "@shared/ui/components/ui/modal/ImageCropModal";
 import { uploadImage, deleteImage, fileToDataURL } from "@shared/utils/cloudflareR2Service";
+import { toast } from "sonner";
 
 type Props = {
   title: string;
@@ -46,7 +47,7 @@ const ProductInfoCard: FC<Props> = ({
       setCropModalOpen(true);
     } catch (error) {
       console.error('Error loading image:', error);
-      alert('Failed to load image');
+      toast.error("Failed to load image");
     }
   };
 
@@ -128,10 +129,10 @@ const ProductInfoCard: FC<Props> = ({
       // Update database immediately
       await updateDatabaseImages(updatedImages);
 
-      alert('Image uploaded successfully!');
+      toast.success("Image uploaded");
     } catch (error) {
       console.error('❌ Upload failed:', error);
-      alert('Failed to upload image. Please try again.');
+      toast.error("Failed to upload image");
     } finally {
       setIsUploading(false);
     }
@@ -158,10 +159,11 @@ const ProductInfoCard: FC<Props> = ({
       // Update database immediately
       const updatedImages = existingImages.filter(img => img !== imageUrl);
       await updateDatabaseImages(updatedImages);
+      toast.success("Image deleted");
 
     } catch (error) {
       console.error('❌ Delete failed:', error);
-      alert('Failed to delete image. Please try again.');
+      toast.error("Failed to delete image");
     }
   };
 

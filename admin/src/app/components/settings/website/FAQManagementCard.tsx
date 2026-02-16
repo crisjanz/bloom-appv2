@@ -3,6 +3,7 @@ import ComponentCardCollapsible from "@shared/ui/common/ComponentCardCollapsible
 import InputField from "@shared/ui/forms/input/InputField";
 import Label from "@shared/ui/forms/Label";
 import Button from "@shared/ui/components/ui/button/Button";
+import { toast } from "sonner";
 
 interface FAQ {
   id: string;
@@ -63,11 +64,11 @@ const FAQManagementCard = () => {
         });
 
         if (response.ok) {
-          alert('FAQ updated successfully');
+          toast.success('FAQ updated');
           loadFAQs();
           setShowModal(false);
         } else {
-          alert('Failed to update FAQ');
+          toast.error('Failed to update FAQ');
         }
       } else {
         // Create new FAQ
@@ -78,16 +79,16 @@ const FAQManagementCard = () => {
         });
 
         if (response.ok) {
-          alert('FAQ created successfully');
+          toast.success('FAQ created');
           loadFAQs();
           setShowModal(false);
         } else {
-          alert('Failed to create FAQ');
+          toast.error('Failed to create FAQ');
         }
       }
     } catch (error) {
       console.error('Failed to save FAQ:', error);
-      alert('Failed to save FAQ');
+      toast.error('Failed to save FAQ');
     } finally {
       setIsSaving(false);
     }
@@ -102,14 +103,14 @@ const FAQManagementCard = () => {
       });
 
       if (response.ok) {
-        alert('FAQ deleted successfully');
+        toast.success('FAQ deleted');
         loadFAQs();
       } else {
-        alert('Failed to delete FAQ');
+        toast.error('Failed to delete FAQ');
       }
     } catch (error) {
       console.error('Failed to delete FAQ:', error);
-      alert('Failed to delete FAQ');
+      toast.error('Failed to delete FAQ');
     }
   };
 
@@ -123,12 +124,13 @@ const FAQManagementCard = () => {
 
       if (response.ok) {
         loadFAQs();
+        toast.success('FAQ status updated');
       } else {
-        alert('Failed to toggle FAQ status');
+        toast.error('Failed to toggle FAQ status');
       }
     } catch (error) {
       console.error('Failed to toggle FAQ status:', error);
-      alert('Failed to toggle FAQ status');
+      toast.error('Failed to toggle FAQ status');
     }
   };
 
@@ -157,12 +159,13 @@ const FAQManagementCard = () => {
 
       if (response.ok) {
         loadFAQs();
+        toast.success('FAQ order updated');
       } else {
-        alert('Failed to reorder FAQs');
+        toast.error('Failed to reorder FAQs');
       }
     } catch (error) {
       console.error('Failed to reorder FAQs:', error);
-      alert('Failed to reorder FAQs');
+      toast.error('Failed to reorder FAQs');
     }
   };
 

@@ -7,6 +7,7 @@ import InputField from "@shared/ui/forms/input/InputField";
 import LoadingButton from "@shared/ui/components/ui/button/LoadingButton";
 import FormError from "@shared/ui/components/ui/form/FormError";
 import { useApiClient } from "@shared/hooks/useApiClient";
+import { toast } from "sonner";
 
 type PrintDestination = "browser" | "receipt-agent" | "electron-agent";
 
@@ -155,7 +156,6 @@ const PrintPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const loadSettings = useCallback(async () => {
     setIsLoading(true);
@@ -188,7 +188,6 @@ const PrintPage = () => {
 
     setIsSaving(true);
     setError(null);
-    setSuccessMessage(null);
 
     const payload: PrintSettings = {
       ...settings,
@@ -208,10 +207,11 @@ const PrintPage = () => {
         throw new Error(errorMessage || "Failed to save print settings");
       }
       setSettings(response.data as PrintSettings);
-      setSuccessMessage("Settings saved successfully!");
+      toast.success("Print settings saved");
     } catch (err) {
       console.error("Error saving print settings:", err);
       setError(err instanceof Error ? err.message : "Failed to save print settings");
+      toast.error("Failed to save print settings");
     } finally {
       setIsSaving(false);
     }
@@ -238,12 +238,6 @@ const PrintPage = () => {
       </div>
 
       {error && <FormError error={error} />}
-
-      {successMessage && (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 dark:border-green-800 dark:bg-green-900/20 dark:text-green-200">
-          {successMessage}
-        </div>
-      )}
 
       {settings && (
         <>
@@ -326,7 +320,7 @@ const PrintPage = () => {
                 }
               } catch (err) {
                 console.error("Error previewing receipt:", err);
-                alert("Failed to generate receipt preview. Make sure you have at least one completed order.");
+                toast.error("Failed to generate receipt preview");
               }
             }}
             className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 transition"
@@ -343,7 +337,7 @@ const PrintPage = () => {
                 }
               } catch (err) {
                 console.error("Error previewing thermal:", err);
-                alert("Failed to generate thermal preview. Make sure you have at least one completed order.");
+                toast.error("Failed to generate thermal preview");
               }
             }}
             className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 transition"
@@ -360,7 +354,7 @@ const PrintPage = () => {
                 }
               } catch (err) {
                 console.error("Error previewing invoice:", err);
-                alert("Failed to generate invoice preview. Make sure you have at least one completed order.");
+                toast.error("Failed to generate invoice preview");
               }
             }}
             className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 transition"
@@ -377,7 +371,7 @@ const PrintPage = () => {
                 }
               } catch (err) {
                 console.error("Error previewing ticket:", err);
-                alert("Failed to generate ticket preview. Make sure you have at least one completed order.");
+                toast.error("Failed to generate ticket preview");
               }
             }}
             className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 transition"

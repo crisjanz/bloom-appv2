@@ -6,6 +6,7 @@ import Label from "@shared/ui/forms/Label";
 import AddressAutocomplete from "@shared/ui/forms/AddressAutocomplete";
 import Button from "@shared/ui/components/ui/button/Button";
 import Select from "@shared/ui/forms/Select"; 
+import { toast } from "sonner";
 
 // Same countries array as CustomerInfoCard
 const countries = [
@@ -115,12 +116,15 @@ const StoreInfoCard = () => {
 
       if (response.ok) {
         console.log('Store settings saved successfully');
+        toast.success('Store info saved');
         await loadStoreSettings();
       } else {
         console.error('Failed to save store settings');
+        toast.error('Failed to save store info');
       }
     } catch (error) {
       console.error('Error saving store settings:', error);
+      toast.error('Failed to save store info');
     } finally {
       setIsSaving(false);
     }

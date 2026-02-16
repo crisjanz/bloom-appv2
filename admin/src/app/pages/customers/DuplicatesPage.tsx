@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useApiClient } from "@shared/hooks/useApiClient";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 
 interface DuplicateCustomer {
   id: string;
@@ -86,7 +87,7 @@ export default function DuplicatesPage() {
 
       if (response.status === 404) {
         console.error('Duplicate detection endpoint not found. Backend may need restart.');
-        alert('Duplicate detection feature is not available. Please restart the backend server.');
+        toast.error('Duplicate detection feature is not available. Please restart the backend server.');
         return;
       }
 
@@ -94,7 +95,7 @@ export default function DuplicatesPage() {
 
       if (!data || !data.duplicateGroups) {
         console.error('Invalid response from duplicates API:', data);
-        alert('Received invalid response from server.');
+        toast.error('Received invalid response from server.');
         return;
       }
 
@@ -112,7 +113,7 @@ export default function DuplicatesPage() {
       setSelectedCustomers(customerSelections);
     } catch (error) {
       console.error('Failed to load duplicates:', error);
-      alert('Failed to load duplicate customers. Please restart the backend server and try again.');
+      toast.error('Failed to load duplicate customers. Please restart the backend server and try again.');
     } finally {
       setLoading(false);
     }

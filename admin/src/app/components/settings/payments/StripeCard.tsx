@@ -9,6 +9,7 @@ import {
   StripeProviderConfig,
   PaymentProviderMode,
 } from "./types";
+import { toast } from "sonner";
 
 interface StripeCardProps {
   data: StripeProviderConfig;
@@ -30,7 +31,6 @@ const StripeCard: React.FC<StripeCardProps> = ({ data, isSaving = false, onSave 
   const [accountId, setAccountId] = useState<string>(data.accountId ?? "");
   const [secretInput, setSecretInput] = useState<string>("");
   const [secretChanged, setSecretChanged] = useState<boolean>(false);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -65,7 +65,6 @@ const StripeCard: React.FC<StripeCardProps> = ({ data, isSaving = false, onSave 
   };
 
   const handleSave = async () => {
-    setStatusMessage(null);
     setErrorMessage(null);
 
     const payload: ProviderUpdatePayload = {
@@ -82,11 +81,13 @@ const StripeCard: React.FC<StripeCardProps> = ({ data, isSaving = false, onSave 
 
     try {
       await onSave(payload);
-      setStatusMessage("Stripe settings saved");
+      toast.success("Stripe settings saved");
       setSecretInput("");
       setSecretChanged(false);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to save Stripe settings");
+      const message = error instanceof Error ? error.message : "Failed to save Stripe settings";
+      setErrorMessage(message);
+      toast.error(message);
     }
   };
 
@@ -156,9 +157,6 @@ const StripeCard: React.FC<StripeCardProps> = ({ data, isSaving = false, onSave 
 
         <div className="flex items-center justify-between">
           <div className="space-y-1">
-            {statusMessage && (
-              <p className="text-sm text-success-600 dark:text-success-400">{statusMessage}</p>
-            )}
             {errorMessage && (
               <p className="text-sm text-error-600 dark:text-error-400">{errorMessage}</p>
             )}

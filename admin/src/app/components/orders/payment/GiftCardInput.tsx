@@ -3,6 +3,7 @@ import InputField from "@shared/ui/forms/input/InputField";
 import Label from "@shared/ui/forms/Label";
 import { useGiftCard } from "@shared/hooks/useGiftCard";
 import { centsToDollars, formatCurrency, parseUserCurrency } from "@shared/utils/currency";
+import { toast } from "sonner";
 
 type Props = {
   onGiftCardChange?: (amount: number, redemptionData?: any) => void; // ✅ Add redemption data
@@ -55,7 +56,7 @@ const GiftCardInput: React.FC<Props> = ({
     if (!isGiftCardValid || !giftCardAmount || giftCardAmount <= 0) return;
     
     if (giftCardAmount > giftCardBalance) {
-      alert(`Amount cannot exceed available balance of ${formatCurrency(giftCardBalance)}`);
+      toast.error(`Amount cannot exceed available balance of ${formatCurrency(giftCardBalance)}`);
       return;
     }
 
@@ -64,7 +65,7 @@ const GiftCardInput: React.FC<Props> = ({
     const remainingTotal = grandTotal - totalApplied;
     
     if (giftCardAmount > remainingTotal) {
-      alert(`Amount cannot exceed remaining order total of ${formatCurrency(remainingTotal)}`);
+      toast.error(`Amount cannot exceed remaining order total of ${formatCurrency(remainingTotal)}`);
       return;
     }
 

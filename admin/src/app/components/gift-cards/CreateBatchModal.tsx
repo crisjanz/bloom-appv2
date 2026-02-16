@@ -7,6 +7,7 @@ import FormFooter from "@shared/ui/components/ui/form/FormFooter";
 import FormError from "@shared/ui/components/ui/form/FormError";
 import { PlusIcon } from "@shared/assets/icons";
 import { useApiClient } from "@shared/hooks/useApiClient";
+import { toast } from "sonner";
 
 const typeOptions = [
   { value: "PHYSICAL", label: "Physical" },
@@ -26,13 +27,11 @@ export default function CreateBatchModal({ open, onClose, onSuccess }: Props) {
   const [printLabels, setPrintLabels] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [printMessage, setPrintMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
       setError(null);
-      setSuccessMessage(null);
       setPrintMessage(null);
       setQuantity("100");
       setCardType("PHYSICAL");
@@ -48,7 +47,6 @@ export default function CreateBatchModal({ open, onClose, onSuccess }: Props) {
 
   const handleSubmit = async () => {
     setError(null);
-    setSuccessMessage(null);
     setPrintMessage(null);
 
     const parsedQuantity = Number.parseInt(quantity, 10);
@@ -70,7 +68,7 @@ export default function CreateBatchModal({ open, onClose, onSuccess }: Props) {
       }
 
       const createdCount = Array.isArray(data?.cards) ? data.cards.length : parsedQuantity;
-      setSuccessMessage(`Created ${createdCount} gift card${createdCount === 1 ? "" : "s"}.`);
+      toast.success(`Created ${createdCount} gift card${createdCount === 1 ? "" : "s"}`);
       const labelPrint = data?.labelPrint;
       if (labelPrint) {
         if (labelPrint.action === "browser-print" && labelPrint.pdfUrl) {
@@ -85,7 +83,9 @@ export default function CreateBatchModal({ open, onClose, onSuccess }: Props) {
       onSuccess(createdCount);
     } catch (err) {
       console.error("Error creating gift card batch:", err);
-      setError(err instanceof Error ? err.message : "Failed to create gift card batch");
+      const message = err instanceof Error ? err.message : "Failed to create gift card batch";
+      setError(message);
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -100,12 +100,6 @@ export default function CreateBatchModal({ open, onClose, onSuccess }: Props) {
             Generate a batch of inactive gift cards for future activation.
           </p>
         </div>
-
-        {successMessage && (
-          <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-            {successMessage}
-          </div>
-        )}
 
         {printMessage && (
           <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">

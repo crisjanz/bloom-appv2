@@ -7,6 +7,7 @@ import FormError from "@shared/ui/components/ui/form/FormError";
 import { useApiClient } from "@shared/hooks/useApiClient";
 import { formatOrderNumber } from "@shared/utils/formatOrderNumber";
 import { useOrderSettings } from "@app/contexts/OrderSettingsContext";
+import { toast } from "sonner";
 
 const DEFAULT_PREFIX = "B";
 const PREFIX_PATTERN = /^[A-Za-z0-9]{0,5}$/;
@@ -34,7 +35,6 @@ const GeneralSettingsCard = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [prefixEnabled, setPrefixEnabled] = useState(false);
   const [prefixValue, setPrefixValue] = useState(DEFAULT_PREFIX);
 
@@ -76,7 +76,6 @@ const GeneralSettingsCard = () => {
 
   const handleToggle = (enabled: boolean) => {
     setPrefixEnabled(enabled);
-    setStatusMessage(null);
 
     if (enabled && !normalizePrefix(prefixValue)) {
       setPrefixValue(DEFAULT_PREFIX);
@@ -85,7 +84,6 @@ const GeneralSettingsCard = () => {
 
   const handlePrefixChange = (value: string) => {
     setPrefixValue(sanitizePrefixInput(value));
-    setStatusMessage(null);
   };
 
   const handleSave = async () => {
@@ -99,7 +97,6 @@ const GeneralSettingsCard = () => {
 
     setSaving(true);
     setError(null);
-    setStatusMessage(null);
 
     try {
       const response = await apiClient.put("/api/settings/order-settings", {
@@ -111,10 +108,11 @@ const GeneralSettingsCard = () => {
       }
 
       setOrderNumberPrefix(orderNumberPrefix);
-      setStatusMessage("Order number prefix settings saved.");
+      toast.success("Order number prefix settings saved");
     } catch (saveError) {
       console.error("Failed to save order settings:", saveError);
       setError("Failed to save order number prefix settings.");
+      toast.error("Failed to save order number prefix settings");
     } finally {
       setSaving(false);
     }
@@ -154,12 +152,6 @@ const GeneralSettingsCard = () => {
         </div>
 
         <FormError error={error} />
-
-        {statusMessage && (
-          <div className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:border-emerald-700/60 dark:bg-emerald-900/20 dark:text-emerald-300">
-            {statusMessage}
-          </div>
-        )}
 
         <div className="flex justify-end">
           <LoadingButton

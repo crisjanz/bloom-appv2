@@ -2,6 +2,7 @@ import { ChangeEvent, useRef, useState } from "react";
 import { useApiClient } from "@shared/hooks/useApiClient";
 import ComponentCard from "@shared/ui/common/ComponentCard";
 import Button from "@shared/ui/components/ui/button/Button";
+import { toast } from "sonner";
 
 interface ImportResult {
   success: boolean;
@@ -31,6 +32,7 @@ const ImportJsonCard = () => {
 
     if (selectedFile && !selectedFile.name.toLowerCase().endsWith(".json")) {
       setError("Only JSON files are supported.");
+      toast.error("Only JSON files are supported");
       setFile(null);
       setResult(null);
       if (fileInputRef.current) {
@@ -54,6 +56,7 @@ const ImportJsonCard = () => {
   const handleImport = async () => {
     if (!file) {
       setError("Please select a JSON file.");
+      toast.error("Please select a JSON file");
       return;
     }
 
@@ -71,12 +74,17 @@ const ImportJsonCard = () => {
         const data = response.data as ImportResult;
         setResult(data);
         resetFileInput();
+        toast.success("Import complete");
       } else {
-        setError(response.data?.error || "Import failed. Please try again.");
+        const message = response.data?.error || "Import failed. Please try again.";
+        setError(message);
+        toast.error(message);
       }
     } catch (err: any) {
       console.error("Failed to import FloraNext data:", err);
-      setError(err?.message || "Import failed. Please try again.");
+      const message = err?.message || "Import failed. Please try again.";
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }

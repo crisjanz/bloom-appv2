@@ -3,6 +3,7 @@ import { SaveIcon } from '@shared/assets/icons';
 import Label from '@shared/ui/forms/Label';
 // MIGRATION: Use domain hook for image operations
 import { useOrderImages } from '@domains/orders/hooks/useOrderImages';
+import { toast } from 'sonner';
 
 interface ImagesEditModalProps {
   images: string[];
@@ -81,7 +82,7 @@ const ImagesEditModal: React.FC<ImagesEditModalProps> = ({
           console.log('Final images after upload:', finalImages);
         } else {
           console.error('Upload failed:', result);
-          alert('Failed to upload images: ' + (result.error || 'Unknown error'));
+          toast.error('Failed to upload images: ' + (result.error || 'Unknown error'));
           return;
         }
       }
@@ -91,10 +92,11 @@ const ImagesEditModal: React.FC<ImagesEditModalProps> = ({
       
       // Pass images directly to onSave
       onSave(finalImages);
+      toast.success('Images updated');
       
     } catch (error) {
       console.error('Error uploading images:', error);
-      alert('Failed to upload images: ' + (uploadError || 'Unknown error'));
+      toast.error('Failed to upload images: ' + (uploadError || 'Unknown error'));
     }
   };
 
@@ -102,6 +104,7 @@ const ImagesEditModal: React.FC<ImagesEditModalProps> = ({
   const handleSaveOnly = () => {
     onChange(currentImages);
     onSave(currentImages);
+    toast.success('Images updated');
   };
 
   return (

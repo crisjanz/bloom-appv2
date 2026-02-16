@@ -4,6 +4,7 @@ import InputField from "@shared/ui/forms/input/InputField";
 import Label from "@shared/ui/forms/Label";
 import Select from "@shared/ui/forms/Select";
 import Button from "@shared/ui/components/ui/button/Button";
+import { toast } from "sonner";
 
 
 type Shortcut = {
@@ -39,34 +40,45 @@ export default function AddressShortcutsCard() {
   }, []);
 
   const handleAdd = async () => {
-    if (!label || !type || !address1 || !city || !province || !postalCode) return;
+    if (!label || !type || !address1 || !city || !province || !postalCode) {
+      toast.error("Complete all required shortcut fields");
+      return;
+    }
 
-    const res = await fetch("/api/shortcuts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        label,
-        type,
-        address1,
-        address2,
-        city,
-        province,
-        postalCode,
-        phoneNumbers: phone ? [phone] : [],
-      }),
-    });
+    try {
+      const res = await fetch("/api/shortcuts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          label,
+          type,
+          address1,
+          address2,
+          city,
+          province,
+          postalCode,
+          phoneNumbers: phone ? [phone] : [],
+        }),
+      });
 
-    if (res.ok) {
-      const newShortcut = await res.json();
-      setShortcuts([...shortcuts, newShortcut]);
-      setLabel("");
-      setType("CHURCH");
-      setAddress1("");
-      setAddress2("");
-      setCity("");
-      setProvince("");
-      setPostalCode("");
-      setPhone("");
+      if (res.ok) {
+        const newShortcut = await res.json();
+        setShortcuts([...shortcuts, newShortcut]);
+        setLabel("");
+        setType("CHURCH");
+        setAddress1("");
+        setAddress2("");
+        setCity("");
+        setProvince("");
+        setPostalCode("");
+        setPhone("");
+        toast.success("Address shortcut added");
+      } else {
+        toast.error("Failed to add address shortcut");
+      }
+    } catch (error) {
+      console.error("Failed to add address shortcut:", error);
+      toast.error("Failed to add address shortcut");
     }
   };
 
@@ -74,9 +86,17 @@ export default function AddressShortcutsCard() {
     const confirmed = confirm("Delete this address shortcut?");
     if (!confirmed) return;
 
-    const res = await fetch(`/api/shortcuts/${id}`, { method: "DELETE" });
-    if (res.ok) {
-      setShortcuts(shortcuts.filter((s) => s.id !== id));
+    try {
+      const res = await fetch(`/api/shortcuts/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setShortcuts(shortcuts.filter((s) => s.id !== id));
+        toast.success("Address shortcut deleted");
+      } else {
+        toast.error("Failed to delete address shortcut");
+      }
+    } catch (error) {
+      console.error("Failed to delete address shortcut:", error);
+      toast.error("Failed to delete address shortcut");
     }
   };
 

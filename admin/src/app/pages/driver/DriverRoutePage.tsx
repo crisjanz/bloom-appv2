@@ -9,6 +9,7 @@ import { Modal } from '@shared/ui/components/ui/modal';
 import InputField from '@shared/ui/forms/input/InputField';
 import TextArea from '@shared/ui/forms/input/TextArea';
 import { formatOrderNumber } from '@shared/utils/formatOrderNumber';
+import { toast } from 'sonner';
 
 type Address = {
   address1?: string;
@@ -162,7 +163,7 @@ export default function DriverRoutePage() {
         await loadRoute();
       } catch (err) {
         console.error(err);
-        alert(err instanceof Error ? err.message : 'Failed to mark delivered');
+        toast.error(err instanceof Error ? err.message : 'Failed to mark delivered');
       }
     },
     [apiClient, driverNotes, recipientName, loadRoute]

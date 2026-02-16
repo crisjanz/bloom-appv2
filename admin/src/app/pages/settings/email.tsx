@@ -8,6 +8,7 @@ import Switch from "@shared/ui/forms/switch/Switch";
 import LoadingButton from "@shared/ui/components/ui/button/LoadingButton";
 import FormError from "@shared/ui/components/ui/form/FormError";
 import { useApiClient } from "@shared/hooks/useApiClient";
+import { toast } from "sonner";
 
 type EmailProvider = "sendgrid" | "smtp" | "disabled";
 
@@ -46,7 +47,6 @@ const EmailSettingsPage = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
   const loadSettings = useCallback(async () => {
     setIsLoading(true);
@@ -89,7 +89,6 @@ const EmailSettingsPage = () => {
 
     setIsSaving(true);
     setError(null);
-    setSuccess(null);
 
     const payload: Record<string, any> = {
       provider: settings.provider,
@@ -139,10 +138,11 @@ const EmailSettingsPage = () => {
       setTwilioAuthTokenValue(data.twilioAuthToken || "");
       setTwilioAuthTokenDirty(false);
       setTwilioPhoneNumberValue(data.twilioPhoneNumber || "");
-      setSuccess("Email & SMS settings saved successfully.");
+      toast.success("Email & SMS settings saved");
     } catch (err) {
       console.error("Error saving email settings:", err);
       setError(err instanceof Error ? err.message : "Failed to save email settings");
+      toast.error("Failed to save email settings");
     } finally {
       setIsSaving(false);
     }
@@ -163,12 +163,12 @@ const EmailSettingsPage = () => {
   const handleSendTest = useCallback(async () => {
     if (!testEmail.trim()) {
       setError("Enter a test email address.");
+      toast.error("Enter a test email address");
       return;
     }
 
     setIsTesting(true);
     setError(null);
-    setSuccess(null);
 
     try {
       const response = await apiClient.post("/api/email-settings/test", { email: testEmail.trim() });
@@ -179,10 +179,11 @@ const EmailSettingsPage = () => {
             : response.data?.error;
         throw new Error(errorMessage || "Failed to send test email");
       }
-      setSuccess("Test email sent successfully.");
+      toast.success("Test email sent");
     } catch (err) {
       console.error("Error sending test email:", err);
       setError(err instanceof Error ? err.message : "Failed to send test email");
+      toast.error("Failed to send test email");
     } finally {
       setIsTesting(false);
     }
@@ -215,12 +216,6 @@ const EmailSettingsPage = () => {
       </div>
 
       {error && <FormError error={error} />}
-
-      {success && (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 dark:border-green-800 dark:bg-green-900/20 dark:text-green-200">
-          {success}
-        </div>
-      )}
 
       {settings && !settings.encryptionConfigured && (
         <div className="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800 dark:border-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200">

@@ -7,6 +7,7 @@ import Button from "@shared/ui/components/ui/button/Button";
 import AddressAutocomplete from "@shared/ui/forms/AddressAutocomplete";
 import { TruckIcon, PlusIcon, TrashBinIcon, PencilIcon, SettingsIcon } from "@shared/assets/icons";
 import { centsToDollars, dollarsToCents } from "@shared/utils/currency";
+import { toast } from "sonner";
 
 interface DeliveryZone {
   id?: string;
@@ -142,12 +143,15 @@ const DeliveryChargesCard = () => {
 
       if (response.ok) {
         console.log('Delivery charges saved successfully');
+        toast.success('Delivery charges saved');
         await loadDeliveryCharges();
       } else {
         console.error('Failed to save delivery charges');
+        toast.error('Failed to save delivery charges');
       }
     } catch (error) {
       console.error('Error saving delivery charges:', error);
+      toast.error('Failed to save delivery charges');
     } finally {
       setIsSaving(false);
     }

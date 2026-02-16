@@ -17,6 +17,7 @@ import useHouseAccounts, { HouseAccountDetailResponse, HouseAccountLedgerEntry }
 import { formatOrderNumber } from '@shared/utils/formatOrderNumber';
 import ApplyPaymentModal from './components/ApplyPaymentModal';
 import AddAdjustmentModal from './components/AddAdjustmentModal';
+import { toast } from 'sonner';
 
 const termOptions = [
   { value: 'NET_15', label: 'NET 15' },
@@ -118,9 +119,11 @@ export default function HouseAccountDetailPage() {
         notes: notes.trim() ? notes : '',
       });
       await loadDetail();
+      toast.success('House account settings saved');
     } catch (err: any) {
       console.error('Failed to update house account settings:', err);
       setSettingsError(err?.message || 'Failed to update settings');
+      toast.error(err?.message || 'Failed to update settings');
     } finally {
       setSettingsSaving(false);
     }
@@ -139,9 +142,11 @@ export default function HouseAccountDetailPage() {
       }
       setIsHouseAccount(next);
       await loadDetail();
+      toast.success(next ? 'House account enabled' : 'House account disabled');
     } catch (err: any) {
       console.error('Failed to toggle house account:', err);
       setSettingsError(err?.message || 'Failed to update account status');
+      toast.error(err?.message || 'Failed to update account status');
     } finally {
       setToggleLoading(false);
     }
@@ -149,14 +154,26 @@ export default function HouseAccountDetailPage() {
 
   const handleApplyPayment = async (payload: { amount: number; reference?: string; notes?: string }) => {
     if (!customerId) return;
-    await applyPayment(customerId, payload);
-    await loadDetail();
+    try {
+      await applyPayment(customerId, payload);
+      await loadDetail();
+      toast.success('Payment applied');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to apply payment');
+      throw error;
+    }
   };
 
   const handleAddAdjustment = async (payload: { amount: number; description: string }) => {
     if (!customerId) return;
-    await addAdjustment(customerId, payload);
-    await loadDetail();
+    try {
+      await addAdjustment(customerId, payload);
+      await loadDetail();
+      toast.success('Adjustment added');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to add adjustment');
+      throw error;
+    }
   };
 
   const ledger = detail?.ledger || [];

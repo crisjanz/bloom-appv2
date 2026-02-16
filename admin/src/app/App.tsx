@@ -76,6 +76,7 @@ import MobileRedirect from "./components/MobileRedirect";
 import ExternalOrdersPage from "./pages/orders/ExternalOrdersPage";
 import DriverRoutePage from "./pages/driver/DriverRoutePage";
 import BirthdayGiftsPage from "./pages/marketing/BirthdayGiftsPage";
+import { Toaster } from "sonner";
 
 export default function App() {
   return (
@@ -192,6 +193,7 @@ export default function App() {
 
           {/* Fallback route */}
           </Routes>
+          <Toaster richColors position="top-right" />
         </Router>
       </GoogleMapsProvider>
     </OrderSettingsProvider>

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
 
 interface PhoneNoteFormProps {
   onSubmit: (data: {
@@ -32,7 +33,7 @@ export default function PhoneNoteForm({
 
   const handleSubmit = async () => {
     if (!notes.trim()) {
-      alert('Please enter notes about the call');
+      toast.error('Please enter notes about the call');
       return;
     }
 
@@ -43,6 +44,7 @@ export default function PhoneNoteForm({
         quickActions,
         notes
       });
+      toast.success('Call note saved');
 
       // Reset form
       setStatus('');
@@ -50,6 +52,7 @@ export default function PhoneNoteForm({
       setNotes('');
     } catch (error) {
       console.error('Failed to submit phone note:', error);
+      toast.error('Failed to save call note');
     } finally {
       setSubmitting(false);
     }

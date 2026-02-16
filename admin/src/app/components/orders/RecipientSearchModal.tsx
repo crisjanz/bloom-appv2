@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import InputField from "@shared/ui/forms/input/InputField";
+import { toast } from "sonner";
 
 type RecipientSearchModalProps = {
   open: boolean;
@@ -211,7 +212,7 @@ const RecipientSearchModal = ({
                 }
               } catch (error) {
                 console.error("Failed to load customer details:", error);
-                alert("Failed to load customer addresses. Please try again.");
+                toast.error("Failed to load customer addresses");
               } finally {
                 setIsLoadingAddresses(false);
               }
@@ -485,4 +486,3 @@ const RecipientSearchModal = ({
 };
 
 export default RecipientSearchModal;
-

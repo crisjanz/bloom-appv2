@@ -14,6 +14,7 @@ import {
 import { ParsedAddress } from "@shared/utils/googlePlaces";
 import PhoneInput from "@shared/ui/forms/PhoneInput";
 import { Address } from "@shared/types/customer";
+import { toast } from "sonner";
 
 interface AdditionalAddressesCardProps {
   addresses: Address[];
@@ -118,7 +119,7 @@ export default function AdditionalAddressesCard({
 
   const handleSubmit = () => {
     if (!newAddress.address1.trim() || !newAddress.city.trim()) {
-      alert("Please fill in required fields: Address and City");
+      toast.error("Please fill in required fields: Address and city");
       return;
     }
 

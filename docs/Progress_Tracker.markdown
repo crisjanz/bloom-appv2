@@ -1,11 +1,12 @@
 # Bloom Flower Shop – Progress Tracker
 
-**Last audited:** 2026-02-12
+**Last audited:** 2026-02-16
 Status markers: ✅ done · 🛠️ in progress · 🔜 planned · ⚠️ attention
 
 ## ✅ Production-Ready
 - ✅ **POS ↔ Take Order transfer** — multi-order draft creation, PT number generation, and real-time POS cart sync (`admin/src/app/components/pos/TakeOrderOverlay.tsx`, `back/src/routes/orders/create.ts`).
 - ✅ **Payment capture suite** — Cash, Stripe, Square, gift card, and offline tender flows organized under `PaymentController` (`admin/src/app/components/pos/payment/PaymentController.tsx`).
+- ✅ **Admin toast notifications standardization (2026-02-16)** — Added `sonner` with a global `<Toaster />` and migrated save/submit/delete feedback from alerts and status banners to `toast.success` / `toast.error` across settings, order/customer/product, fulfillment, inventory, gift-card, house-account, and import flows. (`admin/package.json`, `admin/src/app/App.tsx`, `admin/src/app/components/settings/**`, `admin/src/app/pages/settings/*.tsx`, `admin/src/app/pages/orders/OrderEditPage.tsx`, `admin/src/app/pages/customers/CustomerFormPage.tsx`, `admin/src/app/pages/FulfillmentPage.tsx`, `admin/src/app/components/products/cards/*.tsx`, `CLAUDE.md`).
 - ✅ **Configurable order number prefix (2026-02-16)** — Added `orderNumberPrefix` settings API, shared backend/admin `formatOrderNumber` utilities, global admin prefix context loaded at app start, settings UI toggle/input/preview, and prefix-aware order displays across admin pages plus print/email templates (while keeping legacy Floranext search unprefixed) (`back/src/routes/settings/order-settings.ts`, `back/src/utils/formatOrderNumber.ts`, `back/src/templates/*`, `admin/src/app/contexts/OrderSettingsContext.tsx`, `admin/src/shared/utils/formatOrderNumber.ts`, `admin/src/app/components/settings/orders/GeneralSettingsCard.tsx`, `admin/src/app/pages/**`, `admin/src/shared/ui/header/**`).
 - ✅ **Customer & recipient migration** — single-source customer records with shared addresses and recipient links (`back/prisma/schema.prisma:328-386`, `admin/src/app/components/orders/RecipientCard.tsx`).
 - ✅ **Gift card lifecycle** — batch generation, redemption, and digital handoff (`back/src/routes/gift-cards`, `admin/src/app/components/gift-cards/GiftCardSaleModal.tsx`).

@@ -2,6 +2,7 @@ import { ChangeEvent, useRef, useState } from "react";
 import { useApiClient } from "@shared/hooks/useApiClient";
 import ComponentCard from "@shared/ui/common/ComponentCard";
 import Button from "@shared/ui/components/ui/button/Button";
+import { toast } from "sonner";
 
 interface ImportResult {
   success: boolean;
@@ -34,6 +35,7 @@ const ImportCard = () => {
 
     if (selectedFile && !selectedFile.name.toLowerCase().endsWith(".csv")) {
       setError("Only CSV files are supported.");
+      toast.error("Only CSV files are supported");
       setFile(null);
       setResult(null);
       if (fileInputRef.current) {
@@ -57,6 +59,7 @@ const ImportCard = () => {
   const handleImport = async () => {
     if (!file) {
       setError("Please select a CSV file.");
+      toast.error("Please select a CSV file");
       return;
     }
 
@@ -79,6 +82,7 @@ const ImportCard = () => {
         const data = response.data as ImportResult;
         setResult(data);
         resetFileInput();
+        toast.success(`Imported ${data.created} recipients`);
 
         if (trimmedCustomerId) {
           setCustomerId(trimmedCustomerId);
@@ -88,11 +92,15 @@ const ImportCard = () => {
           setCustomerId("");
         }
       } else {
-        setError(response.data?.error || "Import failed. Please try again.");
+        const message = response.data?.error || "Import failed. Please try again.";
+        setError(message);
+        toast.error(message);
       }
     } catch (err: any) {
       console.error("Failed to import Floranext recipients:", err);
-      setError(err?.message || "Import failed. Please try again.");
+      const message = err?.message || "Import failed. Please try again.";
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }

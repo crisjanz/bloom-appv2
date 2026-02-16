@@ -8,6 +8,7 @@ import EmptyState from "@shared/ui/components/ui/empty-state/EmptyState";
 import PageBreadcrumb from "@shared/ui/common/PageBreadCrumb";
 import ComponentCard from "@shared/ui/common/ComponentCard";
 import { formatPhoneDisplay } from "@shared/ui/forms/PhoneInput";
+import { toast } from "sonner";
 
 // MIGRATION: Use domain hook for better customer management
 import { useCustomerSearch } from "@domains/customers/hooks/useCustomerService.ts";
@@ -132,18 +133,16 @@ export default function CustomersPage() {
       await refreshCustomers(page);
 
       // Show informative message about what happened
-      let message = `${customerName} has been successfully deleted.`;
+      toast.success(`${customerName} deleted`);
       if (data.ordersUnlinked > 0) {
-        message += `\n\n${data.ordersUnlinked} order(s) were unlinked (order data preserved).`;
+        toast.success(`${data.ordersUnlinked} order(s) were unlinked`);
       }
       if (data.addressesDeleted > 0) {
-        message += `\n${data.addressesDeleted} address(es) were deleted.`;
+        toast.success(`${data.addressesDeleted} address(es) were deleted`);
       }
-
-      alert(message);
     } catch (error) {
       console.error("Failed to delete customer:", error);
-      alert("Failed to delete customer. Please try again.");
+      toast.error("Failed to delete customer. Please try again.");
     } finally {
       setDeletingId(null);
     }

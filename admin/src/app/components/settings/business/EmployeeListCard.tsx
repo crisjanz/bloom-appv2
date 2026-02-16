@@ -9,6 +9,7 @@ import { Modal } from "@shared/ui/components/ui/modal";
 import { LockIcon, PencilIcon, SaveIcon, TrashBinIcon } from "@shared/assets/icons";
 import { useEmployees, type Employee } from "@shared/hooks/useEmployees";
 import SetPasswordModal from "./SetPasswordModal";
+import { toast } from "sonner";
 
 export default function EmployeeSettingsCard() {
   const {
@@ -68,13 +69,16 @@ export default function EmployeeSettingsCard() {
         phone: phone || null,
         type,
       });
+      toast.success("Employee added");
 
       setName("");
       setEmail("");
       setPhone("");
       setType("CASHIER");
     } catch (err: any) {
-      setFormError(err?.message ?? "Failed to create employee");
+      const message = err?.message ?? "Failed to create employee";
+      setFormError(message);
+      toast.error(message);
     } finally {
       setIsCreating(false);
     }
@@ -88,8 +92,11 @@ export default function EmployeeSettingsCard() {
 
     try {
       await deleteEmployee(id);
+      toast.success("Employee deleted");
     } catch (err: any) {
-      setActionError(err?.message ?? "Failed to delete employee");
+      const message = err?.message ?? "Failed to delete employee";
+      setActionError(message);
+      toast.error(message);
     }
   };
 
@@ -121,6 +128,7 @@ export default function EmployeeSettingsCard() {
         phone: editPhone || null,
         type: editType,
       });
+      toast.success("Employee updated");
 
       setEditEmployee(null);
       setEditName("");
@@ -128,7 +136,9 @@ export default function EmployeeSettingsCard() {
       setEditPhone("");
       setEditType("CASHIER");
     } catch (err: any) {
-      setEditError(err?.message ?? "Failed to update employee");
+      const message = err?.message ?? "Failed to update employee";
+      setEditError(message);
+      toast.error(message);
     } finally {
       setIsUpdating(false);
     }
@@ -143,8 +153,11 @@ export default function EmployeeSettingsCard() {
 
     try {
       await resetPassword(employee.id);
+      toast.success("Password reset");
     } catch (err: any) {
-      setActionError(err?.message ?? "Failed to reset password");
+      const message = err?.message ?? "Failed to reset password";
+      setActionError(message);
+      toast.error(message);
     } finally {
       setResettingId(null);
     }

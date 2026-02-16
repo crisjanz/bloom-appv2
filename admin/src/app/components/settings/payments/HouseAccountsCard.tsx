@@ -8,6 +8,7 @@ import {
   PaymentProviderKey,
   PaymentSettingsResponse,
 } from "./types";
+import { toast } from "sonner";
 
 interface GeneralPaymentsCardProps {
   settings: PaymentSettingsResponse;
@@ -25,7 +26,6 @@ const GeneralPaymentsCard: React.FC<GeneralPaymentsCardProps> = ({ settings, isS
   const [defaultProvider, setDefaultProvider] = useState<string>(settings.defaultCardProvider ?? "NONE");
   const [allowSplitPayments, setAllowSplitPayments] = useState<boolean>(settings.allowSplitPayments);
   const [allowOfflineNotes, setAllowOfflineNotes] = useState<boolean>(settings.allowOfflineNotes);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -60,7 +60,6 @@ const GeneralPaymentsCard: React.FC<GeneralPaymentsCardProps> = ({ settings, isS
   }, [settings, defaultProvider, allowSplitPayments, allowOfflineNotes]);
 
   const handleSave = async () => {
-    setStatusMessage(null);
     setErrorMessage(null);
 
     const payload: GeneralSettingsPayload = {
@@ -71,11 +70,11 @@ const GeneralPaymentsCard: React.FC<GeneralPaymentsCardProps> = ({ settings, isS
 
     try {
       await onSave(payload);
-      setStatusMessage("General payment settings saved");
+      toast.success("General payment settings saved");
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Failed to update general payment settings"
-      );
+      const message = error instanceof Error ? error.message : "Failed to update general payment settings";
+      setErrorMessage(message);
+      toast.error(message);
     }
   };
 
@@ -108,9 +107,6 @@ const GeneralPaymentsCard: React.FC<GeneralPaymentsCardProps> = ({ settings, isS
 
         <div className="flex items-center justify-between">
           <div className="space-y-1">
-            {statusMessage && (
-              <p className="text-sm text-success-600 dark:text-success-400">{statusMessage}</p>
-            )}
             {errorMessage && (
               <p className="text-sm text-error-600 dark:text-error-400">{errorMessage}</p>
             )}

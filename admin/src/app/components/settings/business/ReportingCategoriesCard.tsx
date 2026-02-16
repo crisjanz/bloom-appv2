@@ -4,6 +4,7 @@ import InputField from "@shared/ui/forms/input/InputField";
 import Label from "@shared/ui/forms/Label";
 import Button from "@shared/ui/components/ui/button/Button";
 import { TrashBinIcon } from "@shared/assets/icons";
+import { toast } from "sonner";
 
 interface ReportingCategory {
   id: string;
@@ -52,13 +53,14 @@ const ReportingCategoriesCard = () => {
       if (response.ok) {
         await loadCategories();
         setNewCategoryName("");
+        toast.success("Reporting category added");
       } else {
         const error = await response.json();
-        alert(error.error || 'Failed to add category');
+        toast.error(error.error || 'Failed to add category');
       }
     } catch (error) {
       console.error('Error adding category:', error);
-      alert('Failed to add category');
+      toast.error('Failed to add category');
     } finally {
       setIsSaving(false);
     }
@@ -74,13 +76,14 @@ const ReportingCategoriesCard = () => {
 
       if (response.ok) {
         await loadCategories();
+        toast.success("Reporting category deleted");
       } else {
         const error = await response.json();
-        alert(error.error || 'Failed to delete category');
+        toast.error(error.error || 'Failed to delete category');
       }
     } catch (error) {
       console.error('Error deleting category:', error);
-      alert('Failed to delete category');
+      toast.error('Failed to delete category');
     }
   };
 

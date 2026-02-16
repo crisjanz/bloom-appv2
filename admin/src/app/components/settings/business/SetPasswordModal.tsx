@@ -5,6 +5,7 @@ import FormError from "@shared/ui/components/ui/form/FormError";
 import FormFooter from "@shared/ui/components/ui/form/FormFooter";
 import { EyeCloseIcon, EyeIcon, LockIcon, SaveIcon } from "@shared/assets/icons";
 import type { Employee } from "@shared/hooks/useEmployees";
+import { toast } from "sonner";
 
 interface SetPasswordModalProps {
   isOpen: boolean;
@@ -88,9 +89,12 @@ const SetPasswordModal: React.FC<SetPasswordModalProps> = ({
 
     try {
       await onSave(employee.id, password);
+      toast.success("Password set");
       onClose();
     } catch (err: any) {
-      setServerError(err?.message ?? "Failed to set password");
+      const message = err?.message ?? "Failed to set password";
+      setServerError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }

@@ -3,6 +3,7 @@ import ComponentCard from "@shared/ui/common/ComponentCard";
 import Switch from "@shared/ui/forms/switch/Switch";
 import Button from "@shared/ui/components/ui/button/Button";
 import { BuiltInMethodsPayload, PaymentSettingsResponse } from "./types";
+import { toast } from "sonner";
 
 interface BuiltInMethodsCardProps {
   methods: PaymentSettingsResponse["builtInMethods"];
@@ -14,7 +15,6 @@ const BuiltInMethodsCard: React.FC<BuiltInMethodsCardProps> = ({ methods, isSavi
   const [codEnabled, setCodEnabled] = useState<boolean>(methods.cod);
   const [houseAccountEnabled, setHouseAccountEnabled] = useState<boolean>(methods.houseAccount);
   const [checkEnabled, setCheckEnabled] = useState<boolean>(methods.check);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -32,7 +32,6 @@ const BuiltInMethodsCard: React.FC<BuiltInMethodsCardProps> = ({ methods, isSavi
   }, [codEnabled, houseAccountEnabled, checkEnabled, methods]);
 
   const handleSave = async () => {
-    setStatusMessage(null);
     setErrorMessage(null);
 
     const payload: BuiltInMethodsPayload = {
@@ -43,11 +42,11 @@ const BuiltInMethodsCard: React.FC<BuiltInMethodsCardProps> = ({ methods, isSavi
 
     try {
       await onSave(payload);
-      setStatusMessage("Built-in payment methods updated");
+      toast.success("Built-in payment methods updated");
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Failed to update built-in payment methods"
-      );
+      const message = error instanceof Error ? error.message : "Failed to update built-in payment methods";
+      setErrorMessage(message);
+      toast.error(message);
     }
   };
 
@@ -78,9 +77,6 @@ const BuiltInMethodsCard: React.FC<BuiltInMethodsCardProps> = ({ methods, isSavi
 
         <div className="flex items-center justify-between">
           <div className="space-y-1">
-            {statusMessage && (
-              <p className="text-sm text-success-600 dark:text-success-400">{statusMessage}</p>
-            )}
             {errorMessage && (
               <p className="text-sm text-error-600 dark:text-error-400">{errorMessage}</p>
             )}

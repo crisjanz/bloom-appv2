@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import PhoneInput from '@shared/ui/forms/PhoneInput';
 import { ChatIcon } from '@shared/assets/icons';
 import Select from '@shared/ui/forms/Select';
+import { toast } from 'sonner';
 
 interface SmsComposerProps {
   onSend: (message: string, phoneNumber: string) => Promise<boolean>;
@@ -60,12 +61,12 @@ export default function SmsComposer({
 
   const handleSend = async () => {
     if (!phoneNumber.trim()) {
-      alert('Please enter a phone number');
+      toast.error('Please enter a phone number');
       return;
     }
 
     if (!message.trim()) {
-      alert('Please enter a message');
+      toast.error('Please enter a message');
       return;
     }
 
@@ -74,13 +75,13 @@ export default function SmsComposer({
       const success = await onSend(message, phoneNumber);
       if (success) {
         setMessage(''); // Clear message after sending
-        alert('SMS sent successfully!');
+        toast.success('SMS sent');
       } else {
-        alert('Failed to send SMS');
+        toast.error('Failed to send SMS');
       }
     } catch (error) {
       console.error('Failed to send SMS:', error);
-      alert('Failed to send SMS');
+      toast.error('Failed to send SMS');
     } finally {
       setSending(false);
     }

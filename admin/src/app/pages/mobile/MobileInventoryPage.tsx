@@ -6,6 +6,7 @@ import InputField from '@shared/ui/forms/input/InputField';
 import FormError from '@shared/ui/components/ui/form/FormError';
 import LoadingButton from '@shared/ui/components/ui/button/LoadingButton';
 import useInventory, { InventoryItem } from '@shared/hooks/useInventory';
+import { toast } from 'sonner';
 
 export default function MobileInventoryPage() {
   const navigate = useNavigate();
@@ -60,7 +61,9 @@ export default function MobileInventoryPage() {
       selectItem(item);
     } catch (err: any) {
       console.error('Failed to lookup scanned inventory item:', err);
-      setActionError(err?.message || 'Unable to find product for scanned code');
+      const message = err?.message || 'Unable to find product for scanned code';
+      setActionError(message);
+      toast.error(message);
     }
   };
 
@@ -91,6 +94,7 @@ export default function MobileInventoryPage() {
     } catch (error) {
       console.error('Failed to start camera scanner:', error);
       setScannerError('Camera access failed. Allow camera permissions and try again.');
+      toast.error('Camera access failed. Allow camera permissions and try again.');
       setScannerOpen(false);
       await stopScanner();
     }
@@ -120,12 +124,15 @@ export default function MobileInventoryPage() {
       const results = await search(query, 10);
       if (results.length === 0) {
         setActionError('No inventory items matched your search.');
+        toast.error('No inventory items matched your search');
         return;
       }
       setSearchResults(results);
     } catch (err: any) {
       console.error('Failed manual inventory search:', err);
-      setActionError(err?.message || 'Failed to search inventory');
+      const message = err?.message || 'Failed to search inventory';
+      setActionError(message);
+      toast.error(message);
     }
   };
 
@@ -141,6 +148,7 @@ export default function MobileInventoryPage() {
     const parsedStock = Number.parseInt(stockInput, 10);
     if (!Number.isFinite(parsedStock) || parsedStock < 0) {
       setActionError('Enter a valid stock level (0 or greater).');
+      toast.error('Enter a valid stock level (0 or greater)');
       return;
     }
 
@@ -150,9 +158,12 @@ export default function MobileInventoryPage() {
       const updated = await adjustStock(selectedItem.variantId, { stockLevel: parsedStock });
       setSelectedItem(updated);
       setStockInput(String(updated.stockLevel ?? 0));
+      toast.success('Stock updated');
     } catch (err: any) {
       console.error('Failed to save stock adjustment:', err);
-      setActionError(err?.message || 'Failed to save stock adjustment');
+      const message = err?.message || 'Failed to save stock adjustment';
+      setActionError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }

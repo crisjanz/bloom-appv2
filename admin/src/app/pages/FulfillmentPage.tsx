@@ -4,6 +4,7 @@ import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
 import useOrderNumberPrefix from '@shared/hooks/useOrderNumberPrefix';
 import { ChevronLeftIcon, PhotoIcon, LinkIcon, ArrowUpIcon, CheckCircleIcon, SaveIcon } from '@shared/assets/icons';
 import { formatOrderNumber } from '@shared/utils/formatOrderNumber';
+import { toast } from 'sonner';
 
 interface Order {
   id: string;
@@ -64,7 +65,6 @@ const FulfillmentPage: React.FC = () => {
   const [fulfillmentPreviewUrl, setFulfillmentPreviewUrl] = useState<string | null>(null);
   const [fulfillmentSaving, setFulfillmentSaving] = useState(false);
   const [fulfillmentError, setFulfillmentError] = useState<string | null>(null);
-  const [fulfillmentSuccess, setFulfillmentSuccess] = useState<string | null>(null);
   const [fulfillmentNotes, setFulfillmentNotes] = useState<string[]>([]);
 
   useEffect(() => {
@@ -111,7 +111,7 @@ const FulfillmentPage: React.FC = () => {
 
     } catch (error) {
       console.error('Error loading order:', error);
-      alert('Failed to load order');
+      toast.error('Failed to load order');
     } finally {
       setLoading(false);
     }
@@ -276,14 +276,14 @@ const FulfillmentPage: React.FC = () => {
 
       if (!response.ok) throw new Error('Failed to update status');
 
-      alert('Status updated successfully!');
+      toast.success('Status updated');
 
       // Reload order to get updated status
       await loadOrder(order.id);
 
     } catch (error) {
       console.error('Error updating status:', error);
-      alert('Failed to update status');
+      toast.error('Failed to update status');
     } finally {
       setUpdating(false);
     }
@@ -337,12 +337,12 @@ const FulfillmentPage: React.FC = () => {
           await saveImageToOrder(data.imageUrl);
         }
 
-        alert('Image saved!');
+        toast.success('Image saved');
       }
 
     } catch (error: any) {
       console.error('Error fetching image:', error);
-      alert(`Failed to fetch image: ${error.message}`);
+      toast.error(`Failed to fetch image: ${error.message}`);
     } finally {
       setFetchingImage(false);
     }
@@ -383,12 +383,12 @@ const FulfillmentPage: React.FC = () => {
           await saveImageToOrder(data.imageUrl);
         }
 
-        alert('Image uploaded successfully!');
+        toast.success('Image uploaded');
       }
 
     } catch (error: any) {
       console.error('Error uploading image:', error);
-      alert(`Failed to upload image: ${error.message}`);
+      toast.error(`Failed to upload image: ${error.message}`);
     } finally {
       setFetchingImage(false);
     }
@@ -396,7 +396,7 @@ const FulfillmentPage: React.FC = () => {
 
   const handleGoogleImageSearch = async () => {
     if (!imageSearchQuery.trim()) {
-      alert('Please enter a search query');
+      toast.error('Please enter a search query');
       return;
     }
 
@@ -417,7 +417,7 @@ const FulfillmentPage: React.FC = () => {
       setImageSearchResults(data.items || []);
     } catch (error: any) {
       console.error('Error searching images:', error);
-      alert(`Failed to search images: ${error.message}`);
+      toast.error(`Failed to search images: ${error.message}`);
     } finally {
       setSearchingImages(false);
     }
@@ -539,7 +539,6 @@ const FulfillmentPage: React.FC = () => {
 
     setFulfillmentSaving(true);
     setFulfillmentError(null);
-    setFulfillmentSuccess(null);
 
     try {
       const token = localStorage.getItem('token');
@@ -595,10 +594,11 @@ const FulfillmentPage: React.FC = () => {
 
       setFulfillmentNote('');
       setFulfillmentImageFile(null);
-      setFulfillmentSuccess('Fulfillment details saved.');
+      toast.success('Fulfillment details saved');
     } catch (error: any) {
       console.error('Error saving fulfillment details:', error);
       setFulfillmentError(error?.message || 'Failed to save fulfillment details');
+      toast.error(error?.message || 'Failed to save fulfillment details');
     } finally {
       setFulfillmentSaving(false);
     }
@@ -628,7 +628,7 @@ const FulfillmentPage: React.FC = () => {
 
   const handleSaveToLibrary = async () => {
     if (!saveForm.productCode || !productImage) {
-      alert('Product code and image are required');
+      toast.error('Product code and image are required');
       return;
     }
 
@@ -651,7 +651,7 @@ const FulfillmentPage: React.FC = () => {
 
       if (!response.ok) throw new Error('Failed to save to library');
 
-      alert('Saved to wire product library!');
+      toast.success('Saved to wire product library');
       setShowSaveModal(false);
       setSaveForm({ productCode: '', productName: '', description: '' });
 
@@ -661,7 +661,7 @@ const FulfillmentPage: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Error saving to library:', error);
-      alert(`Failed to save: ${error.message}`);
+      toast.error(`Failed to save: ${error.message}`);
     }
   };
 
@@ -925,11 +925,6 @@ const FulfillmentPage: React.FC = () => {
               {fulfillmentError}
             </div>
           )}
-          {fulfillmentSuccess && (
-            <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 dark:border-green-800 dark:bg-green-900/20 dark:text-green-200">
-              {fulfillmentSuccess}
-            </div>
-          )}
 
           <div className="space-y-4">
             {orderImages.length > 0 && (
@@ -1004,7 +999,6 @@ const FulfillmentPage: React.FC = () => {
                   const file = e.target.files?.[0] || null;
                   setFulfillmentImageFile(file);
                   setFulfillmentError(null);
-                  setFulfillmentSuccess(null);
                 }}
               />
               <button
@@ -1204,7 +1198,7 @@ const FulfillmentPage: React.FC = () => {
                       setShowImageSearchModal(false);
                       handleFetchImage(selectedImageUrl);
                     } else {
-                      alert('Please select an image or enter a URL');
+                      toast.error('Please select an image or enter a URL');
                     }
                   }}
                   className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"

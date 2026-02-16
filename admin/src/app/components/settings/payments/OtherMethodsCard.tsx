@@ -8,6 +8,7 @@ import {
   OfflineMethodInput,
   OfflinePaymentMethod,
 } from "./types";
+import { toast } from "sonner";
 
 interface OtherMethodsCardProps {
   methods: OfflinePaymentMethod[];
@@ -40,7 +41,6 @@ const OtherMethodsCard: React.FC<OtherMethodsCardProps> = ({
 }) => {
   const [form, setForm] = useState<OfflineMethodInput>(defaultFormState);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const sortedMethods = useMemo(
@@ -81,7 +81,6 @@ const OtherMethodsCard: React.FC<OtherMethodsCardProps> = ({
     }
 
     setErrorMessage(null);
-    setStatusMessage(null);
 
     const payload: OfflineMethodInput = {
       ...form,
@@ -99,16 +98,16 @@ const OtherMethodsCard: React.FC<OtherMethodsCardProps> = ({
     try {
       if (editingId) {
         await onUpdate(editingId, payload);
-        setStatusMessage("Offline payment method updated");
+        toast.success("Offline payment method updated");
       } else {
         await onCreate(payload);
-        setStatusMessage("Offline payment method added");
+        toast.success("Offline payment method added");
       }
       resetForm();
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Failed to save offline payment method"
-      );
+      const message = error instanceof Error ? error.message : "Failed to save offline payment method";
+      setErrorMessage(message);
+      toast.error(message);
     }
   };
 
@@ -123,18 +122,17 @@ const OtherMethodsCard: React.FC<OtherMethodsCardProps> = ({
     }
 
     setErrorMessage(null);
-    setStatusMessage(null);
 
     try {
       await onDelete(id);
       if (editingId === id) {
         resetForm();
       }
-      setStatusMessage("Offline payment method removed");
+      toast.success("Offline payment method removed");
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Failed to delete offline payment method"
-      );
+      const message = error instanceof Error ? error.message : "Failed to delete offline payment method";
+      setErrorMessage(message);
+      toast.error(message);
     }
   };
 
@@ -151,11 +149,11 @@ const OtherMethodsCard: React.FC<OtherMethodsCardProps> = ({
 
     try {
       await onReorder(newOrder.map((method) => method.id));
-      setStatusMessage("Offline payment methods reordered");
+      toast.success("Offline payment methods reordered");
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Failed to reorder offline payment methods"
-      );
+      const message = error instanceof Error ? error.message : "Failed to reorder offline payment methods";
+      setErrorMessage(message);
+      toast.error(message);
     }
   };
 
@@ -329,9 +327,6 @@ const OtherMethodsCard: React.FC<OtherMethodsCardProps> = ({
 
           <div className="mt-6 flex items-center justify-between">
             <div className="space-y-1">
-              {statusMessage && (
-                <p className="text-sm text-success-600 dark:text-success-400">{statusMessage}</p>
-              )}
               {errorMessage && (
                 <p className="text-sm text-error-600 dark:text-error-400">{errorMessage}</p>
               )}

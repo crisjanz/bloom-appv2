@@ -5,6 +5,7 @@ import InputField from '@shared/ui/forms/input/InputField';
 import FormError from '@shared/ui/components/ui/form/FormError';
 import FormFooter from '@shared/ui/components/ui/form/FormFooter';
 import type { InventoryItem } from '@shared/hooks/useInventory';
+import { toast } from 'sonner';
 
 type QuickAdjustModalProps = {
   isOpen: boolean;
@@ -37,6 +38,7 @@ export default function QuickAdjustModal({ isOpen, item, onClose, onSave }: Quic
     const parsed = Number.parseInt(stockInput, 10);
     if (!Number.isFinite(parsed) || parsed < 0) {
       setError('Enter a valid stock quantity (0 or greater).');
+      toast.error('Enter a valid stock quantity (0 or greater)');
       return;
     }
 
@@ -44,10 +46,13 @@ export default function QuickAdjustModal({ isOpen, item, onClose, onSave }: Quic
       setSubmitting(true);
       setError(null);
       await onSave(item.variantId, parsed);
+      toast.success('Stock updated');
       onClose();
     } catch (err: any) {
       console.error('Failed to save stock adjustment:', err);
-      setError(err?.message || 'Failed to save stock adjustment');
+      const message = err?.message || 'Failed to save stock adjustment';
+      setError(message);
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }

@@ -6,6 +6,7 @@ import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
 import { Modal } from '@shared/ui/components/ui/modal';
 import { useApiClient } from '@shared/hooks/useApiClient';
 import { useCustomerSearch, useCustomerService } from '@domains/customers/hooks/useCustomerService.ts';
+import { toast } from 'sonner';
 
 type Props = {
   open: boolean;
@@ -326,7 +327,7 @@ export default function CreateDiscountModal({ open, onClose, onSuccess, editingD
         periodWindowType === 'CALENDAR' && formData.periodType ? formData.periodType : null;
 
       if (periodLimitValue && !periodWindowDaysValue && !periodTypeValue) {
-        alert('Select a period window when setting a usage limit per period.');
+        toast.error('Select a period window when setting a usage limit per period.');
         return;
       }
 
@@ -366,14 +367,15 @@ export default function CreateDiscountModal({ open, onClose, onSuccess, editingD
         : await apiClient.post(url, discountData);
 
       if (response.status >= 200 && response.status < 300) {
+        toast.success(editingDiscount ? 'Discount updated' : 'Discount created');
         onSuccess();
       } else {
         const error = response.data || {};
-        alert(`Failed to create discount: ${error.error || error.message || 'Unknown error'}`);
+        toast.error(`Failed to create discount: ${error.error || error.message || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Failed to create discount:', error);
-      alert('Failed to create discount');
+      toast.error('Failed to create discount');
     } finally {
       setLoading(false);
     }
@@ -387,15 +389,16 @@ export default function CreateDiscountModal({ open, onClose, onSuccess, editingD
       const response = await apiClient.delete(`/api/discounts/${editingDiscount.id}`);
 
       if (response.status >= 200 && response.status < 300) {
+        toast.success('Discount deleted');
         onDelete(editingDiscount.id);
         onClose();
       } else {
         const error = response.data || {};
-        alert(`Failed to delete discount: ${error.error || error.message || 'Unknown error'}`);
+        toast.error(`Failed to delete discount: ${error.error || error.message || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Failed to delete discount:', error);
-      alert('Failed to delete discount');
+      toast.error('Failed to delete discount');
     } finally {
       setLoading(false);
       setShowDeleteConfirm(false);

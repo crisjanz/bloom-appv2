@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import ComponentCardCollapsible from "@shared/ui/common/ComponentCardCollapsible";
 import Button from "@shared/ui/components/ui/button/Button";
 import { TimeIcon, CalenderIcon, TruckIcon, SettingsIcon, CloseIcon, CheckLineIcon } from "@shared/assets/icons";
+import { toast } from "sonner";
 
 interface BusinessHours {
   [key: string]: {
@@ -106,12 +107,15 @@ const DeliveryPickupTimesCard = () => {
 
       if (response.ok) {
         console.log('Delivery exceptions saved successfully');
+        toast.success('Delivery exceptions saved');
         await loadData();
       } else {
         console.error('Failed to save delivery exceptions');
+        toast.error('Failed to save delivery exceptions');
       }
     } catch (error) {
       console.error('Error saving delivery exceptions:', error);
+      toast.error('Failed to save delivery exceptions');
     } finally {
       setIsSaving(false);
     }

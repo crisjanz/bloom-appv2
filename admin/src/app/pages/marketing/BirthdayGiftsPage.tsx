@@ -8,6 +8,7 @@ import StandardTable, { ColumnDef } from '@shared/ui/components/ui/table/Standar
 import { useApiClient } from '@shared/hooks/useApiClient';
 import { CopyIcon, DownloadIcon, LinkIcon } from '@shared/assets/icons';
 import QRCode from 'qrcode/lib/browser';
+import { toast } from 'sonner';
 
 const DEFAULT_DISCOUNT_TYPE = 'FIXED_AMOUNT';
 const DEFAULT_DISCOUNT_VALUE = 10;
@@ -122,8 +123,11 @@ export default function BirthdayGiftsPage() {
       await handleGenerateQR(buildGiftLink(data.code || codeToUse));
       setCurrentPage(1);
       fetchList();
+      toast.success('Gift QR created');
     } catch (err: any) {
-      setError(err?.message || 'Failed to create coupon');
+      const message = err?.message || 'Failed to create coupon';
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -132,6 +136,7 @@ export default function BirthdayGiftsPage() {
   const handleCopy = async (text?: string | null) => {
     if (!text) return;
     await navigator.clipboard.writeText(text);
+    toast.success('Copied');
   };
 
   const handleDownloadQR = () => {

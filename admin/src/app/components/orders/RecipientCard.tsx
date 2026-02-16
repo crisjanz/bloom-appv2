@@ -11,6 +11,7 @@ import RecipientUpdateModal from "./RecipientUpdateModal";
 import RecipientSearchModal from "./RecipientSearchModal";
 import RecipientPhoneMatchModal from "./RecipientPhoneMatchModal";
 import WireoutDetectionModal from "./WireoutDetectionModal";
+import { toast } from "sonner";
 
 type Props = {
   orderType: string;
@@ -634,7 +635,7 @@ export default function RecipientCard({
   // NEW: Handle "Use Customer's Name" button click
   const handleUseCustomerName = async () => {
     if (!customerId) {
-      alert("Please select a customer first");
+      toast.error("Please select a customer first");
       return;
     }
 
@@ -649,13 +650,13 @@ export default function RecipientCard({
       applyRecipientCustomer(customer, { trackSelection: false });
     } catch (error) {
       console.error("Error loading customer:", error);
-      alert("Failed to load customer information");
+      toast.error("Failed to load customer information");
     }
   };
 
   const handleSaveRecipient = async () => {
     if (!customerId) {
-      alert("Please select a customer first");
+      toast.error("Please select a customer first");
       return;
     }
 
@@ -679,7 +680,7 @@ export default function RecipientCard({
           throw new Error(errorData.error || "Failed to save recipient link");
         }
 
-        alert("Recipient saved successfully!");
+        toast.success("Recipient saved");
         if (onRecipientSaved) onRecipientSaved();
       } else {
         // Create new customer as recipient
@@ -742,12 +743,12 @@ export default function RecipientCard({
           throw new Error("Failed to save recipient link");
         }
 
-        alert("New recipient created and saved successfully!");
+        toast.success("New recipient created and saved");
         if (onRecipientSaved) onRecipientSaved();
       }
     } catch (error: any) {
       console.error("Error saving recipient:", error);
-      alert(`Error: ${error.message}`);
+      toast.error(error.message || "Failed to save recipient");
     } finally {
       setIsSaving(false);
     }
@@ -792,7 +793,7 @@ export default function RecipientCard({
       const savedAddress = await response.json();
 
       const actionText = action === "update" ? "updated" : "saved";
-      alert(`Recipient ${actionText} successfully!`);
+      toast.success(`Recipient ${actionText}`);
 
       // Update tracking data if we updated existing recipient
       if (action === "update") {
@@ -821,7 +822,7 @@ export default function RecipientCard({
           lastName: recipientLastName,
         },
       });
-      alert(`Error: ${error.message}\\n\\nCheck console for details`);
+      toast.error(error.message || "Failed to save recipient");
     } finally {
       setIsSaving(false);
     }

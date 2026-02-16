@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { PhotoIcon, PencilIcon, TrashIcon, ArrowUpIcon } from '@shared/assets/icons';
+import { toast } from 'sonner';
 
 interface WireProduct {
   id: string;
@@ -49,7 +50,7 @@ export default function WireProductsPage() {
       setProducts(data.products || []);
     } catch (error) {
       console.error('Error loading wire products:', error);
-      alert('Failed to load wire products');
+      toast.error('Failed to load wire products');
     } finally {
       setLoading(false);
     }
@@ -75,12 +76,12 @@ export default function WireProductsPage() {
 
       if (!response.ok) throw new Error('Failed to upload image');
 
-      const data = await response.json();
-      alert('Image uploaded successfully!');
+      await response.json();
+      toast.success('Image uploaded');
       await loadProducts();
     } catch (error: any) {
       console.error('Error uploading image:', error);
-      alert(`Failed to upload image: ${error.message}`);
+      toast.error(`Failed to upload image: ${error.message}`);
     } finally {
       setUploadingImage(null);
     }
@@ -109,12 +110,12 @@ export default function WireProductsPage() {
 
       if (!response.ok) throw new Error('Failed to update product');
 
-      alert('Product updated successfully!');
+      toast.success('Product updated');
       setEditingProduct(null);
       await loadProducts();
     } catch (error: any) {
       console.error('Error updating product:', error);
-      alert(`Failed to update product: ${error.message}`);
+      toast.error(`Failed to update product: ${error.message}`);
     }
   };
 

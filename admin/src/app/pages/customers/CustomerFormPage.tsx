@@ -15,6 +15,7 @@ import AddRecipientModal, {
 import ViewRecipientModal from "@app/components/customers/modals/ViewRecipientModal";
 import { Customer, Address } from "@shared/types/customer";
 import ComponentCard from "@shared/ui/common/ComponentCard";
+import { toast } from "sonner";
 
 interface Recipient {
   id: string;
@@ -217,12 +218,15 @@ export default function CustomerFormPage() {
         );
         setAddresses(additionalAddresses);
         await loadRecipients(0);
+        toast.success("Customer saved");
       } else {
+        toast.success("Customer created");
         navigate(`/customers/${result.id}`);
       }
     } catch (err) {
       console.error(err);
       setError(isEditMode ? "Failed to save customer." : "Failed to create customer.");
+      toast.error(isEditMode ? "Failed to save customer" : "Failed to create customer");
     } finally {
       setSaving(false);
     }
@@ -250,38 +254,44 @@ export default function CustomerFormPage() {
       : `/api/customers/${customerId}/addresses`;
     const method = isUpdate ? "PUT" : "POST";
 
-    const response = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    try {
+      const response = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-    if (!response.ok) {
-      throw new Error(isUpdate ? "Failed to update address." : "Failed to add address.");
-    }
-
-    const savedAddress: Address = await response.json();
-
-    setError("");
-    toggleSection("addresses", true);
-
-    setAddresses((prev) => {
-      const existingIndex = prev.findIndex((addr) => addr.id === savedAddress.id);
-      if (existingIndex >= 0) {
-        const next = [...prev];
-        next[existingIndex] = savedAddress;
-        return next;
+      if (!response.ok) {
+        throw new Error(isUpdate ? "Failed to update address." : "Failed to add address.");
       }
-      return [...prev, savedAddress];
-    });
 
-    setCustomer((prev) => ({
-      ...prev,
-      primaryAddress:
-        prev.primaryAddress && prev.primaryAddress.id === savedAddress.id
-          ? savedAddress
-          : prev.primaryAddress ?? (!isUpdate ? savedAddress : prev.primaryAddress),
-    }));
+      const savedAddress: Address = await response.json();
+
+      setError("");
+      toggleSection("addresses", true);
+
+      setAddresses((prev) => {
+        const existingIndex = prev.findIndex((addr) => addr.id === savedAddress.id);
+        if (existingIndex >= 0) {
+          const next = [...prev];
+          next[existingIndex] = savedAddress;
+          return next;
+        }
+        return [...prev, savedAddress];
+      });
+
+      setCustomer((prev) => ({
+        ...prev,
+        primaryAddress:
+          prev.primaryAddress && prev.primaryAddress.id === savedAddress.id
+            ? savedAddress
+            : prev.primaryAddress ?? (!isUpdate ? savedAddress : prev.primaryAddress),
+      }));
+      toast.success(isUpdate ? "Address updated" : "Address added");
+    } catch (error) {
+      toast.error(isUpdate ? "Failed to update address" : "Failed to add address");
+      throw error;
+    }
   };
 
   const handleDeleteAddress = async (addressId: string) => {
@@ -306,9 +316,11 @@ export default function CustomerFormPage() {
         ...prev,
         primaryAddress: prev.primaryAddress && prev.primaryAddress.id === addressId ? undefined : prev.primaryAddress,
       }));
+      toast.success("Address deleted");
     } catch (err) {
       console.error(err);
       setError("Failed to delete address.");
+      toast.error("Failed to delete address");
     }
   };
 
@@ -349,9 +361,11 @@ export default function CustomerFormPage() {
         primaryAddress: updatedCustomer.primaryAddress,
       }));
       setError("");
+      toast.success("Primary address updated");
     } catch (err) {
       console.error(err);
       setError("Failed to set primary address.");
+      toast.error("Failed to set primary address");
     }
   };
 
@@ -368,18 +382,24 @@ export default function CustomerFormPage() {
       throw new Error("Save the customer before adding recipients.");
     }
 
-    const response = await fetch(`/api/customers/${customerId}/save-recipient`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ recipientCustomerId }),
-    });
+    try {
+      const response = await fetch(`/api/customers/${customerId}/save-recipient`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipientCustomerId }),
+      });
 
-    if (!response.ok) {
-      throw new Error("Failed to add recipient.");
+      if (!response.ok) {
+        throw new Error("Failed to add recipient.");
+      }
+
+      await loadRecipients(0);
+      toggleSection("recipients", true);
+      toast.success("Recipient added");
+    } catch (error) {
+      toast.error("Failed to add recipient");
+      throw error;
     }
-
-    await loadRecipients(0);
-    toggleSection("recipients", true);
   };
 
   const handleCreateRecipient = async (details: RecipientFormValues) => {
@@ -387,18 +407,24 @@ export default function CustomerFormPage() {
       throw new Error("Save the customer before adding recipients.");
     }
 
-    const response = await fetch(`/api/customers/${customerId}/recipients`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(details),
-    });
+    try {
+      const response = await fetch(`/api/customers/${customerId}/recipients`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(details),
+      });
 
-    if (!response.ok) {
-      throw new Error("Failed to create recipient.");
+      if (!response.ok) {
+        throw new Error("Failed to create recipient.");
+      }
+
+      await loadRecipients(0);
+      toggleSection("recipients", true);
+      toast.success("Recipient created");
+    } catch (error) {
+      toast.error("Failed to create recipient");
+      throw error;
     }
-
-    await loadRecipients(0);
-    toggleSection("recipients", true);
   };
 
   const handleDeleteRecipient = async (recipientId: string) => {
@@ -420,9 +446,11 @@ export default function CustomerFormPage() {
       await loadRecipients(recipientPage);
 
       setSelectedRecipient((prev) => (prev && prev.id === recipientId ? null : prev));
+      toast.success("Recipient removed");
     } catch (err) {
       console.error(err);
       setError("Failed to remove recipient.");
+      toast.error("Failed to remove recipient");
     }
   };
 

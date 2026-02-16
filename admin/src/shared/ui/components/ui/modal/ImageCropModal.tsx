@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import Cropper from 'react-easy-crop';
 import type { Area, Point } from 'react-easy-crop';
+import { toast } from 'sonner';
 
 interface ImageCropModalProps {
   image: string;
@@ -84,7 +85,7 @@ const ImageCropModal = ({ image, onCropComplete, onCancel }: ImageCropModalProps
       onCropComplete(croppedBlob);
     } catch (error) {
       console.error('Error cropping image:', error);
-      alert('Failed to crop image');
+      toast.error('Failed to crop image');
     }
   };
 

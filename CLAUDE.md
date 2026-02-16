@@ -8,6 +8,7 @@
 - **Git workflow**: ALWAYS ask before `git push`. User may have additional changes pending.
 - **No apologies or preambles** unless something actually went wrong.
 - **Background**: 15+ years cabinetry, self-taught developer, owns flower shop (In Your Vase Flowers). Prefers learning by doing.
+- **"Create a plan"**: When asked to create a plan, write a feature plan file to `/docs/FEATURE_PLANS/` using the template at `/docs/FEATURE_PLANS/_TEMPLATE.md`. Do NOT implement it — Codex handles implementation. Only implement if explicitly asked.
 
 ---
 
@@ -146,6 +147,15 @@
 
 **Error Display:**
 - `FormError` from `@shared/ui/components/ui/form/FormError` - Standardized error messages
+
+**Success Feedback (Toast Notifications):**
+- `import { toast } from 'sonner'` - **Use for ALL save/submit success feedback**
+- **EVERY save/submit handler MUST show a toast on success**: `toast.success('Customer saved')`
+- **EVERY save/submit handler MUST show a toast on error**: `toast.error('Failed to save customer')`
+- Keep messages short and specific (e.g., "Settings saved", "Order updated", "Address deleted")
+- NEVER use `alert()` for success/error feedback
+- NEVER leave save handlers without user-visible success confirmation
+- `<Toaster />` is already mounted in `App.tsx` - do not add it again
 
 **Modal Components:**
 - `Modal` from `@shared/ui/components/ui/modal` - **Use for ALL modals**

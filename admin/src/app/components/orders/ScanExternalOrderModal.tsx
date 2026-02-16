@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { Modal } from '@shared/ui/components/ui/modal';
 import LoadingButton from '@shared/ui/components/ui/button/LoadingButton';
 import Select from '@shared/ui/forms/Select';
+import { toast } from 'sonner';
 
 interface ParsedOrderData {
   orderNumber: string;
@@ -67,6 +68,7 @@ export default function ScanExternalOrderModal({
   const handleProviderSelect = () => {
     if (!provider) {
       setError('Please select a provider');
+      toast.error('Please select a provider');
       return;
     }
     setError('');
@@ -105,7 +107,9 @@ export default function ScanExternalOrderModal({
       }
     } catch (err) {
       console.error('Scan error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to scan order');
+      const message = err instanceof Error ? err.message : 'Failed to scan order';
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -139,9 +143,9 @@ export default function ScanExternalOrderModal({
       if (!response.ok) {
         // Special handling for duplicate orders
         if (response.status === 409 && result.existingOrderId) {
-          setError(
-            `${result.error || 'Order already exists'}. You can view it in the External Orders list.`
-          );
+          const message = `${result.error || 'Order already exists'}. You can view it in the External Orders list.`;
+          setError(message);
+          toast.error(message);
         } else {
           throw new Error(result.error || 'Failed to create order');
         }
@@ -149,6 +153,7 @@ export default function ScanExternalOrderModal({
       }
 
       if (result.success) {
+        toast.success('External order created');
         onOrderCreated?.();
         handleClose();
       } else {
@@ -156,7 +161,9 @@ export default function ScanExternalOrderModal({
       }
     } catch (err) {
       console.error('Create order error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to create order');
+      const message = err instanceof Error ? err.message : 'Failed to create order';
+      setError(message);
+      toast.error(message);
     } finally {
       setCreating(false);
     }

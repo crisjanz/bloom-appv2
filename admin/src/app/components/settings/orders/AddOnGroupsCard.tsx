@@ -7,6 +7,7 @@ import useAddOnGroups, {
 } from "@shared/hooks/useAddOnGroups";
 import { useApiClient } from "@shared/hooks/useApiClient";
 import AddOnGroupForm from "./AddOnGroupForm";
+import { toast } from "sonner";
 
 const ensureSuccess = (status: number, data: any, fallbackMessage: string) => {
   if (status >= 400) {
@@ -53,7 +54,6 @@ const AddOnGroupsCard = () => {
   const [editingGroup, setEditingGroup] = useState<AddOnGroup | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   const sortedGroups = useMemo(
     () => [...groups].sort((a, b) => a.name.localeCompare(b.name)),
@@ -88,13 +88,12 @@ const AddOnGroupsCard = () => {
       return;
     }
 
-    setStatusMessage(null);
     try {
       await deleteGroup(group.id);
-      setStatusMessage(`Deleted add-on group "${group.name}".`);
+      toast.success(`Deleted add-on group "${group.name}"`);
     } catch (err: any) {
       console.error("Failed to delete add-on group:", err);
-      setStatusMessage(err?.message ?? "Failed to delete add-on group.");
+      toast.error(err?.message ?? "Failed to delete add-on group");
     }
   };
 
@@ -153,12 +152,11 @@ const AddOnGroupsCard = () => {
   const handleSubmit = async (values: CreateAddOnGroupPayload) => {
     setSubmitting(true);
     setFormError(null);
-    setStatusMessage(null);
 
     try {
       if (!editingGroup) {
         await createGroup(values);
-        setStatusMessage(`Created add-on group "${values.name}".`);
+        toast.success(`Created add-on group "${values.name}"`);
       } else {
         const currentProductIds = new Set(
           editingGroup.products?.map((assignment) => assignment.productId) ?? [],
@@ -193,13 +191,14 @@ const AddOnGroupsCard = () => {
           addonsToRemove,
         );
         await refresh();
-        setStatusMessage(`Updated add-on group "${values.name}".`);
+        toast.success(`Updated add-on group "${values.name}"`);
       }
 
       resetModalState();
     } catch (err: any) {
       console.error("Failed to save add-on group:", err);
       setFormError(err?.message ?? "Failed to save add-on group.");
+      toast.error(err?.message ?? "Failed to save add-on group");
     } finally {
       setSubmitting(false);
     }
@@ -219,12 +218,6 @@ const AddOnGroupsCard = () => {
           </Button>
         }
       >
-        {statusMessage && (
-          <div className="rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm text-primary dark:border-primary/40 dark:bg-primary/20 dark:text-primary-100">
-            {statusMessage}
-          </div>
-        )}
-
         {error && (
           <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/70 dark:bg-red-900/20 dark:text-red-200">
             {error}

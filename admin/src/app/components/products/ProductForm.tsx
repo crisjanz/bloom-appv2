@@ -10,6 +10,7 @@ import MultiSelect from '@shared/ui/forms/MultiSelect';
 import { useApiClient } from '@shared/hooks/useApiClient';
 import { Modal } from '@shared/ui/components/ui/modal';
 import { centsToDollars, dollarsToCents } from '@shared/utils/currency';
+import { toast } from 'sonner';
 
 const generateUUID = () => {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -628,7 +629,7 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
       await onSubmit(data);
     } catch (error: any) {
       console.error('Error saving product:', error);
-      alert(`Failed to save product: ${error.message}`);
+      toast.error(`Failed to save product: ${error.message}`);
     } finally {
       setIsSaving(false);
     }

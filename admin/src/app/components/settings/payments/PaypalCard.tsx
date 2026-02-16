@@ -8,6 +8,7 @@ import {
   PaypalProviderConfig,
   ProviderUpdatePayload,
 } from "./types";
+import { toast } from "sonner";
 
 interface PaypalCardProps {
   data: PaypalProviderConfig;
@@ -26,7 +27,6 @@ const PaypalCard: React.FC<PaypalCardProps> = ({ data, isSaving = false, onSave 
   const [clientId, setClientId] = useState<string>(data.clientId ?? "");
   const [secretInput, setSecretInput] = useState<string>("");
   const [secretChanged, setSecretChanged] = useState<boolean>(false);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -57,7 +57,6 @@ const PaypalCard: React.FC<PaypalCardProps> = ({ data, isSaving = false, onSave 
   };
 
   const handleSave = async () => {
-    setStatusMessage(null);
     setErrorMessage(null);
 
     const payload: ProviderUpdatePayload = {
@@ -72,11 +71,13 @@ const PaypalCard: React.FC<PaypalCardProps> = ({ data, isSaving = false, onSave 
 
     try {
       await onSave(payload);
-      setStatusMessage("PayPal settings saved");
+      toast.success("PayPal settings saved");
       setSecretInput("");
       setSecretChanged(false);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to save PayPal settings");
+      const message = error instanceof Error ? error.message : "Failed to save PayPal settings";
+      setErrorMessage(message);
+      toast.error(message);
     }
   };
 
@@ -128,9 +129,6 @@ const PaypalCard: React.FC<PaypalCardProps> = ({ data, isSaving = false, onSave 
 
         <div className="flex items-center justify-between">
           <div className="space-y-1">
-            {statusMessage && (
-              <p className="text-sm text-success-600 dark:text-success-400">{statusMessage}</p>
-            )}
             {errorMessage && (
               <p className="text-sm text-error-600 dark:text-error-400">{errorMessage}</p>
             )}

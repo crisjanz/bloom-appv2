@@ -4,6 +4,7 @@ import InputField from "@shared/ui/forms/input/InputField";
 import Label from "@shared/ui/forms/Label";
 import Select from "@shared/ui/forms/Select";
 import Button from "@shared/ui/components/ui/button/Button";
+import { toast } from "sonner";
 
 interface AnnouncementBannerData {
   message: string;
@@ -59,13 +60,13 @@ const AnnouncementBannerCard = () => {
       });
 
       if (response.ok) {
-        alert('Announcement banner saved successfully');
+        toast.success('Announcement banner saved');
       } else {
-        alert('Failed to save announcement banner');
+        toast.error('Failed to save announcement banner');
       }
     } catch (error) {
       console.error('Failed to save announcement banner:', error);
-      alert('Failed to save announcement banner');
+      toast.error('Failed to save announcement banner');
     } finally {
       setIsSaving(false);
     }

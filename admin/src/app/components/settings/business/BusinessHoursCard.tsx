@@ -4,6 +4,7 @@ import InputField from "@shared/ui/forms/input/InputField";
 import Label from "@shared/ui/forms/Label";
 import Button from "@shared/ui/components/ui/button/Button";
 import Select from "@shared/ui/forms/Select";
+import { toast } from "sonner";
 
 interface BusinessHours {
   id?: string;
@@ -143,12 +144,15 @@ const timezones = [
 
       if (response.ok) {
         console.log('Business hours saved successfully');
+        toast.success('Business hours saved');
         await loadBusinessHours();
       } else {
         console.error('Failed to save business hours');
+        toast.error('Failed to save business hours');
       }
     } catch (error) {
       console.error('Error saving business hours:', error);
+      toast.error('Failed to save business hours');
     } finally {
       setIsSaving(false);
     }

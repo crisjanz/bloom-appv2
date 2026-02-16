@@ -10,6 +10,7 @@ import { Order } from '@app/components/orders/types';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
 import { useApiClient } from '@shared/hooks/useApiClient';
 import { useCommunicationsSocket, CommunicationsSocketEvent } from '@shared/hooks/useCommunicationsSocket';
+import { toast } from 'sonner';
 
 const splitRecipientName = (name?: string | null) => {
   if (!name) {
@@ -303,9 +304,10 @@ const OrderEditPage: React.FC = () => {
     try {
       await updateOrderStatus(status);
       // Order is automatically refreshed by the domain hook
+      toast.success('Order status updated');
     } catch (error) {
       console.error('Error updating status:', error);
-      alert('Failed to update status');
+      toast.error('Failed to update status');
     }
   };
 
@@ -328,6 +330,7 @@ const OrderEditPage: React.FC = () => {
         // (Common for old imported wire orders)
         if (confirm('This order has no payment transaction record. Cancel order without processing a refund?')) {
           await updateOrderStatus(OrderStatus.CANCELLED);
+          toast.success('Order cancelled');
         }
         return;
       }
@@ -340,6 +343,7 @@ const OrderEditPage: React.FC = () => {
       // If we can't fetch transactions, offer to cancel without refund
       if (confirm('Unable to load payment information. This may be an old imported order. Cancel order without processing a refund?')) {
         await updateOrderStatus(OrderStatus.CANCELLED);
+        toast.success('Order cancelled');
       }
     }
   };
@@ -353,9 +357,10 @@ const OrderEditPage: React.FC = () => {
       await updateOrderDirect({ status: 'CANCELLED', skipRefund: true });
       setRefundModalOpen(false);
       setRefundTransactionNumber(null);
+      toast.success('Order cancelled');
     } catch (error) {
       console.error('Error cancelling order:', error);
-      alert('Failed to cancel order');
+      toast.error('Failed to cancel order');
     }
   };
 
@@ -556,17 +561,18 @@ const OrderEditPage: React.FC = () => {
           });
           setShowPaymentAdjustment(true);
         }
-        
+
         closeModal();
         // Order is automatically refreshed by the domain hook
         console.log('Order updated successfully');
+        toast.success('Order updated');
       } else {
         console.error('Update failed - result was null');
-        alert('Failed to update order');
+        toast.error('Failed to update order');
       }
     } catch (error) {
       console.error('Error updating order:', error);
-      alert('Failed to update order');
+      toast.error('Failed to update order');
     }
   };
 
@@ -627,7 +633,7 @@ const OrderEditPage: React.FC = () => {
       setPaymentAdjustmentData(null);
     } catch (error) {
       console.error('Error recording payment adjustment:', error);
-      alert('Payment processed but failed to record. Please add manual note.');
+      toast.error('Payment processed but failed to record. Please add manual note.');
       setShowPaymentAdjustment(false);
       setPaymentAdjustmentData(null);
     }
@@ -640,7 +646,7 @@ const OrderEditPage: React.FC = () => {
         await updateOrderDirect(paymentAdjustmentData.revertData);
       } catch (error) {
         console.error('Failed to revert order:', error);
-        alert('Failed to revert order changes');
+        toast.error('Failed to revert order changes');
       }
     }
     setShowPaymentAdjustment(false);

@@ -4,6 +4,7 @@ import ProductForm from "@app/components/products/ProductForm";
 import PageMeta from "@shared/ui/common/PageMeta";
 import PageBreadcrumb from "@shared/ui/common/PageBreadCrumb";
 import { getProductById } from "@shared/legacy-services/productService";
+import { toast } from "sonner";
 
 const EditProductPage = () => {
   const { id } = useParams();
@@ -17,7 +18,7 @@ const EditProductPage = () => {
 
     getProductById(id)
       .then(setProduct)
-      .catch(() => alert("Failed to load product"))
+      .catch(() => toast.error("Failed to load product"))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -42,10 +43,11 @@ const EditProductPage = () => {
         throw new Error(errorData.error || `HTTP error ${response.status}`);
       }
 
+      toast.success("Product saved");
       navigate("/products");
     } catch (error) {
       console.error('Error saving product:', error);
-      alert(`Failed to save product: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      toast.error(`Failed to save product: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 

@@ -4,6 +4,7 @@ import ComponentCard from "@shared/ui/common/ComponentCard";
 import { Modal } from "@shared/ui/components/ui/modal";
 import { centsToDollars, dollarsToCents, formatCurrency, parseUserCurrency } from "@shared/utils/currency";
 import { generateSkuCode } from "@shared/utils/skuGenerator";
+import { toast } from "sonner";
 
 // Simple UUID generator for browser compatibility
 const generateUUID = () => {
@@ -197,11 +198,11 @@ const PricingCard: FC<Props> = ({
 
   const saveOptionGroup = () => {
     if (!groupName.trim()) {
-      alert("Group name is required");
+      toast.error("Group name is required");
       return;
     }
     if (groupValues.length === 0) {
-      alert("At least one value is required");
+      toast.error("At least one value is required");
       return;
     }
     const newGroup: OptionGroup = {
@@ -217,6 +218,7 @@ const PricingCard: FC<Props> = ({
     // Regenerate variants when option is added/edited
     generateVariants(updatedGroups);
     closeOptionsModal();
+    toast.success(editingGroup ? "Customization option updated" : "Customization option added");
   };
 
   const deleteOptionGroup = (groupId: string) => {
@@ -227,6 +229,7 @@ const PricingCard: FC<Props> = ({
     onOptionGroupsChange(updatedGroups);
     // Regenerate variants after deletion
     generateVariants(updatedGroups);
+    toast.success("Customization option deleted");
   };
 
   // Variants Modal

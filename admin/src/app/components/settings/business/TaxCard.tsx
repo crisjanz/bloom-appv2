@@ -5,6 +5,7 @@ import Label from "@shared/ui/forms/Label";
 import Select from "@shared/ui/forms/Select";
 import Button from "@shared/ui/components/ui/button/Button";
 import { TrashBinIcon, PencilIcon } from "@shared/assets/icons";
+import { toast } from "sonner";
 
 interface TaxRate {
   id?: string;
@@ -90,11 +91,14 @@ const TaxCard = () => {
       if (response.ok) {
         await loadTaxRates();
         resetForm();
+        toast.success(editingTax ? 'Tax rate updated' : 'Tax rate added');
       } else {
         console.error('Failed to save tax rate');
+        toast.error('Failed to save tax rate');
       }
     } catch (error) {
       console.error('Error saving tax rate:', error);
+      toast.error('Failed to save tax rate');
     } finally {
       setIsSaving(false);
     }
@@ -117,9 +121,13 @@ const TaxCard = () => {
 
       if (response.ok) {
         await loadTaxRates();
+        toast.success('Tax rate deleted');
+      } else {
+        toast.error('Failed to delete tax rate');
       }
     } catch (error) {
       console.error('Error deleting tax rate:', error);
+      toast.error('Failed to delete tax rate');
     }
   };
 
