@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import PropTypes from "prop-types";
-import { Elements, CardElement } from "@stripe/react-stripe-js";
+import { Elements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
 import Breadcrumb from "../components/Breadcrumb.jsx";
 import AmountSelector from "../components/GiftCard/AmountSelector.jsx";
@@ -27,6 +27,22 @@ const stripePromise = fetch(`${API_BASE}/stripe/public-key`)
 const MIN_AMOUNT = 25;
 const MAX_AMOUNT = 300;
 const MESSAGE_MAX_LENGTH = 250;
+const STRIPE_APPEARANCE = {
+  theme: "stripe",
+  variables: {
+    colorPrimary: "#3c50e0",
+    borderRadius: "8px",
+    colorText: "#111827",
+    colorDanger: "#dc2626",
+  },
+};
+
+const generateIdempotencyKey = () => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `gift-card-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+};
 
 const GiftCardContent = () => {
   const { customer } = useAuth();
@@ -51,6 +67,7 @@ const GiftCardContent = () => {
   const [submitError, setSubmitError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successDetails, setSuccessDetails] = useState(null);
+  const giftCardIdempotencyKeyRef = useRef(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -112,6 +129,7 @@ const GiftCardContent = () => {
     })
       .then(() => {
         sessionStorage.removeItem("pendingGiftCard");
+        giftCardIdempotencyKeyRef.current = null;
         setSuccessDetails({
           amount: pendingAmount,
           recipient: pendingRecipient,
@@ -158,6 +176,25 @@ const GiftCardContent = () => {
       currency: "CAD",
     }).format(amount);
   }, [amount]);
+  const amountInCents = useMemo(() => {
+    if (!amount || Number.isNaN(amount)) return 0;
+    return Math.round(amount * 100);
+  }, [amount]);
+  const giftCardIntentFingerprint = useMemo(
+    () =>
+      JSON.stringify({
+        amountInCents,
+        recipientName: recipient.name.trim().toLowerCase(),
+        recipientEmail: recipient.email.trim().toLowerCase(),
+        purchaserName: purchaser.name.trim().toLowerCase(),
+        purchaserEmail: purchaser.email.trim().toLowerCase(),
+      }),
+    [amountInCents, purchaser.email, purchaser.name, recipient.email, recipient.name],
+  );
+
+  useEffect(() => {
+    giftCardIdempotencyKeyRef.current = null;
+  }, [giftCardIntentFingerprint]);
 
   const resetErrors = () =>
     setErrors({
@@ -306,12 +343,6 @@ const GiftCardContent = () => {
     resetErrors();
     setSubmitError("");
 
-    const cardElement = elements.getElement(CardElement);
-    if (!cardElement) {
-      setSubmitError("Add your card details to continue.");
-      return;
-    }
-
     const trimmedRecipient = {
       name: recipient.name.trim(),
       email: recipient.email.trim(),
@@ -324,6 +355,13 @@ const GiftCardContent = () => {
 
     try {
       setIsSubmitting(true);
+      const { error: submitPaymentElementError } = await elements.submit();
+      if (submitPaymentElementError) {
+        throw new Error(submitPaymentElementError.message || "Add your card details to continue.");
+      }
+
+      const idempotencyKey = giftCardIdempotencyKeyRef.current || generateIdempotencyKey();
+      giftCardIdempotencyKeyRef.current = idempotencyKey;
 
       const paymentIntent = await createDigitalGiftCardPaymentIntent({
         amount,
@@ -331,6 +369,7 @@ const GiftCardContent = () => {
         recipient: trimmedRecipient,
         bloomCustomerId: customer?.id || null,
         storeName,
+        idempotencyKey,
       });
 
       // Save pending order in case of 3D Secure redirect
@@ -342,15 +381,13 @@ const GiftCardContent = () => {
         paymentIntentId: paymentIntent.paymentIntentId,
       }));
 
-      const confirmation = await stripe.confirmCardPayment(paymentIntent.clientSecret, {
-        payment_method: {
-          card: cardElement,
-          billing_details: {
-            name: trimmedPurchaser.name,
-            email: trimmedPurchaser.email,
-          },
+      const confirmation = await stripe.confirmPayment({
+        elements,
+        clientSecret: paymentIntent.clientSecret,
+        confirmParams: {
+          return_url: `${window.location.origin}/gift-card?payment_status=pending`,
         },
-        return_url: window.location.href,
+        redirect: "if_required",
       });
 
       // Clear pending order on success (no redirect happened)
@@ -358,6 +395,9 @@ const GiftCardContent = () => {
 
       if (confirmation.error) {
         throw new Error(confirmation.error.message || "Payment was not completed.");
+      }
+      if (!confirmation.paymentIntent || confirmation.paymentIntent.status !== "succeeded") {
+        throw new Error("Payment was not completed.");
       }
 
       await purchaseDigitalGiftCard({
@@ -368,8 +408,7 @@ const GiftCardContent = () => {
         bloomCustomerId: customer?.id || null,
         paymentIntentId: paymentIntent.paymentIntentId,
       });
-
-      cardElement.clear();
+      giftCardIdempotencyKeyRef.current = null;
       setSuccessDetails({
         amount,
         recipient: trimmedRecipient,
@@ -580,13 +619,24 @@ const GiftCardContent = () => {
               </div>
 
               {/* Payment Form */}
-              <PaymentSection
-                amount={Number.isFinite(amount) ? amount : 0}
-                disabled={isSubmitting}
-                loading={isSubmitting}
-                error={submitError}
-                onSubmit={handleSubmit}
-              />
+              <Elements
+                key={`gift-card-elements-${Math.max(amountInCents, 50)}`}
+                stripe={stripePromise}
+                options={{
+                  mode: "payment",
+                  amount: Math.max(amountInCents, 50),
+                  currency: "cad",
+                  appearance: STRIPE_APPEARANCE,
+                }}
+              >
+                <PaymentSection
+                  amount={Number.isFinite(amount) ? amount : 0}
+                  disabled={isSubmitting}
+                  loading={isSubmitting}
+                  error={submitError}
+                  onSubmit={handleSubmit}
+                />
+              </Elements>
 
               <div className="flex justify-between">
                 <button
@@ -665,11 +715,7 @@ SuccessModal.propTypes = {
 };
 
 const GiftCard = () => {
-  return (
-    <Elements stripe={stripePromise} options={{ appearance: { theme: "stripe" } }}>
-      <GiftCardContent />
-    </Elements>
-  );
+  return <GiftCardContent />;
 };
 
 export default GiftCard;

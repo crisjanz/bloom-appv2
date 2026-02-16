@@ -25,6 +25,7 @@ export async function createCheckoutPaymentIntent({
   amountInCents,
   customer,
   bloomCustomerId,
+  idempotencyKey,
 }) {
   const payload = {
     amount: amountInCents,
@@ -37,6 +38,7 @@ export async function createCheckoutPaymentIntent({
     metadata: {
       purchaseType: "web-order",
     },
+    idempotencyKey,
   };
 
   return api.post("/stripe/payment-intent", payload);

@@ -1,21 +1,9 @@
 import PropTypes from "prop-types";
-import { CardElement, useElements, useStripe } from "@stripe/react-stripe-js";
+import { PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import { useMemo } from "react";
 
-const CARD_ELEMENT_OPTIONS = {
-  style: {
-    base: {
-      color: "#1f2937",
-      fontFamily: '"Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-      fontSize: "16px",
-      "::placeholder": {
-        color: "#94a3b8",
-      },
-    },
-    invalid: {
-      color: "#dc2626",
-    },
-  },
+const PAYMENT_ELEMENT_OPTIONS = {
+  layout: "tabs",
 };
 
 const PaymentSection = ({ amount, disabled = false, loading = false, error, onSubmit }) => {
@@ -48,7 +36,7 @@ const PaymentSection = ({ amount, disabled = false, loading = false, error, onSu
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-        <CardElement options={CARD_ELEMENT_OPTIONS} />
+        <PaymentElement options={PAYMENT_ELEMENT_OPTIONS} />
       </div>
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}

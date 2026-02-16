@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { CardElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { PaymentElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
 import Breadcrumb from "../components/Breadcrumb.jsx";
 import { useCart } from "../contexts/CartContext.jsx";
 import {
@@ -23,6 +23,7 @@ import {
   initialRecipient,
   initialCustomer,
   initialPayment,
+  STRIPE_APPEARANCE,
 } from "../components/Checkout/shared/constants";
 import {
   smoothScrollTo,
@@ -41,6 +42,13 @@ import SuccessCard from "../components/Checkout/shared/SuccessCard";
 import { DesktopRecipientForm } from "../components/Checkout/RecipientStep";
 import { DesktopCustomerForm } from "../components/Checkout/CustomerStep";
 import { DesktopPaymentForm } from "../components/Checkout/PaymentStep";
+
+const generateIdempotencyKey = () => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `checkout-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+};
 
 const CheckoutContent = () => {
   const stripe = useStripe();
@@ -95,6 +103,7 @@ const CheckoutContent = () => {
   const [savedCards, setSavedCards] = useState([]);
   const [savedCardsLoading, setSavedCardsLoading] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("new"); // "new" or payment method ID
+  const checkoutIdempotencyKeyRef = useRef(null);
 
   const resetSavedRecipientState = useCallback(() => {
     setSavedRecipients([]);
@@ -252,6 +261,7 @@ const CheckoutContent = () => {
     })
       .then((draftOrder) => {
         sessionStorage.removeItem("pendingCheckout");
+        checkoutIdempotencyKeyRef.current = null;
         setOrderResult({
           drafts: draftOrder.drafts,
           buyer: pendingData.buyer,
@@ -327,6 +337,27 @@ const CheckoutContent = () => {
   const estimatedTax = Number((discountedSubtotal * TAX_RATE).toFixed(2));
   const estimatedTotal = discountedSubtotal + deliveryFee + estimatedTax;
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
+  const checkoutIntentFingerprint = useMemo(
+    () =>
+      JSON.stringify({
+        items: cart.map((item) => ({
+          id: item.id,
+          variantId: item.variantId || null,
+          quantity: item.quantity,
+          price: item.price,
+        })),
+        deliveryDate: deliveryDate || null,
+        deliveryFee,
+        discountAmount,
+        estimatedTax,
+        estimatedTotal,
+      }),
+    [cart, deliveryDate, deliveryFee, discountAmount, estimatedTax, estimatedTotal],
+  );
+
+  useEffect(() => {
+    checkoutIdempotencyKeyRef.current = null;
+  }, [checkoutIntentFingerprint]);
 
   const savedRecipientOptions = useMemo(
     () => buildSavedRecipientOptions(savedRecipients),
@@ -582,8 +613,8 @@ const CheckoutContent = () => {
     }
 
     const usingSavedCard = selectedPaymentMethod !== "new";
-    const cardElement = elements.getElement(CardElement);
-    if (!usingSavedCard && !cardElement) {
+    const paymentElement = usingSavedCard ? null : elements.getElement(PaymentElement);
+    if (!usingSavedCard && !paymentElement) {
       setActiveStep(3);
       setSubmitError("Add your card details to continue.");
       return;
@@ -594,6 +625,14 @@ const CheckoutContent = () => {
     setIsSubmitting(true);
 
     try {
+      if (!usingSavedCard) {
+        const { error: submitPaymentElementError } = await elements.submit();
+        if (submitPaymentElementError) {
+          setCardError(submitPaymentElementError.message || "Add your card details to continue.");
+          throw new Error(submitPaymentElementError.message || "Payment details are incomplete.");
+        }
+      }
+
       const birthdayPayload = birthday.optIn
         ? {
             birthdayOptIn: true,
@@ -702,11 +741,14 @@ const CheckoutContent = () => {
       if (!Number.isFinite(amountInCents) || amountInCents <= 0) {
         throw new Error("Invalid order total. Please refresh and try again.");
       }
+      const idempotencyKey = checkoutIdempotencyKeyRef.current || generateIdempotencyKey();
+      checkoutIdempotencyKeyRef.current = idempotencyKey;
 
       const paymentIntent = await createCheckoutPaymentIntent({
         amountInCents,
         customer: buyerPayload,
         bloomCustomerId: buyerId,
+        idempotencyKey,
       });
 
       // Build order data before payment (for 3D Secure redirect recovery)
@@ -753,22 +795,24 @@ const CheckoutContent = () => {
         },
       }));
 
-      // Use saved card or new card element
-      const paymentMethodPayload = usingSavedCard
-        ? selectedPaymentMethod
-        : {
-            card: cardElement,
-            billing_details: {
-              name: [buyerPayload.firstName, buyerPayload.lastName].filter(Boolean).join(" ") || undefined,
-              email: buyerPayload.email || undefined,
-              phone: buyerPayload.phone || undefined,
+      const returnUrl = `${window.location.origin}/checkout?payment_status=pending`;
+      const confirmation = usingSavedCard
+        ? await stripe.confirmPayment({
+            clientSecret: paymentIntent.clientSecret,
+            confirmParams: {
+              payment_method: selectedPaymentMethod,
+              return_url: returnUrl,
             },
-          };
-
-      const confirmation = await stripe.confirmCardPayment(paymentIntent.clientSecret, {
-        payment_method: paymentMethodPayload,
-        return_url: window.location.href,
-      });
+            redirect: "if_required",
+          })
+        : await stripe.confirmPayment({
+            elements,
+            clientSecret: paymentIntent.clientSecret,
+            confirmParams: {
+              return_url: returnUrl,
+            },
+            redirect: "if_required",
+          });
 
       // Clear pending checkout on success (no redirect happened)
       sessionStorage.removeItem("pendingCheckout");
@@ -798,8 +842,7 @@ const CheckoutContent = () => {
         paymentStatus: confirmation.paymentIntent?.status || null,
         ...birthdayPayload,
       });
-
-      cardElement.clear();
+      checkoutIdempotencyKeyRef.current = null;
 
       setOrderResult({
         drafts: draftOrder.drafts,
@@ -1144,10 +1187,35 @@ const CheckoutContent = () => {
   );
 };
 
-const Checkout = () => (
-  <Elements stripe={stripePromise} options={{ appearance: { theme: "stripe" } }}>
-    <CheckoutContent />
-  </Elements>
-);
+const CheckoutElements = () => {
+  const { cart, getDiscountAmount, hasFreeShipping } = useCart();
+  const subtotal = useMemo(
+    () => cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
+    [cart],
+  );
+  const discountAmount = getDiscountAmount();
+  const deliveryFee = hasFreeShipping() ? 0 : cart.length ? DELIVERY_FEE : 0;
+  const discountedSubtotal = Math.max(subtotal - discountAmount, 0);
+  const estimatedTax = Number((discountedSubtotal * TAX_RATE).toFixed(2));
+  const estimatedTotal = discountedSubtotal + deliveryFee + estimatedTax;
+  const amountInCents = Math.max(Math.round(estimatedTotal * 100), 50);
+
+  return (
+    <Elements
+      key={`checkout-elements-${amountInCents}`}
+      stripe={stripePromise}
+      options={{
+        mode: "payment",
+        amount: amountInCents,
+        currency: "cad",
+        appearance: STRIPE_APPEARANCE,
+      }}
+    >
+      <CheckoutContent />
+    </Elements>
+  );
+};
+
+const Checkout = () => <CheckoutElements />;
 
 export default Checkout;

@@ -1,8 +1,8 @@
 import PropTypes from "prop-types";
 import { Link } from "react-router-dom";
-import { CardElement } from "@stripe/react-stripe-js";
+import { PaymentElement } from "@stripe/react-stripe-js";
 import { MobileTextArea, MobileSectionHeader } from "../shared/MobileInputs";
-import { CARD_ELEMENT_OPTIONS } from "../shared/constants";
+import { PAYMENT_ELEMENT_OPTIONS } from "../shared/constants";
 
 const MobilePaymentForm = ({
   data,
@@ -133,7 +133,7 @@ const MobilePaymentForm = ({
       {/* New Card Input */}
       {selectedPaymentMethod === "new" && (
         <div className="rounded-md border border-stroke bg-white px-4 py-3 dark:border-dark-3 dark:bg-dark">
-          <CardElement options={CARD_ELEMENT_OPTIONS} onChange={onCardChange} />
+          <PaymentElement options={PAYMENT_ELEMENT_OPTIONS} onChange={onCardChange} />
         </div>
       )}
       {cardError && <p className="text-red-500 text-xs">{cardError}</p>}
@@ -201,7 +201,7 @@ const MobilePaymentForm = ({
           onChange={onChange}
           className="mt-1 h-4 w-4 rounded border border-stroke text-primary focus:ring-primary"
         />
-        I agree to Blom's{" "}
+        I agree to Bloom&apos;s{" "}
         <Link to="/terms" className="text-primary underline">
           Terms &amp; Conditions
         </Link>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import PropTypes from "prop-types";
-import { CardElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
+import { PaymentElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
 import api from "../../services/api.js";
 
@@ -9,21 +9,18 @@ const stripePromise = api
   .then((data) => (data?.publicKey ? loadStripe(data.publicKey) : null))
   .catch(() => null);
 
-const CARD_ELEMENT_OPTIONS = {
-  style: {
-    base: {
-      color: "#111827",
-      fontFamily:
-        '"Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-      fontSize: "16px",
-      "::placeholder": {
-        color: "#94a3b8",
-      },
-    },
-    invalid: {
-      color: "#dc2626",
-    },
+const STRIPE_APPEARANCE = {
+  theme: "stripe",
+  variables: {
+    colorPrimary: "#3c50e0",
+    borderRadius: "8px",
+    colorText: "#111827",
+    colorDanger: "#dc2626",
   },
+};
+
+const PAYMENT_ELEMENT_OPTIONS = {
+  layout: "tabs",
 };
 
 const AddCardForm = ({ clientSecret, onCancel, onSuccess }) => {
@@ -42,8 +39,8 @@ const AddCardForm = ({ clientSecret, onCancel, onSuccess }) => {
       return;
     }
 
-    const cardElement = elements.getElement(CardElement);
-    if (!cardElement) {
+    const paymentElement = elements.getElement(PaymentElement);
+    if (!paymentElement) {
       setFormError("Payment form is not ready yet.");
       return;
     }
@@ -52,8 +49,12 @@ const AddCardForm = ({ clientSecret, onCancel, onSuccess }) => {
     setFormError("");
 
     try {
-      const result = await stripe.confirmCardSetup(clientSecret, {
-        payment_method: { card: cardElement },
+      const result = await stripe.confirmSetup({
+        elements,
+        confirmParams: {
+          return_url: `${window.location.origin}/profile`,
+        },
+        redirect: "if_required",
       });
 
       if (result.error) {
@@ -77,7 +78,7 @@ const AddCardForm = ({ clientSecret, onCancel, onSuccess }) => {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="rounded-lg border border-stroke bg-white px-4 py-3 dark:border-dark-3 dark:bg-dark-2">
-        <CardElement options={CARD_ELEMENT_OPTIONS} />
+        <PaymentElement options={PAYMENT_ELEMENT_OPTIONS} />
       </div>
       {formError && <p className="text-red-500 text-sm">{formError}</p>}
       <div className="flex flex-wrap gap-3">
@@ -283,11 +284,14 @@ const PaymentMethodsTab = ({ customer }) => {
             )}
             {!setupLoading && !setupClientSecret && (
               <p className="text-body-color text-sm dark:text-dark-6">
-                We couldn't start the secure form. Please try again.
+                We could not start the secure form. Please try again.
               </p>
             )}
             {!setupLoading && setupClientSecret && (
-              <Elements stripe={stripePromise} options={{ appearance: { theme: "stripe" } }}>
+              <Elements
+                stripe={stripePromise}
+                options={{ clientSecret: setupClientSecret, appearance: STRIPE_APPEARANCE }}
+              >
                 <AddCardForm
                   clientSecret={setupClientSecret}
                   onCancel={handleCancelAdd}
@@ -304,7 +308,7 @@ const PaymentMethodsTab = ({ customer }) => {
         <a href="mailto:info@hellobloom.ca" className="text-primary">
           info@hellobloom.ca
         </a>{" "}
-        and we'll be happy to help.
+        and we will be happy to help.
       </p>
     </div>
   );

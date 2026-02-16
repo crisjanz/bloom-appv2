@@ -13,20 +13,18 @@ export const stripePromise = fetch(`${API_BASE}/stripe/public-key`)
 export const DELIVERY_FEE = 15;
 export const TAX_RATE = 0.12;
 
-export const CARD_ELEMENT_OPTIONS = {
-  style: {
-    base: {
-      color: "#111827",
-      fontFamily: '"Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-      fontSize: "16px",
-      "::placeholder": {
-        color: "#94a3b8",
-      },
-    },
-    invalid: {
-      color: "#dc2626",
-    },
+export const STRIPE_APPEARANCE = {
+  theme: "stripe",
+  variables: {
+    colorPrimary: "#3c50e0",
+    borderRadius: "8px",
+    colorText: "#111827",
+    colorDanger: "#dc2626",
   },
+};
+
+export const PAYMENT_ELEMENT_OPTIONS = {
+  layout: "tabs",
 };
 
 export const provinceOptions = [

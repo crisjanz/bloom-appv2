@@ -12,6 +12,7 @@ export async function createDigitalGiftCardPaymentIntent({
   recipient,
   bloomCustomerId,
   storeName,
+  idempotencyKey,
 }) {
   const resolvedStoreName = (storeName || "").trim() || "Flower Shop";
   const payload = {
@@ -29,6 +30,7 @@ export async function createDigitalGiftCardPaymentIntent({
       purchaserEmail: purchaser.email,
       purchaserName: purchaser.name,
     },
+    idempotencyKey,
   };
 
   return api.post("/stripe/payment-intent", payload);

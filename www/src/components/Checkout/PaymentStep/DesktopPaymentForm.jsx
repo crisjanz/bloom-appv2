@@ -1,8 +1,8 @@
 import PropTypes from "prop-types";
 import { Link } from "react-router-dom";
-import { CardElement } from "@stripe/react-stripe-js";
+import { PaymentElement } from "@stripe/react-stripe-js";
 import { TextAreaGroup, CheckboxGroup } from "../shared/DesktopInputs";
-import { CARD_ELEMENT_OPTIONS } from "../shared/constants";
+import { PAYMENT_ELEMENT_OPTIONS } from "../shared/constants";
 
 const DesktopPaymentForm = ({
   data,
@@ -21,7 +21,6 @@ const DesktopPaymentForm = ({
   customer,
   totals,
   discountLabel,
-  coupon,
   couponFreeShipping,
 }) => {
   return (
@@ -91,7 +90,7 @@ const DesktopPaymentForm = ({
           {/* New Card Input */}
           {selectedPaymentMethod === "new" && (
             <div className="mt-4 rounded-md border border-stroke bg-white px-4 py-3 dark:border-dark-3 dark:bg-dark">
-              <CardElement options={CARD_ELEMENT_OPTIONS} onChange={onCardChange} />
+              <PaymentElement options={PAYMENT_ELEMENT_OPTIONS} onChange={onCardChange} />
             </div>
           )}
           {cardError && <p className="text-red-500 mt-2 text-sm">{cardError}</p>}
@@ -207,7 +206,6 @@ DesktopPaymentForm.propTypes = {
   customer: PropTypes.object.isRequired,
   totals: PropTypes.object.isRequired,
   discountLabel: PropTypes.string.isRequired,
-  coupon: PropTypes.object,
   couponFreeShipping: PropTypes.bool.isRequired,
 };
 

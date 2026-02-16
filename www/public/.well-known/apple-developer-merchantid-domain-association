@@ -1,0 +1,3 @@
+# Replace this placeholder with the exact Apple Pay domain verification file from Stripe Dashboard.
+# Path must remain: /.well-known/apple-developer-merchantid-domain-association
+# Do not add or remove whitespace once you paste the Stripe-provided content.

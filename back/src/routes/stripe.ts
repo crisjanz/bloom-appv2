@@ -541,7 +541,8 @@ router.post('/payment-intent', async (req, res) => {
       customerName,
       description,
       metadata = {},
-      orderIds = []
+      orderIds = [],
+      idempotencyKey,
     } = req.body;
 
     const parsedAmount = Number(amount);
@@ -555,6 +556,13 @@ router.post('/payment-intent', async (req, res) => {
     const metadataPayload =
       metadata && typeof metadata === 'object' ? metadata : {};
     const orderIdList = Array.isArray(orderIds) ? orderIds : [];
+    const normalizedIdempotencyKey =
+      typeof idempotencyKey === 'string' && idempotencyKey.trim().length > 0
+        ? idempotencyKey.trim()
+        : undefined;
+    const stripeRequestOptions = normalizedIdempotencyKey
+      ? { idempotencyKey: normalizedIdempotencyKey }
+      : undefined;
 
     // Add order IDs to metadata for tracking
     if (orderIdList.length > 0) {
@@ -604,10 +612,10 @@ router.post('/payment-intent', async (req, res) => {
         customer: resolvedCustomerId,
         description: description || `Bloom POS - Order${orderIdList.length > 1 ? 's' : ''} ${orderIdList.join(', ')}`,
         metadata: metadataPayload,
-        automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
+        automatic_payment_methods: { enabled: true, allow_redirects: 'always' },
         receipt_email: customerEmail,
         setup_future_usage: resolvedCustomerId ? 'off_session' : undefined,
-      });
+      }, stripeRequestOptions);
     } catch (error: any) {
       if (error?.code === 'resource_missing' && error?.param === 'customer') {
         if (bloomCustomerId) {
@@ -634,10 +642,10 @@ router.post('/payment-intent', async (req, res) => {
           customer: resolvedCustomerId,
           description: description || `Bloom POS - Order${orderIdList.length > 1 ? 's' : ''} ${orderIdList.join(', ')}`,
           metadata: metadataPayload,
-          automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
+          automatic_payment_methods: { enabled: true, allow_redirects: 'always' },
           receipt_email: customerEmail,
           setup_future_usage: resolvedCustomerId ? 'off_session' : undefined,
-        });
+        }, stripeRequestOptions);
       } else {
         throw error;
       }
@@ -1242,7 +1250,8 @@ router.post('/setup-intent', async (req, res) => {
     const stripe = await paymentProviderFactory.getStripeClient();
     const setupIntent = await stripe.setupIntents.create({
       customer: stripeCustomerId,
-      payment_method_types: ['card'],
+      usage: 'off_session',
+      automatic_payment_methods: { enabled: true, allow_redirects: 'always' },
     });
 
     if (!setupIntent.client_secret) {
