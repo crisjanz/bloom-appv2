@@ -1,5 +1,5 @@
 import prisma from '../lib/prisma';
-import { Prisma } from '@prisma/client';
+import { HouseAccountEntryType, Prisma } from '@prisma/client';
 import paymentProviderFactory from './paymentProviders/PaymentProviderFactory';
 
 interface RefundItemBreakdown {
@@ -151,6 +151,37 @@ class RefundService {
           }
         })
       );
+
+      // Reverse house account ledger if refund includes HOUSE_ACCOUNT method
+      const haRefundMethods = refundMethods.filter((m) => m.paymentMethodType === 'HOUSE_ACCOUNT');
+      if (haRefundMethods.length > 0) {
+        const origTransaction = await tx.paymentTransaction.findUnique({
+          where: { id: data.transactionId },
+          select: { customerId: true },
+        });
+
+        if (origTransaction?.customerId) {
+          const haRefundTotal = haRefundMethods.reduce((sum, m) => sum + m.amount, 0);
+          const latestEntry = await tx.houseAccountLedger.findFirst({
+            where: { customerId: origTransaction.customerId },
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          });
+          const previousBalance = latestEntry?.balance ?? 0;
+          const creditAmount = Math.abs(haRefundTotal) * -1;
+
+          await tx.houseAccountLedger.create({
+            data: {
+              customerId: origTransaction.customerId,
+              type: HouseAccountEntryType.ADJUSTMENT,
+              amount: creditAmount,
+              balance: previousBalance + creditAmount,
+              description: `Refund - ${refund.refundNumber}`,
+              reference: refund.refundNumber,
+              createdBy: data.employeeId || null,
+            },
+          });
+        }
+      }
 
       const transaction = await tx.paymentTransaction.findUnique({
         where: { id: data.transactionId },
