@@ -1,5 +1,7 @@
 import { PrismaClient, CommunicationType } from '@prisma/client';
 import { notificationService } from '../services/notificationService';
+import { formatOrderNumber } from './formatOrderNumber';
+import { getOrderNumberPrefix } from './orderNumberSettings';
 
 const prisma = new PrismaClient();
 
@@ -66,8 +68,9 @@ export async function triggerStatusNotifications(order: any, newStatus: string, 
       return;
     }
 
-    // Get store settings for template tokens
+    // Get store settings and order number prefix for template tokens
     const storeSettings = await prisma.storeSettings.findFirst();
+    const orderNumberPrefix = await getOrderNumberPrefix(prisma);
 
     // Calculate total amount from order items
     const orderTotal = fullOrder.orderItems.reduce((sum, item) => sum + (item.rowTotal || 0), 0) / 100; // Convert from cents
@@ -86,7 +89,7 @@ export async function triggerStatusNotifications(order: any, newStatus: string, 
       recipientEmail: recipientData?.email || '',
       deliveryAddress: deliveryAddressData ? `${deliveryAddressData.address1}, ${deliveryAddressData.city}` : '',
       recipientPhone: deliveryAddressData?.phone || '',
-      orderNumber: fullOrder.orderNumber.toString(),
+      orderNumber: formatOrderNumber(fullOrder.orderNumber, orderNumberPrefix),
       orderTotal: orderTotal, // Keep as number for NotificationData compatibility
       deliveryDate: fullOrder.deliveryDate ? new Date(fullOrder.deliveryDate).toLocaleDateString() : '',
       deliveryTime: fullOrder.deliveryTime || '',
