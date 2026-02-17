@@ -68,6 +68,8 @@ import driverRouteViewRouter from './routes/driver/route-view';
 import driverQRRouter from './routes/driver/qr-code';
 import giftsRouter from './routes/gifts';
 import customerPaymentMethodsRouter from './routes/customer-payment-methods';
+import remindersRouter from './routes/reminders';
+import { startReminderScheduler } from './cron/reminderCron';
 import { printService } from './services/printService';
 import { setCommunicationsWebSocketServer } from './services/communicationsSocketService';
 
@@ -258,6 +260,7 @@ app.use('/api/driver', driverQRRouter);
 app.use('/api/wire-products', wireProductsRouter);
 app.use('/api/gifts', giftsRouter);
 app.use('/api/customer-payment-methods', customerPaymentMethodsRouter);
+app.use('/api/reminders', remindersRouter);
 
 // Use noServer mode for multiple WebSocket endpoints
 const wss = new WebSocketServer({ noServer: true });
@@ -342,6 +345,8 @@ app.get('/api/health', (req, res) => {
 
 async function startServer() {
   await ensureOrderSchema();
+
+  startReminderScheduler();
 
   const PORT = Number(process.env.PORT) || 4000;
 

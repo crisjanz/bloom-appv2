@@ -211,6 +211,10 @@ router.post("/", async (req, res) => {
     birthdayMonth,
     birthdayDay,
     birthdayYear,
+    anniversaryOptIn,
+    anniversaryMonth,
+    anniversaryDay,
+    anniversaryYear,
   } = req.body;
   const cleanEmail = email?.trim().toLowerCase() || null;
   const cleanPhone = phone?.trim() || null;
@@ -222,6 +226,11 @@ router.post("/", async (req, res) => {
         return res.status(400).json({ error: "Birthday month and day are required when opting in" });
       }
     }
+    if (anniversaryOptIn) {
+      if (!anniversaryMonth || !anniversaryDay) {
+        return res.status(400).json({ error: "Anniversary month and day are required when opting in" });
+      }
+    }
 
     const birthdayData =
       birthdayOptIn
@@ -231,6 +240,16 @@ router.post("/", async (req, res) => {
             birthdayDay,
             birthdayYear: birthdayYear ?? null,
             birthdayUpdatedAt: new Date(),
+          }
+        : {};
+    const anniversaryData =
+      anniversaryOptIn
+        ? {
+            anniversaryOptIn: true,
+            anniversaryMonth,
+            anniversaryDay,
+            anniversaryYear: anniversaryYear ?? null,
+            anniversaryUpdatedAt: new Date(),
           }
         : {};
 
@@ -269,6 +288,7 @@ router.post("/", async (req, res) => {
           notes: cleanNotes || existing.notes,
           ...houseAccountData,
           ...birthdayData,
+          ...anniversaryData,
         },
       });
       return res.status(200).json(updated);
@@ -283,6 +303,7 @@ router.post("/", async (req, res) => {
         notes: cleanNotes,
         ...houseAccountData,
         ...birthdayData,
+        ...anniversaryData,
       },
     });
 
@@ -310,6 +331,10 @@ router.put('/:id', async (req, res) => {
     birthdayMonth,
     birthdayDay,
     birthdayYear,
+    anniversaryOptIn,
+    anniversaryMonth,
+    anniversaryDay,
+    anniversaryYear,
   } = req.body;
 
   try {
@@ -386,6 +411,27 @@ router.put('/:id', async (req, res) => {
         birthdayDay: null,
         birthdayYear: null,
         birthdayUpdatedAt: new Date(),
+      });
+    }
+
+    if (anniversaryOptIn === true) {
+      if (!anniversaryMonth || !anniversaryDay) {
+        return res.status(400).json({ error: "Anniversary month and day are required when opting in" });
+      }
+      Object.assign(updateData, {
+        anniversaryOptIn: true,
+        anniversaryMonth,
+        anniversaryDay,
+        anniversaryYear: anniversaryYear ?? null,
+        anniversaryUpdatedAt: new Date(),
+      });
+    } else if (anniversaryOptIn === false) {
+      Object.assign(updateData, {
+        anniversaryOptIn: false,
+        anniversaryMonth: null,
+        anniversaryDay: null,
+        anniversaryYear: null,
+        anniversaryUpdatedAt: new Date(),
       });
     }
 

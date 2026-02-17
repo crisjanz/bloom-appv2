@@ -8,37 +8,37 @@ datasource db {
 }
 
 model Product {
-  id                       String              @id @default(uuid())
+  id                       String                @id @default(uuid())
   name                     String
-  slug                     String              @unique
+  slug                     String                @unique
   description              String
   categoryId               String
   reportingCategoryId      String
   recipeNotes              String?
-  productType              ProductType         @default(MAIN)
-  inventoryMode            InventoryMode       @default(OWN)
-  visibility               Visibility          @default(BOTH)
-  showOnHomepage           Boolean             @default(false)
-  isActive                 Boolean             @default(true)
-  isTaxable                Boolean             @default(true)
-  createdAt                DateTime            @default(now())
-  updatedAt                DateTime            @updatedAt
-  images                   String[]            @default([])
-  availabilityType         String?             @default("always")
+  productType              ProductType           @default(MAIN)
+  inventoryMode            InventoryMode         @default(OWN)
+  visibility               Visibility            @default(BOTH)
+  showOnHomepage           Boolean               @default(false)
+  isActive                 Boolean               @default(true)
+  isTaxable                Boolean               @default(true)
+  createdAt                DateTime              @default(now())
+  updatedAt                DateTime              @updatedAt
+  images                   String[]              @default([])
+  availabilityType         String?               @default("always")
   holidayPreset            String?
   availableFrom            DateTime?
   availableTo              DateTime?
   notAvailableFrom         DateTime?
   notAvailableUntil        DateTime?
-  isTemporarilyUnavailable Boolean             @default(false)
+  isTemporarilyUnavailable Boolean               @default(false)
   unavailableUntil         DateTime?
   unavailableMessage       String?
   featuredAssetId          String?
-  bundleComponents         BundleItem[]        @relation("BundleParent")
-  includedInBundles        BundleItem[]        @relation("BundleChild")
+  bundleComponents         BundleItem[]          @relation("BundleParent")
+  includedInBundles        BundleItem[]          @relation("BundleChild")
   orderItems               OrderItem[]
-  category                 Category            @relation("ProductCategory", fields: [categoryId], references: [id])
-  reportingCategory        ReportingCategory   @relation("ProductReportingCategory", fields: [reportingCategoryId], references: [id])
+  category                 Category              @relation("ProductCategory", fields: [categoryId], references: [id])
+  reportingCategory        ReportingCategory     @relation("ProductReportingCategory", fields: [reportingCategoryId], references: [id])
   addonGroups              ProductAddOnGroup[]
   tags                     ProductTag[]
   categoryLinks            ProductCategoryLink[]
@@ -154,18 +154,18 @@ model ProductCategoryLink {
 }
 
 model Category {
-  id        String     @id @default(uuid())
-  name      String
-  slug      String?    @unique
-  parentId  String?
-  level     Int        @default(1)
-  sortOrder Int        @default(0)
-  isActive  Boolean    @default(true)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @default(now()) @updatedAt
-  parent    Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
-  children  Category[] @relation("CategoryHierarchy")
-  products  Product[]  @relation("ProductCategory")
+  id           String                @id @default(uuid())
+  name         String
+  slug         String?               @unique
+  parentId     String?
+  level        Int                   @default(1)
+  sortOrder    Int                   @default(0)
+  isActive     Boolean               @default(true)
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @default(now()) @updatedAt
+  parent       Category?             @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children     Category[]            @relation("CategoryHierarchy")
+  products     Product[]             @relation("ProductCategory")
   productLinks ProductCategoryLink[]
 
   @@unique([parentId, name])
@@ -178,49 +178,56 @@ model ReportingCategory {
 }
 
 model Customer {
-  id                  String               @id @default(cuid())
-  firstName           String
-  lastName            String
-  email               String?              @unique
-  phone               String?
-  phoneLabel          String?              @default("Mobile")
-  phoneNumbers        Json                 @default("[]")
-  birthdayMonth       Int?
-  birthdayDay         Int?
-  birthdayYear        Int?
-  birthdayOptIn       Boolean              @default(false)
-  birthdayUpdatedAt   DateTime?
-  notes               String?
-  primaryAddressId    String?              @unique
-  password              String?
-  passwordResetToken    String?
-  passwordResetExpires  DateTime?
-  isRegistered          Boolean              @default(false)
-  lastLogin             DateTime?
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  addresses           Address[]            @relation("MyAddresses")
-  primaryAddress      Address?             @relation("PrimaryAddress", fields: [primaryAddressId], references: [id])
-  ordersAsBuyer       Order[]              @relation("BuyerOrders")
-  ordersAsRecipient   Order[]              @relation("RecipientOrders")
-  savedBySenders      CustomerRecipient[]  @relation("Recipients")
-  savedRecipients     CustomerRecipient[]  @relation("Senders")
-  events              Event[]
-  paymentTransactions PaymentTransaction[]
-  providerCustomers   ProviderCustomer[]
-  giftTokensRedeemed  GiftToken[]          @relation("RedeemedGiftTokens")
-  paymentMethods      CustomerPaymentMethod[]
-  discounts           Discount[]
-  houseAccountLedger  HouseAccountLedger[]
+  id                   String                  @id @default(cuid())
+  firstName            String
+  lastName             String
+  email                String?                 @unique
+  phone                String?
+  phoneLabel           String?                 @default("Mobile")
+  phoneNumbers         Json                    @default("[]")
+  birthdayMonth        Int?
+  birthdayDay          Int?
+  birthdayYear         Int?
+  birthdayOptIn        Boolean                 @default(false)
+  birthdayUpdatedAt    DateTime?
+  anniversaryMonth     Int?
+  anniversaryDay       Int?
+  anniversaryYear      Int?
+  anniversaryOptIn     Boolean                 @default(false)
+  anniversaryUpdatedAt DateTime?
+  notes                String?
+  primaryAddressId     String?                 @unique
+  password             String?
+  passwordResetToken   String?
+  passwordResetExpires DateTime?
+  isRegistered         Boolean                 @default(false)
+  lastLogin            DateTime?
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+  addresses            Address[]               @relation("MyAddresses")
+  primaryAddress       Address?                @relation("PrimaryAddress", fields: [primaryAddressId], references: [id])
+  ordersAsBuyer        Order[]                 @relation("BuyerOrders")
+  ordersAsRecipient    Order[]                 @relation("RecipientOrders")
+  savedBySenders       CustomerRecipient[]     @relation("Recipients")
+  savedRecipients      CustomerRecipient[]     @relation("Senders")
+  events               Event[]
+  paymentTransactions  PaymentTransaction[]
+  providerCustomers    ProviderCustomer[]
+  giftTokensRedeemed   GiftToken[]             @relation("RedeemedGiftTokens")
+  paymentMethods       CustomerPaymentMethod[]
+  discounts            Discount[]
+  houseAccountLedger   HouseAccountLedger[]
+  reminders            CustomerReminder[]
+  reminderEmails       ReminderEmail[]
 
   // House Account
-  isHouseAccount      Boolean              @default(false)
-  houseAccountTerms   String?              @default("NET_30")
-  houseAccountNotes   String?
+  isHouseAccount    Boolean @default(false)
+  houseAccountTerms String? @default("NET_30")
+  houseAccountNotes String?
 
   // Cart sync across browsers
-  cartData            Json?
-  cartUpdatedAt       DateTime?
+  cartData      Json?
+  cartUpdatedAt DateTime?
 
   @@index([phone])
   @@index([firstName, lastName])
@@ -240,24 +247,72 @@ model CustomerRecipient {
   @@map("customer_recipients")
 }
 
+model CustomerReminder {
+  id             String          @id @default(cuid())
+  customerId     String
+  customer       Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  occasion       String
+  month          Int
+  day            Int
+  recipientName  String?
+  note           String?
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  reminderEmails ReminderEmail[]
+
+  @@index([customerId])
+  @@index([month, day])
+}
+
+model ReminderEmail {
+  id         String            @id @default(cuid())
+  customerId String
+  customer   Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  reminderId String?
+  reminder   CustomerReminder? @relation(fields: [reminderId], references: [id], onDelete: SetNull)
+  type       ReminderType
+  year       Int
+  daysBefore Int
+  sentAt     DateTime          @default(now())
+  emailTo    String
+
+  @@unique([customerId, type, year, daysBefore, reminderId])
+  @@index([customerId])
+}
+
+model ReminderSettings {
+  id                  String   @id @default(cuid())
+  birthdayEnabled     Boolean  @default(false)
+  anniversaryEnabled  Boolean  @default(false)
+  occasionEnabled     Boolean  @default(false)
+  reminderDaysBefore  Json     @default("[7, 1]")
+  birthdaySubject     String   @default("A Special Day is Coming Up!")
+  birthdayTemplate    String?
+  anniversarySubject  String   @default("Your Anniversary is Coming Up!")
+  anniversaryTemplate String?
+  occasionSubject     String   @default("Don't Forget - A Special Occasion is Coming!")
+  occasionTemplate    String?
+  updatedAt           DateTime @updatedAt
+}
+
 model Address {
-  id                  String       @id @default(cuid())
+  id                  String    @id @default(cuid())
   attention           String?
   address1            String
   address2            String?
   city                String
   province            String
   postalCode          String
-  country             String       @default("CA")
+  country             String    @default("CA")
   phone               String?
-  company             String?      @db.VarChar(255)
-  addressType         String?      @default("RESIDENCE")
+  company             String?   @db.VarChar(255)
+  addressType         String?   @default("RESIDENCE")
   customerId          String?
-  createdAt           DateTime     @default(now())
-  updatedAt           DateTime     @default(now()) @updatedAt
-  customer            Customer?    @relation("MyAddresses", fields: [customerId], references: [id])
-  primaryOf           Customer?    @relation("PrimaryAddress")
-  ordersDeliveredHere Order[]      @relation("DeliveryAddress")
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @default(now()) @updatedAt
+  customer            Customer? @relation("MyAddresses", fields: [customerId], references: [id])
+  primaryOf           Customer? @relation("PrimaryAddress")
+  ordersDeliveredHere Order[]   @relation("DeliveryAddress")
 
   @@index([country])
   @@index([customerId])
@@ -438,22 +493,22 @@ model CouponUsage {
 }
 
 model GiftToken {
-  id                    String           @id @default(uuid())
-  token                 String           @unique
-  type                  GiftTokenType    @default(BIRTHDAY_RECIPIENT_GIFT)
-  status                GiftTokenStatus  @default(ACTIVE)
+  id                    String          @id @default(uuid())
+  token                 String          @unique
+  type                  GiftTokenType   @default(BIRTHDAY_RECIPIENT_GIFT)
+  status                GiftTokenStatus @default(ACTIVE)
   expiresAt             DateTime?
   issuedForOrderId      String?
-  issuedForOrder        Order?           @relation(fields: [issuedForOrderId], references: [id])
+  issuedForOrder        Order?          @relation(fields: [issuedForOrderId], references: [id])
   issuedToRecipientName String?
   redeemedAt            DateTime?
   redeemedByCustomerId  String?
-  redeemedByCustomer    Customer?        @relation("RedeemedGiftTokens", fields: [redeemedByCustomerId], references: [id])
+  redeemedByCustomer    Customer?       @relation("RedeemedGiftTokens", fields: [redeemedByCustomerId], references: [id])
   couponId              String?
-  coupon                Coupon?          @relation(fields: [couponId], references: [id])
+  coupon                Coupon?         @relation(fields: [couponId], references: [id])
   metadata              Json?
-  createdAt             DateTime         @default(now())
-  updatedAt             DateTime         @updatedAt
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
 
   @@index([token])
   @@index([status])
@@ -791,8 +846,8 @@ model OperationsSettings {
 }
 
 model PrintSettings {
-  id        String   @id @default(cuid())
-  storeId   String?  @unique
+  id      String  @id @default(cuid())
+  storeId String? @unique
 
   // Receipts (Thermal/POS - in-person sales)
   receiptsEnabled     Boolean @default(true)
@@ -846,9 +901,9 @@ model EmailSettings {
   fromName  String @default("Bloom Flowers")
 
   // SMS/Twilio Settings
-  smsEnabled       Boolean @default(false)
-  twilioAccountSid String?
-  twilioAuthToken  String?
+  smsEnabled        Boolean @default(false)
+  twilioAccountSid  String?
+  twilioAuthToken   String?
   twilioPhoneNumber String?
 
   createdAt DateTime @default(now())
@@ -866,26 +921,26 @@ model TransactionCounter {
 }
 
 model PaymentTransaction {
-  id                String                   @id @default(uuid())
-  transactionNumber String                   @unique
-  status            PaymentTransactionStatus @default(PENDING)
-  channel           PaymentChannel
-  totalAmount       Int                      @default(0)
-  taxAmount         Int                      @default(0)
-  tipAmount         Int                      @default(0)
-  customerId        String
-  employeeId        String?
-  notes             String?
-  receiptSent       Boolean                  @default(false)
-  receiptEmail      String?
-  createdAt         DateTime                 @default(now())
-  updatedAt         DateTime                 @updatedAt
-  completedAt       DateTime?
-  orderPayments     OrderPayment[]
-  paymentMethods    PaymentMethod[]
-  customer          Customer                 @relation(fields: [customerId], references: [id])
-  employee          Employee?                @relation("EmployeeTransactions", fields: [employeeId], references: [id])
-  refunds           Refund[]
+  id                 String                   @id @default(uuid())
+  transactionNumber  String                   @unique
+  status             PaymentTransactionStatus @default(PENDING)
+  channel            PaymentChannel
+  totalAmount        Int                      @default(0)
+  taxAmount          Int                      @default(0)
+  tipAmount          Int                      @default(0)
+  customerId         String
+  employeeId         String?
+  notes              String?
+  receiptSent        Boolean                  @default(false)
+  receiptEmail       String?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  completedAt        DateTime?
+  orderPayments      OrderPayment[]
+  paymentMethods     PaymentMethod[]
+  customer           Customer                 @relation(fields: [customerId], references: [id])
+  employee           Employee?                @relation("EmployeeTransactions", fields: [employeeId], references: [id])
+  refunds            Refund[]
   houseAccountLedger HouseAccountLedger[]
 
   @@index([createdAt])
@@ -929,19 +984,19 @@ model OrderPayment {
 }
 
 model HouseAccountLedger {
-  id            String                 @id @default(uuid())
+  id            String                @id @default(uuid())
   customerId    String
-  customer      Customer               @relation(fields: [customerId], references: [id])
+  customer      Customer              @relation(fields: [customerId], references: [id])
   type          HouseAccountEntryType
   amount        Int
   balance       Int
   description   String
   reference     String?
   orderId       String?
-  order         Order?                 @relation(fields: [orderId], references: [id])
+  order         Order?                @relation(fields: [orderId], references: [id])
   transactionId String?
-  transaction   PaymentTransaction?    @relation(fields: [transactionId], references: [id])
-  createdAt     DateTime               @default(now())
+  transaction   PaymentTransaction?   @relation(fields: [transactionId], references: [id])
+  createdAt     DateTime              @default(now())
   createdBy     String?
 
   @@index([customerId])
@@ -1275,6 +1330,12 @@ enum OrderExternalSource {
   DOORDASH
   FUNERAL_SERVICE
   OTHER
+}
+
+enum ReminderType {
+  BIRTHDAY
+  ANNIVERSARY
+  OCCASION
 }
 
 enum PrintJobType {

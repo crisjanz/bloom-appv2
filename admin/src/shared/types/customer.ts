@@ -5,6 +5,10 @@ export interface Customer {
   email?: string;
   phone?: string;
   notes?: string;
+  anniversaryMonth?: number | null;
+  anniversaryDay?: number | null;
+  anniversaryYear?: number | null;
+  anniversaryOptIn?: boolean;
   isHouseAccount?: boolean;
   houseAccountTerms?: string;
   houseAccountNotes?: string;

@@ -50,6 +50,10 @@ export async function getSavedRecipients(customerId) {
   return api.get(`/customers/${customerId}/recipients`);
 }
 
+export async function createReminder(payload) {
+  return api.post('/reminders', payload);
+}
+
 export default {
   createCustomer,
   createCustomerAddress,
@@ -57,4 +61,5 @@ export default {
   createOrderDraft,
   createCheckoutPaymentIntent,
   getSavedRecipients,
+  createReminder,
 };

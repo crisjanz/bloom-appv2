@@ -589,6 +589,9 @@ const DetailsBox = ({ product, onVariantChange = null }) => {
           );
         })()}
       </div>
+      <p className="mb-6 text-sm text-body-color dark:text-dark-6">
+        You'll add your personal card message at checkout.
+      </p>
 
       {/* Mobile Upsell Bottom Sheet */}
       <div

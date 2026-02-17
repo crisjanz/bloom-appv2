@@ -1,6 +1,6 @@
 # Bloom API Surface
 
-**Last audited:** 2026-02-07
+**Last audited:** 2026-02-16
 **Source:** `back/src`
 
 ## Diagnostics
@@ -53,6 +53,7 @@
 - ✅ POST `/api/customers` — create customer record.
 - ✅ GET `/api/customers/:id` — load customer with addresses, recipients, and order stats.
 - ✅ PUT `/api/customers/:id` — update customer core fields.
+  - Supports birthday + anniversary reminder opt-in fields (`birthday*`, `anniversary*`).
 - ✅ DELETE `/api/customers/:id` — delete customer after unlinking orders/addresses.
 - ✅ GET `/api/customers/:id/recipients` — saved recipients for a sender.
 - ✅ POST `/api/customers/:id/save-recipient` — link existing customer as recipient.
@@ -70,6 +71,17 @@
 - ✅ GET `/api/messages` — fetch card message templates (`back/src/routes/messages.ts`)
 - ✅ POST `/api/messages` — create template.
 - ✅ DELETE `/api/messages/:id` — remove template.
+
+## Reminder Emails
+- ✅ GET `/api/reminders/settings` — fetch reminder settings singleton (`back/src/routes/reminders.ts`)
+- ✅ PATCH `/api/reminders/settings` — update enabled flags, days-before list, and subjects.
+- ✅ GET `/api/reminders/upcoming` — preview reminders in a future date window (`?days=30` default).
+- ✅ GET `/api/reminders/history` — paginated sent reminder history (`?page=0&pageSize=25`).
+- ✅ POST `/api/reminders/send-test` — send test reminder email to a provided address.
+- ✅ POST `/api/reminders` — create reminder from checkout (authenticated customer).
+- ✅ GET `/api/reminders/mine` — list authenticated customer reminders.
+- ✅ DELETE `/api/reminders/:id` — delete authenticated customer reminder.
+- ✅ GET `/api/reminders/unsubscribe?token=...` — one-click unsubscribe endpoint.
 
 ## Orders & Fulfillment
 - ✅ GET `/api/orders/list` — filterable order listing (`back/src/routes/orders/list.ts`)

@@ -3,6 +3,7 @@ import ComponentCard from "@shared/ui/common/ComponentCard";
 
 import NotificationTemplatesCard from "@app/components/settings/notifications/NotificationTemplatesCard";
 import OrderStatusNotificationsCard from "@app/components/settings/notifications/OrderStatusNotificationsCard";
+import ReminderSettingsCard from "@app/components/settings/notifications/ReminderSettingsCard";
 
 const NotificationsPage = () => (
   <div className="space-y-6">
@@ -13,6 +14,7 @@ const NotificationsPage = () => (
     </p>
     <NotificationTemplatesCard />
     <OrderStatusNotificationsCard />
+    <ReminderSettingsCard />
   </div>
 );
 

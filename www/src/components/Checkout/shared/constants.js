@@ -49,6 +49,18 @@ export const instructionPresets = [
   "Gate code 1234",
 ];
 
+export const occasionOptions = [
+  { value: "", label: "Select an occasion (optional)" },
+  { value: "BIRTHDAY", label: "Birthday" },
+  { value: "ANNIVERSARY", label: "Anniversary" },
+  { value: "SYMPATHY", label: "Sympathy" },
+  { value: "THANK_YOU", label: "Thank You" },
+  { value: "LOVE", label: "Love & Romance" },
+  { value: "GET_WELL", label: "Get Well" },
+  { value: "CONGRATULATIONS", label: "Congratulations" },
+  { value: "OTHER", label: "Other" },
+];
+
 export const initialRecipient = {
   firstName: "",
   lastName: "",
@@ -59,22 +71,31 @@ export const initialRecipient = {
   city: "Vancouver",
   province: "BC",
   postalCode: "",
+  occasion: "",
   cardMessage: "",
   deliveryInstructions: "",
+  isSurprise: false,
+  deliveryDoor: "",
 };
+
 
 export const initialCustomer = {
   firstName: "",
   lastName: "",
   email: "",
   phone: "",
-  saveCustomer: true,
+  billingAddress1: "",
+  billingAddress2: "",
+  billingCity: "Vancouver",
+  billingProvince: "BC",
+  billingPostalCode: "",
+  saveCustomer: false,
   password: "",
 };
 
 export const initialPayment = {
   method: "CARD",
   notes: "",
-  agreeToTerms: true,
+  agreeToTerms: false,
   saveCard: true,
 };

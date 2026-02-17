@@ -203,6 +203,7 @@ router.post('/create', async (req, res) => {
           recipientCustomerId,
           deliveryAddressId,
           cardMessage: orderData.cardMessage || null,
+          occasion: orderData.occasion || null,
           specialInstructions: orderData.deliveryInstructions || null,
           deliveryDate: orderData.deliveryDate
             ? new Date(orderData.deliveryDate + 'T00:00:00')  // Explicitly midnight to avoid timezone shift
@@ -484,6 +485,7 @@ router.post('/save-draft', async (req, res) => {
           recipientCustomerId,
           deliveryAddressId,
           cardMessage: orderData.cardMessage || null,
+          occasion: orderData.occasion || null,
           specialInstructions: orderData.deliveryInstructions || null,
           deliveryDate: orderData.deliveryDate
             ? new Date(orderData.deliveryDate + 'T00:00:00')  // Explicitly midnight to avoid timezone shift

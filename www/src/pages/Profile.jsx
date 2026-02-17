@@ -11,6 +11,7 @@ import api from "../services/api.js";
 const tabs = [
   { id: "orders", label: "Order History" },
   { id: "recipients", label: "Saved Recipients" },
+  { id: "reminders", label: "My Reminders" },
   { id: "payments", label: "Payment Methods" },
   { id: "account", label: "Account Settings" },
 ];
@@ -25,6 +26,9 @@ const Profile = () => {
   const [recipients, setRecipients] = useState([]);
   const [recipientsLoading, setRecipientsLoading] = useState(false);
   const [recipientsError, setRecipientsError] = useState("");
+  const [reminders, setReminders] = useState([]);
+  const [remindersLoading, setRemindersLoading] = useState(false);
+  const [remindersError, setRemindersError] = useState("");
 
   useEffect(() => {
     if (!customer) return;
@@ -35,6 +39,10 @@ const Profile = () => {
 
     if (activeTab === "recipients") {
       loadRecipients();
+    }
+
+    if (activeTab === "reminders") {
+      loadReminders();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, customer?.id]);
@@ -63,6 +71,19 @@ const Profile = () => {
       setRecipientsError(error.message || "Unable to load recipients");
     } finally {
       setRecipientsLoading(false);
+    }
+  };
+
+  const loadReminders = async () => {
+    try {
+      setRemindersLoading(true);
+      setRemindersError("");
+      const data = await api.get("/reminders/mine");
+      setReminders(Array.isArray(data) ? data : []);
+    } catch (error) {
+      setRemindersError(error.message || "Unable to load reminders");
+    } finally {
+      setRemindersLoading(false);
     }
   };
 
@@ -124,6 +145,14 @@ const Profile = () => {
                 loading={recipientsLoading}
                 error={recipientsError}
                 refresh={loadRecipients}
+              />
+            )}
+            {activeTab === "reminders" && (
+              <RemindersTab
+                reminders={reminders}
+                loading={remindersLoading}
+                error={remindersError}
+                refresh={loadReminders}
               />
             )}
             {activeTab === "payments" && <PaymentMethodsTab customer={customer} />}
@@ -405,6 +434,75 @@ const RecipientsTab = ({ customerId, recipients, loading, error, refresh }) => {
   );
 };
 
+const RemindersTab = ({ reminders, loading, error, refresh }) => {
+  const [deletingReminderId, setDeletingReminderId] = useState(null);
+
+  const handleDeleteReminder = async (reminderId) => {
+    if (!window.confirm("Delete this reminder?")) {
+      return;
+    }
+
+    setDeletingReminderId(reminderId);
+    try {
+      await api.delete(`/reminders/${reminderId}`);
+      await refresh();
+    } catch (deleteError) {
+      alert(deleteError.message || "Failed to delete reminder");
+    } finally {
+      setDeletingReminderId(null);
+    }
+  };
+
+  if (loading) {
+    return <p className="text-body-color dark:text-dark-6">Loading reminders...</p>;
+  }
+
+  if (error) {
+    return <p className="text-red-500 text-sm">{error}</p>;
+  }
+
+  if (!reminders.length) {
+    return (
+      <p className="text-body-color dark:text-dark-6">
+        Save a date during checkout with \"Remind me next year\" and it will appear here.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {reminders.map((reminder) => (
+        <div key={reminder.id} className="rounded-xl border border-stroke p-4 dark:border-dark-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-dark text-lg font-semibold dark:text-white">
+                {formatOccasionLabel(reminder.occasion)}
+              </p>
+              <p className="text-body-color text-sm dark:text-dark-6">
+                Date: {formatReminderDate(reminder.month, reminder.day)}
+              </p>
+              {reminder.recipientName && (
+                <p className="text-body-color text-sm dark:text-dark-6">
+                  Recipient: {reminder.recipientName}
+                </p>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => handleDeleteReminder(reminder.id)}
+              disabled={deletingReminderId === reminder.id}
+              className="text-sm font-medium text-red-600 transition hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {deletingReminderId === reminder.id ? "Deleting..." : "Delete"}
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 
 const AccountSettingsTab = ({ customer, refreshProfile }) => {
   const [profileForm, setProfileForm] = useState({
@@ -581,6 +679,34 @@ const TextArea = ({ label, name, value, onChange }) => (
   </div>
 );
 
+const formatOccasionLabel = (occasion) => {
+  if (!occasion) return "Special Occasion";
+  const labelMap = {
+    BIRTHDAY: "Birthday",
+    ANNIVERSARY: "Anniversary",
+    SYMPATHY: "Sympathy",
+    THANK_YOU: "Thank You",
+    LOVE: "Love & Romance",
+    GET_WELL: "Get Well",
+    CONGRATULATIONS: "Congratulations",
+    OTHER: "Other",
+  };
+
+  return labelMap[occasion] || occasion.replace(/_/g, " ");
+};
+
+const formatReminderDate = (month, day) => {
+  if (!month || !day) return "Unknown";
+  const referenceYear = new Date().getFullYear();
+  const date = new Date(referenceYear, Number(month) - 1, Number(day), 12, 0, 0);
+  if (Number.isNaN(date.getTime())) return "Unknown";
+
+  return date.toLocaleDateString("en-CA", {
+    month: "short",
+    day: "numeric",
+  });
+};
+
 const formatCurrencyCents = (amountInCents) => {
   if (typeof amountInCents !== "number") return "$0.00";
   return (amountInCents / 100).toLocaleString("en-CA", {
@@ -598,6 +724,13 @@ OrdersTab.propTypes = {
 RecipientsTab.propTypes = {
   customerId: PropTypes.string.isRequired,
   recipients: PropTypes.arrayOf(PropTypes.object).isRequired,
+  loading: PropTypes.bool.isRequired,
+  error: PropTypes.string,
+  refresh: PropTypes.func.isRequired,
+};
+
+RemindersTab.propTypes = {
+  reminders: PropTypes.arrayOf(PropTypes.object).isRequired,
   loading: PropTypes.bool.isRequired,
   error: PropTypes.string,
   refresh: PropTypes.func.isRequired,

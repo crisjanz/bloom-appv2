@@ -16,6 +16,10 @@ interface CustomerInfoCardProps {
     phoneLabel?: string;
     phoneNumbers?: Array<{ phone: string; label: string }>;
     notes?: string;
+    anniversaryMonth?: number | string;
+    anniversaryDay?: number | string;
+    anniversaryYear?: number | string;
+    anniversaryOptIn?: boolean;
     isHouseAccount?: boolean;
     houseAccountTerms?: string;
     houseAccountNotes?: string;
@@ -38,6 +42,22 @@ const houseAccountTermOptions = [
   { value: "NET_45", label: "NET 45" },
   { value: "NET_60", label: "NET 60" },
   { value: "DUE_ON_RECEIPT", label: "Due on Receipt" },
+];
+
+const monthOptions = [
+  { value: "", label: "Month" },
+  ...Array.from({ length: 12 }, (_, index) => ({
+    value: String(index + 1),
+    label: String(index + 1),
+  })),
+];
+
+const dayOptions = [
+  { value: "", label: "Day" },
+  ...Array.from({ length: 31 }, (_, index) => ({
+    value: String(index + 1),
+    label: String(index + 1),
+  })),
 ];
 
 export default function CustomerInfoCard({
@@ -191,6 +211,49 @@ export default function CustomerInfoCard({
           className="focus:border-brand-500 focus:ring-brand-500/20"
           rows={3}
         />
+      </div>
+
+      <div className="border-t border-gray-200 dark:border-gray-800 pt-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Anniversary Reminders</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Save anniversary date and opt in for reminder emails.
+            </p>
+          </div>
+          <Switch
+            label="Opt In"
+            checked={Boolean(customer.anniversaryOptIn)}
+            onChange={(value) => onCustomerChange("anniversaryOptIn", value)}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Select
+            label="Anniversary Month"
+            options={monthOptions}
+            value={String(customer.anniversaryMonth || "")}
+            onChange={(value) => onCustomerChange("anniversaryMonth", value ? Number(value) : null)}
+            disabled={!customer.anniversaryOptIn}
+          />
+          <Select
+            label="Anniversary Day"
+            options={dayOptions}
+            value={String(customer.anniversaryDay || "")}
+            onChange={(value) => onCustomerChange("anniversaryDay", value ? Number(value) : null)}
+            disabled={!customer.anniversaryOptIn}
+          />
+          <InputField
+            label="Anniversary Year (optional)"
+            type="number"
+            value={customer.anniversaryYear || ""}
+            onChange={(event) =>
+              onCustomerChange("anniversaryYear", event.target.value ? Number(event.target.value) : null)
+            }
+            disabled={!customer.anniversaryOptIn}
+            placeholder="Year"
+          />
+        </div>
       </div>
 
       <div className="border-t border-gray-200 dark:border-gray-800 pt-4 space-y-4">
