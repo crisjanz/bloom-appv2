@@ -1,7 +1,11 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Outlet } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import GoogleMapsProvider from "@shared/ui/forms/GoogleMapsProvider";
 import { OrderSettingsProvider } from "./contexts/OrderSettingsContext";
+import { useDocumentTitle } from "@shared/hooks/useDocumentTitle";
+
+/** Invisible layout that only sets document.title for standalone routes */
+const TitleOnly = () => { useDocumentTitle(); return <Outlet />; };
 
 import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
@@ -87,23 +91,31 @@ export default function App() {
             <ScrollToTop />
             <Routes>
           {/* Public routes */}
-          <Route path="/signin" element={<SignIn />} />
-          <Route path="/signup" element={<SignUp />} />
+          <Route element={<TitleOnly />}>
+            <Route path="/signin" element={<SignIn />} />
+            <Route path="/signup" element={<SignUp />} />
+          </Route>
 
           {/* Mobile routes - OUTSIDE AppLayout for mobile-optimized experience */}
-          <Route path="/mobile" element={<MobileHomePage />} />
-          <Route path="/mobile/scan" element={<MobileScanPage />} />
-          <Route path="/mobile/inventory" element={<MobileInventoryPage />} />
-          <Route path="/mobile/delivery" element={<MobileDeliveryPage />} />
-          <Route path="/mobile/fulfillment" element={<MobileFulfillmentPage />} />
+          <Route element={<TitleOnly />}>
+            <Route path="/mobile" element={<MobileHomePage />} />
+            <Route path="/mobile/scan" element={<MobileScanPage />} />
+            <Route path="/mobile/inventory" element={<MobileInventoryPage />} />
+            <Route path="/mobile/delivery" element={<MobileDeliveryPage />} />
+            <Route path="/mobile/fulfillment" element={<MobileFulfillmentPage />} />
+          </Route>
 
           {/* POS route - OUTSIDE AppLayout for fullscreen */}
-          <Route path="/pos" element={<POSPage />} />
-	  <Route path="/pos/fullscreen" element={<FullscreenPOS />} />
+          <Route element={<TitleOnly />}>
+            <Route path="/pos" element={<POSPage />} />
+            <Route path="/pos/fullscreen" element={<FullscreenPOS />} />
+          </Route>
 
           {/* Fulfillment - OUTSIDE AppLayout for fullscreen iPad view */}
-          <Route path="/fulfillment/:id" element={<FulfillmentPage />} />
-          <Route path="/driver/route" element={<DriverRoutePage />} />
+          <Route element={<TitleOnly />}>
+            <Route path="/fulfillment/:id" element={<FulfillmentPage />} />
+            <Route path="/driver/route" element={<DriverRoutePage />} />
+          </Route>
 
           {/* Main dashboard layout */}
           <Route path="/" element={<ProtectedRoute requiredRoles={[EmployeeType.ADMIN]}><MobileRedirect><AppLayout /></MobileRedirect></ProtectedRoute>}>

@@ -61,6 +61,10 @@
 - Language: TypeScript for both front- and backend.
 - **UI Icons**: NEVER use emojis (📷 🔗 ✅ etc.) in user-facing UI. Always use Heroicons or existing icon library from `@shared/assets/icons`.
 - **Git Workflow**: ALWAYS ask user before running `git push`. Wait for confirmation. User may have additional changes.
+- **Page Titles**: When creating new pages, ALWAYS add the route-to-title mapping in the `useDocumentTitle` hook:
+  - **Admin**: `admin/src/shared/hooks/useDocumentTitle.ts` — add entry to `ROUTE_TITLES` map. Format: `"Page Title | Bloom POS"`
+  - **WWW**: `www/src/hooks/useDocumentTitle.js` — add entry to `ROUTE_TITLES` map. Format: `"Page Title | In Your Vase Flowers"`
+  - For dynamic routes (`:id`, `:slug`), add pattern matching in the `getTitleFromPath` function.
 - **Opportunistic refactoring**: When working on a large file (500+ lines), if the section being modified can be easily extracted into its own file/component/hook without breaking anything, do it. Don't refactor unrelated sections — only what you're already touching.
 
 ---
