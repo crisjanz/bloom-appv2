@@ -74,9 +74,11 @@ export async function buildOrderTicketPdf(
     .join(' ') || 'Unknown';
   const customerPhone = order.customer?.phone || '';
 
-  const recipientName = [order.recipientCustomer?.firstName, order.recipientCustomer?.lastName]
-    .filter(Boolean)
-    .join(' ') || 'Unknown';
+  const recipientName = order.recipientName
+    || [order.recipientCustomer?.firstName, order.recipientCustomer?.lastName]
+      .filter(Boolean)
+      .join(' ')
+    || 'Unknown';
   const recipientPhone = order.deliveryAddress?.phone || order.recipientCustomer?.phone || '';
   const recipientAddressLines = buildAddressLines(order.deliveryAddress);
 
