@@ -82,6 +82,7 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
   const [isTaxable, setIsTaxable] = useState(true);
   const [isActive, setIsActive] = useState(true);
   const [isFeatured, setIsFeatured] = useState(false);
+  const [availableForSubscription, setAvailableForSubscription] = useState(false);
   const [productType, setProductType] = useState<string>('MAIN');
   const [inventory, setInventory] = useState(0);
   const [optionGroups, setOptionGroups] = useState<OptionGroup[]>(() => [
@@ -146,6 +147,7 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
       setIsTaxable(Boolean(initialData.isTaxable));
       setIsActive(Boolean(initialData.isActive));
       setIsFeatured(Boolean(initialData.showOnHomepage));
+      setAvailableForSubscription(Boolean(initialData.availableForSubscription));
       setProductType(initialData.productType || 'MAIN');
       setInventory(initialData.variants?.[0]?.stockLevel || 0);
       setRecipe(initialData.recipeNotes || '');
@@ -527,6 +529,9 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
       case 'isFeatured':
         setIsFeatured(value);
         break;
+      case 'availableForSubscription':
+        setAvailableForSubscription(value);
+        break;
       case 'productType':
         setProductType(value as string);
         break;
@@ -604,6 +609,7 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
         isTaxable,
         isActive,
         isFeatured,
+        availableForSubscription,
         inventory,
         recipe,
         availableFrom,
@@ -688,6 +694,7 @@ const ProductForm = ({ initialData, onSubmit }: ProductFormProps) => {
           isTaxable={isTaxable}
           isActive={isActive}
           isFeatured={isFeatured}
+          availableForSubscription={availableForSubscription}
           productType={productType}
           inventory={inventory}
           slug={slug}

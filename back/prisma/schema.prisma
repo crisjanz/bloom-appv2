@@ -34,6 +34,7 @@ model Product {
   unavailableUntil         DateTime?
   unavailableMessage       String?
   featuredAssetId          String?
+  availableForSubscription Boolean               @default(false)
   bundleComponents         BundleItem[]          @relation("BundleParent")
   includedInBundles        BundleItem[]          @relation("BundleChild")
   orderItems               OrderItem[]
@@ -44,6 +45,7 @@ model Product {
   categoryLinks            ProductCategoryLink[]
   variants                 ProductVariant[]
   eventItems               EventItem[]
+  subscriptionDeliveries   SubscriptionDelivery[]
 }
 
 model ProductVariant {
@@ -219,6 +221,7 @@ model Customer {
   houseAccountLedger   HouseAccountLedger[]
   reminders            CustomerReminder[]
   reminderEmails       ReminderEmail[]
+  subscriptions        Subscription[]
 
   // House Account
   isHouseAccount    Boolean @default(false)
@@ -372,6 +375,7 @@ model Order {
   orderPayments       OrderPayment[]
   orderRefunds        OrderRefund[]
   houseAccountLedger  HouseAccountLedger[]
+  subscriptionDelivery SubscriptionDelivery?
 
   @@index([createdAt])
   @@index([status])
@@ -1517,4 +1521,169 @@ enum GiftTokenStatus {
   REDEEMED
   EXPIRED
   REVOKED
+}
+
+// ── Subscription System ──
+
+model SubscriptionPlan {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  priceCents  Int
+  image       String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id                 String   @id @default(uuid())
+  subscriptionNumber String   @unique
+
+  // Billing
+  billingType SubscriptionBillingType
+  status      SubscriptionStatus      @default(ACTIVE)
+
+  // Style
+  style SubscriptionStyle
+
+  // Designer's Choice fields
+  planId       String?
+  plan         SubscriptionPlan? @relation(fields: [planId], references: [id])
+  colorPalette String?
+
+  // Pricing
+  defaultPriceCents   Int
+  totalPrepaidCents   Int?
+  totalDeliveries     Int?
+  completedDeliveries Int  @default(0)
+
+  // Schedule
+  frequency          SubscriptionFrequency
+  preferredDayOfWeek Int?
+  customDates        DateTime[]
+  startDate          DateTime
+
+  // Payment
+  stripeCustomerId      String?
+  stripePaymentMethodId String?
+
+  // People
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+
+  // Recipient
+  recipientName       String
+  recipientPhone      String?
+  recipientEmail      String?
+  recipientAddress    String
+  recipientCity       String
+  recipientProvince   String?
+  recipientPostalCode String
+
+  // Portal access
+  accessCode String @unique
+
+  // Metadata
+  notes       String?
+  source      SubscriptionSource
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  cancelledAt DateTime?
+  pausedAt    DateTime?
+
+  deliveries SubscriptionDelivery[]
+
+  @@index([customerId])
+  @@index([status])
+  @@index([accessCode])
+  @@index([subscriptionNumber])
+}
+
+model SubscriptionDelivery {
+  id             String       @id @default(uuid())
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  // Product
+  productId   String?
+  product     Product? @relation(fields: [productId], references: [id])
+  productName String?
+  priceCents  Int
+
+  // Schedule
+  scheduledDate DateTime
+  deliveredDate DateTime?
+
+  // Status
+  status SubscriptionDeliveryStatus @default(SCHEDULED)
+
+  // Linked order
+  orderId String? @unique
+  order   Order?  @relation(fields: [orderId], references: [id])
+
+  // Overrides
+  customNotes String?
+
+  // Payment tracking (for recurring)
+  stripePaymentIntentId String?
+  paidAt                DateTime?
+  paymentFailed         Boolean  @default(false)
+
+  rescheduleCount Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([subscriptionId])
+  @@index([scheduledDate])
+  @@index([status])
+}
+
+model SubscriptionCounter {
+  id           String @id @default(cuid())
+  currentValue Int    @default(0)
+  prefix       String @default("SUB")
+
+  @@map("subscription_counter")
+}
+
+enum SubscriptionBillingType {
+  RECURRING
+  PREPAID
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+  COMPLETED
+}
+
+enum SubscriptionStyle {
+  DESIGNERS_CHOICE
+  PICK_YOUR_OWN
+}
+
+enum SubscriptionFrequency {
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  CUSTOM
+}
+
+enum SubscriptionDeliveryStatus {
+  SCHEDULED
+  PREPARING
+  DELIVERED
+  SKIPPED
+  RESCHEDULED
+}
+
+enum SubscriptionSource {
+  POS
+  STOREFRONT
 }

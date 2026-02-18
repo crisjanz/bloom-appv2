@@ -797,6 +797,7 @@ router.post('/', upload.array('images'), async (req, res) => {
     isTaxable,
     isActive,
     isFeatured,
+    availableForSubscription,
     availableFrom,
     availableTo,
     availabilityType,
@@ -919,6 +920,12 @@ router.post('/', upload.array('images'), async (req, res) => {
               ? JSON.parse(isFeatured)
               : isFeatured !== undefined
               ? isFeatured
+              : false,
+          availableForSubscription:
+            typeof availableForSubscription === 'string'
+              ? JSON.parse(availableForSubscription)
+              : availableForSubscription !== undefined
+              ? availableForSubscription
               : false,
           productType: productType || 'MAIN',
           inventoryMode: 'OWN',
@@ -1190,6 +1197,7 @@ router.put('/:id', async (req, res) => {
     isTaxable,
     isActive,
     isFeatured,
+    availableForSubscription,
     inventory,
     recipe,
     price,
@@ -1217,7 +1225,7 @@ router.put('/:id', async (req, res) => {
 
     const existingProduct = await prisma.product.findUnique({
       where: { id },
-      select: { productType: true, categoryId: true },
+      select: { productType: true, categoryId: true, availableForSubscription: true },
     });
 
     if (!existingProduct) {
@@ -1255,6 +1263,12 @@ router.put('/:id', async (req, res) => {
           : isFeatured !== undefined
           ? isFeatured
           : false,
+      availableForSubscription:
+        typeof availableForSubscription === 'string'
+          ? JSON.parse(availableForSubscription)
+          : availableForSubscription !== undefined
+          ? availableForSubscription
+          : existingProduct.availableForSubscription,
       productType: productType || existingProduct.productType,
       recipeNotes: recipe || null,
 

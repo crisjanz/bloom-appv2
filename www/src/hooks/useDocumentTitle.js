@@ -17,6 +17,8 @@ const ROUTE_TITLES = {
   "/gift-cards": "Gift Cards",
   "/gift-cards/balance": "Gift Card Balance",
   "/gift": "Gift Coupon",
+  "/subscriptions": "Flower Subscriptions",
+  "/my-subscription": "My Subscription",
   "/faq": "FAQ",
   "/terms": "Terms & Conditions",
 };

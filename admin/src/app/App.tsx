@@ -71,6 +71,10 @@ import WireProductsPage from "./pages/wire-products/WireProductsPage";
 import HouseAccountsPage from "./pages/house-accounts/HouseAccountsPage";
 import HouseAccountDetailPage from "./pages/house-accounts/HouseAccountDetailPage";
 import HouseAccountStatementPage from "./pages/house-accounts/HouseAccountStatementPage";
+import SubscriptionsPage from "./pages/subscriptions/SubscriptionsPage";
+import SubscriptionDetailPage from "./pages/subscriptions/SubscriptionDetailPage";
+import NewSubscriptionPage from "./pages/subscriptions/NewSubscriptionPage";
+import SubscriptionPlansPage from "./pages/subscriptions/SubscriptionPlansPage";
 import MobileHomePage from "./pages/mobile/MobileHomePage";
 import MobileScanPage from "./pages/mobile/MobileScanPage";
 import MobileInventoryPage from "./pages/mobile/MobileInventoryPage";
@@ -182,6 +186,12 @@ export default function App() {
             <Route path="house-accounts" element={<HouseAccountsPage />} />
             <Route path="house-accounts/:customerId" element={<HouseAccountDetailPage />} />
             <Route path="house-accounts/:customerId/statement" element={<HouseAccountStatementPage />} />
+
+            {/* Subscriptions */}
+            <Route path="subscriptions" element={<SubscriptionsPage />} />
+            <Route path="subscriptions/new" element={<NewSubscriptionPage />} />
+            <Route path="subscriptions/plans" element={<SubscriptionPlansPage />} />
+            <Route path="subscriptions/:id" element={<SubscriptionDetailPage />} />
 
             {/* Marketing / Campaigns */}
             <Route path="marketing/birthday-gifts" element={<BirthdayGiftsPage />} />

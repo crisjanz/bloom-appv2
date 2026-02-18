@@ -20,6 +20,7 @@ import {
   QrCodeIcon,
   BarChartIcon,
   DollarLineIcon,
+  ShootingStarIcon,
 } from "@shared/assets/icons";
 import { useSidebar } from "@app/contexts/SidebarContext";
 import { useApiClient } from "@shared/hooks/useApiClient";
@@ -64,6 +65,14 @@ const navItems: NavItem[] = [
     path: "/customers",
     subItems: [
       { name: "House Accounts", path: "/house-accounts", icon: <DollarLineIcon /> },
+    ],
+  },
+  {
+    name: "Subscriptions",
+    icon: <ShootingStarIcon />,
+    path: "/subscriptions",
+    subItems: [
+      { name: "Plans", path: "/subscriptions/plans", icon: <TagIcon /> },
     ],
   },
   {

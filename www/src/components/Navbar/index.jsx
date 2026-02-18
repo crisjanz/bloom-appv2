@@ -81,6 +81,7 @@ const Navbar = () => {
         text: "Shop",
         submenuGroup: shopGroups,
       },
+      { link: "/subscriptions", text: "Subscriptions" },
       { link: "/contact", text: "Contact" },
     ],
     [shopGroups]

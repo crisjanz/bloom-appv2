@@ -24,6 +24,9 @@ const ROUTE_TITLES: Record<string, string> = {
   "/reports/tax-export": "Tax Export",
   "/reports/transactions": "Transactions Report",
   "/house-accounts": "House Accounts",
+  "/subscriptions": "Subscriptions",
+  "/subscriptions/new": "New Subscription",
+  "/subscriptions/plans": "Subscription Plans",
   "/marketing/birthday-gifts": "Birthday Gifts",
   "/settings": "Settings",
   "/settings/business": "Business Settings",
@@ -68,6 +71,7 @@ function getTitleFromPath(pathname: string): string {
   if (segments[0] === "events" && segments[2] === "payments") return "Event Payments";
   if (segments[0] === "house-accounts" && segments[2] === "statement") return "Account Statement";
   if (segments[0] === "house-accounts" && segments.length === 2) return "House Account";
+  if (segments[0] === "subscriptions" && segments.length === 2) return "Subscription Details";
   if (segments[0] === "fulfillment") return "Fulfillment";
 
   // Fallback: capitalize path segments

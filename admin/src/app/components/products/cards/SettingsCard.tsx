@@ -21,6 +21,7 @@ type Props = {
   isTaxable: boolean;
   isActive: boolean;
   isFeatured: boolean;
+  availableForSubscription: boolean;
   productType: string;
   inventory: number;
   slug: string;
@@ -38,6 +39,7 @@ const SettingsCard: FC<Props> = ({
   isTaxable,
   isActive,
   isFeatured,
+  availableForSubscription,
   productType,
   inventory,
   slug,
@@ -205,6 +207,15 @@ const SettingsCard: FC<Props> = ({
           name="isFeatured"
           checked={isFeatured}
           onChange={(value: boolean) => handleChange('isFeatured', value)}
+        />
+      </div>
+
+      <div className="mb-5.5">
+        <ToggleSwitch
+          label="Available for Subscriptions"
+          name="availableForSubscription"
+          checked={availableForSubscription}
+          onChange={(value: boolean) => handleChange('availableForSubscription', value)}
         />
       </div>
 
