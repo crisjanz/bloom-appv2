@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeftIcon, TruckIcon, ClockIcon } from '@shared/assets/icons';
+import { ClockIcon } from '@shared/assets/icons';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
 import useOrderNumberPrefix from '@shared/hooks/useOrderNumberPrefix';
 import { formatOrderNumber } from '@shared/utils/formatOrderNumber';
+import MobilePageHeader from '@app/components/mobile/MobilePageHeader';
+import DatePicker from '@shared/ui/forms/date-picker';
+
+type MobileDateMode = 'TODAY' | 'TOMORROW' | 'CUSTOM';
 
 type MobileOrder = {
   id: string;
@@ -112,9 +116,9 @@ const formatStopRecipient = (stop: RouteStop, orderNumberPrefix: string) => {
 export default function MobileDeliveryPage() {
   const navigate = useNavigate();
   const orderNumberPrefix = useOrderNumberPrefix();
-  const { timezone, loading: timezoneLoading, getBusinessDateString, formatDate } = useBusinessTimezone();
+  const { timezone, loading: timezoneLoading, getBusinessDateString } = useBusinessTimezone();
   const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
-  const [hasDateOverride, setHasDateOverride] = useState(false);
+  const [dateMode, setDateMode] = useState<MobileDateMode>('TODAY');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deliveryOrders, setDeliveryOrders] = useState<MobileOrder[]>([]);
@@ -126,10 +130,27 @@ export default function MobileDeliveryPage() {
   const [creatingRoute, setCreatingRoute] = useState(false);
   const [createRouteError, setCreateRouteError] = useState<string | null>(null);
 
+  const toDateString = (value: Date) => {
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, '0');
+    const day = String(value.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   useEffect(() => {
-    if (!timezone || hasDateOverride) return;
-    setSelectedDate(getBusinessDateString(new Date()));
-  }, [timezone, getBusinessDateString, hasDateOverride]);
+    if (!timezone) return;
+
+    if (dateMode === 'TODAY') {
+      setSelectedDate(getBusinessDateString(new Date()));
+      return;
+    }
+
+    if (dateMode === 'TOMORROW') {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      setSelectedDate(getBusinessDateString(tomorrow));
+    }
+  }, [timezone, getBusinessDateString, dateMode]);
 
   useEffect(() => {
     if (!selectedDate) return;
@@ -266,7 +287,7 @@ export default function MobileDeliveryPage() {
     return (
       <div
         key={order.id}
-        className="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-5 flex items-center justify-between gap-4"
+        className="bg-white dark:bg-gray-800 rounded-3xl shadow-md p-5 flex items-center justify-between gap-4"
       >
         <div className="flex-1">
           <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
@@ -305,41 +326,72 @@ export default function MobileDeliveryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-brand-50 to-brand-100 dark:from-gray-900 dark:to-gray-800 flex flex-col">
-      <div className="bg-white dark:bg-gray-900 shadow-sm p-4 flex items-center gap-3">
-        <button
-          onClick={() => navigate('/mobile')}
-          className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
-          aria-label="Back to mobile home"
-        >
-          <ChevronLeftIcon className="w-5 h-5" />
-        </button>
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">Delivery Route</h1>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            {selectedDate && formatDate(new Date(`${selectedDate}T00:00:00`))}
-          </p>
-        </div>
-        <div className="ml-auto w-10 h-10 bg-brand-500 rounded-full flex items-center justify-center">
-          <TruckIcon className="w-5 h-5 text-white" />
-        </div>
-      </div>
+    <div className="min-h-screen bg-slate-100 dark:bg-gray-950">
+      <div className="mx-auto w-full max-w-md px-4 py-5 space-y-6">
+        <MobilePageHeader title="Delivery Route" showBackButton />
 
-      <div className="flex-1 p-6 space-y-6">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-4">
-          <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-            Date
-          </label>
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(event) => {
-              setHasDateOverride(true);
-              setSelectedDate(event.target.value);
-            }}
-            disabled={timezoneLoading}
-            className="mt-2 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-white"
-          />
+        <div className="space-y-6">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-md p-4">
+            <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">
+              Date
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setDateMode('TODAY')}
+                className={`h-10 rounded-xl text-sm font-semibold transition-colors ${
+                  dateMode === 'TODAY'
+                    ? 'bg-brand-500 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+                }`}
+              >
+                Today
+              </button>
+              <button
+                type="button"
+                onClick={() => setDateMode('TOMORROW')}
+                className={`h-10 rounded-xl text-sm font-semibold transition-colors ${
+                  dateMode === 'TOMORROW'
+                    ? 'bg-brand-500 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+                }`}
+              >
+                Tomorrow
+              </button>
+              <button
+                type="button"
+                onClick={() => setDateMode('CUSTOM')}
+                className={`h-10 rounded-xl text-sm font-semibold transition-colors ${
+                  dateMode === 'CUSTOM'
+                    ? 'bg-brand-500 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+                }`}
+              >
+                Date Picker
+              </button>
+            </div>
+
+            {dateMode === 'CUSTOM' ? (
+              <div className="mt-3">
+                <DatePicker
+                  id="mobile-delivery-date"
+                  placeholder="Select date"
+                  defaultDate={selectedDate || undefined}
+                  onChange={(selectedDates) => {
+                    if (selectedDates.length > 0) {
+                      setSelectedDate(toDateString(selectedDates[0]));
+                    }
+                  }}
+                />
+              </div>
+            ) : null}
+
+            {timezoneLoading ? (
+              <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">Loading business timezone...</p>
+            ) : (
+              <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">Selected date: {selectedDate}</p>
+            )}
+          </div>
         </div>
 
         <div className="space-y-4">
@@ -360,7 +412,7 @@ export default function MobileDeliveryPage() {
             </div>
           ) : (
             routes.map((route) => (
-              <div key={route.id} className="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-5 space-y-3">
+              <div key={route.id} className="bg-white dark:bg-gray-800 rounded-3xl shadow-md p-5 space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-sm text-gray-500 dark:text-gray-400">Route #{route.routeNumber}</div>
@@ -408,7 +460,7 @@ export default function MobileDeliveryPage() {
               All delivery orders are already assigned.
             </div>
           ) : (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-5 space-y-3">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-md p-5 space-y-3">
               {unassignedDeliveryOrders.map((order) => {
                 const addressLine = formatAddress(order);
                 return (

@@ -3,6 +3,7 @@ import listRoutes from './list';
 import createRoutes from './create';
 import updateRoutes from './update';
 import uploadRoutes from './upload';
+import imageRoutes from './images';
 import singleRoutes from './single';
 import statusRoutes from './status';
 import deliveryRoutes from './delivery';
@@ -21,6 +22,7 @@ router.use('/', createRoutes);
 router.use('/', createFromScanRoutes);  // Create order from scanned data
 router.use('/', updateRoutes);
 router.use('/', uploadRoutes);
+router.use('/', imageRoutes);
 router.use('/scan', scanRoutes);  // OCR scanning endpoint
 router.use('/', deliveryRoutes);  // Must be before singleRoutes!
 router.use('/', statusRoutes);

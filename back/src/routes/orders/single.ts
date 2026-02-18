@@ -26,6 +26,11 @@ router.get('/:id', async (req, res) => {
             }
           }
         },
+        orderImages: {
+          orderBy: {
+            createdAt: 'desc'
+          }
+        },
         employee: {
           select: {
             id: true,

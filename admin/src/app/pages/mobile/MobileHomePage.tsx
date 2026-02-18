@@ -1,115 +1,215 @@
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { TruckIcon, PackageIcon, BoxCubeIcon } from '@shared/assets/icons';
+import {
+  BoxCubeIcon,
+  CameraIcon,
+  PackageIcon,
+  TruckIcon
+} from '@shared/assets/icons';
+import { useApiClient } from '@shared/hooks/useApiClient';
+import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
+import MobilePageHeader from '@app/components/mobile/MobilePageHeader';
+
+type MobileOrder = {
+  id: string;
+  status?: string | null;
+};
+
+type DeliveryResponse = {
+  orders?: {
+    forDelivery?: MobileOrder[];
+    forPickup?: MobileOrder[];
+  };
+};
+
+type DashboardStats = {
+  orders: number;
+  deliveries: number;
+  pickups: number;
+  fulfilled: number;
+};
 
 export default function MobileHomePage() {
   const navigate = useNavigate();
+  const apiClient = useApiClient();
+  const { timezone, getBusinessDateString } = useBusinessTimezone();
+  const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [stats, setStats] = useState<DashboardStats>({
+    orders: 0,
+    deliveries: 0,
+    pickups: 0,
+    fulfilled: 0
+  });
+  const [loadingStats, setLoadingStats] = useState(true);
+
+  useEffect(() => {
+    if (!timezone) return;
+    setSelectedDate(getBusinessDateString(new Date()));
+  }, [timezone, getBusinessDateString]);
+
+  useEffect(() => {
+    if (!selectedDate) return;
+    let isActive = true;
+
+    const loadStats = async () => {
+      setLoadingStats(true);
+      try {
+        const response = await apiClient.get(`/api/orders/delivery?date=${selectedDate}`);
+        const data = response.data as DeliveryResponse;
+
+        if (response.status >= 400 || !data?.orders) {
+          throw new Error('Failed to load mobile dashboard stats');
+        }
+
+        const deliveryOrders = Array.isArray(data.orders.forDelivery) ? data.orders.forDelivery : [];
+        const pickupOrders = Array.isArray(data.orders.forPickup) ? data.orders.forPickup : [];
+        const allOrders = [...deliveryOrders, ...pickupOrders];
+        const fulfilledCount = allOrders.filter((order) => (order.status || '').toUpperCase() === 'FULFILLED').length;
+
+        if (!isActive) return;
+
+        setStats({
+          orders: allOrders.length,
+          deliveries: deliveryOrders.length,
+          pickups: pickupOrders.length,
+          fulfilled: fulfilledCount
+        });
+      } catch (error) {
+        console.error('Failed to load mobile home stats:', error);
+        if (!isActive) return;
+        setStats({
+          orders: 0,
+          deliveries: 0,
+          pickups: 0,
+          fulfilled: 0
+        });
+      } finally {
+        if (isActive) {
+          setLoadingStats(false);
+        }
+      }
+    };
+
+    loadStats();
+
+    return () => {
+      isActive = false;
+    };
+  }, [apiClient, selectedDate]);
+
+  const dateLabel = useMemo(() => {
+    const date = new Date(`${selectedDate}T12:00:00`);
+    if (Number.isNaN(date.getTime())) return '';
+
+    return new Intl.DateTimeFormat('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      timeZone: timezone || undefined
+    }).format(date);
+  }, [selectedDate, timezone]);
+
+  const metricCards = [
+    {
+      key: 'orders',
+      label: 'Orders',
+      value: stats.orders,
+      className:
+        'bg-white border border-gray-200 dark:bg-gray-800 dark:border-gray-700'
+    },
+    {
+      key: 'deliveries',
+      label: 'Deliveries',
+      value: stats.deliveries,
+      className:
+        'bg-white border border-gray-200 dark:bg-gray-800 dark:border-gray-700'
+    },
+    {
+      key: 'pickups',
+      label: 'Pickups',
+      value: stats.pickups,
+      className:
+        'bg-white border border-gray-200 dark:bg-gray-800 dark:border-gray-700'
+    },
+    {
+      key: 'fulfilled',
+      label: 'Fulfilled',
+      value: stats.fulfilled,
+      className:
+        'bg-white border border-gray-200 dark:bg-gray-800 dark:border-gray-700'
+    }
+  ];
+
+  const quickActions = [
+    {
+      key: 'scan',
+      label: 'Scan Orders',
+      icon: CameraIcon,
+      onClick: () => navigate('/mobile/scan'),
+      className:
+        'bg-[#4A668B] hover:bg-[#415B7C] text-white'
+    },
+    {
+      key: 'fulfillment',
+      label: 'Fulfill Orders',
+      icon: PackageIcon,
+      onClick: () => navigate('/mobile/fulfillment'),
+      className:
+        'bg-[#A5524C] hover:bg-[#954842] text-white'
+    },
+    {
+      key: 'inventory',
+      label: 'Manage Inventory',
+      icon: BoxCubeIcon,
+      onClick: () => navigate('/mobile/inventory'),
+      className:
+        'bg-[#5C7F79] hover:bg-[#4F706B] text-white'
+    },
+    {
+      key: 'delivery',
+      label: 'Delivery Routes',
+      icon: TruckIcon,
+      onClick: () => navigate('/mobile/delivery'),
+      className:
+        'bg-[#4A403D] hover:bg-[#3F3633] text-white'
+    }
+  ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-brand-50 to-brand-100 dark:from-gray-900 dark:to-gray-800 flex flex-col">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-900 shadow-sm p-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white text-center">
-          Bloom Mobile
-        </h1>
-        <p className="text-sm text-gray-600 dark:text-gray-400 text-center mt-1">
-          Field Tools
-        </p>
-      </div>
+    <div className="min-h-screen bg-slate-100 dark:bg-gray-950">
+      <div className="mx-auto w-full max-w-md px-4 py-5 space-y-6">
+        <MobilePageHeader title="Dashboard" />
+        <p className="text-sm text-gray-600 dark:text-gray-400">Today, {dateLabel}</p>
 
-      {/* Main Content */}
-      <div className="flex-1 p-4">
-        <div className="w-full max-w-md mx-auto space-y-3">
-
-          {/* Scan Order Button */}
-          <button
-            onClick={() => navigate('/mobile/scan')}
-            className="w-full bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 flex items-center gap-4 active:scale-[0.98] transition-transform"
-          >
-            <div className="w-12 h-12 bg-brand-500 rounded-full flex items-center justify-center flex-shrink-0">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </div>
-            <div className="text-left">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                Scan Order
-              </h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Wire orders & web orders
+        <section className="grid grid-cols-2 gap-3">
+          {metricCards.map((card) => (
+            <div key={card.key} className={`rounded-3xl p-4 ${card.className}`}>
+              <p className="text-2xl font-semibold text-gray-900 dark:text-white">
+                {loadingStats ? '--' : card.value}
               </p>
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{card.label}</p>
             </div>
-          </button>
+          ))}
+        </section>
 
-          {/* Inventory Button */}
-          <button
-            onClick={() => navigate('/mobile/inventory')}
-            className="w-full bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 flex items-center gap-4 active:scale-[0.98] transition-transform"
-          >
-            <div className="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center flex-shrink-0">
-              <BoxCubeIcon className="w-6 h-6 text-white" />
-            </div>
-            <div className="text-left">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                Inventory
-              </h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Scan and adjust stock
-              </p>
-            </div>
-          </button>
-
-          {/* Delivery Route Button */}
-          <button
-            onClick={() => navigate('/mobile/delivery')}
-            className="w-full bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 flex items-center gap-4 active:scale-[0.98] transition-transform"
-          >
-            <div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center flex-shrink-0">
-              <TruckIcon className="w-6 h-6 text-white" />
-            </div>
-            <div className="text-left">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                Delivery Route
-              </h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                View today's deliveries
-              </p>
-            </div>
-          </button>
-
-          {/* Fulfillment Button */}
-          <button
-            onClick={() => navigate('/mobile/fulfillment')}
-            className="w-full bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 flex items-center gap-4 active:scale-[0.98] transition-transform"
-          >
-            <div className="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center flex-shrink-0">
-              <PackageIcon className="w-6 h-6 text-white" />
-            </div>
-            <div className="text-left">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                Fulfillment
-              </h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Fulfill today's orders
-              </p>
-            </div>
-          </button>
-
-          {/* Admin Dashboard Link */}
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="w-full bg-gray-100 dark:bg-gray-700 rounded-xl p-3 text-center active:scale-[0.98] transition-transform"
-          >
-            <span className="text-sm text-gray-700 dark:text-gray-300">
-              Go to Full Admin →
-            </span>
-          </button>
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div className="p-6 text-center text-sm text-gray-500 dark:text-gray-400">
-        In Your Vase Flowers
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            Quick Actions
+          </h2>
+          <div className="grid grid-cols-2 gap-3">
+            {quickActions.map((action) => (
+              <button
+                key={action.key}
+                type="button"
+                onClick={action.onClick}
+                className={`rounded-3xl p-4 text-left shadow-sm active:scale-[0.99] transition-transform ${action.className}`}
+              >
+                <action.icon className="h-5 w-5" />
+                <p className="mt-3 text-sm font-semibold">{action.label}</p>
+              </button>
+            ))}
+          </div>
+        </section>
       </div>
     </div>
   );

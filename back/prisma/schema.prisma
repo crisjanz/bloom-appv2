@@ -371,6 +371,7 @@ model Order {
   printJobs           PrintJob[]
   giftTokens          GiftToken[]
   routeStop           RouteStop?           @relation("RouteStopOrder")
+  orderImages         OrderImage[]
   communications      OrderCommunication[]
   orderPayments       OrderPayment[]
   orderRefunds        OrderRefund[]
@@ -381,6 +382,23 @@ model Order {
   @@index([status])
   @@index([orderSource])
   @@index([externalSource])
+}
+
+model OrderImage {
+  id        String             @id @default(uuid())
+  orderId   String
+  category  OrderImageCategory @default(OTHER)
+  url       String
+  tag       String?
+  note      String?
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  order     Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, category, url])
+  @@index([orderId])
+  @@index([category])
+  @@index([orderId, category])
 }
 
 model Route {
@@ -1370,6 +1388,13 @@ enum StopStatus {
   DELIVERED
   ATTEMPTED
   SKIPPED
+}
+
+enum OrderImageCategory {
+  REFERENCE
+  FULFILLED
+  DELIVERED
+  OTHER
 }
 
 enum EmployeeType {

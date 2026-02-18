@@ -80,6 +80,9 @@ import MobileScanPage from "./pages/mobile/MobileScanPage";
 import MobileInventoryPage from "./pages/mobile/MobileInventoryPage";
 import MobileFulfillmentPage from "./pages/mobile/MobileFulfillmentPage";
 import MobileDeliveryPage from "./pages/mobile/MobileDeliveryPage";
+import MobileFulfillmentReferencePage from "./pages/mobile/MobileFulfillmentReferencePage";
+import MobileFulfillmentPhotosPage from "./pages/mobile/MobileFulfillmentPhotosPage";
+import MobileFulfillmentStatusPage from "./pages/mobile/MobileFulfillmentStatusPage";
 import MobileRedirect from "./components/MobileRedirect";
 import ExternalOrdersPage from "./pages/orders/ExternalOrdersPage";
 import DriverRoutePage from "./pages/driver/DriverRoutePage";
@@ -107,6 +110,9 @@ export default function App() {
             <Route path="/mobile/inventory" element={<MobileInventoryPage />} />
             <Route path="/mobile/delivery" element={<MobileDeliveryPage />} />
             <Route path="/mobile/fulfillment" element={<MobileFulfillmentPage />} />
+            <Route path="/mobile/fulfillment/:id/reference" element={<MobileFulfillmentReferencePage />} />
+            <Route path="/mobile/fulfillment/:id/photos" element={<MobileFulfillmentPhotosPage />} />
+            <Route path="/mobile/fulfillment/:id/status" element={<MobileFulfillmentStatusPage />} />
           </Route>
 
           {/* POS route - OUTSIDE AppLayout for fullscreen */}

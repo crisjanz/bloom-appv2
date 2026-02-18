@@ -72,6 +72,9 @@ function getTitleFromPath(pathname: string): string {
   if (segments[0] === "house-accounts" && segments[2] === "statement") return "Account Statement";
   if (segments[0] === "house-accounts" && segments.length === 2) return "House Account";
   if (segments[0] === "subscriptions" && segments.length === 2) return "Subscription Details";
+  if (segments[0] === "mobile" && segments[1] === "fulfillment" && segments[3] === "reference") return "Fulfillment Reference";
+  if (segments[0] === "mobile" && segments[1] === "fulfillment" && segments[3] === "photos") return "Fulfillment Photos";
+  if (segments[0] === "mobile" && segments[1] === "fulfillment" && segments[3] === "status") return "Fulfillment Status";
   if (segments[0] === "fulfillment") return "Fulfillment";
 
   // Fallback: capitalize path segments

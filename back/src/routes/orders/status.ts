@@ -161,18 +161,45 @@ async function processOrderRefunds(orderId: string, employeeId?: string) {
   }
 }
 
-// Valid status transitions based on business logic
-const VALID_TRANSITIONS: Record<string, string[]> = {
-  'DRAFT': ['PAID', 'CANCELLED'],
-  'PAID': ['IN_DESIGN', 'COMPLETED', 'CANCELLED'], // COMPLETED for POS walk-ins
-  'IN_DESIGN': ['READY', 'REJECTED', 'CANCELLED'],
-  'READY': ['OUT_FOR_DELIVERY', 'COMPLETED', 'CANCELLED'], // COMPLETED for pickup orders
-  'OUT_FOR_DELIVERY': ['COMPLETED', 'CANCELLED'],
-  'REJECTED': ['IN_DESIGN', 'CANCELLED'],
-  'COMPLETED': [], // Final state
-  'CANCELLED': [], // Final state
-  'REFUNDED': [],
-  'PARTIALLY_REFUNDED': ['REFUNDED']
+const ALL_BACKEND_STATUSES = [
+  'DRAFT',
+  'PAID',
+  'IN_DESIGN',
+  'READY',
+  'OUT_FOR_DELIVERY',
+  'COMPLETED',
+  'REJECTED',
+  'CANCELLED',
+  'REFUNDED',
+  'PARTIALLY_REFUNDED'
+] as const;
+
+const getAllowedTransitions = (currentStatus: string, orderType?: string | null): string[] => {
+  // Keep initial workflow constrained.
+  if (currentStatus === 'DRAFT') {
+    return ['PAID', 'CANCELLED'];
+  }
+
+  // Cancelled and refunded are locked terminal statuses.
+  if (currentStatus === 'CANCELLED' || currentStatus === 'REFUNDED') {
+    return [];
+  }
+
+  // Partially refunded can only move forward to fully refunded.
+  if (currentStatus === 'PARTIALLY_REFUNDED') {
+    return ['REFUNDED'];
+  }
+
+  let transitions = ALL_BACKEND_STATUSES.filter(
+    (status) => status !== currentStatus && status !== 'DRAFT'
+  );
+
+  // Pickup orders should never move to out-for-delivery.
+  if (orderType === 'PICKUP') {
+    transitions = transitions.filter((status) => status !== 'OUT_FOR_DELIVERY');
+  }
+
+  return transitions;
 };
 
 /**
@@ -217,7 +244,7 @@ router.patch('/:orderId/status', async (req, res) => {
     }
 
     // Validate status transition
-    const allowedTransitions = VALID_TRANSITIONS[order.status] || [];
+    const allowedTransitions = getAllowedTransitions(order.status, order.type);
     if (!allowedTransitions.includes(newStatus)) {
       return res.status(400).json({
         success: false,
@@ -308,12 +335,7 @@ router.get('/:orderId/next-statuses', async (req, res) => {
       });
     }
 
-    let allowedTransitions = VALID_TRANSITIONS[order.status] || [];
-
-    // Filter out OUT_FOR_DELIVERY for pickup orders
-    if (order.type === 'PICKUP') {
-      allowedTransitions = allowedTransitions.filter(status => status !== 'OUT_FOR_DELIVERY');
-    }
+    const allowedTransitions = getAllowedTransitions(order.status, order.type);
 
     res.json({
       success: true,

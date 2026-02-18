@@ -1,9 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeftIcon, PackageIcon, ClockIcon } from '@shared/assets/icons';
+import { ClockIcon } from '@shared/assets/icons';
+import { useApiClient } from '@shared/hooks/useApiClient';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
 import useOrderNumberPrefix from '@shared/hooks/useOrderNumberPrefix';
 import { formatOrderNumber } from '@shared/utils/formatOrderNumber';
+import MobilePageHeader from '@app/components/mobile/MobilePageHeader';
+import DatePicker from '@shared/ui/forms/date-picker';
+import { toast } from 'sonner';
+import { patchFulfillmentStatus } from './mobileFulfillmentHelpers';
+
+type MobileDateMode = 'TODAY' | 'TOMORROW' | 'CUSTOM';
 
 type MobileOrder = {
   id: string;
@@ -63,19 +70,38 @@ const formatAddress = (order: MobileOrder) => {
 
 export default function MobileFulfillmentPage() {
   const navigate = useNavigate();
+  const apiClient = useApiClient();
   const orderNumberPrefix = useOrderNumberPrefix();
-  const { timezone, loading: timezoneLoading, getBusinessDateString, formatDate } = useBusinessTimezone();
+  const { timezone, loading: timezoneLoading, getBusinessDateString } = useBusinessTimezone();
   const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
-  const [hasDateOverride, setHasDateOverride] = useState(false);
+  const [dateMode, setDateMode] = useState<MobileDateMode>('TODAY');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deliveryOrders, setDeliveryOrders] = useState<MobileOrder[]>([]);
   const [pickupOrders, setPickupOrders] = useState<MobileOrder[]>([]);
+  const [startingOrderId, setStartingOrderId] = useState<string | null>(null);
+
+  const toDateString = (value: Date) => {
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, '0');
+    const day = String(value.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
   useEffect(() => {
-    if (!timezone || hasDateOverride) return;
-    setSelectedDate(getBusinessDateString(new Date()));
-  }, [timezone, getBusinessDateString, hasDateOverride]);
+    if (!timezone) return;
+
+    if (dateMode === 'TODAY') {
+      setSelectedDate(getBusinessDateString(new Date()));
+      return;
+    }
+
+    if (dateMode === 'TOMORROW') {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      setSelectedDate(getBusinessDateString(tomorrow));
+    }
+  }, [timezone, getBusinessDateString, dateMode]);
 
   useEffect(() => {
     if (!selectedDate) return;
@@ -113,6 +139,41 @@ export default function MobileFulfillmentPage() {
     };
   }, [selectedDate]);
 
+  const openReferencePage = (orderId: string) => {
+    navigate(`/mobile/fulfillment/${orderId}/reference`);
+  };
+
+  const updateOrderStatusInLists = useCallback((orderId: string, status: string) => {
+    setDeliveryOrders((previous) =>
+      previous.map((order) => (order.id === orderId ? { ...order, status } : order))
+    );
+    setPickupOrders((previous) =>
+      previous.map((order) => (order.id === orderId ? { ...order, status } : order))
+    );
+  }, []);
+
+  const handleStartOrder = async (event: React.MouseEvent<HTMLButtonElement>, order: MobileOrder) => {
+    event.stopPropagation();
+
+    try {
+      setStartingOrderId(order.id);
+
+      const currentStatus = (order.status || '').toUpperCase();
+      if (currentStatus !== 'IN_DESIGN') {
+        await patchFulfillmentStatus(apiClient, order.id, 'IN_DESIGN');
+        updateOrderStatusInLists(order.id, 'IN_DESIGN');
+        toast.success('Order moved to In Design');
+      }
+
+      openReferencePage(order.id);
+    } catch (statusError) {
+      console.error('Failed to start fulfillment order:', statusError);
+      toast.error(statusError instanceof Error ? statusError.message : 'Failed to start order');
+    } finally {
+      setStartingOrderId(null);
+    }
+  };
+
   const renderOrderCard = (order: MobileOrder) => {
     const recipientName = formatRecipientName(order);
     const addressLine = formatAddress(order);
@@ -121,7 +182,16 @@ export default function MobileFulfillmentPage() {
     return (
       <div
         key={order.id}
-        className="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-5 flex items-center justify-between gap-4"
+        className="bg-white dark:bg-gray-800 rounded-3xl shadow-md p-5 flex items-center justify-between gap-4 cursor-pointer"
+        role="button"
+        tabIndex={0}
+        onClick={() => openReferencePage(order.id)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            openReferencePage(order.id);
+          }
+        }}
       >
         <div className="flex-1">
           <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
@@ -145,52 +215,87 @@ export default function MobileFulfillmentPage() {
             </div>
           )}
         </div>
-        <button
-          onClick={() => navigate(`/fulfillment/${order.id}`)}
-          className="shrink-0 bg-brand-500 hover:bg-brand-600 text-white px-4 py-2 rounded-xl text-sm font-semibold active:scale-95 transition-transform"
-        >
-          Fulfill
-        </button>
+        <div className="shrink-0">
+          <button
+            type="button"
+            onClick={(event) => handleStartOrder(event, order)}
+            disabled={startingOrderId === order.id}
+            className="min-w-[88px] rounded-xl bg-brand-500 px-3 py-2 text-xs font-semibold text-white hover:bg-brand-600 active:scale-95 transition-transform disabled:opacity-60"
+          >
+            {startingOrderId === order.id ? 'Starting...' : 'Start'}
+          </button>
+        </div>
       </div>
     );
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-brand-50 to-brand-100 dark:from-gray-900 dark:to-gray-800 flex flex-col">
-      <div className="bg-white dark:bg-gray-900 shadow-sm p-4 flex items-center gap-3">
-        <button
-          onClick={() => navigate('/mobile')}
-          className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
-          aria-label="Back to mobile home"
-        >
-          <ChevronLeftIcon className="w-5 h-5" />
-        </button>
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">Fulfillment</h1>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            {selectedDate && formatDate(new Date(`${selectedDate}T00:00:00`))}
-          </p>
-        </div>
-        <div className="ml-auto w-10 h-10 bg-brand-500 rounded-full flex items-center justify-center">
-          <PackageIcon className="w-5 h-5 text-white" />
-        </div>
-      </div>
+    <div className="min-h-screen bg-slate-100 dark:bg-gray-950">
+      <div className="mx-auto w-full max-w-md px-4 py-5 space-y-6">
+        <MobilePageHeader title="Fulfillment" showBackButton />
 
-      <div className="flex-1 p-6 space-y-6">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-4">
-          <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-            Date
-          </label>
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(event) => {
-              setHasDateOverride(true);
-              setSelectedDate(event.target.value);
-            }}
-            disabled={timezoneLoading}
-            className="mt-2 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-white"
-          />
+        <div className="space-y-6">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-md p-4">
+            <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">
+              Date
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setDateMode('TODAY')}
+                className={`h-10 rounded-xl text-sm font-semibold transition-colors ${
+                  dateMode === 'TODAY'
+                    ? 'bg-brand-500 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+                }`}
+              >
+                Today
+              </button>
+              <button
+                type="button"
+                onClick={() => setDateMode('TOMORROW')}
+                className={`h-10 rounded-xl text-sm font-semibold transition-colors ${
+                  dateMode === 'TOMORROW'
+                    ? 'bg-brand-500 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+                }`}
+              >
+                Tomorrow
+              </button>
+              <button
+                type="button"
+                onClick={() => setDateMode('CUSTOM')}
+                className={`h-10 rounded-xl text-sm font-semibold transition-colors ${
+                  dateMode === 'CUSTOM'
+                    ? 'bg-brand-500 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+                }`}
+              >
+                Date Picker
+              </button>
+            </div>
+
+            {dateMode === 'CUSTOM' ? (
+              <div className="mt-3">
+                <DatePicker
+                  id="mobile-fulfillment-date"
+                  placeholder="Select date"
+                  defaultDate={selectedDate || undefined}
+                  onChange={(selectedDates) => {
+                    if (selectedDates.length > 0) {
+                      setSelectedDate(toDateString(selectedDates[0]));
+                    }
+                  }}
+                />
+              </div>
+            ) : null}
+
+            {timezoneLoading ? (
+              <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">Loading business timezone...</p>
+            ) : (
+              <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">Selected date: {selectedDate}</p>
+            )}
+          </div>
         </div>
         {timezoneLoading || loading ? (
           <div className="flex items-center justify-center text-gray-600 dark:text-gray-300">

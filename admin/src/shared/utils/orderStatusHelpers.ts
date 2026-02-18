@@ -155,40 +155,44 @@ export const getStatusColor = (status: OrderStatus): string => {
  * Get next possible status transitions for a given status
  */
 export const getNextStatuses = (currentStatus: OrderStatus, orderType?: OrderType): OrderStatus[] => {
-  switch (currentStatus) {
-    case 'DRAFT':
-      return ['PAID', 'CANCELLED'];
-    
-    case 'PAID':
-      return ['IN_DESIGN', 'COMPLETED', 'CANCELLED']; // COMPLETED for POS walk-ins
-    
-    case 'IN_DESIGN':
-      return ['READY', 'REJECTED', 'CANCELLED'];
-    
-    case 'READY':
-      if (orderType === 'DELIVERY') {
-        return ['OUT_FOR_DELIVERY', 'COMPLETED', 'CANCELLED'];
-      } else {
-        return ['COMPLETED', 'CANCELLED']; // Pickup orders skip OUT_FOR_DELIVERY
-      }
-    
-    case 'OUT_FOR_DELIVERY':
-      return ['COMPLETED', 'CANCELLED'];
-    
-    case 'REJECTED':
-      return ['IN_DESIGN', 'CANCELLED'];
-    
-    // Final states - no transitions
-    case 'COMPLETED':
-    case 'CANCELLED':
-    case 'REFUNDED':
-      return [];
-    case 'PARTIALLY_REFUNDED':
-      return ['REFUNDED'];
-    
-    default:
-      return [];
+  const backendStatuses: BackendOrderStatus[] = [
+    'DRAFT',
+    'PAID',
+    'IN_DESIGN',
+    'READY',
+    'OUT_FOR_DELIVERY',
+    'COMPLETED',
+    'REJECTED',
+    'CANCELLED',
+    'REFUNDED',
+    'PARTIALLY_REFUNDED'
+  ];
+
+  if (currentStatus === 'DRAFT') {
+    return ['PAID', 'CANCELLED'];
   }
+
+  if (currentStatus === 'CANCELLED' || currentStatus === 'REFUNDED') {
+    return [];
+  }
+
+  if (currentStatus === 'PARTIALLY_REFUNDED') {
+    return ['REFUNDED'];
+  }
+
+  if (backendStatuses.includes(currentStatus as BackendOrderStatus)) {
+    let nextStatuses = backendStatuses.filter(
+      (status) => status !== currentStatus && status !== 'DRAFT'
+    );
+
+    if (orderType === 'PICKUP') {
+      nextStatuses = nextStatuses.filter((status) => status !== 'OUT_FOR_DELIVERY');
+    }
+
+    return nextStatuses;
+  }
+
+  return [];
 };
 
 /**

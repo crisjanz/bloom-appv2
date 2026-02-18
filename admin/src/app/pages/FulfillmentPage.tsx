@@ -2,19 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
 import useOrderNumberPrefix from '@shared/hooks/useOrderNumberPrefix';
-import { ChevronLeftIcon, PhotoIcon, LinkIcon, ArrowUpIcon, CheckCircleIcon, SaveIcon } from '@shared/assets/icons';
+import { ChevronLeftIcon, PhotoIcon, LinkIcon, SaveIcon } from '@shared/assets/icons';
 import { formatOrderNumber } from '@shared/utils/formatOrderNumber';
+import useOrderImages, { OrderImage, OrderImageCategory } from '@shared/hooks/useOrderImages';
+import FulfillmentImageUploadModal from '@app/components/fulfillment/FulfillmentImageUploadModal';
 import { toast } from 'sonner';
 
 interface Order {
   id: string;
-  orderNumber: string;
+  orderNumber: string | number;
   status: string;
   deliveryDate: string | null;
   deliveryTime: string | null;
   cardMessage: string | null;
   specialInstructions: string | null;
-  images?: string[];
+  orderImages?: OrderImage[];
   customer: {
     firstName: string;
     lastName: string;
@@ -40,11 +42,48 @@ interface Order {
   }>;
 }
 
+const mergeOrderImages = (existing: OrderImage[] = [], incoming: OrderImage[] = []): OrderImage[] => {
+  const imageMap = new Map(existing.map((image) => [image.id, image]));
+
+  incoming.forEach((image) => {
+    imageMap.set(image.id, image);
+  });
+
+  return Array.from(imageMap.values()).sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+};
+
+const RESULT_IMAGE_CATEGORY_VALUES: OrderImageCategory[] = ['FULFILLED', 'DELIVERED', 'OTHER'];
+
+const RESULT_IMAGE_CATEGORY_OPTIONS: Array<{ value: OrderImageCategory; label: string }> = [
+  { value: 'FULFILLED', label: 'Fulfilled' },
+  { value: 'DELIVERED', label: 'Delivered' },
+  { value: 'OTHER', label: 'Other' }
+];
+
+const REFERENCE_TAG_SUGGESTIONS = [
+  'Model',
+  'Recipe',
+  'Inspiration',
+  'Color palette'
+];
+
+const RESULT_TAG_SUGGESTIONS = [
+  'Studio',
+  'Final',
+  'Delivery proof',
+  'Issue'
+];
+
+type ImageModalMode = 'reference' | 'result';
+
 const FulfillmentPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const orderNumberPrefix = useOrderNumberPrefix();
   const { formatDate } = useBusinessTimezone();
+  const { addOrderImages, deleteOrderImage } = useOrderImages();
 
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
@@ -60,26 +99,11 @@ const FulfillmentPage: React.FC = () => {
   const [imageSearchResults, setImageSearchResults] = useState<any[]>([]);
   const [searchingImages, setSearchingImages] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState('');
-  const [fulfillmentNote, setFulfillmentNote] = useState('');
-  const [fulfillmentImageFile, setFulfillmentImageFile] = useState<File | null>(null);
-  const [fulfillmentPreviewUrl, setFulfillmentPreviewUrl] = useState<string | null>(null);
-  const [fulfillmentSaving, setFulfillmentSaving] = useState(false);
   const [fulfillmentError, setFulfillmentError] = useState<string | null>(null);
   const [fulfillmentNotes, setFulfillmentNotes] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (!fulfillmentImageFile) {
-      setFulfillmentPreviewUrl(null);
-      return;
-    }
-
-    const previewUrl = URL.createObjectURL(fulfillmentImageFile);
-    setFulfillmentPreviewUrl(previewUrl);
-
-    return () => {
-      URL.revokeObjectURL(previewUrl);
-    };
-  }, [fulfillmentImageFile]);
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+  const [imageModalMode, setImageModalMode] = useState<ImageModalMode>('result');
+  const [imageModalInitialImage, setImageModalInitialImage] = useState<string | null>(null);
 
   // Load order on mount
   useEffect(() => {
@@ -162,12 +186,29 @@ const FulfillmentPage: React.FC = () => {
     }
   };
 
-  const determineProductImage = async (order: Order) => {
-    const orderImages = order.images || [];
+  const openReferenceImageModal = (initialImage: string | null = null) => {
+    setImageModalMode('reference');
+    setImageModalInitialImage(initialImage);
+    setIsImageModalOpen(true);
+  };
 
-    // First priority: Order-specific images (fetched/uploaded for this order)
-    if (orderImages.length > 0) {
-      setProductImage(orderImages[0]);
+  const openResultImageModal = () => {
+    setImageModalMode('result');
+    setImageModalInitialImage(null);
+    setIsImageModalOpen(true);
+  };
+
+  const closeImageModal = () => {
+    setIsImageModalOpen(false);
+    setImageModalInitialImage(null);
+  };
+
+  const determineProductImage = async (order: Order) => {
+    const referenceImage = (order.orderImages || []).find((image) => image.category === 'REFERENCE');
+
+    // First priority: Explicit reference image chosen for fulfillment.
+    if (referenceImage?.url) {
+      setProductImage(referenceImage.url);
       return;
     }
 
@@ -316,7 +357,7 @@ const FulfillmentPage: React.FC = () => {
       const data = await response.json();
 
       if (data.imageUrl) {
-        setProductImage(data.imageUrl);
+        openReferenceImageModal(data.imageUrl);
 
         // Extract product code if not already set
         let currentProductCode = wireProductCode;
@@ -331,64 +372,11 @@ const FulfillmentPage: React.FC = () => {
             setWireProductCode(currentProductCode);
           }
         }
-
-        // Save image to order
-        if (order) {
-          await saveImageToOrder(data.imageUrl);
-        }
-
-        toast.success('Image saved');
       }
 
     } catch (error: any) {
       console.error('Error fetching image:', error);
       toast.error(`Failed to fetch image: ${error.message}`);
-    } finally {
-      setFetchingImage(false);
-    }
-  };
-
-  const handleImageUpload = async (file: File) => {
-    try {
-      setFetchingImage(true);
-      const token = localStorage.getItem('token');
-
-      // Upload to Cloudflare R2 via backend
-      const formData = new FormData();
-      formData.append('image', file);
-      if (wireProductCode) {
-        formData.append('productCode', wireProductCode);
-      }
-
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/wire-products/upload-image`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to upload image');
-      }
-
-      const data = await response.json();
-
-      if (data.imageUrl) {
-        setProductImage(data.imageUrl);
-
-        // Save image to order
-        if (order) {
-          await saveImageToOrder(data.imageUrl);
-        }
-
-        toast.success('Image uploaded');
-      }
-
-    } catch (error: any) {
-      console.error('Error uploading image:', error);
-      toast.error(`Failed to upload image: ${error.message}`);
     } finally {
       setFetchingImage(false);
     }
@@ -423,87 +411,141 @@ const FulfillmentPage: React.FC = () => {
     }
   };
 
-  const saveImageToOrder = async (imageUrl: string) => {
-    if (!order) return;
+  const saveImagesToOrder = async (
+    images: Array<{ url: string; category: OrderImageCategory; tag?: string; note?: string }>
+  ) => {
+    if (!order || images.length === 0) return;
 
     try {
-      const token = localStorage.getItem('token');
-
-      // Add image to order's images array (avoid duplicates)
-      const currentImages = order.images || [];
-      const updatedImages = currentImages.includes(imageUrl)
-        ? currentImages
-        : [...currentImages, imageUrl];
-
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/${order.id}/update`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ images: updatedImages })
+      const savedImages = await addOrderImages(order.id, {
+        images: images.map((image) => ({
+          url: image.url,
+          category: image.category,
+          tag: image.tag || null,
+          note: image.note || null
+        }))
       });
 
-      if (!response.ok) throw new Error('Failed to save image to order');
-
-      // Update local order state
-      setOrder({ ...order, images: updatedImages });
-
-      console.log('Image saved to order');
-    } catch (error) {
-      console.error('Error saving image to order:', error);
-    }
-  };
-
-  const saveImagesToOrder = async (imageUrls: string[]) => {
-    if (!order || imageUrls.length === 0) return;
-
-    try {
-      const token = localStorage.getItem('token');
-      const currentImages = order.images || [];
-      const updatedImages = [...currentImages];
-
-      imageUrls.forEach((url) => {
-        if (!updatedImages.includes(url)) {
-          updatedImages.push(url);
-        }
-      });
-
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/${order.id}/update`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ images: updatedImages })
-      });
-
-      if (!response.ok) throw new Error('Failed to save images to order');
-
-      setOrder({ ...order, images: updatedImages });
+      setOrder((prev) =>
+        prev
+          ? {
+              ...prev,
+              orderImages: mergeOrderImages(prev.orderImages || [], savedImages)
+            }
+          : prev
+      );
     } catch (error) {
       console.error('Error saving images to order:', error);
       throw error;
     }
   };
 
-  const removeImageFromOrder = async (imageUrl: string) => {
+  const uploadOrderImageBlob = async (blob: Blob): Promise<string> => {
+    if (!order) {
+      throw new Error('Order not loaded');
+    }
+
+    const token = localStorage.getItem('token');
+    const formData = new FormData();
+    const file = new File([blob], `order-image-${Date.now()}.jpg`, { type: 'image/jpeg' });
+    formData.append('images', file);
+
+    const uploadResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/upload-images`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      body: formData
+    });
+
+    if (!uploadResponse.ok) {
+      const errorData = await uploadResponse.json().catch(() => ({}));
+      throw new Error(errorData?.error || 'Failed to upload image');
+    }
+
+    const uploadData = await uploadResponse.json();
+    const uploadedImageUrls = Array.isArray(uploadData?.imageUrls) ? uploadData.imageUrls : [];
+    const uploadedImageUrl = uploadedImageUrls[0];
+
+    if (!uploadedImageUrl) {
+      throw new Error('No image URL returned from upload');
+    }
+
+    return uploadedImageUrl;
+  };
+
+  const saveImageNote = async (orderId: string, imageUrl: string, note: string) => {
+    const token = localStorage.getItem('token');
+    const message = `Fulfillment photo note | url:${imageUrl} | note:${note}`;
+
+    const noteResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/${orderId}/communications`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        type: 'NOTE',
+        message
+      })
+    });
+
+    if (!noteResponse.ok) {
+      const errorData = await noteResponse.json().catch(() => ({}));
+      throw new Error(errorData?.error || 'Failed to save image note');
+    }
+  };
+
+  const handleImageModalSave = async ({
+    croppedBlob,
+    category,
+    tag,
+    note
+  }: {
+    croppedBlob: Blob;
+    category: OrderImageCategory;
+    tag?: string;
+    note?: string;
+  }) => {
+    if (!order) {
+      throw new Error('Order not loaded');
+    }
+
+    let categoryToSave: OrderImageCategory = 'FULFILLED';
+    if (imageModalMode === 'reference') {
+      categoryToSave = 'REFERENCE';
+    } else if (RESULT_IMAGE_CATEGORY_VALUES.includes(category)) {
+      categoryToSave = category;
+    }
+    const imageUrl = await uploadOrderImageBlob(croppedBlob);
+
+    await saveImagesToOrder([
+      {
+        url: imageUrl,
+        category: categoryToSave,
+        tag,
+        note
+      }
+    ]);
+
+    if (categoryToSave === 'REFERENCE') {
+      setProductImage(imageUrl);
+    }
+
+    if (note) {
+      await saveImageNote(order.id, imageUrl, note);
+      setFulfillmentNotes((prev) => [note, ...prev]);
+    }
+
+    toast.success('Photo saved');
+  };
+
+  const removeImageFromOrder = async (imageId: string, imageUrl: string) => {
     if (!order) return;
 
     try {
       const token = localStorage.getItem('token');
-      const updatedImages = (order.images || []).filter((url) => url !== imageUrl);
-
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/${order.id}/update`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ images: updatedImages })
-      });
-
-      if (!response.ok) throw new Error('Failed to remove image from order');
+      await deleteOrderImage(order.id, imageId);
 
       // Delete from Cloudflare R2
       try {
@@ -521,86 +563,17 @@ const FulfillmentPage: React.FC = () => {
         console.error('Failed to delete from R2:', r2Error);
       }
 
-      setOrder({ ...order, images: updatedImages });
+      setOrder((prev) =>
+        prev
+          ? {
+              ...prev,
+              orderImages: (prev.orderImages || []).filter((image) => image.id !== imageId)
+            }
+          : prev
+      );
     } catch (error) {
       console.error('Error removing image from order:', error);
       setFulfillmentError('Failed to remove image.');
-    }
-  };
-
-  const handleFulfillmentSave = async () => {
-    if (!order) return;
-    const noteText = fulfillmentNote.trim();
-
-    if (!fulfillmentImageFile && !noteText) {
-      setFulfillmentError('Add a photo or a note before saving.');
-      return;
-    }
-
-    setFulfillmentSaving(true);
-    setFulfillmentError(null);
-
-    try {
-      const token = localStorage.getItem('token');
-
-      let uploadedImageUrls: string[] = [];
-
-      if (fulfillmentImageFile) {
-        const formData = new FormData();
-        formData.append('images', fulfillmentImageFile);
-
-        const uploadResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/upload-images`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          },
-          body: formData
-        });
-
-        if (!uploadResponse.ok) {
-          const errorData = await uploadResponse.json().catch(() => ({}));
-          throw new Error(errorData?.error || 'Failed to upload fulfillment image');
-        }
-
-        const uploadData = await uploadResponse.json();
-        uploadedImageUrls = Array.isArray(uploadData?.imageUrls) ? uploadData.imageUrls : [];
-        if (uploadedImageUrls.length > 0) {
-          await saveImagesToOrder(uploadedImageUrls);
-        }
-      }
-
-      if (noteText) {
-        const message = `Fulfillment note: ${noteText}`;
-
-        const noteResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/${order.id}/communications`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            type: 'NOTE',
-            message
-          })
-        });
-
-        if (!noteResponse.ok) {
-          const errorData = await noteResponse.json().catch(() => ({}));
-          throw new Error(errorData?.error || 'Failed to save fulfillment note');
-        }
-
-        setFulfillmentNotes((prev) => [noteText, ...prev]);
-      }
-
-      setFulfillmentNote('');
-      setFulfillmentImageFile(null);
-      toast.success('Fulfillment details saved');
-    } catch (error: any) {
-      console.error('Error saving fulfillment details:', error);
-      setFulfillmentError(error?.message || 'Failed to save fulfillment details');
-      toast.error(error?.message || 'Failed to save fulfillment details');
-    } finally {
-      setFulfillmentSaving(false);
     }
   };
 
@@ -697,7 +670,10 @@ const FulfillmentPage: React.FC = () => {
     'CANCELLED'
   ];
 
-  const orderImages = order?.images || [];
+  const fulfilledOrderImages = (order.orderImages || []).filter((image) => image.category === 'FULFILLED');
+  const deliveredOrderImages = (order.orderImages || []).filter((image) => image.category === 'DELIVERED');
+  const otherOrderImages = (order.orderImages || []).filter((image) => image.category === 'OTHER');
+  const referenceOrderImage = (order.orderImages || []).find((image) => image.category === 'REFERENCE');
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-8">
@@ -763,23 +739,45 @@ const FulfillmentPage: React.FC = () => {
                   className="max-w-[768px] w-full rounded-lg shadow-lg object-contain"
                 />
               </div>
+              {(referenceOrderImage?.tag || referenceOrderImage?.note) && (
+                <div className="mt-3 max-w-[768px] mx-auto rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 bg-white dark:bg-gray-900">
+                  {referenceOrderImage?.tag && (
+                    <div className="text-xs font-semibold text-brand-600 dark:text-brand-400">
+                      {referenceOrderImage.tag}
+                    </div>
+                  )}
+                  {referenceOrderImage?.note && (
+                    <div className="text-xs text-gray-600 dark:text-gray-300 mt-1">
+                      {referenceOrderImage.note}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Save to Library Button */}
               <div className="mt-4 flex justify-center">
-                <button
-                  onClick={() => {
-                    setSaveForm({
-                      productCode: wireProductCode || '',
-                      productName: '',
-                      description: ''
-                    });
-                    setShowSaveModal(true);
-                  }}
-                  className="flex items-center gap-2 px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-                >
-                  <SaveIcon className="w-4 h-4" />
-                  Save to Library
-                </button>
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <button
+                    onClick={() => {
+                      setSaveForm({
+                        productCode: wireProductCode || '',
+                        productName: '',
+                        description: ''
+                      });
+                      setShowSaveModal(true);
+                    }}
+                    className="flex items-center gap-2 px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                  >
+                    <SaveIcon className="w-4 h-4" />
+                    Save to Library
+                  </button>
+                  <button
+                    onClick={() => openReferenceImageModal()}
+                    className="px-6 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-lg transition-colors"
+                  >
+                    Update Reference Photo
+                  </button>
+                </div>
               </div>
             </div>
           ) : (
@@ -796,29 +794,12 @@ const FulfillmentPage: React.FC = () => {
               )}
 
               <div className="flex flex-col gap-3 items-center">
-                <input
-                  type="file"
-                  id="imageUpload"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleImageUpload(file);
-                  }}
-                  className="hidden"
-                />
                 <button
-                  onClick={() => document.getElementById('imageUpload')?.click()}
+                  onClick={() => openReferenceImageModal()}
                   disabled={fetchingImage}
                   className="flex items-center gap-2 px-4 py-2 bg-brand-500 text-white rounded hover:bg-brand-600 disabled:opacity-50"
                 >
-                  {fetchingImage ? (
-                    'Uploading...'
-                  ) : (
-                    <>
-                      <ArrowUpIcon className="w-4 h-4" />
-                      Upload Image
-                    </>
-                  )}
+                  Add Reference Photo
                 </button>
 
                 <button
@@ -927,22 +908,22 @@ const FulfillmentPage: React.FC = () => {
           )}
 
           <div className="space-y-4">
-            {orderImages.length > 0 && (
+            {fulfilledOrderImages.length > 0 && (
               <div>
                 <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Saved photos
+                  Fulfilled photos
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {orderImages.map((imageUrl, index) => (
+                  {fulfilledOrderImages.map((image, index) => (
                     <div
-                      key={`${imageUrl}-${index}`}
-                      onClick={() => window.open(imageUrl, '_blank')}
+                      key={image.id}
+                      onClick={() => window.open(image.url, '_blank')}
                       className="group relative overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer"
                       role="button"
                       tabIndex={0}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter' || event.key === ' ') {
-                          window.open(imageUrl, '_blank');
+                          window.open(image.url, '_blank');
                         }
                       }}
                     >
@@ -951,7 +932,7 @@ const FulfillmentPage: React.FC = () => {
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
-                            removeImageFromOrder(imageUrl);
+                            removeImageFromOrder(image.id, image.url);
                           }}
                           className="absolute top-1 right-1 z-10 rounded-full bg-black/70 text-white w-6 h-6 flex items-center justify-center text-xs hover:bg-black/80"
                           aria-label="Remove image"
@@ -959,11 +940,137 @@ const FulfillmentPage: React.FC = () => {
                           ×
                         </button>
                         <img
-                          src={imageUrl}
+                          src={image.url}
                           alt={`Fulfillment photo ${index + 1}`}
                           className="h-28 w-full object-cover transition-transform group-hover:scale-105"
                         />
                       </div>
+                      {(image.tag || image.note) && (
+                        <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 py-1.5">
+                          {image.tag && (
+                            <div className="text-[11px] font-semibold text-brand-600 dark:text-brand-400">
+                              {image.tag}
+                            </div>
+                          )}
+                          {image.note && (
+                            <div className="text-[11px] text-gray-600 dark:text-gray-300 truncate" title={image.note}>
+                              {image.note}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {deliveredOrderImages.length > 0 && (
+              <div>
+                <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Delivered photos
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {deliveredOrderImages.map((image, index) => (
+                    <div
+                      key={image.id}
+                      onClick={() => window.open(image.url, '_blank')}
+                      className="group relative overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer"
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          window.open(image.url, '_blank');
+                        }
+                      }}
+                    >
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            removeImageFromOrder(image.id, image.url);
+                          }}
+                          className="absolute top-1 right-1 z-10 rounded-full bg-black/70 text-white w-6 h-6 flex items-center justify-center text-xs hover:bg-black/80"
+                          aria-label="Remove image"
+                        >
+                          ×
+                        </button>
+                        <img
+                          src={image.url}
+                          alt={`Delivery photo ${index + 1}`}
+                          className="h-28 w-full object-cover transition-transform group-hover:scale-105"
+                        />
+                      </div>
+                      {(image.tag || image.note) && (
+                        <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 py-1.5">
+                          {image.tag && (
+                            <div className="text-[11px] font-semibold text-brand-600 dark:text-brand-400">
+                              {image.tag}
+                            </div>
+                          )}
+                          {image.note && (
+                            <div className="text-[11px] text-gray-600 dark:text-gray-300 truncate" title={image.note}>
+                              {image.note}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {otherOrderImages.length > 0 && (
+              <div>
+                <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Other photos
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {otherOrderImages.map((image, index) => (
+                    <div
+                      key={image.id}
+                      onClick={() => window.open(image.url, '_blank')}
+                      className="group relative overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer"
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          window.open(image.url, '_blank');
+                        }
+                      }}
+                    >
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            removeImageFromOrder(image.id, image.url);
+                          }}
+                          className="absolute top-1 right-1 z-10 rounded-full bg-black/70 text-white w-6 h-6 flex items-center justify-center text-xs hover:bg-black/80"
+                          aria-label="Remove image"
+                        >
+                          ×
+                        </button>
+                        <img
+                          src={image.url}
+                          alt={`Order photo ${index + 1}`}
+                          className="h-28 w-full object-cover transition-transform group-hover:scale-105"
+                        />
+                      </div>
+                      {(image.tag || image.note) && (
+                        <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 py-1.5">
+                          {image.tag && (
+                            <div className="text-[11px] font-semibold text-brand-600 dark:text-brand-400">
+                              {image.tag}
+                            </div>
+                          )}
+                          {image.note && (
+                            <div className="text-[11px] text-gray-600 dark:text-gray-300 truncate" title={image.note}>
+                              {image.note}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -990,59 +1097,30 @@ const FulfillmentPage: React.FC = () => {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Add photo
               </label>
-              <input
-                type="file"
-                accept="image/*"
-                id="fulfillmentImageUpload"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0] || null;
-                  setFulfillmentImageFile(file);
-                  setFulfillmentError(null);
-                }}
-              />
               <button
                 type="button"
-                onClick={() => document.getElementById('fulfillmentImageUpload')?.click()}
+                onClick={openResultImageModal}
                 className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
               >
-                Choose Photo
+                Add Photo
               </button>
-              {fulfillmentPreviewUrl && (
-                <div className="mt-4">
-                  <img
-                    src={fulfillmentPreviewUrl}
-                    alt="Fulfilled arrangement preview"
-                    className="w-full max-w-md rounded-lg border border-gray-200 dark:border-gray-700"
-                  />
-                </div>
-              )}
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Note (optional)
-              </label>
-              <input
-                type="text"
-                value={fulfillmentNote}
-                onChange={(e) => setFulfillmentNote(e.target.value)}
-                placeholder="Short note about the arrangement..."
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              />
-            </div>
-
-            <button
-              type="button"
-              onClick={handleFulfillmentSave}
-              disabled={fulfillmentSaving}
-              className="w-full px-4 py-3 bg-brand-500 text-white rounded-lg hover:bg-brand-600 disabled:opacity-50 text-lg font-medium"
-            >
-              {fulfillmentSaving ? 'Saving...' : 'Save Fulfillment Details'}
-            </button>
           </div>
         </div>
       </div>
+
+      <FulfillmentImageUploadModal
+        isOpen={isImageModalOpen}
+        onClose={closeImageModal}
+        title={imageModalMode === 'reference' ? 'Add Reference Photo' : 'Add Fulfillment Photo'}
+        submitLabel="Crop & Save"
+        categoryOptions={imageModalMode === 'reference' ? [{ value: 'REFERENCE', label: 'Reference' }] : RESULT_IMAGE_CATEGORY_OPTIONS}
+        defaultCategory={imageModalMode === 'reference' ? 'REFERENCE' : 'FULFILLED'}
+        lockCategory={imageModalMode === 'reference'}
+        tagSuggestions={imageModalMode === 'reference' ? REFERENCE_TAG_SUGGESTIONS : RESULT_TAG_SUGGESTIONS}
+        initialImage={imageModalInitialImage}
+        onSave={handleImageModalSave}
+      />
 
       {/* Save to Library Modal */}
       {showSaveModal && (

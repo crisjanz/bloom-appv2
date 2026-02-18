@@ -91,6 +91,10 @@
   - Optional: `paymentIntentId`, `paymentStatus` to finalize as PAID and update Stripe description.
 - ✅ PUT `/api/orders/:id/update` — update order metadata, recipient links, totals (`back/src/routes/orders/update.ts`)
 - ✅ POST `/api/orders/upload-images` — attach order images (`back/src/routes/orders/upload.ts`)
+- ✅ GET `/api/orders/:orderId/images` — list categorized order images (`back/src/routes/orders/images.ts`)
+- ✅ POST `/api/orders/:orderId/images` — add one categorized order image (`REFERENCE`, `FULFILLED`, `DELIVERED`, `OTHER`) with optional `tag` and `note`
+- ✅ POST `/api/orders/:orderId/images/bulk` — add multiple categorized order images in one request (each supports optional `tag` and `note`)
+- ✅ DELETE `/api/orders/:orderId/images/:imageId` — remove a categorized order image
 - ✅ GET `/api/orders/delivery` — delivery board filtered by date/range (`back/src/routes/orders/delivery.ts`)
 - ✅ GET `/api/orders/delivery/count/future` — forward-looking delivery counts.
 - ✅ PATCH `/api/orders/:orderId/status` — status transitions with validation (`back/src/routes/orders/status.ts`)

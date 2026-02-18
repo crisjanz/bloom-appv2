@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Html5Qrcode } from 'html5-qrcode';
-import { ChevronLeftIcon, CameraIcon, PackageIcon, SaveIcon } from '@shared/assets/icons';
+import { CameraIcon, SaveIcon } from '@shared/assets/icons';
 import InputField from '@shared/ui/forms/input/InputField';
 import FormError from '@shared/ui/components/ui/form/FormError';
 import LoadingButton from '@shared/ui/components/ui/button/LoadingButton';
 import useInventory, { InventoryItem } from '@shared/hooks/useInventory';
 import { toast } from 'sonner';
+import MobilePageHeader from '@app/components/mobile/MobilePageHeader';
 
 export default function MobileInventoryPage() {
   const navigate = useNavigate();
@@ -178,54 +179,41 @@ export default function MobileInventoryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-brand-50 to-brand-100 dark:from-gray-900 dark:to-gray-800 flex flex-col">
-      <div className="bg-white dark:bg-gray-900 shadow-sm p-4 flex items-center gap-3">
-        <button
-          onClick={() => navigate('/mobile')}
-          className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
-          aria-label="Back to mobile home"
-        >
-          <ChevronLeftIcon className="w-5 h-5" />
-        </button>
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">Inventory</h1>
-          <p className="text-xs text-gray-500 dark:text-gray-400">Scan or search products and update stock</p>
-        </div>
-        <div className="ml-auto w-10 h-10 bg-brand-500 rounded-full flex items-center justify-center">
-          <PackageIcon className="w-5 h-5 text-white" />
-        </div>
-      </div>
+    <div className="min-h-screen bg-slate-100 dark:bg-gray-950">
+      <div className="mx-auto w-full max-w-md px-4 py-5 space-y-6">
+        <MobilePageHeader title="Inventory" showBackButton />
 
-      <div className="flex-1 p-6 space-y-5">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-5 space-y-4">
-          <button
-            onClick={startScanner}
-            className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-brand-500 hover:bg-brand-600 text-white rounded-xl font-semibold"
-          >
-            <CameraIcon className="w-5 h-5" />
-            Scan Code
-          </button>
-
-          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
-            <InputField
-              label="Search SKU/Barcode or Name"
-              placeholder="012345678901 or rose"
-              value={manualQuery || ''}
-              onChange={(event) => setManualQuery(event.target.value)}
-            />
+        <div className="space-y-5">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-md p-5 space-y-4">
             <button
-              onClick={handleManualSearch}
-              className="h-11 mt-[30px] px-4 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200"
+              onClick={startScanner}
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-brand-500 hover:bg-brand-600 text-white rounded-xl font-semibold"
             >
-              Search
+              <CameraIcon className="w-5 h-5" />
+              Scan Code
             </button>
+
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
+              <InputField
+                label="Search SKU/Barcode or Name"
+                placeholder="012345678901 or rose"
+                value={manualQuery || ''}
+                onChange={(event) => setManualQuery(event.target.value)}
+              />
+              <button
+                onClick={handleManualSearch}
+                className="h-11 mt-[30px] px-4 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200"
+              >
+                Search
+              </button>
+            </div>
           </div>
         </div>
 
         {(scannerError || actionError) && <FormError error={scannerError || actionError} />}
 
         {scannerOpen ? (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-5 space-y-3">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-md p-5 space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Camera Scanner</h2>
               <button
@@ -243,7 +231,7 @@ export default function MobileInventoryPage() {
         ) : null}
 
         {searchResults.length > 0 ? (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-5 space-y-3">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-md p-5 space-y-3">
             <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Search Results</h2>
             {searchResults.map((item) => (
               <button
@@ -261,7 +249,7 @@ export default function MobileInventoryPage() {
         ) : null}
 
         {selectedItem ? (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-5 space-y-4">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-md p-5 space-y-4">
             <div className="flex items-start gap-3">
               {selectedItem.imageUrl ? (
                 <img
