@@ -226,10 +226,10 @@ export class PrintService {
   }
 
   /**
-   * Retry failed job (reset to pending)
+   * Retry failed job (reset to pending and re-broadcast)
    */
   async retryJob(jobId: string) {
-    return prisma.printJob.update({
+    const job = await prisma.printJob.update({
       where: { id: jobId },
       data: {
         status: PrintJobStatus.PENDING,
@@ -237,8 +237,47 @@ export class PrintService {
         errorMessage: null,
         printedAt: null,
         updatedAt: new Date()
+      },
+      include: {
+        order: {
+          include: {
+            customer: true,
+            recipientCustomer: { include: { addresses: true } },
+            deliveryAddress: true,
+            orderItems: true
+          }
+        }
       }
     });
+
+    // Re-broadcast so Electron agent picks it up immediately
+    if (this.wss) {
+      const message = JSON.stringify({
+        type: 'PRINT_JOB',
+        job: {
+          id: job.id,
+          type: job.type,
+          orderId: job.orderId,
+          agentType: job.agentType,
+          printerName: job.printerName,
+          printerTray: job.printerTray,
+          copies: job.copies,
+          data: job.data,
+          template: job.template,
+          priority: job.priority,
+          createdAt: job.createdAt
+        }
+      });
+
+      this.wss.clients.forEach((client) => {
+        if (client.readyState === 1) {
+          client.send(message);
+          console.log(`📤 Retry print job sent to agent via WebSocket: ${job.id}`);
+        }
+      });
+    }
+
+    return job;
   }
 }
 
