@@ -274,12 +274,14 @@ onDayCreate: function(dObj, dStr, fp, dayElem) {
     });
 
     flatpickrRef.current = Array.isArray(instance) ? instance[0] : instance;
+    setPickerReady(true);
 
     return () => {
       if (flatpickrRef.current) {
         flatpickrRef.current.destroy();
         flatpickrRef.current = null;
       }
+      setPickerReady(false);
       delete (window as any)[`disabledDatesInfo_${id}`];
     };
   }, [isLoaded, timezone, getBusinessDateString]);
@@ -292,12 +294,13 @@ flatpickrRef.current.set('disable', disabledDates.map(date => new Date(date + 'T
     flatpickrRef.current.redraw();
   }, [disabledDates, isLoaded]);
 
-  // Update value WITHOUT recreating the picker
+  // Sync value to picker after initialization or when value changes
+  const [pickerReady, setPickerReady] = useState(false);
   useEffect(() => {
     if (!flatpickrRef.current || !value) return;
-    
+
     flatpickrRef.current.setDate(value, false);
-  }, [value]);
+  }, [value, pickerReady]);
 
   return (
     <div>

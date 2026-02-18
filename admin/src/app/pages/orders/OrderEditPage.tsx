@@ -348,15 +348,26 @@ const OrderEditPage: React.FC = () => {
     }
   };
 
-  // Handle refund completion - cancel order with skipRefund flag
+  // Handle refund completion - cancel order via status endpoint directly
   const handleRefundComplete = async () => {
     if (!order) return;
 
     try {
-      // Update status to CANCELLED with skipRefund flag
-      await updateOrderDirect({ status: 'CANCELLED', skipRefund: true });
+      const { data, status } = await apiClient.patch(`/api/orders/${order.id}/status`, {
+        status: 'CANCELLED',
+        skipRefund: true,
+      });
+
       setRefundModalOpen(false);
       setRefundTransactionNumber(null);
+
+      if (status >= 400 || !data?.success) {
+        toast.error(data?.error || 'Failed to cancel order');
+        return;
+      }
+
+      // Refresh order to get updated state
+      await fetchOrder(order.id);
       toast.success('Order cancelled');
     } catch (error) {
       console.error('Error cancelling order:', error);
