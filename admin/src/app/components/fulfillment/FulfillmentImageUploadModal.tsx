@@ -23,6 +23,7 @@ interface FulfillmentImageUploadModalProps {
   lockCategory?: boolean;
   tagSuggestions?: string[];
   initialImage?: string | null;
+  mobileOptimized?: boolean;
   onClose: () => void;
   onSave: (payload: {
     croppedBlob: Blob;
@@ -92,6 +93,7 @@ export default function FulfillmentImageUploadModal({
   lockCategory = false,
   tagSuggestions = [],
   initialImage = null,
+  mobileOptimized = false,
   onClose,
   onSave
 }: FulfillmentImageUploadModalProps) {
@@ -108,15 +110,56 @@ export default function FulfillmentImageUploadModal({
 
   useEffect(() => {
     if (!isOpen) return;
+    let isActive = true;
 
-    setImageSrc(initialImage || null);
-    setCrop({ x: 0, y: 0 });
-    setZoom(1);
-    setCroppedAreaPixels(null);
-    setCategory(defaultCategory);
-    setTag('');
-    setNote('');
-    setError(null);
+    const initializeModalState = async () => {
+      setCrop({ x: 0, y: 0 });
+      setZoom(1);
+      setCroppedAreaPixels(null);
+      setCategory(defaultCategory);
+      setTag('');
+      setNote('');
+      setError(null);
+
+      if (!initialImage) {
+        if (isActive) setImageSrc(null);
+        return;
+      }
+
+      if (!/^https?:\/\//i.test(initialImage)) {
+        if (isActive) setImageSrc(initialImage);
+        return;
+      }
+
+      try {
+        const proxyResponse = await fetch(`/api/images/proxy?url=${encodeURIComponent(initialImage)}`);
+        if (!proxyResponse.ok) {
+          throw new Error('Proxy fetch failed');
+        }
+
+        const proxiedBlob = await proxyResponse.blob();
+        const file = new File([proxiedBlob], 'initial-image.jpg', {
+          type: proxiedBlob.type || 'image/jpeg'
+        });
+        const imageDataUrl = await fileToDataURL(file);
+
+        if (isActive) {
+          setImageSrc(imageDataUrl);
+        }
+      } catch (proxyError) {
+        console.error('Failed to load initial image through proxy:', proxyError);
+        if (isActive) {
+          setImageSrc(null);
+          setError('Failed to load remote image for crop. Try fetching again.');
+        }
+      }
+    };
+
+    initializeModalState();
+
+    return () => {
+      isActive = false;
+    };
   }, [isOpen, initialImage, defaultCategory]);
 
   const onCropComplete = useCallback((_: Area, croppedPixels: Area) => {
@@ -145,16 +188,23 @@ export default function FulfillmentImageUploadModal({
       return;
     }
 
-    if (!croppedAreaPixels) {
-      setError('Adjust the crop area before saving.');
-      return;
-    }
-
     try {
       setSaving(true);
       setError(null);
 
-      const croppedBlob = await getCroppedImageBlob(imageSrc, croppedAreaPixels);
+      let areaToUse = croppedAreaPixels;
+      if (!areaToUse) {
+        const image = await createImage(imageSrc);
+        const squareSize = Math.min(image.width, image.height);
+        areaToUse = {
+          x: Math.max(0, Math.floor((image.width - squareSize) / 2)),
+          y: Math.max(0, Math.floor((image.height - squareSize) / 2)),
+          width: squareSize,
+          height: squareSize
+        };
+      }
+
+      const croppedBlob = await getCroppedImageBlob(imageSrc, areaToUse);
 
       await onSave({
         croppedBlob,
@@ -171,6 +221,147 @@ export default function FulfillmentImageUploadModal({
       setSaving(false);
     }
   };
+
+  const categoryField =
+    lockCategory && categoryOptions.length === 1 ? (
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Category</label>
+        <div className="h-11 w-full rounded-lg border border-gray-300 bg-gray-100 px-4 py-2.5 text-sm text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200">
+          {categoryOptions[0].label}
+        </div>
+      </div>
+    ) : (
+      <Select
+        label="Category"
+        options={categoryOptions}
+        value={category}
+        onChange={(value) => setCategory(value as OrderImageCategory)}
+        disabled={lockCategory}
+        placeholder="Select category"
+      />
+    );
+
+  if (!mobileOptimized) {
+    return (
+      <Modal isOpen={isOpen} onClose={onClose} className="max-w-4xl">
+        <div className="p-6 space-y-4">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{title}</h2>
+
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => document.getElementById(FILE_INPUT_ID)?.click()}
+              className="px-4 py-2 bg-brand-500 text-white rounded-lg hover:bg-brand-600"
+            >
+              Choose Photo
+            </button>
+            <p className="text-sm text-gray-500 dark:text-gray-400">All photos are cropped to a square before saving.</p>
+          </div>
+
+          <input
+            id={FILE_INPUT_ID}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0] || null;
+              handleFileSelection(file);
+              event.target.value = '';
+            }}
+          />
+
+          {imageSrc ? (
+            <div className="relative h-[340px] rounded-lg overflow-hidden bg-gray-900">
+              <Cropper
+                image={imageSrc}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onCropComplete={onCropComplete}
+              />
+            </div>
+          ) : (
+            <div className="h-[220px] rounded-lg border border-dashed border-gray-300 dark:border-gray-700 flex items-center justify-center text-sm text-gray-500 dark:text-gray-400">
+              Select an image to crop.
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Zoom</label>
+            <input
+              type="range"
+              min={1}
+              max={3}
+              step={0.1}
+              value={zoom}
+              onChange={(event) => setZoom(Number(event.target.value))}
+              className="w-full"
+            />
+          </div>
+
+          {categoryField}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Tag (optional)
+            </label>
+            <input
+              type="text"
+              list={tagSuggestions.length > 0 ? tagSuggestionListId : undefined}
+              value={tag}
+              onChange={(event) => setTag(event.target.value)}
+              maxLength={80}
+              placeholder="Type a tag or pick a suggestion"
+              className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-sm placeholder:text-gray-400 focus:outline-none focus:ring-3 focus:ring-[#597485]/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+            />
+            {tagSuggestions.length > 0 && (
+              <datalist id={tagSuggestionListId}>
+                {tagSuggestions.map((item) => (
+                  <option key={item} value={item} />
+                ))}
+              </datalist>
+            )}
+          </div>
+
+          <TextArea
+            label="Note (optional)"
+            value={note || ''}
+            onChange={setNote}
+            rows={3}
+            placeholder="Add a note for this photo"
+          />
+
+          {error && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-200">
+              {error}
+            </div>
+          )}
+
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200"
+              disabled={saving}
+            >
+              Cancel
+            </button>
+            <LoadingButton
+              type="button"
+              onClick={handleSave}
+              loading={saving}
+              loadingText="Saving..."
+              variant="primary"
+            >
+              {submitLabel}
+            </LoadingButton>
+          </div>
+        </div>
+      </Modal>
+    );
+  }
 
   return (
     <Modal
@@ -238,14 +429,7 @@ export default function FulfillmentImageUploadModal({
             />
           </div>
 
-          <Select
-            label="Category"
-            options={categoryOptions}
-            value={category}
-            onChange={(value) => setCategory(value as OrderImageCategory)}
-            disabled={lockCategory}
-            placeholder="Select category"
-          />
+          {categoryField}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

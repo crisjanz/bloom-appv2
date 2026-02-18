@@ -1,5 +1,6 @@
 import express from 'express';
 import multer from 'multer';
+import axios from 'axios';
 import { uploadToR2, deleteFromR2 } from '../utils/r2Client';
 
 const router = express.Router();
@@ -77,6 +78,49 @@ router.delete('/delete', async (req, res) => {
       success: false,
       message: 'Failed to delete image',
       error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
+ * Proxy remote image for same-origin canvas use
+ * GET /api/images/proxy?url=https://...
+ */
+router.get('/proxy', async (req, res) => {
+  try {
+    const sourceUrl = typeof req.query.url === 'string' ? req.query.url : '';
+    if (!sourceUrl) {
+      return res.status(400).json({ success: false, message: 'Missing url query parameter' });
+    }
+
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(sourceUrl);
+    } catch {
+      return res.status(400).json({ success: false, message: 'Invalid URL' });
+    }
+
+    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+      return res.status(400).json({ success: false, message: 'Only http/https URLs are allowed' });
+    }
+
+    const response = await axios.get<ArrayBuffer>(parsedUrl.toString(), {
+      responseType: 'arraybuffer',
+      timeout: 15000,
+      headers: {
+        'User-Agent': 'BloomImageProxy/1.0'
+      }
+    });
+
+    const contentType = response.headers['content-type'] || 'image/jpeg';
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'private, max-age=120');
+    return res.send(Buffer.from(response.data));
+  } catch (error) {
+    console.error('Image proxy error:', error);
+    return res.status(502).json({
+      success: false,
+      message: 'Failed to fetch remote image'
     });
   }
 });
