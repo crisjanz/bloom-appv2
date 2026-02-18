@@ -91,6 +91,7 @@ type Props = {
   placeholder?: string;
   value?: string;
   onChange: (date: string) => void;
+  allowPastDates?: boolean;
 };
 
 export default function DeliveryDatePicker({
@@ -99,6 +100,7 @@ export default function DeliveryDatePicker({
   placeholder,
   value,
   onChange,
+  allowPastDates = false,
 }: Props) {
   const { timezone, getBusinessDateString } = useBusinessTimezone();
   const [businessHours, setBusinessHours] = useState<BusinessHours>({});
@@ -224,7 +226,7 @@ export default function DeliveryDatePicker({
       monthSelectorType: "static",
       dateFormat: "Y-m-d",
       defaultDate: value,
-      minDate: today,
+      minDate: allowPastDates ? undefined : today,
       disable: disabledDates.map(date => new Date(date + 'T00:00:00')),
       clickOpens: true,
       allowInput: false,

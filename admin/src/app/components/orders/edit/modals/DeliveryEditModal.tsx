@@ -42,6 +42,7 @@ const DeliveryEditModal: React.FC<DeliveryEditModalProps> = ({
             placeholder="Select delivery date"
             value={delivery.deliveryDate}
             onChange={(date) => onChange({ ...delivery, deliveryDate: date })}
+            allowPastDates
           />
         </div>
         <InputField

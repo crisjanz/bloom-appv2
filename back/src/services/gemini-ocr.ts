@@ -132,12 +132,20 @@ export async function parseOrderImage(
     const jsonText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
 
     // Parse JSON response
-    const parsed: ParsedOrderData = JSON.parse(jsonText);
+    const parsed: any = JSON.parse(jsonText);
+
+    // Normalize: Gemini may return pickupTime instead of deliveryTime
+    if (!parsed.deliveryTime && parsed.pickupTime) {
+      parsed.deliveryTime = parsed.pickupTime;
+    }
+    if (!parsed.deliveryDate && parsed.pickupDate) {
+      parsed.deliveryDate = parsed.pickupDate;
+    }
 
     return {
       ...parsed,
       orderSource: provider,
-    };
+    } as ParsedOrderData;
   } catch (error) {
     console.error('Gemini OCR Error:', error);
     throw new Error(`Failed to parse order image: ${error instanceof Error ? error.message : 'Unknown error'}`);
