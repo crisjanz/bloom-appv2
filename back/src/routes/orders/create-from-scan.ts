@@ -293,7 +293,9 @@ async function createDoorDashOrder(orderData: ParsedOrderData, externalSource: O
       externalReference: orderData.orderNumber || null,
       customerId: systemCustomer.id,
       recipientName: recipientName || 'Pickup Customer',
-      deliveryDate: orderData.deliveryDate ? new Date(orderData.deliveryDate + 'T00:00:00') : null,
+      deliveryDate: orderData.deliveryDate
+        ? new Date(orderData.deliveryDate + 'T00:00:00')
+        : new Date(new Date().toISOString().split('T')[0] + 'T00:00:00'),
       deliveryTime: orderData.deliveryTime || null,
       cardMessage: orderData.cardMessage || null,
       specialInstructions: orderData.specialInstructions || null,
