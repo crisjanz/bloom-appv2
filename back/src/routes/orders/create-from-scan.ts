@@ -210,6 +210,56 @@ router.post('/create-from-scan', async (req, res) => {
   }
 });
 
+/**
+ * Split a combined tax amount into GST/PST using configured tax rates.
+ * Distributes proportionally and assigns any rounding remainder to the first tax.
+ */
+async function splitTaxByRates(totalTaxCents: number) {
+  if (totalTaxCents <= 0) {
+    return { taxBreakdown: [], gstCents: 0, pstCents: 0 };
+  }
+
+  const activeTaxRates = await prisma.taxRate.findMany({
+    where: { isActive: true },
+    orderBy: { sortOrder: 'asc' },
+  });
+
+  if (activeTaxRates.length === 0) {
+    return {
+      taxBreakdown: [{ name: 'Tax', rate: 0, amount: totalTaxCents }],
+      gstCents: 0,
+      pstCents: 0,
+    };
+  }
+
+  const totalRate = activeTaxRates.reduce((sum, t) => sum + t.rate, 0);
+  if (totalRate <= 0) {
+    return {
+      taxBreakdown: [{ name: 'Tax', rate: 0, amount: totalTaxCents }],
+      gstCents: 0,
+      pstCents: 0,
+    };
+  }
+
+  // Proportional split
+  const breakdown = activeTaxRates.map((tax) => ({
+    name: tax.name,
+    rate: tax.rate,
+    amount: Math.round((tax.rate / totalRate) * totalTaxCents),
+  }));
+
+  // Fix rounding remainder
+  const allocated = breakdown.reduce((sum, t) => sum + t.amount, 0);
+  if (allocated !== totalTaxCents && breakdown.length > 0) {
+    breakdown[0].amount += totalTaxCents - allocated;
+  }
+
+  const gstCents = breakdown.find((t) => t.name.toUpperCase().includes('GST'))?.amount ?? 0;
+  const pstCents = breakdown.find((t) => t.name.toUpperCase().includes('PST'))?.amount ?? 0;
+
+  return { taxBreakdown: breakdown, gstCents, pstCents };
+}
+
 async function createDoorDashOrder(orderData: ParsedOrderData, externalSource: OrderExternalSource) {
   // Get or create system DoorDash customer
   const systemCustomer = await findOrCreateCustomer({
@@ -219,6 +269,10 @@ async function createDoorDashOrder(orderData: ParsedOrderData, externalSource: O
   });
 
   const totalAmount = Math.round(Number(orderData.orderTotal || 0) * 100);
+  const totalTaxCents = Math.round(Number(orderData.taxTotal || 0) * 100);
+
+  // Split combined tax into GST/PST using configured tax rates
+  const { taxBreakdown, gstCents, pstCents } = await splitTaxByRates(totalTaxCents);
   const itemsSummary =
     orderData.itemsSummary ||
     orderData.product?.fullText ||
@@ -246,14 +300,17 @@ async function createDoorDashOrder(orderData: ParsedOrderData, externalSource: O
       occasion: orderData.occasion || null,
       deliveryFee: 0,
       paymentAmount: totalAmount,
-      totalTax: 0,
+      totalTax: totalTaxCents,
+      gst: gstCents,
+      pst: pstCents,
+      taxBreakdown,
       orderItems: {
         create: {
           customName: itemsSummary,
           description: itemsSummary,
-          unitPrice: totalAmount,
+          unitPrice: totalAmount - totalTaxCents,
           quantity: 1,
-          rowTotal: totalAmount,
+          rowTotal: totalAmount - totalTaxCents,
         },
       },
     },

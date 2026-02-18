@@ -84,6 +84,7 @@ export interface ParsedOrderData {
     fullText: string; // Full product text from scan (code + description)
   };
   orderTotal?: number | null;
+  taxTotal?: number | null;
   cardMessage?: string | null;
   itemsSummary?: string | null;
   specialInstructions?: string;
@@ -231,6 +232,7 @@ OPTIONAL FIELDS:
 - Pickup Time (use deliveryTime, e.g., "2:45 PM")
 - Customer Name (recipient)
 - Order Total (number) - if missing, use null
+- Tax Total (number) - combined tax amount if shown (GST+PST or just "Tax"). If missing, use null
 - Card Message
 - Special Instructions
 
@@ -248,6 +250,7 @@ Return ONLY valid JSON in this exact format (no markdown, no explanation):
   },
   "itemsSummary": "2x Roses Bouquet, 1x Card",
   "orderTotal": null,
+  "taxTotal": null,
   "cardMessage": "",
   "specialInstructions": ""
 }`;
