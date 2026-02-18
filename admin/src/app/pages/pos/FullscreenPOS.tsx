@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import POSPage from './POSPage';
+import { isIOSMobileDevice } from '@shared/utils/isMobile';
 
 export default function FullscreenPOS() {
   const [isPWA, setIsPWA] = useState(false);
@@ -13,10 +14,9 @@ export default function FullscreenPOS() {
                     (window.navigator as any).standalone === true;
     setIsPWA(isInPWA);
 
-    // Mobile PWA → redirect to dashboard instead of POS
-    const isMobile = window.innerWidth < 768;
-    if (isInPWA && isMobile) {
-      navigate('/', { replace: true });
+    // iPhone/iPad web app should always land on mobile dashboard.
+    if (isInPWA && isIOSMobileDevice()) {
+      navigate('/mobile', { replace: true });
       return;
     }
 

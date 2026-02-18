@@ -21,6 +21,18 @@ export function isMobileDevice(): boolean {
 }
 
 /**
+ * Detect Apple mobile/tablet devices, including iPadOS 13+ masquerading as macOS.
+ */
+export function isIOSMobileDevice(): boolean {
+  const userAgent = navigator.userAgent.toLowerCase();
+  const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  const isIPhoneOrIPadUA = /iphone|ipad|ipod/.test(userAgent);
+  const isIPadOSDesktopUA = /macintosh/.test(userAgent) && navigator.maxTouchPoints > 1;
+
+  return isIPhoneOrIPadUA || (isTouchDevice && isIPadOSDesktopUA);
+}
+
+/**
  * Check if user is likely a field worker (mobile + accessing specific URLs)
  */
 export function isFieldWorker(): boolean {

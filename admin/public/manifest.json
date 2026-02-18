@@ -2,7 +2,7 @@
   "name": "Bloom POS Terminal",
   "short_name": "Bloom POS",
   "description": "Point of Sale Terminal",
-  "start_url": "/pos/fullscreen",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#465fff",
