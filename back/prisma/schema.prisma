@@ -1712,3 +1712,16 @@ enum SubscriptionSource {
   POS
   STOREFRONT
 }
+
+model Supply {
+  id        Int      @id @default(autoincrement())
+  name      String
+  imageUrl  String?
+  shop      Int      @default(0)
+  backShelf Int      @default(0)
+  boxed     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("supplies")
+}

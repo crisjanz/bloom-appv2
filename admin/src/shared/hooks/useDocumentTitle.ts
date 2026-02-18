@@ -47,6 +47,7 @@ const ROUTE_TITLES: Record<string, string> = {
   "/mobile": "Mobile",
   "/mobile/scan": "Scan",
   "/mobile/inventory": "Inventory",
+  "/mobile/supplies": "Supplies",
   "/mobile/delivery": "Deliveries",
   "/mobile/fulfillment": "Fulfillment",
   "/driver/route": "Driver Route",

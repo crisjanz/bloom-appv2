@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   BoxCubeIcon,
   CameraIcon,
+  ListIcon,
   PackageIcon,
   TruckIcon
 } from '@shared/assets/icons';
@@ -164,6 +165,14 @@ export default function MobileHomePage() {
       onClick: () => navigate('/mobile/inventory'),
       className:
         'bg-[#5C7F79] hover:bg-[#4F706B] text-white'
+    },
+    {
+      key: 'supplies',
+      label: 'Supplies',
+      icon: ListIcon,
+      onClick: () => navigate('/mobile/supplies'),
+      className:
+        'bg-[#7B6B8A] hover:bg-[#6D5E7B] text-white'
     },
     {
       key: 'delivery',

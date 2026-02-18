@@ -80,6 +80,7 @@ import MobileScanPage from "./pages/mobile/MobileScanPage";
 import MobileInventoryPage from "./pages/mobile/MobileInventoryPage";
 import MobileFulfillmentPage from "./pages/mobile/MobileFulfillmentPage";
 import MobileDeliveryPage from "./pages/mobile/MobileDeliveryPage";
+import MobileSuppliesPage from "./pages/mobile/MobileSuppliesPage";
 import MobileFulfillmentReferencePage from "./pages/mobile/MobileFulfillmentReferencePage";
 import MobileFulfillmentPhotosPage from "./pages/mobile/MobileFulfillmentPhotosPage";
 import MobileFulfillmentStatusPage from "./pages/mobile/MobileFulfillmentStatusPage";
@@ -108,6 +109,7 @@ export default function App() {
             <Route path="/mobile" element={<MobileHomePage />} />
             <Route path="/mobile/scan" element={<MobileScanPage />} />
             <Route path="/mobile/inventory" element={<MobileInventoryPage />} />
+            <Route path="/mobile/supplies" element={<MobileSuppliesPage />} />
             <Route path="/mobile/delivery" element={<MobileDeliveryPage />} />
             <Route path="/mobile/fulfillment" element={<MobileFulfillmentPage />} />
             <Route path="/mobile/fulfillment/:id/reference" element={<MobileFulfillmentReferencePage />} />

@@ -13,6 +13,7 @@ const MOBILE_MENU_ACTIONS: MobileMenuAction[] = [
   { label: 'Scan Orders', path: '/mobile/scan' },
   { label: 'Fulfill Orders', path: '/mobile/fulfillment' },
   { label: 'Manage Inventory', path: '/mobile/inventory' },
+  { label: 'Supplies', path: '/mobile/supplies' },
   { label: 'Delivery Routes', path: '/mobile/delivery' },
   { label: 'Full Admin', path: '/dashboard' }
 ];

@@ -70,6 +70,7 @@ import giftsRouter from './routes/gifts';
 import customerPaymentMethodsRouter from './routes/customer-payment-methods';
 import remindersRouter from './routes/reminders';
 import subscriptionsRouter from './routes/subscriptions';
+import suppliesRouter from './routes/supplies';
 import { startReminderScheduler } from './cron/reminderCron';
 import { startSubscriptionScheduler } from './cron/subscriptionCron';
 import { printService } from './services/printService';
@@ -264,6 +265,7 @@ app.use('/api/gifts', giftsRouter);
 app.use('/api/customer-payment-methods', customerPaymentMethodsRouter);
 app.use('/api/reminders', remindersRouter);
 app.use('/api/subscriptions', subscriptionsRouter);
+app.use('/api/supplies', suppliesRouter);
 
 // Use noServer mode for multiple WebSocket endpoints
 const wss = new WebSocketServer({ noServer: true });
