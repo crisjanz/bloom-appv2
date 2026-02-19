@@ -326,7 +326,7 @@ async function createDoorDashOrder(orderData: ParsedOrderData, externalSource: O
     await transactionService.createTransaction({
       customerId: systemCustomer.id,
       employeeId: undefined,
-      channel: 'IN_STORE',
+      channel: 'POS',
       totalAmount,
       taxAmount: totalTaxCents,
       tipAmount: 0,
