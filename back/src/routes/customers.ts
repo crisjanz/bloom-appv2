@@ -1122,25 +1122,43 @@ router.delete("/:customerId/recipients/:recipientId", async (req, res) => {
 // POST /api/customers/:id/addresses
 router.post('/:id/addresses', async (req, res) => {
   const { id } = req.params;
-  const data = { ...req.body };
+  const body = req.body ?? {};
+  const trimString = (value: unknown): string | null => {
+    if (typeof value !== "string") {
+      return null;
+    }
+    const trimmed = value.trim();
+    return trimmed.length ? trimmed : null;
+  };
 
   try {
-    // Remove 'id' if sent from frontend to prevent duplicate key error
-    delete data.id;
+    const address1 = trimString(body.address1);
+    const city = trimString(body.city);
+    const province = trimString(body.province);
+    const postalCode = trimString(body.postalCode);
 
-    // Ensure country has a default value
-    if (!data.country) {
-      data.country = "CA";
+    if (!address1 || !city || !province || !postalCode) {
+      return res.status(400).json({ error: "Missing required fields: address1, city, province, postalCode" });
     }
 
-    // Ensure addressType has a default value
-    if (!data.addressType) {
-      data.addressType = "RESIDENCE";
-    }
+    const firstName = trimString(body.firstName);
+    const lastName = trimString(body.lastName);
+    const nameAttention = [firstName, lastName].filter(Boolean).join(" ").trim();
+    const label = trimString(body.label);
+    const inferredAddressType = label?.toUpperCase() === "BILLING" ? "BILLING" : null;
 
     const address = await prisma.address.create({
       data: {
-        ...data,
+        attention: trimString(body.attention) || (nameAttention || null),
+        address1,
+        address2: trimString(body.address2),
+        city,
+        province,
+        postalCode,
+        country: trimString(body.country) || "CA",
+        phone: trimString(body.phone),
+        company: trimString(body.company),
+        addressType: trimString(body.addressType) || inferredAddressType || "RESIDENCE",
         customer: { connect: { id } },
       },
     });

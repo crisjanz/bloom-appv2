@@ -58,7 +58,7 @@ const mapOccasionLabel = (value) => {
   return option?.label || value.replace(/_/g, ' ');
 };
 
-const WizardCheckout = ({ onOrderPlaced }) => {
+const WizardCheckout = ({ onOrderPlaced, persistedOrderResult = null }) => {
   const stripe = useStripe();
   const elements = useElements();
 
@@ -1178,20 +1178,21 @@ const WizardCheckout = ({ onOrderPlaced }) => {
   }, [clearCart, isAuthenticated, setDeliveryDate]);
 
   const occasionLabel = mapOccasionLabel(recipient.occasion);
+  const displayOrderResult = orderResult || persistedOrderResult;
 
-  if (orderResult) {
+  if (displayOrderResult) {
     return (
       <>
         <section className="bg-white pb-12 pt-10 dark:bg-dark lg:pb-16 lg:pt-16">
           <div className="container mx-auto px-4">
-            <SuccessCard orderResult={orderResult} />
+            <SuccessCard orderResult={displayOrderResult} />
           </div>
         </section>
         <CreateAccountModal
           isOpen={showCreateAccountModal}
           email={lastOrderEmail || customer.email || authCustomer?.email || ''}
-          firstName={orderResult?.buyer?.firstName}
-          lastName={orderResult?.buyer?.lastName}
+          firstName={displayOrderResult?.buyer?.firstName}
+          lastName={displayOrderResult?.buyer?.lastName}
           onClose={() => setShowCreateAccountModal(false)}
           onRegistered={refreshProfile}
         />
@@ -1351,6 +1352,7 @@ const WizardCheckout = ({ onOrderPlaced }) => {
 
 WizardCheckout.propTypes = {
   onOrderPlaced: PropTypes.func,
+  persistedOrderResult: PropTypes.object,
 };
 
 export default WizardCheckout;

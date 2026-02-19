@@ -8,7 +8,7 @@ Status values: `TODO` | `IN_PROGRESS` | `BLOCKED` | `DONE`
 |---|---|---|---|---|---|---|
 | POS-001 | P0 | TakeOrder Split Payment | Split row "Pay" marks completed without collecting payment in modal | DONE | - | Implemented modal-per-row flow with split payload persistence in `TakeOrderPaymentTiles` |
 | POS-002 | P0 | Payment Provider | `PaymentSection` maps card provider as `SQUARE` while card flow uses Stripe | DONE | - | Fallback provider mapping updated to `STRIPE` in `PaymentSection` and `paymentHelpers` |
-| POS-003 | P0 | Website Payments | No PT record created for website orders (`/save-draft`) | TODO | - | Validate transactions report includes website orders |
+| POS-003 | P0 | Website Payments | No PT record created for website orders (`/save-draft`) | DONE | - | `save-draft` now creates Stripe CARD PT entries (channel `WEBSITE`) for confirmed payment intents |
 | POS-004 | P1 | Payment Actions | Print/Email toggles not unified across TakeOrder/POS and not auto-executed consistently | TODO | - | Verify toggles work the same in both flows |
 | POS-005 | P1 | House Account | House Account payment option enabled for customers without HA activation | DONE | - | House Account tile now disabled unless `customer.isHouseAccount`, with split-row guard in POS/TakeOrder and full customer object preserved on selection |
 | POS-006 | P1 | Naming | Rename `Check` to `Cheque` in labels/types/enums | TODO | - | Verify labels and payload mappings |

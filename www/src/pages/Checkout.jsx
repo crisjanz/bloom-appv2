@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Elements } from '@stripe/react-stripe-js';
 import Breadcrumb from '../components/Breadcrumb.jsx';
 import WizardCheckout from '../components/Checkout/WizardCheckout.jsx';
@@ -12,6 +12,7 @@ import {
 
 const CheckoutElements = () => {
   const { cart, getDiscountAmount, hasFreeShipping } = useCart();
+  const [completedOrder, setCompletedOrder] = useState(null);
 
   const subtotal = useMemo(
     () => cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
@@ -36,7 +37,10 @@ const CheckoutElements = () => {
         appearance: STRIPE_APPEARANCE,
       }}
     >
-      <WizardCheckout />
+      <WizardCheckout
+        persistedOrderResult={completedOrder}
+        onOrderPlaced={setCompletedOrder}
+      />
     </Elements>
   );
 };

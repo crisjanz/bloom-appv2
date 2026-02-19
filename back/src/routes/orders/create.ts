@@ -8,6 +8,7 @@ import { buildReceiptPdf } from '../../templates/receipt-pdf';
 import { buildThermalReceipt } from '../../templates/receipt-thermal';
 import paymentProviderFactory from '../../services/paymentProviders/PaymentProviderFactory';
 import { getOrderNumberPrefix } from '../../utils/orderNumberSettings';
+import transactionService from '../../services/transactionService';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -404,6 +405,10 @@ router.post('/save-draft', async (req, res) => {
     }
 
     const draftOrders = [];
+    const websitePaymentGroups = new Map<
+      string,
+      { orderIds: string[]; totalAmount: number; taxAmount: number }
+    >();
 
     for (const orderData of orders) {
       // NEW: Use Customer-based recipient system (recipientCustomerId + deliveryAddressId)
@@ -522,6 +527,18 @@ router.post('/save-draft', async (req, res) => {
 
       draftOrders.push(order);
 
+      if (hasConfirmedPayment && paymentIntentId) {
+        const group = websitePaymentGroups.get(paymentIntentId) || {
+          orderIds: [],
+          totalAmount: 0,
+          taxAmount: 0,
+        };
+        group.orderIds.push(order.id);
+        group.totalAmount += totalAmount;
+        group.taxAmount += taxCalculationDraft.totalAmount;
+        websitePaymentGroups.set(paymentIntentId, group);
+      }
+
       if (hasConfirmedPayment) {
         await recordDiscountUsage(
           appliedDiscounts,
@@ -542,6 +559,42 @@ router.post('/save-draft', async (req, res) => {
             console.error('Failed to update Stripe PaymentIntent description:', err);
           }
         })();
+      }
+    }
+
+    if (websitePaymentGroups.size > 0) {
+      for (const [paymentIntentId, group] of websitePaymentGroups.entries()) {
+        try {
+          await transactionService.createTransaction({
+            customerId,
+            channel: 'WEBSITE',
+            totalAmount: group.totalAmount,
+            taxAmount: group.taxAmount,
+            tipAmount: 0,
+            notes: `Website checkout ${paymentIntentId}`,
+            paymentMethods: [
+              {
+                type: 'CARD',
+                provider: 'STRIPE',
+                amount: group.totalAmount,
+                providerTransactionId: paymentIntentId,
+                providerMetadata: {
+                  source: 'WEBSITE_CHECKOUT',
+                },
+              },
+            ],
+            orderIds: group.orderIds,
+          });
+
+          console.log(
+            `✅ Created website payment transaction for ${paymentIntentId} (${group.orderIds.length} order(s))`
+          );
+        } catch (ptError) {
+          console.error(
+            `⚠️ Failed to create website payment transaction for ${paymentIntentId}:`,
+            ptError
+          );
+        }
       }
     }
 
