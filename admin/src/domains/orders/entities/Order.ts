@@ -121,9 +121,7 @@ export enum OrderStatus {
   // Exception states
   CANCELLED = 'CANCELLED',               // Cancelled by customer/staff
   REJECTED = 'REJECTED',                 // Rejected (quality/availability)
-  FAILED_DELIVERY = 'FAILED_DELIVERY',   // Delivery attempt failed
-  REFUNDED = 'REFUNDED',                 // Order refunded
-  PARTIALLY_REFUNDED = 'PARTIALLY_REFUNDED' // Order partially refunded
+  FAILED_DELIVERY = 'FAILED_DELIVERY'   // Delivery attempt failed
 }
 
 // Order source channels
@@ -137,10 +135,8 @@ export enum OrderSource {
 
 // Payment status tracking
 export enum PaymentStatus {
-  PENDING = 'PENDING',
-  PROCESSING = 'PROCESSING',
+  UNPAID = 'UNPAID',
   PAID = 'PAID',
-  FAILED = 'FAILED',
   PARTIALLY_PAID = 'PARTIALLY_PAID',
   REFUNDED = 'REFUNDED',
   PARTIALLY_REFUNDED = 'PARTIALLY_REFUNDED'
@@ -495,11 +491,9 @@ export const VALID_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.PICKED_UP]: [OrderStatus.COMPLETED],
   [OrderStatus.DELIVERED]: [OrderStatus.COMPLETED],
   [OrderStatus.FAILED_DELIVERY]: [OrderStatus.OUT_FOR_DELIVERY, OrderStatus.CANCELLED],
-  [OrderStatus.COMPLETED]: [OrderStatus.REFUNDED, OrderStatus.PARTIALLY_REFUNDED],
+  [OrderStatus.COMPLETED]: [],
   [OrderStatus.CANCELLED]: [],
-  [OrderStatus.REJECTED]: [OrderStatus.IN_DESIGN, OrderStatus.CANCELLED],
-  [OrderStatus.REFUNDED]: [],
-  [OrderStatus.PARTIALLY_REFUNDED]: [OrderStatus.REFUNDED]
+  [OrderStatus.REJECTED]: [OrderStatus.IN_DESIGN, OrderStatus.CANCELLED]
 }
 
 // Type guards and utility functions
@@ -519,9 +513,7 @@ export const isActiveOrder = (order: Order): boolean => {
   return ![
     OrderStatus.COMPLETED,
     OrderStatus.CANCELLED,
-    OrderStatus.REJECTED,
-    OrderStatus.REFUNDED,
-    OrderStatus.PARTIALLY_REFUNDED
+    OrderStatus.REJECTED
   ].includes(order.status)
 }
 
@@ -550,9 +542,7 @@ export const getOrderDisplayStatus = (order: Order): string => {
     [OrderStatus.COMPLETED]: 'Completed',
     [OrderStatus.CANCELLED]: 'Cancelled',
     [OrderStatus.REJECTED]: 'Rejected',
-    [OrderStatus.FAILED_DELIVERY]: 'Failed Delivery',
-    [OrderStatus.REFUNDED]: 'Refunded',
-    [OrderStatus.PARTIALLY_REFUNDED]: 'Partially Refunded'
+    [OrderStatus.FAILED_DELIVERY]: 'Failed Delivery'
   }
   
   return statusDisplayNames[order.status] || order.status

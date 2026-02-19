@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import prisma from '../lib/prisma.js';
-import { SubscriptionDeliveryStatus, SubscriptionFrequency, OrderType, OrderSource } from '@prisma/client';
+import { SubscriptionDeliveryStatus, SubscriptionFrequency, OrderType, OrderSource, PaymentStatus } from '@prisma/client';
 
 // ── Delivery Generator ──
 // Runs daily: creates upcoming Delivery records for active subscriptions (looks ahead 30 days)
@@ -183,6 +183,7 @@ export async function createOrdersFromDeliveries() {
             data: {
               type: 'DELIVERY' as OrderType,
               status: 'PAID',
+              paymentStatus: PaymentStatus.PAID,
               orderSource: 'WEBSITE' as OrderSource,
               customerId: sub.customerId,
               recipientName: sub.recipientName,

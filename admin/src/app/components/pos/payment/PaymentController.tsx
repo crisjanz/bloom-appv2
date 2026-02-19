@@ -127,7 +127,7 @@ const PAYMENT_TILES: PaymentTile[] = [
   },
   {
     id: 'cod',
-    label: 'COD/Pay Later',
+    label: 'Pay Later',
     description: '',
     icon: <TruckIcon className={iconWrapperClass} />,
   },
@@ -167,7 +167,7 @@ const MANUAL_METHOD_CONFIG: Record<
     requireReference: true,
   },
   cod: {
-    label: 'COD/Pay Later',
+    label: 'Pay Later',
     referenceLabel: 'Delivery Notes',
     instructions: 'Leave guidance for the driver when collecting payment on delivery.',
     requireReference: false,

@@ -31,6 +31,7 @@ type ExternalOrder = {
   id: string;
   orderNumber: number;
   status: string;
+  paymentStatus?: string;
   externalSource?: string | null;
   externalReference?: string | null;
   recipientCustomer?: {

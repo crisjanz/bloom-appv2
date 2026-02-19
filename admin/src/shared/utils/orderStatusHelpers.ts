@@ -9,9 +9,7 @@ export type BackendOrderStatus =
   | 'OUT_FOR_DELIVERY'
   | 'COMPLETED'
   | 'CANCELLED'
-  | 'REJECTED'
-  | 'REFUNDED'
-  | 'PARTIALLY_REFUNDED';
+  | 'REJECTED';
 
 // Frontend statuses (domain level - more detailed)
 export type FrontendOrderStatus =
@@ -30,14 +28,44 @@ export type FrontendOrderStatus =
   | 'COMPLETED'
   | 'CANCELLED'
   | 'REJECTED'
-  | 'FAILED_DELIVERY'
-  | 'REFUNDED'
-  | 'PARTIALLY_REFUNDED';
+  | 'FAILED_DELIVERY';
 
 // Union type that accepts both backend and frontend statuses
 export type OrderStatus = BackendOrderStatus | FrontendOrderStatus;
 
 export type OrderType = 'DELIVERY' | 'PICKUP';
+
+export type PaymentStatus =
+  | 'UNPAID'
+  | 'PAID'
+  | 'PARTIALLY_PAID'
+  | 'REFUNDED'
+  | 'PARTIALLY_REFUNDED';
+
+export const PAYMENT_STATUS_OPTIONS: Array<{ value: PaymentStatus; label: string }> = [
+  { value: 'UNPAID', label: 'Unpaid' },
+  { value: 'PAID', label: 'Paid' },
+  { value: 'PARTIALLY_PAID', label: 'Partially Paid' },
+  { value: 'REFUNDED', label: 'Refunded' },
+  { value: 'PARTIALLY_REFUNDED', label: 'Partially Refunded' },
+];
+
+export const getPaymentStatusDisplayText = (status?: string | null): string => {
+  switch ((status || '').toUpperCase()) {
+    case 'UNPAID':
+      return 'Unpaid';
+    case 'PAID':
+      return 'Paid';
+    case 'PARTIALLY_PAID':
+      return 'Partially Paid';
+    case 'REFUNDED':
+      return 'Refunded';
+    case 'PARTIALLY_REFUNDED':
+      return 'Partially Refunded';
+    default:
+      return 'Unpaid';
+  }
+};
 
 /**
  * Get display text for order status (supports both backend and frontend statuses)
@@ -63,10 +91,6 @@ export const getStatusDisplayText = (status: OrderStatus, orderType?: OrderType)
       return 'Picked Up';
     case 'FAILED_DELIVERY':
       return 'Failed Del.';
-    case 'REFUNDED':
-      return 'Refunded';
-    case 'PARTIALLY_REFUNDED':
-      return 'Partially Refunded';
   }
 
   // Handle backend statuses with order type context
@@ -142,10 +166,6 @@ export const getStatusColor = (status: OrderStatus): string => {
     case 'REJECTED':
     case 'FAILED_DELIVERY':
       return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
-    case 'REFUNDED':
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100';
-    case 'PARTIALLY_REFUNDED':
-      return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
     default:
       return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100';
   }
@@ -164,20 +184,14 @@ export const getNextStatuses = (currentStatus: OrderStatus, orderType?: OrderTyp
     'COMPLETED',
     'REJECTED',
     'CANCELLED',
-    'REFUNDED',
-    'PARTIALLY_REFUNDED'
   ];
 
   if (currentStatus === 'DRAFT') {
     return ['PAID', 'CANCELLED'];
   }
 
-  if (currentStatus === 'CANCELLED' || currentStatus === 'REFUNDED') {
+  if (currentStatus === 'CANCELLED') {
     return [];
-  }
-
-  if (currentStatus === 'PARTIALLY_REFUNDED') {
-    return ['REFUNDED'];
   }
 
   if (backendStatuses.includes(currentStatus as BackendOrderStatus)) {
@@ -199,8 +213,8 @@ export const getNextStatuses = (currentStatus: OrderStatus, orderType?: OrderTyp
  * Check if a status transition is valid
  */
 export const isValidStatusTransition = (
-  fromStatus: OrderStatus, 
-  toStatus: OrderStatus, 
+  fromStatus: OrderStatus,
+  toStatus: OrderStatus,
   orderType?: OrderType
 ): boolean => {
   const allowedNextStatuses = getNextStatuses(fromStatus, orderType);
@@ -215,13 +229,11 @@ export const getAllStatuses = (): OrderStatus[] => {
     'DRAFT',
     'PAID',
     'IN_DESIGN',
-    'READY', 
+    'READY',
     'OUT_FOR_DELIVERY',
     'COMPLETED',
     'REJECTED',
     'CANCELLED',
-    'REFUNDED',
-    'PARTIALLY_REFUNDED'
   ];
 };
 
@@ -229,7 +241,7 @@ export const getAllStatuses = (): OrderStatus[] => {
  * Check if status is a final state
  */
 export const isFinalStatus = (status: OrderStatus): boolean => {
-  return ['COMPLETED', 'CANCELLED', 'REFUNDED'].includes(status);
+  return ['COMPLETED', 'CANCELLED', 'REJECTED'].includes(status);
 };
 
 /**
@@ -242,7 +254,7 @@ export const isActiveStatus = (status: OrderStatus): boolean => {
 /**
  * Get status progress percentage (for progress bars)
  */
-export const getStatusProgress = (status: OrderStatus, orderType?: OrderType): number => {
+export const getStatusProgress = (status: OrderStatus, _orderType?: OrderType): number => {
   switch (status) {
     case 'DRAFT':
       return 10;
@@ -269,14 +281,15 @@ export const getStatusProgress = (status: OrderStatus, orderType?: OrderType): n
  */
 export const getStatusOptions = (orderType?: OrderType) => {
   const allStatuses = getAllStatuses();
-  
+
   // Filter out OUT_FOR_DELIVERY for pickup orders
-  const filteredStatuses = orderType === 'PICKUP' 
-    ? allStatuses.filter(status => status !== 'OUT_FOR_DELIVERY')
+  const filteredStatuses = orderType === 'PICKUP'
+    ? allStatuses.filter((status) => status !== 'OUT_FOR_DELIVERY')
     : allStatuses;
-  
-  return filteredStatuses.map(status => ({
+
+  return filteredStatuses.map((status) => ({
     value: status,
-    label: getStatusDisplayText(status, orderType)
+    label: getStatusDisplayText(status, orderType),
   }));
 };
+

@@ -7,7 +7,6 @@ import PageBreadcrumb from '@shared/ui/common/PageBreadCrumb';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
 import { useOrderLists } from '@domains/orders/hooks/useOrderLists';
 import StandardTable, { ColumnDef } from '@shared/ui/components/ui/table/StandardTable';
-import StatusBadge from '@app/components/orders/StatusBadge';
 import Label from '@shared/ui/forms/Label';
 import Select from '@shared/ui/forms/Select';
 import DatePicker from '@shared/ui/forms/date-picker';
@@ -330,7 +329,7 @@ const OrdersListPage: React.FC = () => {
               </div>
 
               {/* Date Filter Buttons */}
-              <div className="md:col-span-5">
+              <div className="md:col-span-6">
                 <Label className="text-xs mb-1.5 block">Delivery</Label>
                 <div className="flex gap-2">
                   <button
@@ -377,7 +376,7 @@ const OrdersListPage: React.FC = () => {
               </div>
 
               {/* Search + More Filters Button */}
-              <div className="md:col-span-5">
+              <div className="md:col-span-4">
                 <Label className="text-xs">Search</Label>
                 <div className="flex gap-2">
                   <input

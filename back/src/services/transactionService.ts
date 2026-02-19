@@ -1,6 +1,7 @@
 import prisma from '../lib/prisma';
 import { HouseAccountEntryType, Prisma } from '@prisma/client';
 import { format } from 'date-fns';
+import { recalculateOrderPaymentStatuses } from './orderPaymentStatusService';
 
 export interface CreateTransactionData {
   customerId: string;
@@ -18,7 +19,7 @@ export interface CreateTransactionData {
 }
 
 export interface PaymentMethodData {
-  type: 'CASH' | 'CARD' | 'GIFT_CARD' | 'STORE_CREDIT' | 'CHECK' | 'COD' | 'HOUSE_ACCOUNT' | 'OFFLINE' | 'EXTERNAL';
+  type: 'CASH' | 'CARD' | 'GIFT_CARD' | 'STORE_CREDIT' | 'CHECK' | 'PAY_LATER' | 'HOUSE_ACCOUNT' | 'OFFLINE' | 'EXTERNAL';
   provider: 'STRIPE' | 'SQUARE' | 'INTERNAL';
   amount: number;
   providerTransactionId?: string;
@@ -150,10 +151,18 @@ class TransactionService {
   async createTransaction(data: CreateTransactionData) {
     const transactionNumber = await this.generateTransactionNumber();
     const isAdjustment = Boolean(data.isAdjustment);
-    const hasHouseAccount = data.paymentMethods.some((method) => method.type === 'HOUSE_ACCOUNT');
-    const hasNonHouseAccount = data.paymentMethods.some((method) => method.type !== 'HOUSE_ACCOUNT');
+    const normalizedPaymentMethods = data.paymentMethods.map((method) => ({
+      ...method,
+      type:
+        String(method.type || '').toUpperCase() === 'COD'
+          ? 'PAY_LATER'
+          : method.type,
+    })) as PaymentMethodData[];
+
+    const hasHouseAccount = normalizedPaymentMethods.some((method) => method.type === 'HOUSE_ACCOUNT');
+    const hasNonHouseAccount = normalizedPaymentMethods.some((method) => method.type !== 'HOUSE_ACCOUNT');
     const houseAccountReference = hasHouseAccount
-      ? data.paymentMethods
+      ? normalizedPaymentMethods
           .filter((method) => method.type === 'HOUSE_ACCOUNT')
           .map((method) => {
             const reference = method.providerMetadata?.reference;
@@ -199,9 +208,9 @@ class TransactionService {
       });
 
       // Create payment methods
-      console.log(`💳 Creating ${data.paymentMethods.length} payment methods for ${transactionNumber}`);
+      console.log(`💳 Creating ${normalizedPaymentMethods.length} payment methods for ${transactionNumber}`);
       const paymentMethods = await Promise.all(
-        data.paymentMethods.map((method, index) => {
+        normalizedPaymentMethods.map((method, index) => {
           console.log(`  ${index + 1}. ${method.type} - $${(method.amount / 100).toFixed(2)} via ${method.provider}`);
           return tx.paymentMethod.create({
             data: {
@@ -400,6 +409,8 @@ class TransactionService {
           )
         );
       }
+
+      await recalculateOrderPaymentStatuses(tx, normalizedOrderIds);
 
       return updatedTransaction;
     });
@@ -665,13 +676,21 @@ class TransactionService {
     reason?: string;
     employeeId?: string;
     refundMethods: {
-      paymentMethodType: 'CASH' | 'CARD' | 'GIFT_CARD' | 'STORE_CREDIT' | 'CHECK' | 'COD';
+      paymentMethodType: 'CASH' | 'CARD' | 'GIFT_CARD' | 'STORE_CREDIT' | 'CHECK' | 'PAY_LATER';
       provider: 'STRIPE' | 'SQUARE' | 'INTERNAL';
       amount: number;
       providerRefundId?: string;
     }[];
   }) {
     return await prisma.$transaction(async (tx) => {
+      const normalizedRefundMethods = refundData.refundMethods.map((method) => ({
+        ...method,
+        paymentMethodType:
+          String(method.paymentMethodType || '').toUpperCase() === 'COD'
+            ? 'PAY_LATER'
+            : method.paymentMethodType,
+      }));
+
       // Generate refund number (RF-XXXXX)
       const refundNumber = await this.generateRefundNumber(tx);
       
@@ -688,7 +707,7 @@ class TransactionService {
 
       // Create refund methods
       await Promise.all(
-        refundData.refundMethods.map(method =>
+        normalizedRefundMethods.map(method =>
           tx.refundMethod.create({
             data: {
               refundId: refund.id,
@@ -716,6 +735,15 @@ class TransactionService {
           data: { status: newStatus }
         });
       }
+
+      const transactionOrderPayments = await tx.orderPayment.findMany({
+        where: { transactionId },
+        select: { orderId: true },
+      });
+      await recalculateOrderPaymentStatuses(
+        tx,
+        transactionOrderPayments.map((orderPayment) => orderPayment.orderId)
+      );
 
       return refund;
     });
@@ -794,10 +822,11 @@ class TransactionService {
         }
       } else {
         const type = value.toUpperCase();
+        const normalizedType = type === 'COD' ? 'PAY_LATER' : type;
         andConditions.push({
           paymentMethods: {
             some: {
-              type: type as any
+              type: normalizedType as any
             }
           }
         });
@@ -873,7 +902,8 @@ class TransactionService {
       GIFT_CARD: 'Gift Card',
       STORE_CREDIT: 'Store Credit',
       CHECK: 'Check',
-      COD: 'Collect on Delivery',
+      PAY_LATER: 'Pay Later',
+      COD: 'Pay Later',
       HOUSE_ACCOUNT: 'House Account',
       OFFLINE: 'Offline',
       EXTERNAL: 'External Provider',

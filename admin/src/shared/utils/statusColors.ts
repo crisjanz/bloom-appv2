@@ -47,10 +47,6 @@ export const getOrderStatusColor = (status: string): string => {
       return STATUS_COLORS.red;
     case 'REJECTED':
       return STATUS_COLORS.orange;
-    case 'REFUNDED':
-      return STATUS_COLORS.purple;
-    case 'PARTIALLY_REFUNDED':
-      return STATUS_COLORS.orange;
     default:
       return STATUS_COLORS.gray;
   }
@@ -88,6 +84,16 @@ export const getEventStatusColor = (status: string): string => {
  */
 export const getPaymentStatusColor = (status: string): string => {
   switch (status) {
+    case 'UNPAID':
+      return STATUS_COLORS.red;
+    case 'PAID':
+      return STATUS_COLORS.green;
+    case 'PARTIALLY_PAID':
+      return STATUS_COLORS.yellow;
+    case 'REFUNDED':
+      return STATUS_COLORS.gray;
+    case 'PARTIALLY_REFUNDED':
+      return STATUS_COLORS.orange;
     case 'PENDING':
     case 'PROCESSING':
       return STATUS_COLORS.yellow;
@@ -97,9 +103,6 @@ export const getPaymentStatusColor = (status: string): string => {
       return STATUS_COLORS.red;
     case 'CANCELLED':
       return STATUS_COLORS.orange;
-    case 'REFUNDED':
-    case 'PARTIALLY_REFUNDED':
-      return STATUS_COLORS.purple;
     default:
       return STATUS_COLORS.gray;
   }

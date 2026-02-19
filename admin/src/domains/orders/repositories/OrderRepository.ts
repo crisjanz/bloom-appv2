@@ -93,6 +93,22 @@ export class OrderRepository extends BaseRepository<Order> {
     }
   }
 
+  private mapPaymentStatusToFrontend(backendPaymentStatus?: string | null): PaymentStatus {
+    switch ((backendPaymentStatus || '').toUpperCase()) {
+      case 'PAID':
+        return PaymentStatus.PAID
+      case 'PARTIALLY_PAID':
+        return PaymentStatus.PARTIALLY_PAID
+      case 'REFUNDED':
+        return PaymentStatus.REFUNDED
+      case 'PARTIALLY_REFUNDED':
+        return PaymentStatus.PARTIALLY_REFUNDED
+      case 'UNPAID':
+      default:
+        return PaymentStatus.UNPAID
+    }
+  }
+
   /**
    * Transform backend order data to frontend Order entity
    */
@@ -193,7 +209,7 @@ export class OrderRepository extends BaseRepository<Order> {
       fulfillmentType: backendOrder.type,
       deliveryInfo,
       recipientName: backendOrder.recipientName || undefined,
-      paymentStatus: 'PAID',
+      paymentStatus: this.mapPaymentStatusToFrontend(backendOrder.paymentStatus),
       orderDate: new Date(backendOrder.createdAt),
       requestedDeliveryDate: backendOrder.deliveryDate ? new Date(backendOrder.deliveryDate) : undefined,
       cardMessage: backendOrder.cardMessage,
@@ -263,6 +279,16 @@ export class OrderRepository extends BaseRepository<Order> {
       params.set('status', backendStatuses.join(','))
     }
 
+    const paymentStatusFilter: PaymentStatus[] | undefined = filter.where?.paymentStatus?.in
+      ? filter.where.paymentStatus.in
+      : filter.where?.paymentStatus
+      ? [filter.where.paymentStatus]
+      : undefined
+
+    if (paymentStatusFilter && paymentStatusFilter.length > 0) {
+      params.set('paymentStatus', paymentStatusFilter.join(','))
+    }
+
     const result = await this.customQuery<{success: boolean, orders: any[], pagination?: any}>(
       'list',
       Object.fromEntries(params)
@@ -308,6 +334,9 @@ export class OrderRepository extends BaseRepository<Order> {
     if (criteria.status && criteria.status.length === 1) {
       const backendStatuses = [...new Set(criteria.status.map(status => this.mapStatusToBackend(status)))]
       params.set('status', backendStatuses[0])
+    }
+    if (criteria.paymentStatus && criteria.paymentStatus.length > 0) {
+      params.set('paymentStatus', criteria.paymentStatus.join(','))
     }
     if (criteria.orderDateFrom) {
       params.set('orderDateFrom', criteria.orderDateFrom.toISOString().split('T')[0])
@@ -568,7 +597,7 @@ export class OrderRepository extends BaseRepository<Order> {
     cutoffDate.setDate(cutoffDate.getDate() - daysOld)
 
     const orders = await this.search({
-      status: [OrderStatus.COMPLETED, OrderStatus.CANCELLED, OrderStatus.REFUNDED],
+      status: [OrderStatus.COMPLETED, OrderStatus.CANCELLED],
       orderDateTo: cutoffDate
     })
 

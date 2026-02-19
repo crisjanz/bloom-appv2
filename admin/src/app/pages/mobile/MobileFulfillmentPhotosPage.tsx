@@ -87,7 +87,6 @@ export default function MobileFulfillmentPhotosPage() {
   }, [order]);
 
   const primaryItemName = order ? getPrimaryItemName(order) : '';
-
   const handleImageSave = async ({
     croppedBlob,
     category,
@@ -191,9 +190,11 @@ export default function MobileFulfillmentPhotosPage() {
         <MobileFulfillmentActionTabs orderId={order.id} active="photos" />
 
         <section className="rounded-3xl bg-white p-5 shadow-sm dark:bg-gray-800">
-          <p className="text-sm font-semibold text-gray-900 dark:text-white">
-            #{formatOrderNumber(order.orderNumber, orderNumberPrefix)}
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold text-gray-900 dark:text-white">
+              #{formatOrderNumber(order.orderNumber, orderNumberPrefix)}
+            </p>
+          </div>
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{formatRecipientName(order)}</p>
           {formatAddress(order) ? <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{formatAddress(order)}</p> : null}
           {primaryItemName ? (
@@ -274,6 +275,7 @@ export default function MobileFulfillmentPhotosPage() {
         onClose={() => setImageModalOpen(false)}
         title="Add Fulfillment Photo"
         submitLabel="Crop & Save"
+        mobileOptimized
         categoryOptions={RESULT_IMAGE_CATEGORY_OPTIONS}
         defaultCategory="FULFILLED"
         tagSuggestions={RESULT_TAG_SUGGESTIONS}

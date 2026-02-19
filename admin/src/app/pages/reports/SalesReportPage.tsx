@@ -39,6 +39,15 @@ const backendStatusOptions = [
   { value: 'REJECTED', label: 'Rejected' }
 ];
 
+const paymentStatusOptions = [
+  { value: 'ALL', label: 'All Payment Statuses' },
+  { value: 'UNPAID', label: 'Unpaid' },
+  { value: 'PAID', label: 'Paid' },
+  { value: 'PARTIALLY_PAID', label: 'Partially Paid' },
+  { value: 'REFUNDED', label: 'Refunded' },
+  { value: 'PARTIALLY_REFUNDED', label: 'Partially Refunded' },
+];
+
 const formatCurrencyFromCents = (amount?: number, emptyValue = '$0.00') => {
   if (amount === undefined || amount === null) return emptyValue;
   return formatCurrency(amount);
@@ -191,6 +200,10 @@ const SalesReportPage: React.FC = () => {
     updateFilters({ status: value === 'ALL' ? undefined : value });
   };
 
+  const handlePaymentStatusChange = (value: string) => {
+    updateFilters({ paymentStatus: value === 'ALL' ? undefined : value });
+  };
+
   const handleSourceChange = (value: string) => {
     updateFilters({ orderSource: value === 'ALL' ? undefined : value });
   };
@@ -251,6 +264,7 @@ const SalesReportPage: React.FC = () => {
         endDate: filters.endDate,
         paymentMethod: filters.paymentMethod,
         status: filters.status,
+        paymentStatus: filters.paymentStatus,
         orderSource: filters.orderSource,
       });
 
@@ -337,7 +351,7 @@ const SalesReportPage: React.FC = () => {
               </div>
             )}
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-6">
               <div className="space-y-1">
                 <Label>Date From</Label>
                 <input
@@ -374,7 +388,15 @@ const SalesReportPage: React.FC = () => {
                   onChange={handleStatusChange}
                 />
               </div>
-              <div className="space-y-1 md:col-span-2 lg:col-span-1">
+              <div className="space-y-1">
+                <Label>Payment Status</Label>
+                <Select
+                  options={paymentStatusOptions}
+                  value={filters.paymentStatus ?? 'ALL'}
+                  onChange={handlePaymentStatusChange}
+                />
+              </div>
+              <div className="space-y-1 md:col-span-2 lg:col-span-2">
                 <Label>Order Source</Label>
                 <Select
                   options={sourceOptions.length > 1 ? sourceOptions : [{ value: 'ALL', label: 'All Sources' }]}

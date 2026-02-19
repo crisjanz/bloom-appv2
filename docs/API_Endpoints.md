@@ -1,6 +1,6 @@
 # Bloom API Surface
 
-**Last audited:** 2026-02-16
+**Last audited:** 2026-02-19
 **Source:** `back/src`
 
 ## Diagnostics
@@ -85,6 +85,7 @@
 
 ## Orders & Fulfillment
 - ✅ GET `/api/orders/list` — filterable order listing (`back/src/routes/orders/list.ts`)
+  - Query highlights: `status` supports comma-separated values, `paymentStatus` supports single/comma-separated values (`UNPAID`, `PAID`, `PARTIALLY_PAID`, `REFUNDED`, `PARTIALLY_REFUNDED`).
 - ✅ GET `/api/orders/:id` — order detail with related entities (`back/src/routes/orders/single.ts`)
 - ✅ POST `/api/orders/create` — finalize paid orders and trigger notifications (`back/src/routes/orders/create.ts`)
 - ✅ POST `/api/orders/save-draft` — persist multi-order drafts (`back/src/routes/orders/create.ts`)
@@ -96,8 +97,10 @@
 - ✅ POST `/api/orders/:orderId/images/bulk` — add multiple categorized order images in one request (each supports optional `tag` and `note`)
 - ✅ DELETE `/api/orders/:orderId/images/:imageId` — remove a categorized order image
 - ✅ GET `/api/orders/delivery` — delivery board filtered by date/range (`back/src/routes/orders/delivery.ts`)
+  - Optional query: `paymentStatus` (single or comma-separated).
 - ✅ GET `/api/orders/delivery/count/future` — forward-looking delivery counts.
-- ✅ PATCH `/api/orders/:orderId/status` — status transitions with validation (`back/src/routes/orders/status.ts`)
+- ✅ PATCH `/api/orders/:orderId/status` — fulfillment status transitions with validation (`back/src/routes/orders/status.ts`)
+  - `Order.status` no longer carries refund states; payment/refund state now lives in `Order.paymentStatus`.
 - ✅ GET `/api/orders/:orderId/next-statuses` — allowed next status list.
 - ⚠️ GET `/api/orders/:orderId/history` — placeholder returning current status only.
 
@@ -380,8 +383,11 @@ Each variant can optionally reference one of the product's images via `featuredI
 - ✅ DELETE `/api/events/:id/payments/:paymentId` — delete event payment.
 
 - ✅ GET `/api/reports/sales/summary` — sales KPI summary (`back/src/routes/reports.ts`)
+  - Supports `paymentStatus` filter; default behavior includes only settled sales (`PAID`, `PARTIALLY_PAID`) and excludes fulfillment statuses `DRAFT`, `CANCELLED`, `REJECTED` when `status` is omitted.
 - ✅ GET `/api/reports/sales/orders` — detailed sales export.
+  - Supports `paymentStatus` filter with the same settled-sales default behavior.
 - ✅ GET `/api/reports/tax/export` — tax export CSV.
+  - Supports `paymentStatus` filter with the same settled-sales default behavior.
 
 ## Media & Assets
 - ✅ POST `/api/images/upload` — upload to Cloudflare R2 (`back/src/routes/images.ts`)

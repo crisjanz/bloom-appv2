@@ -6,7 +6,8 @@ const PAYMENT_TYPE_LABELS: Record<string, string> = {
   GIFT_CARD: 'Gift Card',
   STORE_CREDIT: 'Store Credit',
   CHECK: 'Check',
-  COD: 'Collect on Delivery',
+  PAY_LATER: 'Pay Later',
+  COD: 'Pay Later',
   UNPAID: 'No Payments',
   UNKNOWN: 'Unknown'
 };
@@ -86,6 +87,6 @@ export const DEFAULT_PAYMENT_METHOD_KEYS = [
   createPaymentMethodKey('GIFT_CARD'),
   createPaymentMethodKey('STORE_CREDIT'),
   createPaymentMethodKey('CHECK'),
-  createPaymentMethodKey('COD'),
+  createPaymentMethodKey('PAY_LATER'),
   createPaymentMethodKey('UNPAID')
 ];

@@ -1,5 +1,5 @@
 import express from 'express';
-import { PrismaClient, OrderStatus, OrderExternalSource } from '@prisma/client';
+import { PrismaClient, OrderStatus, PaymentStatus, OrderExternalSource } from '@prisma/client';
 import { ParsedOrderData, FloranextOrderData } from '../../services/gemini-ocr';
 import transactionService from '../../services/transactionService';
 
@@ -130,6 +130,7 @@ router.post('/create-from-scan', async (req, res) => {
       data: {
         type: 'DELIVERY',
         status: OrderStatus.PAID, // Wire-in orders are pre-paid
+        paymentStatus: PaymentStatus.PAID,
         orderSource: 'EXTERNAL',
         externalSource: resolvedSource,
         externalReference: orderData.orderNumber || null,
@@ -288,6 +289,7 @@ async function createDoorDashOrder(orderData: ParsedOrderData, externalSource: O
     data: {
       type: 'PICKUP',
       status: OrderStatus.PAID,
+      paymentStatus: PaymentStatus.PAID,
       orderSource: 'EXTERNAL',
       externalSource,
       externalReference: orderData.orderNumber || null,
@@ -601,6 +603,7 @@ router.post('/create-from-floranext', async (req, res) => {
       data: {
         type: isDelivery ? 'DELIVERY' : 'PICKUP',
         status: OrderStatus.PAID, // Web orders are pre-paid
+        paymentStatus: PaymentStatus.PAID,
         orderSource: 'WEBSITE',
         externalSource: OrderExternalSource.OTHER,
         externalReference: orderData.orderNumber ? `FN-${orderData.orderNumber}` : null,

@@ -1,5 +1,5 @@
 import express from 'express';
-import { PrismaClient, OrderSource, OrderStatus, PrintJobType } from '@prisma/client';
+import { PrismaClient, OrderSource, OrderStatus, PaymentStatus, PrintJobType } from '@prisma/client';
 import { calculateTax } from '../../utils/taxCalculator';
 import { triggerStatusNotifications } from '../../utils/notificationTriggers';
 import { printService } from '../../services/printService';
@@ -198,6 +198,7 @@ router.post('/create', async (req, res) => {
         data: {
           type: orderData.orderType,
           status: OrderStatus.DRAFT, // Start as DRAFT, PT transaction will update to PAID
+          paymentStatus: PaymentStatus.UNPAID,
           orderSource: orderData.orderSource || 'PHONE', // Default to PHONE if not provided
           customerId,
           recipientCustomerId,
@@ -254,6 +255,7 @@ router.post('/create', async (req, res) => {
           where: { id: order.id },
           data: {
             status: OrderStatus.PAID,
+            paymentStatus: PaymentStatus.PAID,
             updatedAt: new Date()
           },
           include: {
@@ -461,10 +463,10 @@ router.post('/save-draft', async (req, res) => {
 
       const paymentIntentId =
         typeof orderData.paymentIntentId === 'string' ? orderData.paymentIntentId : null;
-      const paymentStatus =
+      const paymentIntentStatus =
         typeof orderData.paymentStatus === 'string' ? orderData.paymentStatus : null;
       const hasConfirmedPayment = Boolean(
-        paymentIntentId && (!paymentStatus || paymentStatus === 'succeeded')
+        paymentIntentId && (!paymentIntentStatus || paymentIntentStatus === 'succeeded')
       );
       const rawOrderSource =
         typeof orderData.orderSource === 'string' ? orderData.orderSource.toUpperCase() : null;
@@ -480,6 +482,7 @@ router.post('/save-draft', async (req, res) => {
         data: {
           type: orderData.orderType,
           status: hasConfirmedPayment ? OrderStatus.PAID : OrderStatus.DRAFT,
+          paymentStatus: hasConfirmedPayment ? PaymentStatus.PAID : PaymentStatus.UNPAID,
           ...(resolvedOrderSource ? { orderSource: resolvedOrderSource } : {}),
           customerId,
           recipientCustomerId,

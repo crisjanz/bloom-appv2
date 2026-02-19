@@ -237,8 +237,7 @@ export class OrderNotificationIntegration {
       'COMPLETED': NotificationType.ORDER_COMPLETED,
       'DELIVERED': NotificationType.ORDER_COMPLETED,
       'PICKED_UP': NotificationType.ORDER_COMPLETED,
-      'CANCELLED': NotificationType.ORDER_CANCELLED,
-      'REFUNDED': NotificationType.ORDER_CANCELLED
+      'CANCELLED': NotificationType.ORDER_CANCELLED
     }
 
     return statusMap[status.toUpperCase()] || NotificationType.ORDER_STATUS_UPDATE

@@ -1,5 +1,5 @@
 import express from 'express';
-import { PrismaClient, OrderStatus } from '@prisma/client';
+import { PrismaClient, OrderStatus, PaymentStatus } from '@prisma/client';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -9,6 +9,7 @@ router.get('/list', async (req, res) => {
   try {
     const {
       status,
+      paymentStatus,
       search,
       deliveryDateFrom,
       deliveryDateTo,
@@ -23,14 +24,35 @@ router.get('/list', async (req, res) => {
       dateTo
     } = req.query;
 
-    console.log('Orders list request:', { status, search, source, externalSource, deliveryDateFrom, deliveryDateTo, orderDateFrom, orderDateTo, limit, offset });
+    console.log('Orders list request:', { status, paymentStatus, search, source, externalSource, deliveryDateFrom, deliveryDateTo, orderDateFrom, orderDateTo, limit, offset });
 
     // Build where clause for filtering
     const where: any = {};
 
     // Status filter
     if (status && status !== 'ALL') {
-      where.status = status as OrderStatus;
+      const statuses = String(status)
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean) as OrderStatus[];
+      if (statuses.length === 1) {
+        where.status = statuses[0];
+      } else if (statuses.length > 1) {
+        where.status = { in: statuses };
+      }
+    }
+
+    // Payment status filter
+    if (paymentStatus && paymentStatus !== 'ALL') {
+      const paymentStatuses = String(paymentStatus)
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean) as PaymentStatus[];
+      if (paymentStatuses.length === 1) {
+        where.paymentStatus = paymentStatuses[0];
+      } else if (paymentStatuses.length > 1) {
+        where.paymentStatus = { in: paymentStatuses };
+      }
     }
 
     // Order source filter (PHONE, WALKIN, EXTERNAL, WEBSITE, POS)

@@ -19,7 +19,8 @@ const PAYMENT_TYPE_LABELS: Record<string, string> = {
   GIFT_CARD: 'Gift Card',
   STORE_CREDIT: 'Store Credit',
   CHECK: 'Check',
-  COD: 'Collect on Delivery',
+  PAY_LATER: 'Pay Later',
+  COD: 'Pay Later',
   EXTERNAL: 'External',
   UNPAID: 'No Payments',
   UNKNOWN: 'Unknown'
@@ -72,7 +73,7 @@ const parsePaymentMethodFilter = (raw: string | string[] | undefined | null) => 
 
   const [type, provider] = value.split('__');
   return {
-    type: (type || 'UNKNOWN').toUpperCase(),
+    type: ((type || 'UNKNOWN').toUpperCase() === 'COD' ? 'PAY_LATER' : (type || 'UNKNOWN').toUpperCase()),
     provider: provider ? provider.toUpperCase() : undefined
   };
 };
@@ -141,6 +142,7 @@ router.get('/sales/summary', async (req, res) => {
       endDate,
       paymentMethod,
       status,
+      paymentStatus,
       orderSource
     } = req.query;
 
@@ -162,7 +164,15 @@ router.get('/sales/summary', async (req, res) => {
       where.status = status;
     } else {
       where.status = {
-        notIn: ['DRAFT', 'CANCELLED']
+        notIn: ['DRAFT', 'CANCELLED', 'REJECTED']
+      };
+    }
+
+    if (paymentStatus && paymentStatus !== 'ALL') {
+      where.paymentStatus = paymentStatus;
+    } else {
+      where.paymentStatus = {
+        in: ['PAID', 'PARTIALLY_PAID']
       };
     }
 
@@ -316,6 +326,7 @@ router.get('/sales/orders', async (req, res) => {
       endDate,
       paymentMethod,
       status,
+      paymentStatus,
       orderSource,
       limit = '100',
       offset = '0'
@@ -337,7 +348,15 @@ router.get('/sales/orders', async (req, res) => {
       where.status = status;
     } else {
       where.status = {
-        notIn: ['DRAFT', 'CANCELLED']
+        notIn: ['DRAFT', 'CANCELLED', 'REJECTED']
+      };
+    }
+
+    if (paymentStatus && paymentStatus !== 'ALL') {
+      where.paymentStatus = paymentStatus;
+    } else {
+      where.paymentStatus = {
+        in: ['PAID', 'PARTIALLY_PAID']
       };
     }
 
@@ -438,7 +457,7 @@ router.get('/sales/orders', async (req, res) => {
 // Returns tax data for CSV export
 router.get('/tax/export', async (req, res) => {
   try {
-    const { startDate, endDate } = req.query;
+    const { startDate, endDate, paymentStatus } = req.query;
 
     if (!startDate || !endDate) {
       return res.status(400).json({
@@ -452,8 +471,14 @@ router.get('/tax/export', async (req, res) => {
         lte: new Date(endDate as string)
       },
       status: {
-        notIn: ['DRAFT', 'CANCELLED']
-      }
+        notIn: ['DRAFT', 'CANCELLED', 'REJECTED']
+      },
+      paymentStatus:
+        paymentStatus && paymentStatus !== 'ALL'
+          ? paymentStatus
+          : {
+              in: ['PAID', 'PARTIALLY_PAID']
+            }
     };
 
     const orders = await prisma.order.findMany({

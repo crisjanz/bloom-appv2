@@ -129,12 +129,6 @@ const StatusSelect: React.FC<StatusSelectProps> = ({
       case 'FAILED_DELIVERY':
         return 'bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-500';
 
-      // REFUNDED - Gray (light variant)
-      case 'REFUNDED':
-        return 'bg-gray-100 text-gray-700 dark:bg-white/5 dark:text-white/80';
-      case 'PARTIALLY_REFUNDED':
-        return 'bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-400';
-
       default:
         return 'bg-gray-100 text-gray-700 dark:bg-white/5 dark:text-white/80';
     }

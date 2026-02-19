@@ -12,6 +12,7 @@ interface Order {
   id: string;
   orderNumber: string | number;
   status: string;
+  paymentStatus?: string;
   deliveryDate: string | null;
   deliveryTime: string | null;
   cardMessage: string | null;
@@ -115,7 +116,7 @@ const FulfillmentPage: React.FC = () => {
   const loadOrder = async (orderId: string) => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('bloom_access_token') || localStorage.getItem('token');
 
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/${orderId}`, {
         headers: {
@@ -143,7 +144,7 @@ const FulfillmentPage: React.FC = () => {
 
   const loadFulfillmentNotes = async (orderId: string) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('bloom_access_token') || localStorage.getItem('token');
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/${orderId}/communications`, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -228,7 +229,7 @@ const FulfillmentPage: React.FC = () => {
     const baseName = nameCandidate.split(' - ')[0]?.trim();
     if (baseName) {
       try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('bloom_access_token') || localStorage.getItem('token');
         const response = await fetch(
           `${import.meta.env.VITE_API_URL}/api/products/search?q=${encodeURIComponent(baseName)}`,
           {
@@ -271,7 +272,7 @@ const FulfillmentPage: React.FC = () => {
     const searchText = firstItem.description || firstItem.customName || '';
     if (searchText) {
       try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('bloom_access_token') || localStorage.getItem('token');
 
         // Extract product code from description or customName
         const codeMatch = searchText.match(/\b([A-Z]{2,3}\d{1,2}-\d+[A-Z]?|[A-Z]\d{1,2}-\d+[a-z]?)\b/);
@@ -304,7 +305,7 @@ const FulfillmentPage: React.FC = () => {
 
     try {
       setUpdating(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('bloom_access_token') || localStorage.getItem('token');
 
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/${order.id}/status`, {
         method: 'PATCH',
@@ -341,7 +342,7 @@ const FulfillmentPage: React.FC = () => {
   const handleFetchImage = async (url: string) => {
     try {
       setFetchingImage(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('bloom_access_token') || localStorage.getItem('token');
 
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/wire-products/fetch-image?url=${encodeURIComponent(url)}`, {
         headers: {
@@ -390,7 +391,7 @@ const FulfillmentPage: React.FC = () => {
 
     try {
       setSearchingImages(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('bloom_access_token') || localStorage.getItem('token');
 
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/api/wire-products/search-google-images?q=${encodeURIComponent(imageSearchQuery)}`,
@@ -445,7 +446,7 @@ const FulfillmentPage: React.FC = () => {
       throw new Error('Order not loaded');
     }
 
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('bloom_access_token') || localStorage.getItem('token');
     const formData = new FormData();
     const file = new File([blob], `order-image-${Date.now()}.jpg`, { type: 'image/jpeg' });
     formData.append('images', file);
@@ -475,7 +476,7 @@ const FulfillmentPage: React.FC = () => {
   };
 
   const saveImageNote = async (orderId: string, imageUrl: string, note: string) => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('bloom_access_token') || localStorage.getItem('token');
     const message = `Fulfillment photo note | url:${imageUrl} | note:${note}`;
 
     const noteResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/orders/${orderId}/communications`, {
@@ -544,7 +545,7 @@ const FulfillmentPage: React.FC = () => {
     if (!order) return;
 
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('bloom_access_token') || localStorage.getItem('token');
       await deleteOrderImage(order.id, imageId);
 
       // Delete from Cloudflare R2
@@ -582,7 +583,7 @@ const FulfillmentPage: React.FC = () => {
     if (!codeToUse) return;
 
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('bloom_access_token') || localStorage.getItem('token');
 
       await fetch(`${import.meta.env.VITE_API_URL}/api/wire-products/${codeToUse}`, {
         method: 'PATCH',
@@ -606,7 +607,7 @@ const FulfillmentPage: React.FC = () => {
     }
 
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('bloom_access_token') || localStorage.getItem('token');
 
       // Update or create wire product with full details
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/wire-products/${saveForm.productCode}`, {
@@ -674,7 +675,6 @@ const FulfillmentPage: React.FC = () => {
   const deliveredOrderImages = (order.orderImages || []).filter((image) => image.category === 'DELIVERED');
   const otherOrderImages = (order.orderImages || []).filter((image) => image.category === 'OTHER');
   const referenceOrderImage = (order.orderImages || []).find((image) => image.category === 'REFERENCE');
-
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-8">
       {/* Back to Orders Link */}
@@ -693,9 +693,11 @@ const FulfillmentPage: React.FC = () => {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-3 mb-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-                Order #{formatOrderNumber(order.orderNumber, orderNumberPrefix)}
-              </h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                  Order #{formatOrderNumber(order.orderNumber, orderNumberPrefix)}
+                </h1>
+              </div>
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 {order.recipientCustomer
                   ? `${order.recipientCustomer.firstName} ${order.recipientCustomer.lastName}`
@@ -1114,6 +1116,7 @@ const FulfillmentPage: React.FC = () => {
         onClose={closeImageModal}
         title={imageModalMode === 'reference' ? 'Add Reference Photo' : 'Add Fulfillment Photo'}
         submitLabel="Crop & Save"
+        mobileOptimized={false}
         categoryOptions={imageModalMode === 'reference' ? [{ value: 'REFERENCE', label: 'Reference' }] : RESULT_IMAGE_CATEGORY_OPTIONS}
         defaultCategory={imageModalMode === 'reference' ? 'REFERENCE' : 'FULFILLED'}
         lockCategory={imageModalMode === 'reference'}

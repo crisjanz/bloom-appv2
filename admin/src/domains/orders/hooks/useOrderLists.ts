@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { OrderRepository } from '../repositories/OrderRepository'
-import { Order, OrderSearchCriteria, OrderStatus } from '../entities/Order'
+import { Order, OrderSearchCriteria, OrderStatus, PaymentStatus } from '../entities/Order'
 import { useOrderService } from './useOrderService'
 
 // Create singleton instance
@@ -24,6 +24,7 @@ export const useOrderLists = () => {
   // Fetch orders with filters (for OrdersListPage)
   const fetchOrders = useCallback(async (criteria: {
     status?: string,
+    paymentStatus?: string,
     search?: string,
     limit?: number,
     orderDateFrom?: string,
@@ -38,6 +39,9 @@ export const useOrderLists = () => {
       const searchCriteria: OrderSearchCriteria = {}
       if (criteria.status && criteria.status !== 'ALL') {
         searchCriteria.status = [criteria.status as OrderStatus]
+      }
+      if (criteria.paymentStatus && criteria.paymentStatus !== 'ALL') {
+        searchCriteria.paymentStatus = [criteria.paymentStatus as PaymentStatus]
       }
       if (criteria.search) {
         searchCriteria.query = criteria.search

@@ -21,7 +21,7 @@ export const mapPaymentMethodType = (method: string): string => {
     gift_card: 'GIFT_CARD',
     store_credit: 'STORE_CREDIT',
     check: 'CHECK',
-    cod: 'COD',
+    cod: 'PAY_LATER',
     house_account: 'HOUSE_ACCOUNT',
   };
 

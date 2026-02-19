@@ -34,7 +34,7 @@ const tenderOptions = [
   { value: 'cash', label: 'Cash' },
   { value: 'card_stripe', label: 'Credit Card' },
   { value: 'house_account', label: 'House Account' },
-  { value: 'cod', label: 'COD/Pay Later' },
+  { value: 'cod', label: 'Pay Later' },
   { value: 'check', label: 'Check' },
 ];
 

@@ -1,6 +1,7 @@
 import prisma from '../lib/prisma';
 import { HouseAccountEntryType, Prisma } from '@prisma/client';
 import paymentProviderFactory from './paymentProviders/PaymentProviderFactory';
+import { recalculateOrderPaymentStatuses } from './orderPaymentStatusService';
 
 interface RefundItemBreakdown {
   orderItemId: string;
@@ -30,7 +31,7 @@ interface ProcessRefundData {
       | 'GIFT_CARD'
       | 'STORE_CREDIT'
       | 'CHECK'
-      | 'COD'
+      | 'PAY_LATER'
       | 'EXTERNAL'
       | 'HOUSE_ACCOUNT'
       | 'OFFLINE';
@@ -52,8 +53,16 @@ class RefundService {
     );
     const stripe = shouldProcessStripe ? await paymentProviderFactory.getStripeClient() : null;
 
+    const normalizedMethods = data.refundMethods.map((method) => ({
+      ...method,
+      paymentMethodType:
+        String(method.paymentMethodType || '').toUpperCase() === 'COD'
+          ? 'PAY_LATER'
+          : method.paymentMethodType,
+    }));
+
     const refundMethods = await Promise.all(
-      data.refundMethods.map(async (method) => {
+      normalizedMethods.map(async (method) => {
         if (
           method.provider === 'STRIPE' &&
           method.paymentMethodType === 'CARD' &&
@@ -122,34 +131,9 @@ class RefundService {
           })
         )
       );
-
-      await Promise.all(
-        data.orderRefunds.map(async (orderRefund) => {
-          const order = await tx.order.findUnique({
-            where: { id: orderRefund.orderId },
-            include: { orderRefunds: true }
-          });
-
-          if (!order) {
-            return;
-          }
-
-          const totalRefunded = order.orderRefunds.reduce((sum, r) => sum + r.amount, 0);
-          let newStatus = order.status;
-
-          if (totalRefunded >= order.paymentAmount) {
-            newStatus = 'REFUNDED';
-          } else if (totalRefunded > 0) {
-            newStatus = 'PARTIALLY_REFUNDED';
-          }
-
-          if (newStatus !== order.status) {
-            await tx.order.update({
-              where: { id: orderRefund.orderId },
-              data: { status: newStatus }
-            });
-          }
-        })
+      await recalculateOrderPaymentStatuses(
+        tx,
+        data.orderRefunds.map((orderRefund) => orderRefund.orderId)
       );
 
       // Reverse house account ledger if refund includes HOUSE_ACCOUNT method

@@ -29,6 +29,7 @@ export interface SalesReportFilters {
   startDate?: string | null;
   endDate?: string | null;
   paymentMethod?: string | null;
+  paymentStatus?: string | null;
   status?: string | null;
   orderSource?: string | null;
 }
@@ -110,6 +111,7 @@ export async function buildSalesReportPdf(payload: SalesReportPdfPayload): Promi
 
     const filterLines = [
       `Payment Method: ${payload.filters.paymentMethod || 'All'}`,
+      `Payment Status: ${payload.filters.paymentStatus || 'All'}`,
       `Status: ${payload.filters.status || 'All'}`,
       `Order Source: ${payload.filters.orderSource || 'All'}`,
     ];

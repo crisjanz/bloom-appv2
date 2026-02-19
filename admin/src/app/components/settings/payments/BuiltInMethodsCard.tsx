@@ -59,7 +59,7 @@ const BuiltInMethodsCard: React.FC<BuiltInMethodsCardProps> = ({ methods, isSavi
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Switch
-            label="Collect on Delivery (COD)"
+            label="Pay Later"
             checked={codEnabled}
             onChange={setCodEnabled}
           />

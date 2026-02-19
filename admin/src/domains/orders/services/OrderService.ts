@@ -56,7 +56,7 @@ export class OrderService {
 
       // Payment
       paymentTransactionId: orderData.paymentTransactionId,
-      paymentStatus: orderData.paymentTransactionId ? PaymentStatus.PAID : PaymentStatus.PENDING,
+      paymentStatus: orderData.paymentTransactionId ? PaymentStatus.PAID : PaymentStatus.UNPAID,
       paidAt: orderData.paymentTransactionId ? new Date() : undefined,
 
       // Scheduling

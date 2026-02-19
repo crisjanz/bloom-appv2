@@ -92,6 +92,7 @@ export interface SalesReportFilters {
   endDate?: string;
   paymentMethod?: string;
   status?: string;
+  paymentStatus?: string;
   orderSource?: string;
   limit?: number;
   offset?: number;

@@ -119,6 +119,7 @@ const mapDomainOrderToFrontend = (domainOrder: DomainOrder): Order => {
       name: tax.taxType,
       amount: tax.taxAmount?.amount || 0,
     })),
+    paymentStatus: domainOrder.paymentStatus,
   };
 };
 // MIGRATION: Use domain hook for order management

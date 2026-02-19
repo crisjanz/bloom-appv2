@@ -1,5 +1,5 @@
 import express from 'express';
-import { PrismaClient, OrderType, OrderStatus, CommunicationType } from '@prisma/client';
+import { PrismaClient, OrderType, OrderStatus, PaymentStatus, CommunicationType } from '@prisma/client';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -69,7 +69,7 @@ router.get('/delivery/count/future', async (req, res) => {
 // Get delivery and pickup orders for a specific date or date range
 router.get('/delivery', async (req, res) => {
   try {
-    const { date, startDate, endDate } = req.query;
+    const { date, startDate, endDate, paymentStatus } = req.query;
 
     let startOfRange: Date;
     let endOfRange: Date;
@@ -109,6 +109,20 @@ router.get('/delivery', async (req, res) => {
         lte: endOfRange
       }
     };
+
+    const paymentStatusFilterValues = paymentStatus
+      ? String(paymentStatus)
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean) as PaymentStatus[]
+      : [];
+
+    const paymentStatusFilter =
+      paymentStatusFilterValues.length === 0 || String(paymentStatus).toUpperCase() === 'ALL'
+        ? undefined
+        : paymentStatusFilterValues.length === 1
+          ? paymentStatusFilterValues[0]
+          : { in: paymentStatusFilterValues };
 
     // Include related data for all queries
     const includeRelations = {
@@ -161,6 +175,7 @@ router.get('/delivery', async (req, res) => {
       where: {
         ...baseWhere,
         type: OrderType.DELIVERY,
+        ...(paymentStatusFilter ? { paymentStatus: paymentStatusFilter } : {}),
         status: {
           notIn: [OrderStatus.COMPLETED, OrderStatus.CANCELLED, OrderStatus.REJECTED]
         }
@@ -177,6 +192,7 @@ router.get('/delivery', async (req, res) => {
       where: {
         ...baseWhere,
         type: OrderType.PICKUP,
+        ...(paymentStatusFilter ? { paymentStatus: paymentStatusFilter } : {}),
         status: {
           notIn: [OrderStatus.COMPLETED, OrderStatus.CANCELLED, OrderStatus.REJECTED]
         }
@@ -192,6 +208,7 @@ router.get('/delivery', async (req, res) => {
     const completed = await prisma.order.findMany({
       where: {
         ...baseWhere,
+        ...(paymentStatusFilter ? { paymentStatus: paymentStatusFilter } : {}),
         status: {
           in: [OrderStatus.COMPLETED, OrderStatus.CANCELLED, OrderStatus.REJECTED]
         }

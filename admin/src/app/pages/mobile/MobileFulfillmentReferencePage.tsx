@@ -297,6 +297,7 @@ export default function MobileFulfillmentReferencePage() {
         onClose={closeReferenceImageModal}
         title="Add Reference Photo"
         submitLabel="Crop & Save"
+        mobileOptimized
         categoryOptions={[{ value: 'REFERENCE', label: 'Reference' }]}
         defaultCategory="REFERENCE"
         lockCategory

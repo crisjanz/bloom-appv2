@@ -104,7 +104,7 @@ const TakeOrderPaymentTiles: FC<Props> = ({
     },
     {
       id: 'cod',
-      label: 'COD',
+      label: 'Pay Later',
       icon: <DollarLineIcon className="h-5 w-5" />,
     },
     {
@@ -446,11 +446,11 @@ const TakeOrderPaymentTiles: FC<Props> = ({
 
         <ManualPaymentModal
           open={activeModal === 'cod'}
-          methodLabel="Cash on Delivery"
+          methodLabel="Pay Later"
           defaultAmount={safeGrandTotal}
           requireReference={false}
-          instructions="Payment will be collected upon delivery"
-          onSubmit={(data) => handleManualComplete('COD', data)}
+          instructions="Payment will be collected later."
+          onSubmit={(data) => handleManualComplete('PAY_LATER', data)}
           onCancel={() => setActiveModal(null)}
         />
 

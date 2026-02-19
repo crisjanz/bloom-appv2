@@ -169,9 +169,7 @@ const ALL_BACKEND_STATUSES = [
   'OUT_FOR_DELIVERY',
   'COMPLETED',
   'REJECTED',
-  'CANCELLED',
-  'REFUNDED',
-  'PARTIALLY_REFUNDED'
+  'CANCELLED'
 ] as const;
 
 const getAllowedTransitions = (currentStatus: string, orderType?: string | null): string[] => {
@@ -180,14 +178,9 @@ const getAllowedTransitions = (currentStatus: string, orderType?: string | null)
     return ['PAID', 'CANCELLED'];
   }
 
-  // Cancelled and refunded are locked terminal statuses.
-  if (currentStatus === 'CANCELLED' || currentStatus === 'REFUNDED') {
+  // Cancelled orders are locked terminal statuses.
+  if (currentStatus === 'CANCELLED') {
     return [];
-  }
-
-  // Partially refunded can only move forward to fully refunded.
-  if (currentStatus === 'PARTIALLY_REFUNDED') {
-    return ['REFUNDED'];
   }
 
   let transitions = ALL_BACKEND_STATUSES.filter(

@@ -2,7 +2,8 @@
 import React from 'react';
 import StatusSelect from '@shared/ui/forms/StatusSelect';
 import { Order } from '../types';
-import { getStatusOptions } from '@shared/utils/orderStatusHelpers';
+import { getPaymentStatusDisplayText, getStatusOptions } from '@shared/utils/orderStatusHelpers';
+import { getPaymentStatusColor } from '@shared/utils/statusColors';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
 import { PhoneIcon } from '@shared/assets/icons';
 import useOrderNumberPrefix from '@shared/hooks/useOrderNumberPrefix';
@@ -32,9 +33,13 @@ const OrderHeader: React.FC<OrderHeaderProps> = ({
   const orderNumberPrefix = useOrderNumberPrefix();
   const showUnreadBadge = typeof unreadCount === 'number' && unreadCount > 0;
   const unreadLabel = showUnreadBadge ? (unreadCount > 9 ? '9+' : `${unreadCount}`) : '';
+  const paymentStatus = order.paymentStatus || 'UNPAID';
+  const paymentStatusLabel = getPaymentStatusDisplayText(paymentStatus);
+  const paymentStatusColor = getPaymentStatusColor(paymentStatus);
+  const hasRefundedPayment = paymentStatus === 'REFUNDED' || paymentStatus === 'PARTIALLY_REFUNDED';
 
   // Show Cancel/Refund button for orders that can be cancelled (not already cancelled/completed/refunded)
-  const canCancelRefund = onCancelRefund && !['CANCELLED', 'COMPLETED', 'REFUNDED', 'PARTIALLY_REFUNDED'].includes(order.status);
+  const canCancelRefund = onCancelRefund && !['CANCELLED', 'COMPLETED'].includes(order.status) && !hasRefundedPayment;
   
   // Format order source for display
   const formatOrderSource = (source: string) => {
@@ -61,6 +66,10 @@ const OrderHeader: React.FC<OrderHeaderProps> = ({
                 {formatOrderSource(order.orderSource)}
               </span>
             )}
+            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${paymentStatusColor}`}>
+              <span className="text-sm leading-none">•</span>
+              {paymentStatusLabel}
+            </span>
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400">
             Created {timezoneLoading ? 'Loading...' : formatDate(new Date(order.createdAt))}

@@ -28,6 +28,7 @@ export interface MobileFulfillmentOrder {
   id: string;
   orderNumber: string | number;
   status: string;
+  paymentStatus?: string | null;
   type?: string | null;
   deliveryDate?: string | null;
   deliveryTime?: string | null;
@@ -136,9 +137,7 @@ export const toBackendStatus = (value: string): BackendOrderStatus | null => {
     'OUT_FOR_DELIVERY',
     'COMPLETED',
     'CANCELLED',
-    'REJECTED',
-    'REFUNDED',
-    'PARTIALLY_REFUNDED'
+    'REJECTED'
   ];
 
   return knownStatuses.includes(value as BackendOrderStatus) ? (value as BackendOrderStatus) : null;

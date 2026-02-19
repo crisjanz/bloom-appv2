@@ -1405,7 +1405,7 @@ async function updatePaymentTransactionStatus(
           id: { in: orderIds },
           status: 'DRAFT' // Only update orders that are still in draft status
         },
-        data: { status: 'PAID' }
+        data: { status: 'PAID', paymentStatus: 'PAID' }
       });
 
       console.log(`✅ Updated ${orderIds.length} orders to PAID status`);

@@ -341,6 +341,34 @@ const { itemTotal, gst, pst, grandTotal } = usePaymentCalculations(
 - **Danger button**: `bg-red-500 hover:bg-red-600`
 - **NEVER use** `#597485` or `#4e6575` (old colors)
 
+### Muted / Dusty Palette
+
+Defined in both `admin/src/shared/assets/styles.css` and `www/src/assets/css/style.css`. Full scales (25–950) available.
+
+| Token | Base (500) | Hover (600) | Use for |
+|-------|-----------|-------------|---------|
+| `muted-blue` | `#4A668B` | `#415B7C` | Informational buttons, action cards, links |
+| `muted-red` | `#A5524C` | `#954842` | Decorative red elements, status badges, non-error UI |
+| `muted-green` | `#5C7F79` | `#4F706B` | Decorative green elements, status badges, non-success UI |
+| `muted-brown` | `#4A403D` | `#3F3633` | Neutral accents, secondary actions, dark UI elements |
+
+**When to use `muted-*` vs `error-*`/`success-*`:**
+- `error-*` / `success-*` / `warning-*` — Form validation, system alerts, toast messages, destructive action buttons
+- `muted-*` — Decorative UI: action buttons, cards, badges, status indicators, navigation elements, section backgrounds
+
+**Example usage:**
+```tsx
+// Decorative button
+<button className="bg-muted-green-500 hover:bg-muted-green-600 text-white">
+  Manage Inventory
+</button>
+
+// Status badge
+<span className="bg-muted-red-100 text-muted-red-700 px-2 py-1 rounded">
+  Pending
+</span>
+```
+
 ### Grid Layouts
 
 - 2-column forms: `grid grid-cols-1 sm:grid-cols-2 gap-4`

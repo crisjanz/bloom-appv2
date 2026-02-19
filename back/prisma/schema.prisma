@@ -326,6 +326,7 @@ model Order {
   orderNumber         Int                  @unique @default(autoincrement())
   type                OrderType
   status              OrderStatus          @default(DRAFT)
+  paymentStatus       PaymentStatus        @default(UNPAID)
   orderSource         OrderSource          @default(PHONE)
   externalSource      OrderExternalSource?
   externalReference   String?              @unique
@@ -380,6 +381,7 @@ model Order {
 
   @@index([createdAt])
   @@index([status])
+  @@index([paymentStatus])
   @@index([orderSource])
   @@index([externalSource])
 }
@@ -1335,6 +1337,12 @@ enum OrderStatus {
   COMPLETED
   REJECTED
   CANCELLED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  PARTIALLY_PAID
   REFUNDED
   PARTIALLY_REFUNDED
 }
@@ -1471,7 +1479,7 @@ enum PaymentMethodType {
   GIFT_CARD
   STORE_CREDIT
   CHECK
-  COD
+  PAY_LATER
   HOUSE_ACCOUNT
   OFFLINE
   EXTERNAL

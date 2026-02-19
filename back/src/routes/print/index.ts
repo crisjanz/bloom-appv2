@@ -75,6 +75,7 @@ const salesReportSchema = z.object({
   endDate: z.string().trim().optional(),
   paymentMethod: z.string().trim().optional(),
   status: z.string().trim().optional(),
+  paymentStatus: z.string().trim().optional(),
   orderSource: z.string().trim().optional(),
 });
 
@@ -190,7 +191,8 @@ const PAYMENT_TYPE_LABELS: Record<string, string> = {
   GIFT_CARD: 'Gift Card',
   STORE_CREDIT: 'Store Credit',
   CHECK: 'Check',
-  COD: 'Collect on Delivery',
+  PAY_LATER: 'Pay Later',
+  COD: 'Pay Later',
   EXTERNAL: 'External',
   UNPAID: 'No Payments',
   UNKNOWN: 'Unknown',
@@ -243,7 +245,7 @@ const parsePaymentMethodFilter = (raw: string | string[] | undefined | null) => 
 
   const [type, provider] = value.split('__');
   return {
-    type: (type || 'UNKNOWN').toUpperCase(),
+    type: ((type || 'UNKNOWN').toUpperCase() === 'COD' ? 'PAY_LATER' : (type || 'UNKNOWN').toUpperCase()),
     provider: provider ? provider.toUpperCase() : undefined,
   };
 };
@@ -544,7 +546,15 @@ router.post('/sales-report', async (req, res) => {
       where.status = filters.status;
     } else {
       where.status = {
-        notIn: ['DRAFT', 'CANCELLED'],
+        notIn: ['DRAFT', 'CANCELLED', 'REJECTED'],
+      };
+    }
+
+    if (filters.paymentStatus && filters.paymentStatus !== 'ALL') {
+      where.paymentStatus = filters.paymentStatus;
+    } else {
+      where.paymentStatus = {
+        in: ['PAID', 'PARTIALLY_PAID'],
       };
     }
 
@@ -661,6 +671,9 @@ router.post('/sales-report', async (req, res) => {
     const paymentMethodLabel = paymentFilter
       ? formatPaymentMethodDisplay(paymentFilter.type, paymentFilter.provider)
       : 'All';
+    const paymentStatusLabel = filters.paymentStatus && filters.paymentStatus !== 'ALL'
+      ? formatLabel(filters.paymentStatus)
+      : 'All';
     const statusLabel = filters.status && filters.status !== 'ALL' ? formatLabel(filters.status) : 'All';
     const sourceLabel = filters.orderSource && filters.orderSource !== 'ALL' ? formatLabel(filters.orderSource) : 'All';
 
@@ -673,6 +686,7 @@ router.post('/sales-report', async (req, res) => {
         startDate: filters.startDate || null,
         endDate: filters.endDate || null,
         paymentMethod: paymentMethodLabel,
+        paymentStatus: paymentStatusLabel,
         status: statusLabel,
         orderSource: sourceLabel,
       },

@@ -59,8 +59,9 @@ const resolvePaymentMethodLabel = (method: PaymentTransactionReport['paymentMeth
   switch (type) {
     case 'HOUSE_ACCOUNT':
       return 'House Account';
+    case 'PAY_LATER':
     case 'COD':
-      return 'Collect on Delivery';
+      return 'Pay Later';
     case 'STORE_CREDIT':
       return 'Store Credit';
     case 'CHECK':
@@ -144,7 +145,7 @@ const TransactionsReportPage: React.FC = () => {
     }
 
     if (!builtIn || builtIn.cod) {
-      options.push({ value: 'COD', label: 'Collect on Delivery' });
+      options.push({ value: 'PAY_LATER', label: 'Pay Later' });
     }
 
     options.push({ value: 'EXTERNAL', label: 'External Provider' });

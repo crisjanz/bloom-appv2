@@ -1,5 +1,6 @@
 import { 
   OrderStatus, 
+  PaymentStatus,
   OrderType,
   getAllStatuses, 
   getStatusDisplayText, 
@@ -11,6 +12,7 @@ export interface Order {
   id: string;
   orderNumber: number;
   status: OrderStatus;
+  paymentStatus?: PaymentStatus | string;
   type: OrderType;
   createdAt: string;
   deliveryDate: string | null;
@@ -100,10 +102,6 @@ const getBadgeColor = (status: OrderStatus): 'default' | 'info' | 'warning' | 's
     case 'CANCELLED':
     case 'FAILED_DELIVERY':
       return 'error';
-    case 'REFUNDED':
-      return 'default';
-    case 'PARTIALLY_REFUNDED':
-      return 'warning';
     default:
       return 'default';
   }
@@ -127,9 +125,7 @@ const allPossibleStatuses: OrderStatus[] = [
   'COMPLETED',
   'CANCELLED',
   'REJECTED',
-  'FAILED_DELIVERY',
-  'REFUNDED',
-  'PARTIALLY_REFUNDED'
+  'FAILED_DELIVERY'
 ];
 
 // Generate status config using helper functions

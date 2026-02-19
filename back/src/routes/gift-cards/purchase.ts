@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { OrderSource, OrderStatus, OrderType, PrismaClient } from '@prisma/client';
+import { OrderSource, OrderStatus, OrderType, PaymentStatus, PrismaClient } from '@prisma/client';
 import { formatCurrency } from '../../utils/currency';
 import { emailService } from '../../services/emailService';
 import paymentProviderFactory from '../../services/paymentProviders/PaymentProviderFactory';
@@ -97,6 +97,7 @@ export const purchaseCards = async (req: Request, res: Response) => {
           data: {
             type: OrderType.GIFT_CARD,
             status: OrderStatus.PAID,
+            paymentStatus: PaymentStatus.PAID,
             orderSource: OrderSource.WEBSITE,
             customerId: bloomCustomerId || null,
             deliveryFee: 0,

@@ -29,6 +29,59 @@ layer(base);
   --color-body-color: #637381;
   --color-stroke: #dfe4ea;
 
+  /* Muted / Dusty Palette (from mobile quick-action buttons) */
+  --color-muted-blue-25: #f5f7fa;
+  --color-muted-blue-50: #ebeff5;
+  --color-muted-blue-100: #d4dce8;
+  --color-muted-blue-200: #adb9ce;
+  --color-muted-blue-300: #8697b4;
+  --color-muted-blue-400: #687EA0;
+  --color-muted-blue-500: #4A668B;
+  --color-muted-blue-600: #415B7C;
+  --color-muted-blue-700: #384F6B;
+  --color-muted-blue-800: #2F4259;
+  --color-muted-blue-900: #263548;
+  --color-muted-blue-950: #1D2837;
+
+  --color-muted-red-25: #fdf6f5;
+  --color-muted-red-50: #f9ecea;
+  --color-muted-red-100: #f0d5d3;
+  --color-muted-red-200: #dfb0ab;
+  --color-muted-red-300: #cc8983;
+  --color-muted-red-400: #b86d66;
+  --color-muted-red-500: #A5524C;
+  --color-muted-red-600: #954842;
+  --color-muted-red-700: #7F3D38;
+  --color-muted-red-800: #68322E;
+  --color-muted-red-900: #522825;
+  --color-muted-red-950: #3C1D1B;
+
+  --color-muted-green-25: #f5f8f7;
+  --color-muted-green-50: #ecf1f0;
+  --color-muted-green-100: #d6e0de;
+  --color-muted-green-200: #b3c7c3;
+  --color-muted-green-300: #90ada7;
+  --color-muted-green-400: #749690;
+  --color-muted-green-500: #5C7F79;
+  --color-muted-green-600: #4F706B;
+  --color-muted-green-700: #43605B;
+  --color-muted-green-800: #374F4B;
+  --color-muted-green-900: #2B3F3B;
+  --color-muted-green-950: #1F2E2B;
+
+  --color-muted-brown-25: #f6f5f5;
+  --color-muted-brown-50: #eceae9;
+  --color-muted-brown-100: #d8d4d3;
+  --color-muted-brown-200: #b5afac;
+  --color-muted-brown-300: #918986;
+  --color-muted-brown-400: #6D6360;
+  --color-muted-brown-500: #4A403D;
+  --color-muted-brown-600: #3F3633;
+  --color-muted-brown-700: #352D2A;
+  --color-muted-brown-800: #2B2422;
+  --color-muted-brown-900: #221B19;
+  --color-muted-brown-950: #181211;
+
   /* Dark Mode */
   --color-dark: #111928;
   --color-dark-2: #1f2a37;

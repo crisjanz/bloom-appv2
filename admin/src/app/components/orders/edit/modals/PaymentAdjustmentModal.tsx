@@ -6,7 +6,7 @@ import { useApiClient } from '@shared/hooks/useApiClient';
 
 export interface PaymentMethod {
   id: string;
-  type: 'CARD' | 'CASH' | 'CHECK' | 'GIFT_CARD' | 'STORE_CREDIT' | 'COD' | 'HOUSE_ACCOUNT' | 'OFFLINE' | 'EXTERNAL';
+  type: 'CARD' | 'CASH' | 'CHECK' | 'GIFT_CARD' | 'STORE_CREDIT' | 'PAY_LATER' | 'HOUSE_ACCOUNT' | 'OFFLINE' | 'EXTERNAL';
   provider: 'STRIPE' | 'SQUARE' | 'INTERNAL';
   amount: number;
   cardLast4?: string;

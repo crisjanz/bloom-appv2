@@ -651,7 +651,7 @@ const normalizeSinglePayment = (payment: any): PaymentEntry => {
     };
   }
 
-  if (rawMethod === 'COD') {
+  if (rawMethod === 'COD' || rawMethod === 'PAY_LATER') {
     return {
       method: 'cod',
       amount: payment.amount,
@@ -737,7 +737,7 @@ const mapPaymentMethodType = (method: string): string => {
     'gift_card': 'GIFT_CARD',
     'store_credit': 'STORE_CREDIT',
     'check': 'CHECK',
-    'cod': 'COD',
+    'cod': 'PAY_LATER',
     'house_account': 'HOUSE_ACCOUNT'
   };
   
@@ -754,7 +754,7 @@ const getPaymentProvider = (method: string): string => {
   if (method === 'credit' || method === 'debit') {
     return 'SQUARE'; // Phone orders use Square for card payments
   }
-  return 'INTERNAL'; // Cash, gift cards, checks, COD, house accounts use internal processing
+  return 'INTERNAL'; // Cash, gift cards, checks, pay later, house accounts use internal processing
 };
 
 export default PaymentSection;

@@ -15,6 +15,7 @@ import {
 import ComponentCard from '@shared/ui/common/ComponentCard';
 import PageBreadcrumb from '@shared/ui/common/PageBreadCrumb';
 import Label from '@shared/ui/forms/Label';
+import Select from '@shared/ui/forms/Select';
 import Button from '@shared/ui/components/ui/button/Button';
 import StatusSelect from '@shared/ui/forms/StatusSelect';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
@@ -54,6 +55,7 @@ type DeliveryOrder = {
   id: string;
   orderNumber: string;
   status: string;
+  paymentStatus?: string;
   type: FulfillmentOrderType | string;
   customer?: DeliveryPerson | null;
   recipientCustomer?: DeliveryPerson | null;
@@ -78,6 +80,7 @@ type DeliveryData = {
 
 const normalizeOrderType = (type: DeliveryOrder['type']): FulfillmentOrderType =>
   type === 'PICKUP' ? 'PICKUP' : 'DELIVERY';
+
 
 // MIGRATION: Order and DeliveryData interfaces now come from domain layer
 
@@ -220,9 +223,13 @@ const DeliveryPage: React.FC = () => {
       const endDay = new Date();
       endDay.setDate(endDay.getDate() + 10);
       const endDayStr = getBusinessDateString(endDay);
+      const query = new URLSearchParams({
+        startDate: today,
+        endDate: endDayStr,
+      });
 
       try {
-        const response = await fetch(`/api/orders/delivery?startDate=${today}&endDate=${endDayStr}`);
+        const response = await fetch(`/api/orders/delivery?${query.toString()}`);
         const data = await response.json();
 
         if (data.success) {
@@ -374,7 +381,11 @@ const DeliveryPage: React.FC = () => {
             // Fetch from API for dates outside pre-loaded range
             try {
               setLoading(true);
-              const response = await fetch(`/api/orders/delivery?startDate=${dateStr}&endDate=${dateStr}`);
+              const query = new URLSearchParams({
+                startDate: dateStr,
+                endDate: dateStr,
+              });
+              const response = await fetch(`/api/orders/delivery?${query.toString()}`);
               const data = await response.json();
               if (data.success) {
                 filtered = data.orders;
@@ -415,7 +426,7 @@ const DeliveryPage: React.FC = () => {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timezone, selectedDate]);
+  }, [timezone, selectedDate, allOrders]);
 
   // Format date for display using business timezone
   const formatDate = (dateStr: string) => {
@@ -472,8 +483,11 @@ const DeliveryPage: React.FC = () => {
       const endDay = new Date();
       endDay.setDate(endDay.getDate() + 10);
       const endDayStr = getBusinessDateString(endDay);
-
-      const response = await fetch(`/api/orders/delivery?startDate=${today}&endDate=${endDayStr}`);
+      const query = new URLSearchParams({
+        startDate: today,
+        endDate: endDayStr,
+      });
+      const response = await fetch(`/api/orders/delivery?${query.toString()}`);
       const data = await response.json();
 
       if (data.success) {
@@ -783,6 +797,7 @@ const DeliveryPage: React.FC = () => {
               </div>
             </button>
           </div>
+
         </div>
       </div>
 

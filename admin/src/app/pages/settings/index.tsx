@@ -16,7 +16,7 @@ import {
 
 const settings = [
   { title: "Business General", desc: "Store info, tax, hours, employees", href: "/settings/business", icon: <SettingsIcon className="w-6 h-6 text-primary" /> },
-  { title: "Payments", desc: "Stripe, Square, COD, house accounts", href: "/settings/payments", icon: <PlugInIcon className="w-6 h-6 text-primary" /> },
+  { title: "Payments", desc: "Stripe, Square, Pay Later, house accounts", href: "/settings/payments", icon: <PlugInIcon className="w-6 h-6 text-primary" /> },
   { title: "Delivery / Pickup", desc: "Times, charges, website logic", href: "/settings/delivery", icon: <TruckIcon className="w-6 h-6 text-primary" /> },
   { title: "Notifications", desc: "SMS, email, templates", href: "/settings/notifications", icon: <GridIcon className="w-6 h-6 text-primary" /> },
   { title: "Orders", desc: "Toggles, add-ons, logic", href: "/settings/orders", icon: <BoxCubeIcon className="w-6 h-6 text-primary" /> },
