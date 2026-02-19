@@ -81,13 +81,8 @@ const CustomerCard: FC<Props> = ({
                 <div
                   key={c.id}
                   onClick={() => {
-                    setCustomer({
-                      id: c.id,
-                      firstName: c.firstName,
-                      lastName: c.lastName,
-                      phone: c.phone,
-                      email: c.email,
-                    });
+                    // Preserve all customer fields from search result (including isHouseAccount).
+                    setCustomer({ ...c });
                     setCustomerQuery("");
                     setCustomerResults([]);
                     if (setCustomerId) {

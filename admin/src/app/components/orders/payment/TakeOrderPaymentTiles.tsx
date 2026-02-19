@@ -1,4 +1,4 @@
-import { FC, useState } from 'react';
+import { FC, useEffect, useState } from 'react';
 import {
   CreditCardIcon,
   DollarLineIcon,
@@ -15,6 +15,7 @@ import ManualPaymentModal from '@app/components/pos/payment/ManualPaymentModal';
 import AdjustmentsModal from '@app/components/orders/payment/AdjustmentsModal';
 import SplitPaymentView, { SplitPaymentRow } from '@app/components/pos/payment/SplitPaymentView';
 import { formatCurrency, parseUserCurrency } from '@shared/utils/currency';
+import { generatePaymentSummary } from '@shared/utils/paymentHelpers';
 
 type Props = {
   total: number;
@@ -38,6 +39,7 @@ type PaymentButton = {
   id: string;
   label: string;
   icon: React.ReactNode;
+  disabled?: boolean;
 };
 
 const TakeOrderPaymentTiles: FC<Props> = ({
@@ -85,6 +87,88 @@ const TakeOrderPaymentTiles: FC<Props> = ({
   // Split payment state
   const [splitPaymentRows, setSplitPaymentRows] = useState<SplitPaymentRow[]>([]);
   const [splitRemaining, setSplitRemaining] = useState(safeGrandTotal);
+  const [splitRowPayments, setSplitRowPayments] = useState<Record<string, { method: string; amount: number; metadata?: Record<string, any> }>>({});
+  const [splitRowInPayment, setSplitRowInPayment] = useState<{ rowId: string; amount: number } | null>(null);
+  const [splitError, setSplitError] = useState<string | null>(null);
+  const [paymentMethodError, setPaymentMethodError] = useState<string | null>(null);
+  const houseAccountEnabled = Boolean(customer?.isHouseAccount);
+
+  useEffect(() => {
+    const plannedTotal = splitPaymentRows.reduce((sum, row) => sum + Math.max(0, Math.round(row.amount || 0)), 0);
+    setSplitRemaining(Math.max(0, safeGrandTotal - plannedTotal));
+  }, [splitPaymentRows, safeGrandTotal]);
+
+  const activeModalAmount = splitRowInPayment?.amount ?? safeGrandTotal;
+
+  const normalizeSplitMethodForSummary = (method: string): 'cash' | 'credit' | 'house_account' | 'cod' | 'check' => {
+    if (method === 'CARD_STRIPE' || method === 'CARD') return 'credit';
+    if (method === 'HOUSE_ACCOUNT') return 'house_account';
+    if (method === 'COD' || method === 'PAY_LATER') return 'cod';
+    if (method === 'CHECK') return 'check';
+    return 'cash';
+  };
+
+  const finalizeSplitRowPayment = (
+    method: string,
+    metadata?: Record<string, any>,
+    detailOverride?: string
+  ) => {
+    if (!splitRowInPayment) return false;
+
+    const rowPayment = {
+      method,
+      amount: splitRowInPayment.amount,
+      metadata
+    };
+
+    const details =
+      detailOverride ||
+      generatePaymentSummary({
+        method: normalizeSplitMethodForSummary(method),
+        amount: rowPayment.amount,
+        metadata: rowPayment.metadata
+      });
+
+    setSplitRowPayments((prev) => ({
+      ...prev,
+      [splitRowInPayment.rowId]: rowPayment
+    }));
+
+    setSplitPaymentRows((rows) =>
+      rows.map((row) =>
+        row.id === splitRowInPayment.rowId
+          ? {
+              ...row,
+              status: 'completed',
+              details
+            }
+          : row
+      )
+    );
+
+    setSplitRowInPayment(null);
+    setActiveModal(null);
+    setSplitError(null);
+    return true;
+  };
+
+  const handleModalCancel = () => {
+    if (splitRowInPayment) {
+      setSplitPaymentRows((rows) =>
+        rows.map((row) =>
+          row.id === splitRowInPayment.rowId
+            ? {
+                ...row,
+                status: 'pending'
+              }
+            : row
+        )
+      );
+      setSplitRowInPayment(null);
+    }
+
+    setActiveModal(null);
+  };
 
   const basePaymentButtons: PaymentButton[] = [
     {
@@ -101,6 +185,7 @@ const TakeOrderPaymentTiles: FC<Props> = ({
       id: 'house_account',
       label: 'House Account',
       icon: <HomeIcon className="h-5 w-5" />,
+      disabled: !houseAccountEnabled,
     },
     {
       id: 'cod',
@@ -137,6 +222,13 @@ const TakeOrderPaymentTiles: FC<Props> = ({
     : basePaymentButtons;
 
   const handleButtonClick = (buttonId: string) => {
+    if (buttonId === 'house_account' && !houseAccountEnabled) {
+      setPaymentMethodError('House Account is only available for customers with an active house account.');
+      return;
+    }
+
+    setPaymentMethodError(null);
+
     if (buttonId === 'split') {
       handleSplitPaymentStart();
     } else if (buttonId === 'send_to_pos') {
@@ -152,30 +244,60 @@ const TakeOrderPaymentTiles: FC<Props> = ({
   };
 
   const handleCashComplete = (paymentData: { cashReceived: number; changeDue: number }) => {
+    if (
+      finalizeSplitRowPayment('CASH', {
+        cashReceived: paymentData.cashReceived,
+        changeDue: paymentData.changeDue
+      })
+    ) {
+      return;
+    }
+
     onComplete({
       method: 'CASH',
       amount: safeGrandTotal,
       metadata: paymentData,
     });
-    setActiveModal(null);
+    handleModalCancel();
   };
 
   const handleCardComplete = (paymentData: any) => {
+    if (
+      finalizeSplitRowPayment(
+        'CARD_STRIPE',
+        {
+          provider: 'stripe',
+          transactionId: paymentData.transactionId,
+          paymentIntentId: paymentData.paymentIntentId,
+          cardLast4: paymentData.cardLast4,
+          cardBrand: paymentData.cardBrand,
+          cardFingerprint: paymentData.cardFingerprint
+        },
+        paymentData.transactionId ? `Stripe • ${paymentData.transactionId}` : undefined
+      )
+    ) {
+      return;
+    }
+
     onComplete({
       method: 'CARD',
       amount: safeGrandTotal,
       metadata: paymentData,
     });
-    setActiveModal(null);
+    handleModalCancel();
   };
 
   const handleManualComplete = (method: string, paymentData: any) => {
+    if (finalizeSplitRowPayment(method, paymentData)) {
+      return;
+    }
+
     onComplete({
       method,
       amount: safeGrandTotal,
       metadata: paymentData,
     });
-    setActiveModal(null);
+    handleModalCancel();
   };
 
   const handleApplyDiscount = () => {
@@ -244,74 +366,118 @@ const TakeOrderPaymentTiles: FC<Props> = ({
       status: 'pending',
     };
     setSplitPaymentRows([initialRow]);
-    setSplitRemaining(safeGrandTotal);
+    setSplitRowPayments({});
+    setSplitRowInPayment(null);
+    setSplitError(null);
     setActiveModal('split');
   };
 
   const handleSplitBack = () => {
     setSplitPaymentRows([]);
     setSplitRemaining(safeGrandTotal);
+    setSplitRowPayments({});
+    setSplitRowInPayment(null);
+    setSplitError(null);
     setActiveModal(null);
   };
 
   const handleSplitChangeTender = (rowId: string, tender: any) => {
+    if (tender === 'house_account' && !houseAccountEnabled) {
+      setSplitError('House Account is only available for customers with an active house account.');
+      return;
+    }
+
     setSplitPaymentRows(rows =>
       rows.map(row => row.id === rowId ? { ...row, tender } : row)
     );
+    setSplitError(null);
   };
 
   const handleSplitChangeAmount = (rowId: string, amount: number) => {
     setSplitPaymentRows(rows => {
-      const updatedRows = rows.map(row =>
-        row.id === rowId ? { ...row, amount } : row
+      return rows.map(row =>
+        row.id === rowId ? { ...row, amount: Math.max(0, Math.round(amount)) } : row
       );
-      const totalPaid = updatedRows
-        .filter(r => r.status === 'completed')
-        .reduce((sum, r) => sum + r.amount, 0);
-      const totalPending = updatedRows
-        .filter(r => r.status === 'pending')
-        .reduce((sum, r) => sum + r.amount, 0);
-      setSplitRemaining(safeGrandTotal - totalPaid - totalPending);
-      return updatedRows;
     });
+    setSplitError(null);
   };
 
   const handleSplitPayRow = (rowId: string) => {
-    setSplitPaymentRows(rows =>
-      rows.map(row =>
-        row.id === rowId ? { ...row, status: 'completed' as const } : row
+    const row = splitPaymentRows.find((item) => item.id === rowId);
+    if (!row || row.status !== 'pending') return;
+
+    if (row.tender === 'house_account' && !houseAccountEnabled) {
+      setSplitError('House Account is only available for customers with an active house account.');
+      return;
+    }
+
+    if (row.amount <= 0) {
+      setSplitError('Enter an amount for this row before charging.');
+      return;
+    }
+
+    const modalType = row.tender === 'card_stripe' ? 'card' : row.tender;
+    setSplitPaymentRows((rows) =>
+      rows.map((item) =>
+        item.id === rowId ? { ...item, status: 'processing' } : item
       )
     );
+    setSplitRowInPayment({ rowId, amount: row.amount });
+    setSplitError(null);
+    setActiveModal(modalType);
   };
 
   const handleSplitAddRow = () => {
-    const newRow: SplitPaymentRow = {
-      id: Date.now().toString(),
-      tender: 'cash',
-      amount: Math.max(0, splitRemaining),
-      status: 'pending',
-    };
-    setSplitPaymentRows(rows => [...rows, newRow]);
+    setSplitPaymentRows((rows) => {
+      const plannedTotal = rows.reduce((sum, row) => sum + Math.max(0, Math.round(row.amount || 0)), 0);
+      const newRow: SplitPaymentRow = {
+        id: Date.now().toString(),
+        tender: 'cash',
+        amount: Math.max(0, safeGrandTotal - plannedTotal),
+        status: 'pending',
+      };
+      return [...rows, newRow];
+    });
+    setSplitError(null);
   };
 
   const handleSplitDeleteRow = (rowId: string) => {
     setSplitPaymentRows(rows => rows.filter(row => row.id !== rowId));
+    setSplitRowPayments((prev) => {
+      const next = { ...prev };
+      delete next[rowId];
+      return next;
+    });
+    if (splitRowInPayment?.rowId === rowId) {
+      setSplitRowInPayment(null);
+    }
+    setSplitError(null);
   };
 
   const handleSplitComplete = () => {
-    const completedPayments = splitPaymentRows
-      .filter(row => row.status === 'completed')
-      .map(row => ({
-        method: row.tender.toUpperCase(),
-        amount: row.amount,
-        metadata: { details: row.details },
-      }));
+    const completedRows = splitPaymentRows.filter(row => row.status === 'completed');
+    const completedPayments = completedRows
+      .map((row) => splitRowPayments[row.id])
+      .filter((payment): payment is { method: string; amount: number; metadata?: Record<string, any> } => Boolean(payment));
+
+    if (!completedRows.length) {
+      setSplitError('Capture at least one payment before completing.');
+      return;
+    }
+
+    if (completedPayments.length !== completedRows.length) {
+      setSplitError('One or more completed rows are missing payment details. Please retry those rows.');
+      return;
+    }
 
     onComplete({
       method: 'SPLIT',
       amount: safeGrandTotal,
       metadata: { payments: completedPayments },
     });
+    setSplitRowPayments({});
+    setSplitRowInPayment(null);
+    setSplitError(null);
     setActiveModal(null);
     setSplitPaymentRows([]);
   };
@@ -331,6 +497,11 @@ const TakeOrderPaymentTiles: FC<Props> = ({
           onAddRow={handleSplitAddRow}
           onDeleteRow={handleSplitDeleteRow}
         />
+        {splitError && (
+          <div className="px-4 py-3 text-sm text-red-700 bg-red-50 border-t border-red-200 dark:text-red-300 dark:bg-red-900/20 dark:border-red-800">
+            {splitError}
+          </div>
+        )}
         {splitRemaining <= 0 && (
           <div className="border-t border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800">
             <button
@@ -394,35 +565,44 @@ const TakeOrderPaymentTiles: FC<Props> = ({
           </h4>
           <div className="flex flex-wrap gap-2 justify-center">
             {paymentButtons.map((button) => (
-              <button
-                key={button.id}
-                onClick={() => handleButtonClick(button.id)}
-                className={`flex flex-col items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border-2 transition-all w-[140px] h-[60px] ${
-                  activeModal === button.id
-                    ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 shadow-md'
-                    : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 hover:border-brand-400 hover:bg-gray-50 dark:hover:bg-gray-600'
+                <button
+                  key={button.id}
+                  onClick={() => handleButtonClick(button.id)}
+                  disabled={button.disabled}
+                  className={`flex flex-col items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border-2 transition-all w-[140px] h-[60px] ${
+                  button.disabled
+                    ? 'border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 opacity-60 cursor-not-allowed'
+                    : activeModal === button.id
+                      ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 shadow-md'
+                      : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 hover:border-brand-400 hover:bg-gray-50 dark:hover:bg-gray-600'
                 }`}
-              >
-                <span className="text-brand-600 dark:text-brand-400">{button.icon}</span>
-                <span className="text-xs font-medium text-gray-900 dark:text-white leading-tight text-center">{button.label}</span>
-              </button>
-            ))}
+                  title={button.disabled ? 'House account is not enabled for this customer' : undefined}
+                >
+                  <span className="text-brand-600 dark:text-brand-400">{button.icon}</span>
+                  <span className="text-xs font-medium text-gray-900 dark:text-white leading-tight text-center">{button.label}</span>
+                </button>
+              ))}
+            </div>
+            {paymentMethodError && (
+              <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
+                {paymentMethodError}
+              </div>
+            )}
           </div>
         </div>
-      </div>
 
       {/* Modals */}
       <>
         <CashPaymentModal
           open={activeModal === 'cash'}
-          total={safeGrandTotal}
+          total={activeModalAmount}
           onComplete={handleCashComplete}
-          onCancel={() => setActiveModal(null)}
+          onCancel={handleModalCancel}
         />
 
         <CardPaymentModal
           open={activeModal === 'card'}
-          total={safeGrandTotal}
+          total={activeModalAmount}
           cardType="credit"
           bloomCustomerId={customer?.id}
           customerEmail={customer?.email}
@@ -430,39 +610,39 @@ const TakeOrderPaymentTiles: FC<Props> = ({
           customerName={customer?.firstName && customer?.lastName ? `${customer.firstName} ${customer.lastName}` : ''}
           defaultMode="manual"
           onComplete={handleCardComplete}
-          onCancel={() => setActiveModal(null)}
+          onCancel={handleModalCancel}
         />
 
         <ManualPaymentModal
           open={activeModal === 'house_account'}
           methodLabel="House Account"
-          defaultAmount={safeGrandTotal}
+          defaultAmount={activeModalAmount}
           requireReference={true}
           referenceLabel="Person Ordered"
           instructions="Enter who placed the order"
           onSubmit={(data) => handleManualComplete('HOUSE_ACCOUNT', data)}
-          onCancel={() => setActiveModal(null)}
+          onCancel={handleModalCancel}
         />
 
         <ManualPaymentModal
           open={activeModal === 'cod'}
           methodLabel="Pay Later"
-          defaultAmount={safeGrandTotal}
+          defaultAmount={activeModalAmount}
           requireReference={false}
           instructions="Payment will be collected later."
           onSubmit={(data) => handleManualComplete('PAY_LATER', data)}
-          onCancel={() => setActiveModal(null)}
+          onCancel={handleModalCancel}
         />
 
         <ManualPaymentModal
           open={activeModal === 'check'}
           methodLabel="Check Payment"
-          defaultAmount={safeGrandTotal}
+          defaultAmount={activeModalAmount}
           requireReference={true}
           referenceLabel="Check Number"
           instructions="Enter the check number"
           onSubmit={(data) => handleManualComplete('CHECK', data)}
-          onCancel={() => setActiveModal(null)}
+          onCancel={handleModalCancel}
         />
 
         <AdjustmentsModal

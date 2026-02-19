@@ -750,11 +750,11 @@ const mapPaymentMethodType = (method: string): string => {
 
 // Helper function to determine payment provider based on method and channel
 const getPaymentProvider = (method: string): string => {
-  // TakeOrder (phone) channel uses Square for card payments, internal for everything else
+  // TakeOrder card processing is Stripe; non-card tenders are internal
   if (method === 'credit' || method === 'debit') {
-    return 'SQUARE'; // Phone orders use Square for card payments
+    return 'STRIPE';
   }
-  return 'INTERNAL'; // Cash, gift cards, checks, pay later, house accounts use internal processing
+  return 'INTERNAL';
 };
 
 export default PaymentSection;

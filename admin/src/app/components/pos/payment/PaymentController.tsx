@@ -242,6 +242,7 @@ const PaymentController: FC<Props> = ({
     () => paymentDiscounts.giftCardRedemptions.reduce((sum, card) => sum + card.amount, 0),
     [paymentDiscounts.giftCardRedemptions]
   );
+  const houseAccountEnabled = Boolean(customer?.isHouseAccount);
 
   // Reset all state
   const resetState = () => {
@@ -344,6 +345,11 @@ const PaymentController: FC<Props> = ({
 
     if (tileId === 'discounts') {
       paymentModals.setShowAdjustments(true);
+      return;
+    }
+
+    if (tileId === 'house_account' && !houseAccountEnabled) {
+      paymentState.setPaymentError('House Account is only available for customers with an active house account.');
       return;
     }
 
@@ -609,6 +615,10 @@ const handleCardComplete = (data: {
   const handleSplitPayRow = (rowId: string) => {
     const row = splitPayment.splitRows.find((item) => item.id === rowId);
     if (!row || row.status !== 'pending') return;
+    if (row.tender === 'house_account' && !houseAccountEnabled) {
+      paymentState.setPaymentError('House Account is only available for customers with an active house account.');
+      return;
+    }
     if (row.amount <= MIN_BALANCE) {
       paymentState.setPaymentError('Enter an amount for the split payment before charging.');
       return;
@@ -870,21 +880,27 @@ const handleCardComplete = (data: {
                 </div>
 
                 <div className="flex flex-wrap gap-4">
-                  {PAYMENT_TILES.map((tile) => (
-                    <button
-                      key={tile.id}
-                      onClick={() => handleTileClick(tile.id)}
-                      disabled={paymentState.isProcessing}
-                      className="group relative flex h-26 w-65 items-center gap-4 rounded-2xl bg-white px-6 text-left shadow-sm transition hover:shadow-md focus:outline-none focus:ring-2 focus:ring-brand-500/20 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-boxdark"
-                    >
-                      <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800">
-                        {tile.icon}
-                      </div>
-                      <div className="text-xl font-medium text-black dark:text-white">
-                        {tile.label}
-                      </div>
-                    </button>
-                  ))}
+                  {PAYMENT_TILES.map((tile) => {
+                    const isDisabled =
+                      paymentState.isProcessing ||
+                      (tile.id === 'house_account' && !houseAccountEnabled);
+                    return (
+                      <button
+                        key={tile.id}
+                        onClick={() => handleTileClick(tile.id)}
+                        disabled={isDisabled}
+                        title={tile.id === 'house_account' && !houseAccountEnabled ? 'House account is not enabled for this customer' : undefined}
+                        className="group relative flex h-26 w-65 items-center gap-4 rounded-2xl bg-white px-6 text-left shadow-sm transition hover:shadow-md focus:outline-none focus:ring-2 focus:ring-brand-500/20 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-boxdark"
+                      >
+                        <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800">
+                          {tile.icon}
+                        </div>
+                        <div className="text-xl font-medium text-black dark:text-white">
+                          {tile.label}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {paymentState.isProcessing && (

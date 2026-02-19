@@ -37,11 +37,11 @@ export const mapPaymentMethodType = (method: string): string => {
  * Get payment provider name from method and metadata
  * @param method - Payment method
  * @param providerFromMetadata - Provider from payment metadata (optional)
- * @returns Provider name (STRIPE, SQUARE, or INTERNAL)
+ * @returns Provider name (STRIPE or INTERNAL)
  */
 export const getPaymentProvider = (method: string, providerFromMetadata?: string): string => {
   if (providerFromMetadata) return providerFromMetadata.toUpperCase();
-  if (method === 'credit' || method === 'debit') return 'SQUARE';
+  if (method === 'credit' || method === 'debit') return 'STRIPE';
   return 'INTERNAL';
 };
 
