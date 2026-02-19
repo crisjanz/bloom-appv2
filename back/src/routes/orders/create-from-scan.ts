@@ -321,6 +321,35 @@ async function createDoorDashOrder(orderData: ParsedOrderData, externalSource: O
     },
   });
 
+  // Create payment transaction so cancel/refund flow works
+  try {
+    await transactionService.createTransaction({
+      customerId: systemCustomer.id,
+      employeeId: undefined,
+      channel: 'IN_STORE',
+      totalAmount,
+      taxAmount: totalTaxCents,
+      tipAmount: 0,
+      notes: `DoorDash Order ${orderData.orderNumber || ''}`.trim(),
+      receiptEmail: undefined,
+      paymentMethods: [
+        {
+          type: 'EXTERNAL' as any,
+          provider: 'INTERNAL' as any,
+          amount: totalAmount,
+          providerTransactionId: orderData.orderNumber || undefined,
+          providerMetadata: {
+            source: 'DOORDASH',
+            scannedOrder: true,
+          },
+        },
+      ],
+      orderIds: [order.id],
+    });
+  } catch (error: any) {
+    console.error(`⚠️  Failed to create PT-transaction for DoorDash order:`, error.message);
+  }
+
   return order;
 }
 

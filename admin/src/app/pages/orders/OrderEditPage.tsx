@@ -312,12 +312,13 @@ const OrderEditPage: React.FC = () => {
   };
 
   // Handle Cancel/Refund button click
+  // Uses `id` from URL params directly to avoid stale closure on `order`
   const handleCancelRefund = async () => {
-    if (!order) return;
+    if (!id || !order) return;
 
     try {
       // Fetch transactions for this order
-      const response = await fetch(`/api/payment-transactions/order/${order.id}`);
+      const response = await fetch(`/api/payment-transactions/order/${id}`);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -326,11 +327,17 @@ const OrderEditPage: React.FC = () => {
       const transactions = await response.json();
 
       if (!transactions || transactions.length === 0) {
-        // No payment transaction - ask to cancel without refund
-        // (Common for old imported wire orders)
+        // No payment transaction - cancel without refund
         if (confirm('This order has no payment transaction record. Cancel order without processing a refund?')) {
-          await updateOrderStatus(OrderStatus.CANCELLED);
-          toast.success('Order cancelled');
+          const { data, status } = await apiClient.patch(`/api/orders/${id}/status`, {
+            status: 'CANCELLED',
+          });
+          if (status >= 400 || !data?.success) {
+            toast.error(data?.error || 'Failed to cancel order');
+          } else {
+            await fetchOrder(id);
+            toast.success('Order cancelled');
+          }
         }
         return;
       }
@@ -342,18 +349,26 @@ const OrderEditPage: React.FC = () => {
       console.error('Error fetching transactions:', error);
       // If we can't fetch transactions, offer to cancel without refund
       if (confirm('Unable to load payment information. This may be an old imported order. Cancel order without processing a refund?')) {
-        await updateOrderStatus(OrderStatus.CANCELLED);
-        toast.success('Order cancelled');
+        const { data, status } = await apiClient.patch(`/api/orders/${id}/status`, {
+          status: 'CANCELLED',
+        });
+        if (status >= 400 || !data?.success) {
+          toast.error(data?.error || 'Failed to cancel order');
+        } else {
+          await fetchOrder(id);
+          toast.success('Order cancelled');
+        }
       }
     }
   };
 
   // Handle refund completion - cancel order via status endpoint directly
+  // Uses `id` from URL params to avoid stale closure
   const handleRefundComplete = async () => {
-    if (!order) return;
+    if (!id) return;
 
     try {
-      const { data, status } = await apiClient.patch(`/api/orders/${order.id}/status`, {
+      const { data, status } = await apiClient.patch(`/api/orders/${id}/status`, {
         status: 'CANCELLED',
         skipRefund: true,
       });
@@ -367,7 +382,7 @@ const OrderEditPage: React.FC = () => {
       }
 
       // Refresh order to get updated state
-      await fetchOrder(order.id);
+      await fetchOrder(id);
       toast.success('Order cancelled');
     } catch (error) {
       console.error('Error cancelling order:', error);
