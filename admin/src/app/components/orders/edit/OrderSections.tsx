@@ -187,7 +187,7 @@ const OrderSections: React.FC<OrderSectionsProps> = ({ order, onEdit, column = '
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Order Items</h3>
             <button
-              onClick={() => onEdit('products')}
+              onClick={() => onEdit('financials')}
               className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             >
               <PencilIcon className="w-3.5 h-3.5" />
@@ -258,7 +258,7 @@ const OrderSections: React.FC<OrderSectionsProps> = ({ order, onEdit, column = '
               <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Payment Summary</h3>
             </div>
             <button
-              onClick={() => onEdit('payment')}
+              onClick={() => onEdit('financials')}
               className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             >
               <PencilIcon className="w-3.5 h-3.5" />

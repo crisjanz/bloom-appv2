@@ -133,8 +133,7 @@ import { Order as DomainOrder, OrderType as DomainOrderType, OrderStatus } from 
 import CustomerEditModal from '@app/components/orders/edit/modals/CustomerEditModal';
 import RecipientEditModal from '@app/components/orders/edit/modals/RecipientEditModal';
 import DeliveryEditModal from '@app/components/orders/edit/modals/DeliveryEditModal';
-import ProductsEditModal from '@app/components/orders/edit/modals/ProductsEditModal';
-import PaymentEditModal from '@app/components/orders/edit/modals/PaymentEditModal';
+import FinancialsEditModal from '@app/components/orders/edit/modals/FinancialsEditModal';
 import ImagesEditModal from '@app/components/orders/edit/modals/ImagesEditModal';
 import PaymentAdjustmentModal, { PaymentMethod, PaymentAdjustmentResult } from '@app/components/orders/edit/modals/PaymentAdjustmentModal';
 import RefundModal from '@app/components/refunds/RefundModal';
@@ -450,10 +449,8 @@ const OrderEditPage: React.FC = () => {
           deliveryFee: order.deliveryFee
         });
         break;
-      case 'products':
+      case 'financials':
         setEditingProducts([...order.orderItems]);
-        break;
-      case 'payment':
         setEditingPayment({
           deliveryFee: order.deliveryFee,
           discount: order.discount,
@@ -480,6 +477,56 @@ const OrderEditPage: React.FC = () => {
     setEditingPayment(null);
     setEditingImages([]);
     // setUpdateCustomerDatabase(false); // TODO: Add state variable if needed
+  };
+
+  // Save products + fees together in one request (no intermediate payment prompts)
+  const saveFinancials = async (products: any[], payment: any) => {
+    if (!order) return;
+    const oldTotal = order.paymentAmount;
+    const revertData = {
+      orderItems: order.orderItems?.map(item => ({
+        customName: item.customName,
+        unitPrice: item.unitPrice,
+        quantity: item.quantity,
+        rowTotal: item.rowTotal,
+      })),
+      deliveryFee: order.deliveryFee,
+      discount: order.discount,
+      gst: order.gst,
+      pst: order.pst,
+      recalculateTotal: true,
+    };
+
+    const processedProducts = products.map(item => ({
+      ...item,
+      unitPrice: Math.round(item.unitPrice) || 0,
+      quantity: parseInt(item.quantity) || 1,
+      rowTotal: (Math.round(item.unitPrice) || 0) * (parseInt(item.quantity) || 1),
+    }));
+
+    const updateData = {
+      orderItems: processedProducts,
+      deliveryFee: Math.round(payment.deliveryFee || 0),
+      discount: Math.round(payment.discount || 0),
+      gst: Math.round(payment.gst || 0),
+      pst: Math.round(payment.pst || 0),
+      recalculateTotal: true,
+    };
+
+    try {
+      const result = await updateOrderDirect(updateData);
+      if (result) {
+        const newTotal = result?.totalAmount?.amount ?? order.paymentAmount;
+        if (Math.abs(newTotal - oldTotal) >= 50) {
+          setPaymentAdjustmentData({ oldTotal, newTotal, revertData });
+          setShowPaymentAdjustment(true);
+        }
+        closeModal();
+        refreshActivityTimeline();
+      }
+    } catch {
+      toast.error('Failed to save order');
+    }
   };
 
   // Modified saveSection to accept direct data and handle payment adjustments
@@ -780,11 +827,11 @@ const OrderEditPage: React.FC = () => {
       <Modal
         isOpen={activeModal !== null}
         onClose={closeModal}
-        className="max-w-2xl max-h-[90vh] overflow-y-auto"
+        className={`${activeModal === 'financials' ? 'max-w-3xl' : 'max-w-2xl'} max-h-[90vh] overflow-y-auto`}
       >
         <div className="p-6">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-            Edit {activeModal?.charAt(0).toUpperCase()}{activeModal?.slice(1)}
+            {activeModal === 'financials' ? 'Edit Order Items & Fees' : `Edit ${activeModal?.charAt(0).toUpperCase()}${activeModal?.slice(1)}`}
           </h2>
 
           {activeModal === 'customer' && (
@@ -839,26 +886,11 @@ const OrderEditPage: React.FC = () => {
             />
           )}
 
-          {activeModal === 'products' && (
-            <ProductsEditModal
+          {activeModal === 'financials' && (
+            <FinancialsEditModal
               products={editingProducts}
-              onChange={setEditingProducts}
-              onSave={() => saveSection('products')}
-              onCancel={closeModal}
-              saving={saving}
-            />
-          )}
-
-          {activeModal === 'payment' && (
-            <PaymentEditModal
-              payment={editingPayment || {
-                deliveryFee: 0,
-                discount: 0,
-                gst: 0,
-                pst: 0
-              }}
-              onChange={setEditingPayment}
-              onSave={() => saveSection('payment')}
+              payment={editingPayment || { deliveryFee: 0, discount: 0, gst: 0, pst: 0 }}
+              onSave={saveFinancials}
               onCancel={closeModal}
               saving={saving}
             />
