@@ -4,6 +4,7 @@ import ActivityEntry, { OrderTimelineEntry } from './ActivityEntry';
 
 interface OrderActivityTimelineProps {
   orderId: string;
+  refreshToken?: number;
 }
 
 interface ActivityResponse {
@@ -35,7 +36,7 @@ const mergeEntries = (existing: OrderTimelineEntry[], incoming: OrderTimelineEnt
   return merged;
 };
 
-export default function OrderActivityTimeline({ orderId }: OrderActivityTimelineProps) {
+export default function OrderActivityTimeline({ orderId, refreshToken = 0 }: OrderActivityTimelineProps) {
   const apiClient = useApiClient();
   const [entries, setEntries] = useState<OrderTimelineEntry[]>([]);
   const [hasMore, setHasMore] = useState(false);
@@ -88,7 +89,7 @@ export default function OrderActivityTimeline({ orderId }: OrderActivityTimeline
     setHasMore(false);
     setNextBefore(null);
     void loadActivity(null, false);
-  }, [loadActivity]);
+  }, [loadActivity, refreshToken]);
 
   const handleLoadMore = () => {
     if (!nextBefore || loadingMore) {

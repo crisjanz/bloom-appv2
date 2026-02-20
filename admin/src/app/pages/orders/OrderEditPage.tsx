@@ -10,6 +10,8 @@ import OrderCommunicationModal from '@app/components/delivery/OrderCommunication
 import { Order } from '@app/components/orders/types';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
 import { useApiClient } from '@shared/hooks/useApiClient';
+import useOrderNumberPrefix from '@shared/hooks/useOrderNumberPrefix';
+import { formatOrderNumber } from '@shared/utils/formatOrderNumber';
 import { useCommunicationsSocket, CommunicationsSocketEvent } from '@shared/hooks/useCommunicationsSocket';
 import { toast } from 'sonner';
 
@@ -148,6 +150,7 @@ const OrderEditPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { getBusinessDateString } = useBusinessTimezone();
   const apiClient = useApiClient();
+  const orderNumberPrefix = useOrderNumberPrefix();
   
   // MIGRATION: Use domain hook for order management
   const { order: domainOrder, loading, saving, error, fetchOrder, updateOrderStatus, updateOrderField, updateOrderDirect } = useOrderManagement(id);
@@ -180,6 +183,11 @@ const OrderEditPage: React.FC = () => {
   // Print/Email modal state
   const [printModalOpen, setPrintModalOpen] = useState(false);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [activityRefreshToken, setActivityRefreshToken] = useState(0);
+
+  const refreshActivityTimeline = useCallback(() => {
+    setActivityRefreshToken((prev) => prev + 1);
+  }, []);
 
   // MIGRATION: Order auto-loads via useOrderManagement hook when id changes
   const handleUnreadCountsUpdated = useCallback(
@@ -203,8 +211,9 @@ const OrderEditPage: React.FC = () => {
       setUnreadCount((prev) =>
         typeof event.data.orderUnreadCount === 'number' ? event.data.orderUnreadCount : prev + 1
       );
+      refreshActivityTimeline();
     },
-    [order?.id]
+    [order?.id, refreshActivityTimeline]
   );
 
   useCommunicationsSocket(handleCommunicationsEvent, Boolean(order?.id));
@@ -306,6 +315,7 @@ const OrderEditPage: React.FC = () => {
     try {
       await updateOrderStatus(status);
       // Order is automatically refreshed by the domain hook
+      refreshActivityTimeline();
       toast.success('Order status updated');
     } catch (error) {
       console.error('Error updating status:', error);
@@ -338,6 +348,7 @@ const OrderEditPage: React.FC = () => {
             toast.error(data?.error || 'Failed to cancel order');
           } else {
             await fetchOrder(id);
+            refreshActivityTimeline();
             toast.success('Order cancelled');
           }
         }
@@ -358,6 +369,7 @@ const OrderEditPage: React.FC = () => {
           toast.error(data?.error || 'Failed to cancel order');
         } else {
           await fetchOrder(id);
+          refreshActivityTimeline();
           toast.success('Order cancelled');
         }
       }
@@ -385,6 +397,7 @@ const OrderEditPage: React.FC = () => {
 
       // Refresh order to get updated state
       await fetchOrder(id);
+      refreshActivityTimeline();
       toast.success('Order cancelled');
     } catch (error) {
       console.error('Error cancelling order:', error);
@@ -593,6 +606,7 @@ const OrderEditPage: React.FC = () => {
         closeModal();
         // Order is automatically refreshed by the domain hook
         console.log('Order updated successfully');
+        refreshActivityTimeline();
         toast.success('Order updated');
       } else {
         console.error('Update failed - result was null');
@@ -659,6 +673,7 @@ const OrderEditPage: React.FC = () => {
 
       setShowPaymentAdjustment(false);
       setPaymentAdjustmentData(null);
+      refreshActivityTimeline();
     } catch (error) {
       console.error('Error recording payment adjustment:', error);
       toast.error('Payment processed but failed to record. Please add manual note.');
@@ -672,6 +687,7 @@ const OrderEditPage: React.FC = () => {
     if (paymentAdjustmentData?.revertData && order?.id) {
       try {
         await updateOrderDirect(paymentAdjustmentData.revertData);
+        refreshActivityTimeline();
       } catch (error) {
         console.error('Failed to revert order:', error);
         toast.error('Failed to revert order changes');
@@ -726,29 +742,40 @@ const OrderEditPage: React.FC = () => {
 
   return (
     <div className="p-6">
-      <PageBreadcrumb />
+      <PageBreadcrumb pageTitle={`Order #${formatOrderNumber(order.orderNumber, orderNumberPrefix)}`} />
 
-      <div className="max-w-4xl mx-auto">
-      <OrderHeader
-        order={order}
-        onStatusChange={handleStatusChange}
-        onCancelRefund={handleCancelRefund}
-        onPrintOptions={() => setPrintModalOpen(true)}
-        onEmailOptions={() => setEmailModalOpen(true)}
-        onContact={() => setCommunicationModalOpen(true)}
-        unreadCount={unreadCount}
-      />
-
-      <ComponentCard title="Order Details">
-        <OrderSections 
-          order={order} 
-          onEdit={openModal} 
+      <div className="max-w-7xl mx-auto">
+        <OrderHeader
+          order={order}
+          onStatusChange={handleStatusChange}
+          onCancelRefund={handleCancelRefund}
+          onPrintOptions={() => setPrintModalOpen(true)}
+          onEmailOptions={() => setEmailModalOpen(true)}
+          onContact={() => setCommunicationModalOpen(true)}
+          unreadCount={unreadCount}
         />
-      </ComponentCard>
 
-      <ComponentCard title="Activity" className="mt-6">
-        <OrderActivityTimeline orderId={order.id} />
-      </ComponentCard>
+        {/* Two-column layout */}
+        <div className="grid grid-cols-3 gap-6 items-start">
+
+          {/* Left column — Order Items, Photos, Payment, Activity */}
+          <div className="col-span-2 space-y-6">
+            <ComponentCard title="Order Details">
+              <OrderSections order={order} onEdit={openModal} column="main" />
+            </ComponentCard>
+            <ComponentCard title="Activity">
+              <OrderActivityTimeline orderId={order.id} refreshToken={activityRefreshToken} />
+            </ComponentCard>
+          </div>
+
+          {/* Right column — Customer, Address, Delivery Details (sticky) */}
+          <div className="col-span-1 sticky top-6">
+            <ComponentCard title="Order Info">
+              <OrderSections order={order} onEdit={openModal} column="sidebar" />
+            </ComponentCard>
+          </div>
+
+        </div>
       </div>
 
       {/* Main Edit Modal */}
@@ -905,6 +932,7 @@ const OrderEditPage: React.FC = () => {
         isOpen={communicationModalOpen}
         onClose={() => setCommunicationModalOpen(false)}
         order={order}
+        onActivityChanged={refreshActivityTimeline}
         onUnreadCountsUpdated={handleUnreadCountsUpdated}
       />
     </div>

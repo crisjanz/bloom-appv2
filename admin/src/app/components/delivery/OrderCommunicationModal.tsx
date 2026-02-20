@@ -16,6 +16,7 @@ interface OrderCommunicationModalProps {
   isOpen: boolean;
   onClose: () => void;
   order: any;
+  onActivityChanged?: () => void;
   onUnreadCountsUpdated?: (payload: {
     orderId: string;
     orderUnreadCount: number;
@@ -34,6 +35,7 @@ export default function OrderCommunicationModal({
   isOpen,
   onClose,
   order,
+  onActivityChanged,
   onUnreadCountsUpdated
 }: OrderCommunicationModalProps) {
   const apiClient = useApiClient();
@@ -189,6 +191,7 @@ export default function OrderCommunicationModal({
       if (status < 400 && data.success) {
         // Refresh communications
         fetchCommunications();
+        onActivityChanged?.();
       }
     } catch (error) {
       console.error('Failed to save phone note:', error);
@@ -206,6 +209,7 @@ export default function OrderCommunicationModal({
       if (status < 400 && data.success) {
         // Refresh communications
         fetchCommunications();
+        onActivityChanged?.();
         return true;
       }
       return false;
@@ -235,6 +239,7 @@ export default function OrderCommunicationModal({
           setDeliveryDraft(buildDeliveryDraft(data.order));
         }
         setActivePanel(null);
+        onActivityChanged?.();
       }
     } catch (error) {
       console.error('Failed to update delivery details:', error);
@@ -255,6 +260,7 @@ export default function OrderCommunicationModal({
       }
 
       fetchCommunications();
+      onActivityChanged?.();
 
       if (typeof event.data.orderUnreadCount === 'number' && typeof event.data.totalUnreadCount === 'number') {
         onUnreadCountsUpdated?.({
