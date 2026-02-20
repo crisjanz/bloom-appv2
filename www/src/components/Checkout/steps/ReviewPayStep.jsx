@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import PropTypes from 'prop-types';
-import { Link } from 'react-router-dom';
 import { PaymentElement } from '@stripe/react-stripe-js';
 import { PAYMENT_ELEMENT_OPTIONS } from '../shared/constants';
 import OrderSummary from './OrderSummary.jsx';
@@ -42,6 +41,7 @@ const ReviewPayStep = ({
   onSelectPaymentMethod,
   submitError,
   isSubmitting,
+  onOpenTermsModal,
   onBack,
   onPlaceOrder,
 }) => {
@@ -256,9 +256,13 @@ const ReviewPayStep = ({
           />
           <span>
             I agree to{' '}
-            <Link to="/terms" className="font-semibold text-primary hover:underline">
+            <button
+              type="button"
+              onClick={onOpenTermsModal}
+              className="font-semibold text-primary hover:underline"
+            >
               Terms & Conditions
-            </Link>
+            </button>
           </span>
         </label>
         {errors.agreeToTerms && <p className="mt-2 text-sm text-red-500">{errors.agreeToTerms}</p>}
@@ -325,6 +329,7 @@ ReviewPayStep.propTypes = {
   onSelectPaymentMethod: PropTypes.func.isRequired,
   submitError: PropTypes.string,
   isSubmitting: PropTypes.bool.isRequired,
+  onOpenTermsModal: PropTypes.func.isRequired,
   onBack: PropTypes.func.isRequired,
   onPlaceOrder: PropTypes.func.isRequired,
 };

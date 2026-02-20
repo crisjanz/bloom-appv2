@@ -405,6 +405,7 @@ router.post('/save-draft', async (req, res) => {
     }
 
     const draftOrders = [];
+    const orderNumberPrefix = await getOrderNumberPrefix(prisma);
     const websitePaymentGroups = new Map<
       string,
       { orderIds: string[]; totalAmount: number; taxAmount: number }
@@ -546,6 +547,41 @@ router.post('/save-draft', async (req, res) => {
           order.id,
           resolvedOrderSource,
         );
+
+        // Match POS behavior: fire configured PAID notifications for successful website checkouts.
+        triggerStatusNotifications(order, 'PAID', 'DRAFT')
+          .then(() => {
+            console.log(
+              `✅ Website order confirmation notifications sent for order #${order.orderNumber}`
+            );
+          })
+          .catch((notifyError) => {
+            console.error(
+              `❌ Website order confirmation notification failed for order #${order.orderNumber}:`,
+              notifyError
+            );
+          });
+
+        if (order.type === 'DELIVERY' || order.type === 'PICKUP') {
+          try {
+            await printService.queuePrintJob({
+              type: PrintJobType.ORDER_TICKET,
+              orderId: order.id,
+              order: order as any,
+              template: 'delivery-ticket-v1',
+              priority: 10,
+              orderNumberPrefix,
+            });
+            console.log(
+              `✅ Queued website ${String(order.type).toLowerCase()} ticket print job for order #${order.orderNumber}`
+            );
+          } catch (printError) {
+            console.error(
+              `❌ Failed to queue website ${String(order.type).toLowerCase()} ticket for order #${order.orderNumber}:`,
+              printError
+            );
+          }
+        }
       }
 
       if (hasConfirmedPayment && paymentIntentId && order.orderNumber) {

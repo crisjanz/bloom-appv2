@@ -1,5 +1,4 @@
 import PropTypes from 'prop-types';
-import { Link } from 'react-router-dom';
 import BirthdayOptIn from '../../Checkouts/BirthdayOptIn.jsx';
 import AddressAutocomplete from '../../AddressAutocomplete.jsx';
 import { InputGroup, SelectGroup, CheckboxGroup } from '../shared/DesktopInputs';
@@ -16,6 +15,7 @@ const YourInfoStep = ({
   isAuthenticated,
   showOptionalMessageLink,
   onOpenCardMessageStep,
+  onOpenLoginModal,
   onBack,
   onContinue,
 }) => {
@@ -164,16 +164,20 @@ const YourInfoStep = ({
               />
             )}
 
-            <div className="w-full px-3">
-              <p className="text-sm text-body-color dark:text-dark-6">
-                Already have an account?{' '}
-                <Link to="/login" className="font-semibold text-primary hover:underline">
+          <div className="w-full px-3">
+            <p className="text-sm text-body-color dark:text-dark-6">
+              Already have an account?{' '}
+              <button
+                type="button"
+                onClick={onOpenLoginModal}
+                className="font-semibold text-primary hover:underline"
+              >
                   Log in
-                </Link>
-              </p>
-            </div>
-          </>
-        )}
+              </button>
+            </p>
+          </div>
+        </>
+      )}
       </div>
 
       <div className="flex flex-wrap justify-between gap-3">
@@ -207,6 +211,7 @@ YourInfoStep.propTypes = {
   isAuthenticated: PropTypes.bool.isRequired,
   showOptionalMessageLink: PropTypes.bool.isRequired,
   onOpenCardMessageStep: PropTypes.func.isRequired,
+  onOpenLoginModal: PropTypes.func.isRequired,
   onBack: PropTypes.func.isRequired,
   onContinue: PropTypes.func.isRequired,
 };

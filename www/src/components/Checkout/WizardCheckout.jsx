@@ -36,6 +36,8 @@ import DeliveryStep from './steps/DeliveryStep.jsx';
 import CardMessageStep from './steps/CardMessageStep.jsx';
 import YourInfoStep from './steps/YourInfoStep.jsx';
 import ReviewPayStep from './steps/ReviewPayStep.jsx';
+import CheckoutLoginModal from './CheckoutLoginModal.jsx';
+import CheckoutTermsModal from './CheckoutTermsModal.jsx';
 import CreateAccountModal from '../CreateAccountModal.jsx';
 
 const stepItems = [
@@ -109,6 +111,8 @@ const WizardCheckout = ({ onOrderPlaced, persistedOrderResult = null }) => {
   const [cardError, setCardError] = useState('');
   const [orderResult, setOrderResult] = useState(null);
   const [showCreateAccountModal, setShowCreateAccountModal] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
   const [lastOrderEmail, setLastOrderEmail] = useState('');
 
   const [couponInput, setCouponInput] = useState(coupon?.code || '');
@@ -252,6 +256,7 @@ const WizardCheckout = ({ onOrderPlaced, persistedOrderResult = null }) => {
   useEffect(() => {
     if (isAuthenticated) {
       setShowCreateAccountModal(false);
+      setShowLoginModal(false);
     }
   }, [isAuthenticated]);
 
@@ -1295,6 +1300,7 @@ const WizardCheckout = ({ onOrderPlaced, persistedOrderResult = null }) => {
               isAuthenticated={isAuthenticated}
               showOptionalMessageLink={false}
               onOpenCardMessageStep={() => {}}
+              onOpenLoginModal={() => setShowLoginModal(true)}
               onBack={() => navigateToStep(1)}
               onContinue={handleContinueFromCustomer}
             />
@@ -1340,12 +1346,22 @@ const WizardCheckout = ({ onOrderPlaced, persistedOrderResult = null }) => {
               onSelectPaymentMethod={setSelectedPaymentMethod}
               submitError={submitError}
               isSubmitting={isSubmitting}
+              onOpenTermsModal={() => setShowTermsModal(true)}
               onBack={() => navigateToStep(3)}
               onPlaceOrder={handlePlaceOrder}
             />
           )}
         </div>
       </div>
+      <CheckoutLoginModal
+        isOpen={showLoginModal}
+        initialEmail={customer.email || ''}
+        onClose={() => setShowLoginModal(false)}
+      />
+      <CheckoutTermsModal
+        isOpen={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
+      />
     </section>
   );
 };
