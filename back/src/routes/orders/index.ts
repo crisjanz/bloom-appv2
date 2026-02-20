@@ -6,6 +6,7 @@ import uploadRoutes from './upload';
 import imageRoutes from './images';
 import singleRoutes from './single';
 import statusRoutes from './status';
+import activityRoutes from './activity';
 import deliveryRoutes from './delivery';
 import scanRoutes from './scan';
 import createFromScanRoutes from './create-from-scan';
@@ -26,6 +27,7 @@ router.use('/', imageRoutes);
 router.use('/scan', scanRoutes);  // OCR scanning endpoint
 router.use('/', deliveryRoutes);  // Must be before singleRoutes!
 router.use('/', statusRoutes);
+router.use('/', activityRoutes);
 router.use('/', singleRoutes);    // /:id route - must be last
 
 console.log('Order routes configured successfully');

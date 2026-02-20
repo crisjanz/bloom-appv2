@@ -1,7 +1,8 @@
 import prisma from '../lib/prisma';
-import { HouseAccountEntryType, Prisma } from '@prisma/client';
+import { HouseAccountEntryType, OrderActivityType, Prisma } from '@prisma/client';
 import { format } from 'date-fns';
 import { recalculateOrderPaymentStatuses } from './orderPaymentStatusService';
+import { logOrderActivity } from './orderActivityService';
 
 export interface CreateTransactionData {
   customerId: string;
@@ -158,6 +159,11 @@ class TransactionService {
           ? 'PAY_LATER'
           : method.type,
     })) as PaymentMethodData[];
+    const paymentMethodLabels = normalizedPaymentMethods.map((method) => {
+      const providerLabel = method.provider ? ` (${method.provider})` : '';
+      const cardSuffix = method.cardLast4 ? ` ****${method.cardLast4}` : '';
+      return `${method.type}${providerLabel}${cardSuffix}`;
+    });
 
     const hasHouseAccount = normalizedPaymentMethods.some((method) => method.type === 'HOUSE_ACCOUNT');
     const hasNonHouseAccount = normalizedPaymentMethods.some((method) => method.type !== 'HOUSE_ACCOUNT');
@@ -247,7 +253,11 @@ class TransactionService {
       const orders = await tx.order.findMany({
         where: { id: { in: normalizedOrderIds } },
         select: isAdjustment
-          ? { id: true }
+          ? {
+              id: true,
+              orderNumber: true,
+              paymentAmount: true,
+            }
           : {
               id: true,
               orderNumber: true,
@@ -273,6 +283,12 @@ class TransactionService {
       const orderedOrders = normalizedOrderIds
         .map((orderId) => ordersById.get(orderId))
         .filter(Boolean);
+      const activityEvents: Array<{
+        orderId: string;
+        type: OrderActivityType;
+        summary: string;
+        details: Record<string, unknown>;
+      }> = [];
 
       if (isAdjustment) {
         const allocationMap = new Map<string, number>();
@@ -303,6 +319,29 @@ class TransactionService {
             })
           )
         );
+
+        normalizedOrderIds.forEach((orderId) => {
+          const orderRecord = ordersById.get(orderId) as
+            | { paymentAmount?: number; orderNumber?: number }
+            | undefined;
+          const difference = allocationMap.get(orderId) || 0;
+          const newTotal = orderRecord?.paymentAmount || 0;
+          const oldTotal = Math.max(0, newTotal - difference);
+
+          activityEvents.push({
+            orderId,
+            type: OrderActivityType.PAYMENT_ADJUSTMENT,
+            summary: `Payment adjustment recorded (${transactionNumber})`,
+            details: {
+              transactionNumber,
+              orderNumber: orderRecord?.orderNumber || null,
+              oldTotal,
+              newTotal,
+              difference,
+              methods: paymentMethodLabels,
+            },
+          });
+        });
       } else {
         const orderAmountMap = new Map<string, number>();
         const ordersNeedingPaymentUpdate: Array<{ id: string; amount: number }> = [];
@@ -346,6 +385,25 @@ class TransactionService {
             })
           )
         );
+
+        normalizedOrderIds.forEach((orderId) => {
+          const amount = orderAmountMap.get(orderId) || 0;
+          const orderRecord = ordersById.get(orderId) as
+            | { orderNumber?: number; paymentAmount?: number }
+            | undefined;
+          activityEvents.push({
+            orderId,
+            type: OrderActivityType.PAYMENT_RECEIVED,
+            summary: `Payment received (${transactionNumber})`,
+            details: {
+              transactionNumber,
+              amount,
+              orderNumber: orderRecord?.orderNumber || null,
+              orderPaymentAmount: orderRecord?.paymentAmount || 0,
+              methods: paymentMethodLabels,
+            },
+          });
+        });
 
         if (hasHouseAccount) {
           const latestEntry = await tx.houseAccountLedger.findFirst({
@@ -411,6 +469,19 @@ class TransactionService {
       }
 
       await recalculateOrderPaymentStatuses(tx, normalizedOrderIds);
+
+      await Promise.all(
+        activityEvents.map((activity) =>
+          logOrderActivity({
+            tx,
+            orderId: activity.orderId,
+            type: activity.type,
+            summary: activity.summary,
+            details: activity.details,
+            actorId: data.employeeId || null,
+          })
+        )
+      );
 
       return updatedTransaction;
     });
@@ -690,6 +761,9 @@ class TransactionService {
             ? 'PAY_LATER'
             : method.paymentMethodType,
       }));
+      const refundMethodLabels = normalizedRefundMethods.map(
+        (method) => `${method.paymentMethodType} (${method.provider})`
+      );
 
       // Generate refund number (RF-XXXXX)
       const refundNumber = await this.generateRefundNumber(tx);
@@ -738,11 +812,58 @@ class TransactionService {
 
       const transactionOrderPayments = await tx.orderPayment.findMany({
         where: { transactionId },
-        select: { orderId: true },
+        select: {
+          orderId: true,
+          amount: true,
+          order: {
+            select: {
+              orderNumber: true,
+            },
+          },
+        },
       });
+      const totalAllocated = transactionOrderPayments.reduce(
+        (sum, orderPayment) => sum + Math.max(0, orderPayment.amount || 0),
+        0
+      );
+      const refundAllocations = transactionOrderPayments.map((orderPayment) => ({
+        orderId: orderPayment.orderId,
+        orderNumber: orderPayment.order?.orderNumber || null,
+        amount:
+          totalAllocated > 0
+            ? Math.round((Math.max(0, orderPayment.amount || 0) / totalAllocated) * refundData.amount)
+            : 0,
+      }));
+      const allocatedRefundAmount = refundAllocations.reduce((sum, allocation) => sum + allocation.amount, 0);
+      if (refundAllocations.length > 0 && allocatedRefundAmount !== refundData.amount) {
+        refundAllocations[refundAllocations.length - 1].amount += refundData.amount - allocatedRefundAmount;
+      }
+
       await recalculateOrderPaymentStatuses(
         tx,
         transactionOrderPayments.map((orderPayment) => orderPayment.orderId)
+      );
+
+      await Promise.all(
+        refundAllocations
+          .filter((allocation) => allocation.amount > 0)
+          .map((allocation) =>
+            logOrderActivity({
+              tx,
+              orderId: allocation.orderId,
+              type: OrderActivityType.REFUND_PROCESSED,
+              summary: `Refund processed (${refundNumber})`,
+              details: {
+                refundNumber,
+                amount: allocation.amount,
+                reason: refundData.reason || null,
+                orderNumber: allocation.orderNumber,
+                methods: refundMethodLabels,
+                transactionId,
+              },
+              actorId: refundData.employeeId || null,
+            })
+          )
       );
 
       return refund;

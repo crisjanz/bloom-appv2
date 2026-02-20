@@ -374,6 +374,7 @@ model Order {
   routeStop           RouteStop?           @relation("RouteStopOrder")
   orderImages         OrderImage[]
   communications      OrderCommunication[]
+  activities          OrderActivity[]
   orderPayments       OrderPayment[]
   orderRefunds        OrderRefund[]
   houseAccountLedger  HouseAccountLedger[]
@@ -478,6 +479,22 @@ model OrderCommunication {
   @@index([orderId])
   @@index([createdAt])
   @@map("order_communications")
+}
+
+model OrderActivity {
+  id        String            @id @default(uuid())
+  orderId   String
+  type      OrderActivityType
+  summary   String
+  details   Json?
+  actorId   String?
+  actorName String?
+  createdAt DateTime          @default(now())
+  order     Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  actor     Employee?         @relation("OrderActivityActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([orderId, createdAt])
+  @@index([type])
 }
 
 model Coupon {
@@ -626,6 +643,7 @@ model Employee {
   eventPayments       EventPayment[]
   events              Event[]
   communications      OrderCommunication[]
+  orderActivities     OrderActivity[]      @relation("OrderActivityActor")
   paymentTransactions PaymentTransaction[] @relation("EmployeeTransactions")
   refunds             Refund[]             @relation("EmployeeRefunds")
 }
@@ -1345,6 +1363,16 @@ enum PaymentStatus {
   PARTIALLY_PAID
   REFUNDED
   PARTIALLY_REFUNDED
+}
+
+enum OrderActivityType {
+  STATUS_CHANGE
+  PAYMENT_STATUS_CHANGE
+  PAYMENT_RECEIVED
+  REFUND_PROCESSED
+  PAYMENT_ADJUSTMENT
+  ORDER_EDITED
+  ORDER_CREATED
 }
 
 enum OrderSource {

@@ -1,5 +1,5 @@
 import express from 'express';
-import { PrismaClient, OrderSource, OrderStatus, PaymentStatus, PrintJobType } from '@prisma/client';
+import { OrderActivityType, PrismaClient, OrderSource, OrderStatus, PaymentStatus, PrintJobType } from '@prisma/client';
 import { calculateTax } from '../../utils/taxCalculator';
 import { triggerStatusNotifications } from '../../utils/notificationTriggers';
 import { printService } from '../../services/printService';
@@ -9,6 +9,7 @@ import { buildThermalReceipt } from '../../templates/receipt-thermal';
 import paymentProviderFactory from '../../services/paymentProviders/PaymentProviderFactory';
 import { getOrderNumberPrefix } from '../../utils/orderNumberSettings';
 import transactionService from '../../services/transactionService';
+import { logOrderActivity } from '../../services/orderActivityService';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -238,6 +239,18 @@ router.post('/create', async (req, res) => {
       });
 
       console.log('Order created:', order.id);
+      await logOrderActivity({
+        orderId: order.id,
+        type: OrderActivityType.ORDER_CREATED,
+        summary: 'Order created',
+        details: {
+          source: order.orderSource,
+          channel: orderData.orderSource || 'POS',
+          status: order.status,
+        },
+        actorId: req.employee?.id || null,
+        actorName: req.employee?.name || null,
+      });
       createdOrders.push(order);
 
       await recordDiscountUsage(
@@ -527,6 +540,19 @@ router.post('/save-draft', async (req, res) => {
       });
 
       draftOrders.push(order);
+
+      await logOrderActivity({
+        orderId: order.id,
+        type: OrderActivityType.ORDER_CREATED,
+        summary: 'Order created',
+        details: {
+          source: order.orderSource,
+          channel: resolvedOrderSource || 'POS',
+          status: order.status,
+        },
+        actorId: req.employee?.id || null,
+        actorName: req.employee?.name || null,
+      });
 
       if (hasConfirmedPayment && paymentIntentId) {
         const group = websitePaymentGroups.get(paymentIntentId) || {

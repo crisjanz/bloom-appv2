@@ -1,7 +1,8 @@
 import prisma from '../lib/prisma';
-import { HouseAccountEntryType, Prisma } from '@prisma/client';
+import { HouseAccountEntryType, OrderActivityType, Prisma } from '@prisma/client';
 import paymentProviderFactory from './paymentProviders/PaymentProviderFactory';
 import { recalculateOrderPaymentStatuses } from './orderPaymentStatusService';
+import { logOrderActivity } from './orderActivityService';
 
 interface RefundItemBreakdown {
   orderItemId: string;
@@ -87,6 +88,9 @@ class RefundService {
         return method;
       })
     );
+    const refundMethodLabels = refundMethods.map(
+      (method) => `${method.paymentMethodType} (${method.provider})`
+    );
 
     return await prisma.$transaction(async (tx) => {
       const refundNumber = await this.generateRefundNumber(tx);
@@ -134,6 +138,28 @@ class RefundService {
       await recalculateOrderPaymentStatuses(
         tx,
         data.orderRefunds.map((orderRefund) => orderRefund.orderId)
+      );
+
+      await Promise.all(
+        data.orderRefunds
+          .filter((orderRefund) => orderRefund.amount > 0)
+          .map((orderRefund) =>
+            logOrderActivity({
+              tx,
+              orderId: orderRefund.orderId,
+              type: OrderActivityType.REFUND_PROCESSED,
+              summary: `Refund processed (${refund.refundNumber})`,
+              details: {
+                refundNumber: refund.refundNumber,
+                amount: orderRefund.amount,
+                reason: data.reason || null,
+                refundType: data.refundType,
+                methods: refundMethodLabels,
+                transactionId: data.transactionId,
+              },
+              actorId: data.employeeId || null,
+            })
+          )
       );
 
       // Reverse house account ledger if refund includes HOUSE_ACCOUNT method

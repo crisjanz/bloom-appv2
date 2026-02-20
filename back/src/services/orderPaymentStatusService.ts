@@ -1,4 +1,5 @@
-import { PaymentMethodType, PaymentStatus, Prisma } from '@prisma/client';
+import { OrderActivityType, PaymentMethodType, PaymentStatus, Prisma } from '@prisma/client';
+import { logOrderActivity } from './orderActivityService';
 
 const NON_SETTLING_PAYMENT_METHODS = new Set<PaymentMethodType>([
   PaymentMethodType.PAY_LATER,
@@ -175,6 +176,17 @@ export async function recalculateOrderPaymentStatuses(
         where: { id: order.id },
         data: {
           paymentStatus: nextPaymentStatus,
+        },
+      });
+
+      await logOrderActivity({
+        tx,
+        orderId: order.id,
+        type: OrderActivityType.PAYMENT_STATUS_CHANGE,
+        summary: `Payment status changed to ${nextPaymentStatus}`,
+        details: {
+          from: order.paymentStatus,
+          to: nextPaymentStatus,
         },
       });
     })

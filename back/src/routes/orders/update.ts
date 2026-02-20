@@ -1,9 +1,68 @@
 import express from 'express';
-import { PrismaClient, OrderStatus } from '@prisma/client';
+import { OrderActivityType, PrismaClient, OrderStatus } from '@prisma/client';
 import { triggerStatusNotifications } from '../../utils/notificationTriggers';
+import { logOrderActivity } from '../../services/orderActivityService';
 
 const router = express.Router();
 const prisma = new PrismaClient();
+
+type OrderEditChangeMap = Record<string, { from: unknown; to: unknown }>;
+
+const normalizeForDiff = (value: unknown): unknown => {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeForDiff(item));
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.entries(value as Record<string, unknown>)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .reduce<Record<string, unknown>>((acc, [key, nestedValue]) => {
+        acc[key] = normalizeForDiff(nestedValue);
+        return acc;
+      }, {});
+  }
+
+  return value ?? null;
+};
+
+const hasDiff = (from: unknown, to: unknown) =>
+  JSON.stringify(normalizeForDiff(from)) !== JSON.stringify(normalizeForDiff(to));
+
+const recordChange = (changes: OrderEditChangeMap, key: string, from: unknown, to: unknown) => {
+  if (!hasDiff(from, to)) {
+    return;
+  }
+
+  changes[key] = {
+    from: normalizeForDiff(from),
+    to: normalizeForDiff(to),
+  };
+};
+
+const inferOrderEditSection = (updateData: any): string => {
+  if (updateData.orderItems) return 'products';
+  if (updateData.deliveryAddress || updateData.recipientName !== undefined || updateData.recipientCustomerId !== undefined) {
+    return 'recipient';
+  }
+  if (updateData.delivery || updateData.deliveryDate !== undefined || updateData.deliveryTime !== undefined) {
+    return 'delivery';
+  }
+  if (
+    updateData.discount !== undefined ||
+    updateData.gst !== undefined ||
+    updateData.pst !== undefined ||
+    updateData.totalTax !== undefined
+  ) {
+    return 'payment';
+  }
+  if (updateData.images !== undefined) return 'images';
+  if (updateData.customer) return 'customer';
+  return 'order';
+};
 
 // Update order - handles updating both order and underlying database records
 router.put('/:id/update', async (req, res) => {
@@ -13,6 +72,8 @@ router.put('/:id/update', async (req, res) => {
 
     // Store notification trigger data outside transaction scope
     let notificationTrigger: { newStatus: string; previousStatus: string } | null = null;
+    let orderEditActivityDetails: { section: string; changes: OrderEditChangeMap } | null = null;
+    let statusChangeDetails: { from: string; to: string } | null = null;
 
     // Start a transaction to ensure data consistency
     const result = await prisma.$transaction(async (tx) => {
@@ -37,9 +98,18 @@ router.put('/:id/update', async (req, res) => {
       }
 
       let orderUpdateData: any = {};
+      const changes: OrderEditChangeMap = {};
 
       // Handle customer updates
       if (updateData.customer && currentOrder.customerId) {
+        const currentCustomer = currentOrder.customer;
+        if (currentCustomer) {
+          recordChange(changes, 'customer.firstName', currentCustomer.firstName, updateData.customer.firstName);
+          recordChange(changes, 'customer.lastName', currentCustomer.lastName, updateData.customer.lastName);
+          recordChange(changes, 'customer.email', currentCustomer.email, updateData.customer.email);
+          recordChange(changes, 'customer.phone', currentCustomer.phone, updateData.customer.phone);
+        }
+
         // Update the actual customer record in the database
         await tx.customer.update({
           where: { id: currentOrder.customerId },
@@ -53,19 +123,23 @@ router.put('/:id/update', async (req, res) => {
       }
 
       // Handle customerId reassignment (e.g. fingerprint match linking guest to existing customer)
-      if (updateData.customerId) {
+      if (updateData.customerId !== undefined) {
+        recordChange(changes, 'customerId', currentOrder.customerId, updateData.customerId);
         orderUpdateData.customerId = updateData.customerId;
       }
 
       // Handle recipient updates - Recipients are now managed via Customer API
       // Orders can update their recipientCustomerId and deliveryAddressId references
       if (updateData.recipientCustomerId !== undefined) {
+        recordChange(changes, 'recipientCustomerId', currentOrder.recipientCustomerId, updateData.recipientCustomerId);
         orderUpdateData.recipientCustomerId = updateData.recipientCustomerId;
       }
       if (updateData.deliveryAddressId !== undefined) {
+        recordChange(changes, 'deliveryAddressId', currentOrder.deliveryAddressId, updateData.deliveryAddressId);
         orderUpdateData.deliveryAddressId = updateData.deliveryAddressId;
       }
       if (updateData.recipientName !== undefined) {
+        recordChange(changes, 'recipientName', currentOrder.recipientName, updateData.recipientName || null);
         orderUpdateData.recipientName = updateData.recipientName || null;
       }
 
@@ -77,6 +151,64 @@ router.put('/:id/update', async (req, res) => {
 
         if (currentOrder.deliveryAddressId) {
           try {
+            if (currentOrder.deliveryAddress) {
+              recordChange(
+                changes,
+                'deliveryAddress.attention',
+                currentOrder.deliveryAddress.attention,
+                addressData.attention || null
+              );
+              recordChange(
+                changes,
+                'deliveryAddress.company',
+                currentOrder.deliveryAddress.company,
+                addressData.company || null
+              );
+              recordChange(
+                changes,
+                'deliveryAddress.phone',
+                currentOrder.deliveryAddress.phone,
+                addressData.phone || ''
+              );
+              recordChange(
+                changes,
+                'deliveryAddress.address1',
+                currentOrder.deliveryAddress.address1,
+                addressData.address1 || ''
+              );
+              recordChange(
+                changes,
+                'deliveryAddress.address2',
+                currentOrder.deliveryAddress.address2,
+                addressData.address2 || null
+              );
+              recordChange(changes, 'deliveryAddress.city', currentOrder.deliveryAddress.city, addressData.city || '');
+              recordChange(
+                changes,
+                'deliveryAddress.province',
+                currentOrder.deliveryAddress.province,
+                addressData.province || ''
+              );
+              recordChange(
+                changes,
+                'deliveryAddress.postalCode',
+                currentOrder.deliveryAddress.postalCode,
+                addressData.postalCode || ''
+              );
+              recordChange(
+                changes,
+                'deliveryAddress.country',
+                currentOrder.deliveryAddress.country,
+                addressData.country || 'CA'
+              );
+              recordChange(
+                changes,
+                'deliveryAddress.addressType',
+                currentOrder.deliveryAddress.addressType,
+                addressData.addressType || 'RESIDENCE'
+              );
+            }
+
             // Update existing address
             const updatedAddress = await tx.address.update({
               where: { id: currentOrder.deliveryAddressId },
@@ -173,6 +305,10 @@ router.put('/:id/update', async (req, res) => {
       if (updateData.status) {
         const previousStatus = currentOrder.status;
         orderUpdateData.status = updateData.status as OrderStatus;
+        statusChangeDetails = {
+          from: previousStatus,
+          to: updateData.status,
+        };
 
         // Store notification trigger data for after the transaction
         notificationTrigger = {
@@ -184,39 +320,57 @@ router.put('/:id/update', async (req, res) => {
       // Handle order items updates
       if (updateData.orderItems || updateData.recalculateTotal) {
         if (updateData.orderItems) {
-    // Delete existing order items
-    await tx.orderItem.deleteMany({
-      where: { orderId: id }
-    });
+          const currentItemsForDiff = currentOrder.orderItems.map((item) => ({
+            productId: item.productId || null,
+            customName: item.customName || null,
+            description: item.description || null,
+            unitPrice: item.unitPrice,
+            quantity: item.quantity,
+            rowTotal: item.rowTotal,
+          }));
+          const nextItemsForDiff = updateData.orderItems.map((item: any) => ({
+            productId: item.productId || null,
+            customName: item.customName || null,
+            description: item.description || null,
+            unitPrice: item.unitPrice,
+            quantity: item.quantity,
+            rowTotal: item.unitPrice * item.quantity,
+          }));
+          recordChange(changes, 'orderItems', currentItemsForDiff, nextItemsForDiff);
 
-    // Create new order items with calculated rowTotals
-    const newOrderItems = updateData.orderItems.map((item: any) => ({
-      orderId: id,
-      productId: item.productId || null,
-      customName: item.customName,
-      description: item.description || null,
-      unitPrice: item.unitPrice,
-      quantity: item.quantity,
-      rowTotal: item.unitPrice * item.quantity
-    }));
+          // Delete existing order items
+          await tx.orderItem.deleteMany({
+            where: { orderId: id }
+          });
 
-    await tx.orderItem.createMany({
-      data: newOrderItems
-    });
-  }
+          // Create new order items with calculated rowTotals
+          const newOrderItems = updateData.orderItems.map((item: any) => ({
+            orderId: id,
+            productId: item.productId || null,
+            customName: item.customName,
+            description: item.description || null,
+            unitPrice: item.unitPrice,
+            quantity: item.quantity,
+            rowTotal: item.unitPrice * item.quantity
+          }));
 
-  // Always recalculate totals when products change
-  const currentOrderItems = await tx.orderItem.findMany({
-    where: { orderId: id }
-  });
-  
-  const subtotal = currentOrderItems.reduce((sum, item) => sum + item.rowTotal, 0);
-  const currentDeliveryFee = orderUpdateData.deliveryFee !== undefined ? orderUpdateData.deliveryFee : currentOrder.deliveryFee;
-  const currentDiscount = orderUpdateData.discount !== undefined ? orderUpdateData.discount : currentOrder.discount;
-  const currentTotalTax = orderUpdateData.totalTax !== undefined ? orderUpdateData.totalTax : currentOrder.totalTax;
+          await tx.orderItem.createMany({
+            data: newOrderItems
+          });
+        }
 
-  orderUpdateData.paymentAmount = subtotal + currentDeliveryFee - currentDiscount + currentTotalTax;
-}
+        // Always recalculate totals when products change
+        const currentOrderItems = await tx.orderItem.findMany({
+          where: { orderId: id }
+        });
+
+        const subtotal = currentOrderItems.reduce((sum, item) => sum + item.rowTotal, 0);
+        const currentDeliveryFee = orderUpdateData.deliveryFee !== undefined ? orderUpdateData.deliveryFee : currentOrder.deliveryFee;
+        const currentDiscount = orderUpdateData.discount !== undefined ? orderUpdateData.discount : currentOrder.discount;
+        const currentTotalTax = orderUpdateData.totalTax !== undefined ? orderUpdateData.totalTax : currentOrder.totalTax;
+
+        orderUpdateData.paymentAmount = subtotal + currentDeliveryFee - currentDiscount + currentTotalTax;
+      }
 
       const shouldRecalculateTotals =
         !updateData.orderItems &&
@@ -240,7 +394,22 @@ router.put('/:id/update', async (req, res) => {
 
       // Handle images updates
       if (updateData.images !== undefined) {
+        recordChange(changes, 'images', currentOrder.images, updateData.images);
         orderUpdateData.images = updateData.images;
+      }
+
+      Object.entries(orderUpdateData).forEach(([field, nextValue]) => {
+        recordChange(changes, field, (currentOrder as any)[field], nextValue);
+      });
+
+      const changeKeys = Object.keys(changes);
+      const nonStatusChangeKeys = changeKeys.filter((key) => key !== 'status');
+
+      if (nonStatusChangeKeys.length > 0) {
+        orderEditActivityDetails = {
+          section: inferOrderEditSection(updateData),
+          changes,
+        };
       }
 
       // Update the order with any changes
@@ -274,6 +443,28 @@ router.put('/:id/update', async (req, res) => {
         }
       });
     });
+
+    if (statusChangeDetails) {
+      await logOrderActivity({
+        orderId: id,
+        type: OrderActivityType.STATUS_CHANGE,
+        summary: `Status changed to ${statusChangeDetails.to}`,
+        details: statusChangeDetails,
+        actorId: req.employee?.id || null,
+        actorName: req.employee?.name || null,
+      });
+    }
+
+    if (result && orderEditActivityDetails && Object.keys(orderEditActivityDetails.changes).length > 0) {
+      await logOrderActivity({
+        orderId: id,
+        type: OrderActivityType.ORDER_EDITED,
+        summary: 'Order details updated',
+        details: orderEditActivityDetails,
+        actorId: req.employee?.id || null,
+        actorName: req.employee?.name || null,
+      });
+    }
 
     // Respond immediately to user for better UX
     res.json({

@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import type Stripe from 'stripe';
-import { PrismaClient } from '@prisma/client';
+import { OrderActivityType, PrismaClient } from '@prisma/client';
 import { triggerStatusNotifications } from '../../utils/notificationTriggers';
 import refundService from '../../services/refundService';
 import paymentProviderFactory from '../../services/paymentProviders/PaymentProviderFactory';
 import squareService from '../../services/squareService';
+import { logOrderActivity } from '../../services/orderActivityService';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -273,6 +274,19 @@ router.patch('/:orderId/status', async (req, res) => {
     });
 
     console.log(`📋 Order #${order.orderNumber} status updated: ${order.status} → ${newStatus}`);
+
+    await logOrderActivity({
+      orderId,
+      type: OrderActivityType.STATUS_CHANGE,
+      summary: `Status changed to ${newStatus}`,
+      details: {
+        from: order.status,
+        to: newStatus,
+        notes: notes || null,
+      },
+      actorId: req.employee?.id || employeeId || null,
+      actorName: req.employee?.name || null,
+    });
 
     // Process refunds if order was cancelled (unless skipRefund=true, which means refund was handled separately)
     if (newStatus === 'CANCELLED' && !skipRefund) {

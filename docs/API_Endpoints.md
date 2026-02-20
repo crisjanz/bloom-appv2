@@ -102,6 +102,8 @@
 - ✅ PATCH `/api/orders/:orderId/status` — fulfillment status transitions with validation (`back/src/routes/orders/status.ts`)
   - `Order.status` no longer carries refund states; payment/refund state now lives in `Order.paymentStatus`.
 - ✅ GET `/api/orders/:orderId/next-statuses` — allowed next status list.
+- ✅ GET `/api/orders/:orderId/activity` — merged order activity timeline (`OrderActivity` + communications + print jobs) with cursor pagination (`back/src/routes/orders/activity.ts`)
+  - Query params: `limit` (default 20, max 100), `before` (ISO timestamp cursor).
 - ⚠️ GET `/api/orders/:orderId/history` — placeholder returning current status only.
 
 ## Delivery Routes

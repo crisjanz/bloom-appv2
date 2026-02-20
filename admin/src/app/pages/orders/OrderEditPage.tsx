@@ -5,6 +5,7 @@ import ComponentCard from '@shared/ui/common/ComponentCard';
 import { Modal } from '@shared/ui/components/ui/modal';
 import OrderHeader from '@app/components/orders/edit/OrderHeader';
 import OrderSections from '@app/components/orders/edit/OrderSections';
+import OrderActivityTimeline from '@app/components/orders/edit/OrderActivityTimeline';
 import OrderCommunicationModal from '@app/components/delivery/OrderCommunicationModal';
 import { Order } from '@app/components/orders/types';
 import { useBusinessTimezone } from '@shared/hooks/useBusinessTimezone';
@@ -743,6 +744,10 @@ const OrderEditPage: React.FC = () => {
           order={order} 
           onEdit={openModal} 
         />
+      </ComponentCard>
+
+      <ComponentCard title="Activity" className="mt-6">
+        <OrderActivityTimeline orderId={order.id} />
       </ComponentCard>
       </div>
 

@@ -76,6 +76,7 @@ import { ReactComponent as MapPinIcon } from "./more-icons/map-pin.svg?react";
 import { ReactComponent as PackageIcon } from "./more-icons/package.svg?react";
 import { ReactComponent as UserIcon2 } from "./more-icons/user.svg?react";
 import { ReactComponent as CameraIcon } from "./more-icons/camera.svg?react";
+import { ReactComponent as PrinterIcon } from "./more-icons/printer.svg?react";
 
 // Menu icons
 import { ReactComponent as TagIcon } from "./more-icons/tag.svg?react";
@@ -162,6 +163,7 @@ export {
   PackageIcon,
   UserIcon2,
   CameraIcon,
+  PrinterIcon,
 
   // Menu icons
   TagIcon,

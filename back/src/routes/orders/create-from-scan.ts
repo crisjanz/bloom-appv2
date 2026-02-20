@@ -1,7 +1,8 @@
 import express from 'express';
-import { PrismaClient, OrderStatus, PaymentStatus, OrderExternalSource } from '@prisma/client';
+import { OrderActivityType, PrismaClient, OrderStatus, PaymentStatus, OrderExternalSource } from '@prisma/client';
 import { ParsedOrderData, FloranextOrderData } from '../../services/gemini-ocr';
 import transactionService from '../../services/transactionService';
+import { logOrderActivity } from '../../services/orderActivityService';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -159,6 +160,18 @@ router.post('/create-from-scan', async (req, res) => {
         orderItems: true,
         recipientCustomer: true,
         deliveryAddress: true,
+      },
+    });
+
+    await logOrderActivity({
+      orderId: order.id,
+      type: OrderActivityType.ORDER_CREATED,
+      summary: 'Order created',
+      details: {
+        source: order.orderSource,
+        externalSource: order.externalSource,
+        channel: orderData.orderSource || 'SCAN',
+        status: order.status,
       },
     });
 
@@ -320,6 +333,18 @@ async function createDoorDashOrder(orderData: ParsedOrderData, externalSource: O
     },
     include: {
       orderItems: true,
+    },
+  });
+
+  await logOrderActivity({
+    orderId: order.id,
+    type: OrderActivityType.ORDER_CREATED,
+    summary: 'Order created',
+    details: {
+      source: order.orderSource,
+      externalSource: order.externalSource,
+      channel: 'DOORDASH',
+      status: order.status,
     },
   });
 
@@ -628,6 +653,18 @@ router.post('/create-from-floranext', async (req, res) => {
         orderItems: true,
         recipientCustomer: true,
         deliveryAddress: true,
+      },
+    });
+
+    await logOrderActivity({
+      orderId: order.id,
+      type: OrderActivityType.ORDER_CREATED,
+      summary: 'Order created',
+      details: {
+        source: order.orderSource,
+        externalSource: order.externalSource,
+        channel: 'FLORANEXT',
+        status: order.status,
       },
     });
 
