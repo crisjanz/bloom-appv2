@@ -455,12 +455,32 @@ router.put('/:id/update', async (req, res) => {
       });
     }
 
-    if (result && orderEditActivityDetails && Object.keys(orderEditActivityDetails.changes).length > 0) {
+    // Log ORDER_EDITED for any real user-facing field update (not status-only, not internal flags).
+    // We don't rely on hasDiff here because date/null comparisons can produce false negatives.
+    const nonStatusKeys = Object.keys(updateData).filter(
+      (k) => !['status', 'recalculateTotal'].includes(k)
+    );
+    if (result && nonStatusKeys.length > 0) {
+      const section = inferOrderEditSection(updateData);
+      const sectionLabels: Record<string, string> = {
+        delivery: 'Delivery details',
+        products: 'Order items',
+        payment: 'Payment details',
+        customer: 'Customer info',
+        recipient: 'Delivery address',
+        images: 'Order photos',
+      };
       await logOrderActivity({
         orderId: id,
         type: OrderActivityType.ORDER_EDITED,
-        summary: 'Order details updated',
-        details: orderEditActivityDetails,
+        summary: `${sectionLabels[section] ?? 'Order'} updated`,
+        details: {
+          section,
+          ...(orderEditActivityDetails?.changes &&
+          Object.keys(orderEditActivityDetails.changes).length > 0
+            ? { changes: orderEditActivityDetails.changes }
+            : {}),
+        },
         actorId: req.employee?.id || null,
         actorName: req.employee?.name || null,
       });
