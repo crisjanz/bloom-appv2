@@ -17,9 +17,11 @@ export interface OrderTicketData {
   recipientPhone: string;
   recipientAddress: {
     address1: string;
+    address2?: string;
     city: string;
     province: string;
     postalCode: string;
+    company?: string;
   };
 
   // Order details
@@ -50,6 +52,12 @@ export interface OrderTicketData {
  */
 export function generateOrderTicketHTML(data: OrderTicketData): string {
   const formatCurrency = (cents: number) => `CA$${(cents / 100).toFixed(2)}`;
+  const recipientCompanyLine = data.recipientAddress.company
+    ? `${data.recipientAddress.company}<br>`
+    : '';
+  const recipientAddress2Line = data.recipientAddress.address2
+    ? `${data.recipientAddress.address2}<br>`
+    : '';
 
   // Format delivery date
   const formatDate = (dateStr: string) => {
@@ -397,8 +405,10 @@ export function generateOrderTicketHTML(data: OrderTicketData): string {
             <div class="field-label">Recipient:</div>
             <div class="field-value">
               <strong>${data.recipientName}</strong><br>
+              ${recipientCompanyLine}
               ${data.recipientPhone}<br>
               ${data.recipientAddress.address1}<br>
+              ${recipientAddress2Line}
               ${data.recipientAddress.city}, ${data.recipientAddress.province} ${data.recipientAddress.postalCode}
             </div>
           </div>
@@ -477,7 +487,9 @@ export function generateOrderTicketHTML(data: OrderTicketData): string {
             <div class="field-label">Recipient:</div>
             <div class="field-value">
               <strong>${data.recipientName}</strong><br>
+              ${recipientCompanyLine}
               ${data.recipientAddress.address1}<br>
+              ${recipientAddress2Line}
               ${data.recipientAddress.city}, ${data.recipientAddress.province} ${data.recipientAddress.postalCode}<br>
               ${data.recipientPhone}
             </div>
@@ -531,7 +543,9 @@ export function generateOrderTicketHTML(data: OrderTicketData): string {
       <div class="right-section address-label">
         <div>
           <div class="name">${data.recipientName}</div>
+          ${data.recipientAddress.company ? `<div>${data.recipientAddress.company}</div>` : ''}
           <div>${data.recipientAddress.address1}</div>
+          ${data.recipientAddress.address2 ? `<div>${data.recipientAddress.address2}</div>` : ''}
           <div>${data.recipientAddress.city}, ${data.recipientAddress.province} ${data.recipientAddress.postalCode}</div>
           <div>${data.recipientPhone}</div>
           <div class="date-order">
@@ -579,6 +593,11 @@ export function generateOrderTicketHTML(data: OrderTicketData): string {
 export function parseOrderForTicket(orderData: any): OrderTicketData {
   try {
     const order = orderData;
+    const resolvedRecipientName =
+      order.recipientName ||
+      order.deliveryAddress?.attention ||
+      `${order.recipientCustomer?.firstName || ''} ${order.recipientCustomer?.lastName || ''}`.trim() ||
+      'Unknown';
 
     return {
       orderNumber: order.orderNumber?.toString() || 'N/A',
@@ -590,13 +609,15 @@ export function parseOrderForTicket(orderData: any): OrderTicketData {
       customerName: `${order.customer?.firstName || ''} ${order.customer?.lastName || ''}`.trim() || 'Unknown',
       customerPhone: order.customer?.phone || '',
 
-      recipientName: `${order.recipientCustomer?.firstName || ''} ${order.recipientCustomer?.lastName || ''}`.trim() || 'Unknown',
+      recipientName: resolvedRecipientName,
       recipientPhone: order.deliveryAddress?.phone || order.recipientCustomer?.phone || '',
       recipientAddress: {
         address1: order.deliveryAddress?.address1 || '',
+        address2: order.deliveryAddress?.address2 || '',
         city: order.deliveryAddress?.city || '',
         province: order.deliveryAddress?.province || '',
-        postalCode: order.deliveryAddress?.postalCode || ''
+        postalCode: order.deliveryAddress?.postalCode || '',
+        company: order.deliveryAddress?.company || ''
       },
 
       items: (order.orderItems || []).map((item: any) => ({

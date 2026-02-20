@@ -46,6 +46,8 @@ export interface Order {
     lastName: string;
     company?: string;
     phone: string;
+    attention?: string;
+    addressType?: string;
     address1: string;
     address2?: string;
     city: string;

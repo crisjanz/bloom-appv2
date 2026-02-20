@@ -104,6 +104,10 @@ export interface Address {
   id?: string
   street1: string
   street2?: string
+  attention?: string
+  phone?: string
+  company?: string
+  addressType?: string
   city: string
   province: string
   postalCode: string

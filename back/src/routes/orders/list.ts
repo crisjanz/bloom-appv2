@@ -4,6 +4,29 @@ import { PrismaClient, OrderStatus, PaymentStatus } from '@prisma/client';
 const router = express.Router();
 const prisma = new PrismaClient();
 
+const DATE_ONLY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
+const parseDayBoundary = (value: string, boundary: 'start' | 'end'): Date => {
+  const trimmed = value.trim();
+  if (DATE_ONLY_REGEX.test(trimmed)) {
+    const timePortion = boundary === 'start' ? 'T00:00:00.000' : 'T23:59:59.999';
+    return new Date(`${trimmed}${timePortion}`);
+  }
+
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error(`Invalid date value: ${value}`);
+  }
+
+  parsed.setHours(
+    boundary === 'start' ? 0 : 23,
+    boundary === 'start' ? 0 : 59,
+    boundary === 'start' ? 0 : 59,
+    boundary === 'start' ? 0 : 999
+  );
+  return parsed;
+};
+
 // Get all orders with filtering and search
 router.get('/list', async (req, res) => {
   try {
@@ -72,13 +95,11 @@ router.get('/list', async (req, res) => {
     if (actualDateFrom || actualDateTo) {
       where.deliveryDate = {};
       if (actualDateFrom) {
-        const fromDate = new Date(actualDateFrom as string);
-        fromDate.setHours(0, 0, 0, 0);
+        const fromDate = parseDayBoundary(actualDateFrom as string, 'start');
         where.deliveryDate.gte = fromDate;
       }
       if (actualDateTo) {
-        const toDate = new Date(actualDateTo as string);
-        toDate.setHours(23, 59, 59, 999);
+        const toDate = parseDayBoundary(actualDateTo as string, 'end');
         where.deliveryDate.lte = toDate;
       }
     }
@@ -87,13 +108,11 @@ router.get('/list', async (req, res) => {
     if (orderDateFrom || orderDateTo) {
       where.createdAt = {};
       if (orderDateFrom) {
-        const fromDate = new Date(orderDateFrom as string);
-        fromDate.setHours(0, 0, 0, 0);
+        const fromDate = parseDayBoundary(orderDateFrom as string, 'start');
         where.createdAt.gte = fromDate;
       }
       if (orderDateTo) {
-        const toDate = new Date(orderDateTo as string);
-        toDate.setHours(23, 59, 59, 999);
+        const toDate = parseDayBoundary(orderDateTo as string, 'end');
         where.createdAt.lte = toDate;
       }
     }

@@ -77,16 +77,23 @@ const OrdersListPage: React.FC = () => {
   const itemsPerPage = 25;
 
   // Get today/tomorrow dates
+  const addDaysToDateString = (dateString: string, days: number) => {
+    const [year, month, day] = dateString.split('-').map(Number);
+    if (!year || !month || !day) return '';
+    const date = new Date(Date.UTC(year, month - 1, day));
+    date.setUTCDate(date.getUTCDate() + days);
+    return date.toISOString().split('T')[0];
+  };
+
   const getTodayDate = () => {
     if (!getBusinessDateString) return '';
     return getBusinessDateString(new Date());
   };
 
   const getTomorrowDate = () => {
-    if (!getBusinessDateString) return '';
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return getBusinessDateString(tomorrow);
+    const today = getTodayDate();
+    if (!today) return '';
+    return addDaysToDateString(today, 1);
   };
 
   // Auto-search after 5 seconds of inactivity
@@ -111,6 +118,10 @@ const OrdersListPage: React.FC = () => {
 
   // Load orders when filters change
   useEffect(() => {
+    if (timezoneLoading && dateFilter !== 'all') {
+      return;
+    }
+
     const filters: any = {
       status: statusFilter,
       search: activeSearchTerm,
@@ -158,7 +169,7 @@ const OrdersListPage: React.FC = () => {
 
     fetchOrders(filters);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, activeSearchTerm, dateFilter, deliveryDate, orderDate, dateRangeFrom, dateRangeTo]);
+  }, [statusFilter, activeSearchTerm, dateFilter, deliveryDate, orderDate, dateRangeFrom, dateRangeTo, timezoneLoading]);
 
   const getIsoString = (input: string | Date) => {
     if (typeof input === 'string') return input;

@@ -60,6 +60,16 @@ const resolveAdjustmentChannel = (orderSource?: string) => {
 
 // Convert domain Order to frontend Order format
 const mapDomainOrderToFrontend = (domainOrder: DomainOrder): Order => {
+  const resolvedRecipientName =
+    domainOrder.recipientName ||
+    domainOrder.deliveryInfo?.recipientName ||
+    (domainOrder.recipientCustomer
+      ? `${domainOrder.recipientCustomer.firstName || ''} ${domainOrder.recipientCustomer.lastName || ''}`.trim()
+      : '') ||
+    null;
+  const { firstName: recipientFirstName, lastName: recipientLastName } =
+    splitRecipientName(resolvedRecipientName);
+
   return {
     id: domainOrder.id,
     orderNumber: parseInt(domainOrder.orderNumber),
@@ -94,12 +104,13 @@ const mapDomainOrderToFrontend = (domainOrder: DomainOrder): Order => {
       email: domainOrder.recipientCustomer.email || '',
       phone: domainOrder.recipientCustomer.phone || '',
     } : undefined,
-    recipientName: domainOrder.recipientName || domainOrder.deliveryInfo?.recipientName || null,
+    recipientName: resolvedRecipientName,
     deliveryAddress: domainOrder.deliveryInfo ? {
       id: domainOrder.deliveryInfo.deliveryAddress?.id || domainOrder.id,
-      firstName: domainOrder.deliveryInfo.recipientName?.split(' ')[0] || '',
-      lastName: domainOrder.deliveryInfo.recipientName?.split(' ').slice(1).join(' ') || '',
-      company: undefined,
+      firstName: recipientFirstName,
+      lastName: recipientLastName,
+      company: domainOrder.deliveryInfo.deliveryAddress?.company,
+      attention: domainOrder.deliveryInfo.deliveryAddress?.attention,
       phone: domainOrder.deliveryInfo.recipientPhone || '',
       address1: domainOrder.deliveryInfo.deliveryAddress?.street1 || '',
       address2: domainOrder.deliveryInfo.deliveryAddress?.street2,
@@ -107,6 +118,7 @@ const mapDomainOrderToFrontend = (domainOrder: DomainOrder): Order => {
       province: domainOrder.deliveryInfo.deliveryAddress?.province || '',
       postalCode: domainOrder.deliveryInfo.deliveryAddress?.postalCode || '',
       country: domainOrder.deliveryInfo.deliveryAddress?.country || 'Canada',
+      addressType: domainOrder.deliveryInfo.deliveryAddress?.addressType || 'RESIDENCE',
     } : undefined,
     orderItems: domainOrder.items.map(item => ({
       id: item.id,
@@ -569,12 +581,16 @@ const OrderEditPage: React.FC = () => {
           updateData = { customer: editingCustomer };
           break;
         case 'recipient':
+          const fullName = `${editingRecipient.firstName || ''} ${editingRecipient.lastName || ''}`.trim();
           if (order?.deliveryAddress) {
             updateData = {
-              deliveryAddress: editingRecipient
+              deliveryAddress: {
+                ...editingRecipient,
+                attention: fullName || null
+              },
+              recipientName: fullName || null
             };
           } else {
-            const fullName = `${editingRecipient.firstName || ''} ${editingRecipient.lastName || ''}`.trim();
             updateData = {
               recipientName: fullName || null
             };
@@ -986,7 +1002,10 @@ const OrderEditPage: React.FC = () => {
         customerEmail={order.customer.email}
         customerPhone={order.customer.phone}
         customerName={`${order.customer.firstName} ${order.customer.lastName}`}
-        onSuccess={() => { fetchOrder(); refreshActivityTimeline(); }}
+        onSuccess={() => {
+          fetchOrder(order.id);
+          refreshActivityTimeline();
+        }}
       />
     </div>
   );

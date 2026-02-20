@@ -139,15 +139,24 @@ export class OrderRepository extends BaseRepository<Order> {
       phone: backendOrder.recipientCustomer.phone || undefined
     } : undefined;
 
+    const resolvedRecipientName =
+      backendOrder.recipientName ||
+      backendOrder.deliveryAddress?.attention ||
+      `${backendOrder.recipientCustomer?.firstName || ''} ${backendOrder.recipientCustomer?.lastName || ''}`.trim();
+
     // Map delivery data to deliveryInfo
     const deliveryInfo = backendOrder.deliveryAddress ? {
-      recipientName: `${backendOrder.deliveryAddress.firstName || backendOrder.recipientCustomer?.firstName || ''} ${backendOrder.deliveryAddress.lastName || backendOrder.recipientCustomer?.lastName || ''}`.trim(),
+      recipientName: resolvedRecipientName || '',
       recipientPhone: backendOrder.deliveryAddress.phone || backendOrder.recipientCustomer?.phone,
       recipientEmail: backendOrder.recipientCustomer?.email,
       deliveryAddress: {
         id: backendOrder.deliveryAddress.id,
         street1: backendOrder.deliveryAddress.address1,
         street2: backendOrder.deliveryAddress.address2,
+        attention: backendOrder.deliveryAddress.attention || undefined,
+        phone: backendOrder.deliveryAddress.phone || undefined,
+        company: backendOrder.deliveryAddress.company || undefined,
+        addressType: backendOrder.deliveryAddress.addressType || undefined,
         city: backendOrder.deliveryAddress.city,
         province: backendOrder.deliveryAddress.province,
         postalCode: backendOrder.deliveryAddress.postalCode,
@@ -208,7 +217,7 @@ export class OrderRepository extends BaseRepository<Order> {
       appliedDiscounts: [],
       fulfillmentType: backendOrder.type,
       deliveryInfo,
-      recipientName: backendOrder.recipientName || undefined,
+      recipientName: backendOrder.recipientName || backendOrder.deliveryAddress?.attention || undefined,
       paymentStatus: this.mapPaymentStatusToFrontend(backendOrder.paymentStatus),
       orderDate: new Date(backendOrder.createdAt),
       requestedDeliveryDate: backendOrder.deliveryDate ? new Date(backendOrder.deliveryDate) : undefined,

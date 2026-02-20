@@ -18,6 +18,7 @@ const formatShortDate = (value: Date | string | null | undefined) => {
 const buildAddressLines = (address: any) => {
   if (!address) return [];
   const lines: string[] = [];
+  if (address.company) lines.push(address.company);
   if (address.address1) lines.push(address.address1);
   if (address.address2) lines.push(address.address2);
   const cityLine = [address.city, address.province, address.postalCode]
@@ -75,6 +76,7 @@ export async function buildOrderTicketPdf(
   const customerPhone = order.customer?.phone || '';
 
   const recipientName = order.recipientName
+    || order.deliveryAddress?.attention
     || [order.recipientCustomer?.firstName, order.recipientCustomer?.lastName]
       .filter(Boolean)
       .join(' ')
