@@ -138,6 +138,7 @@ import ImagesEditModal from '@app/components/orders/edit/modals/ImagesEditModal'
 import PaymentAdjustmentModal, { PaymentMethod, PaymentAdjustmentResult } from '@app/components/orders/edit/modals/PaymentAdjustmentModal';
 import RefundModal from '@app/components/refunds/RefundModal';
 import ReceiptInvoiceModal from '@app/components/orders/ReceiptInvoiceModal';
+import CollectPaymentModal from '@app/components/orders/payment/CollectPaymentModal';
 
 interface OrderPaymentInfo {
   transactionId: string;
@@ -178,6 +179,9 @@ const OrderEditPage: React.FC = () => {
   // Refund modal states
   const [refundModalOpen, setRefundModalOpen] = useState(false);
   const [refundTransactionNumber, setRefundTransactionNumber] = useState<string | null>(null);
+
+  // Collect Payment modal state
+  const [collectPaymentOpen, setCollectPaymentOpen] = useState(false);
 
   // Print/Email modal state
   const [printModalOpen, setPrintModalOpen] = useState(false);
@@ -797,6 +801,11 @@ const OrderEditPage: React.FC = () => {
           onPrintOptions={() => setPrintModalOpen(true)}
           onEmailOptions={() => setEmailModalOpen(true)}
           onContact={() => setCommunicationModalOpen(true)}
+          onCollectPayment={
+            ['UNPAID', 'PARTIALLY_PAID'].includes(order.paymentStatus)
+              ? () => setCollectPaymentOpen(true)
+              : undefined
+          }
           unreadCount={unreadCount}
         />
 
@@ -890,6 +899,7 @@ const OrderEditPage: React.FC = () => {
             <FinancialsEditModal
               products={editingProducts}
               payment={editingPayment || { deliveryFee: 0, discount: 0, gst: 0, pst: 0 }}
+              originalTotal={order?.paymentAmount ?? 0}
               onSave={saveFinancials}
               onCancel={closeModal}
               saving={saving}
@@ -964,6 +974,19 @@ const OrderEditPage: React.FC = () => {
         order={order}
         onActivityChanged={refreshActivityTimeline}
         onUnreadCountsUpdated={handleUnreadCountsUpdated}
+      />
+
+      {/* Collect Payment Modal */}
+      <CollectPaymentModal
+        open={collectPaymentOpen}
+        onClose={() => setCollectPaymentOpen(false)}
+        amount={order.paymentAmount}
+        orderId={order.id}
+        customerId={order.customer.id}
+        customerEmail={order.customer.email}
+        customerPhone={order.customer.phone}
+        customerName={`${order.customer.firstName} ${order.customer.lastName}`}
+        onSuccess={() => { fetchOrder(); refreshActivityTimeline(); }}
       />
     </div>
   );

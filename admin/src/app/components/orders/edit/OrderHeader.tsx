@@ -16,6 +16,7 @@ interface OrderHeaderProps {
   onPrintOptions?: () => void;
   onEmailOptions?: () => void;
   onContact?: () => void;
+  onCollectPayment?: () => void;
   unreadCount?: number;
 }
 
@@ -26,6 +27,7 @@ const OrderHeader: React.FC<OrderHeaderProps> = ({
   onPrintOptions,
   onEmailOptions,
   onContact,
+  onCollectPayment,
   unreadCount
 }) => {
   const statusOptions = getStatusOptions(order.type);
@@ -89,6 +91,17 @@ const OrderHeader: React.FC<OrderHeaderProps> = ({
 
         {/* Right: actions + status */}
         <div className="flex items-center gap-2 shrink-0">
+          {/* Collect Payment */}
+          {onCollectPayment && (
+            <button
+              type="button"
+              onClick={onCollectPayment}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-lg transition-colors"
+            >
+              Collect Payment
+            </button>
+          )}
+
           {/* Contact — primary */}
           {onContact && (
             <button

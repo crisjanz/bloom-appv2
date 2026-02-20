@@ -26,6 +26,7 @@ type Props = {
     cardFingerprint?: string;
   }) => void;
   onCancel: () => void;
+  embedded?: boolean;
 };
 
 type ViewMode = 'main' | 'manual';
@@ -232,7 +233,8 @@ export default function CardPaymentModal({
   customerName,
   defaultMode = 'main',
   onComplete,
-  onCancel
+  onCancel,
+  embedded = false,
 }: Props) {
   const [viewMode, setViewMode] = useState<ViewMode>(defaultMode);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -468,13 +470,8 @@ export default function CardPaymentModal({
     }
   };
 
-  return (
-    <Modal
-      isOpen={open}
-      onClose={handleClose}
-      className="max-w-md"
-    >
-      <div className="p-8">
+  const modalContent = (
+    <div className="p-8">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-4 mb-2">
@@ -643,7 +640,14 @@ export default function CardPaymentModal({
             </Elements>
           </div>
         )}
-      </div>
+    </div>
+  );
+
+  if (embedded) return modalContent;
+
+  return (
+    <Modal isOpen={open} onClose={handleClose} className="max-w-md">
+      {modalContent}
     </Modal>
   );
 }
