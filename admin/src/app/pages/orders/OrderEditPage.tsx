@@ -442,9 +442,7 @@ const OrderEditPage: React.FC = () => {
         break;
       case 'delivery':
         setEditingDelivery({
-          deliveryDate: order.deliveryDate && getBusinessDateString ? 
-            getBusinessDateString(new Date(order.deliveryDate)) : 
-            (order.deliveryDate ? order.deliveryDate.split('T')[0] : ''),
+          deliveryDate: order.deliveryDate ? order.deliveryDate.split('T')[0] : '',
           deliveryTime: order.deliveryTime || '',
           cardMessage: order.cardMessage || '',
           specialInstructions: order.specialInstructions || '',

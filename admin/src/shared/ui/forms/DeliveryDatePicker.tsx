@@ -231,7 +231,8 @@ export default function DeliveryDatePicker({
       clickOpens: true,
       allowInput: false,
 onDayCreate: function(dObj, dStr, fp, dayElem) {
-  const dateStr = dayElem.dateObj.toISOString().split('T')[0];
+  const _d = dayElem.dateObj;
+  const dateStr = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, '0')}-${String(_d.getDate()).padStart(2, '0')}`;
   const disabledInfo = (window as any)[`disabledDatesInfo_${id}`] || [];
   const disabledItem = disabledInfo.find((item: any) => item.date === dateStr);
   
@@ -267,7 +268,8 @@ onDayCreate: function(dObj, dStr, fp, dayElem) {
 },
       onChange: (selectedDates) => {
         if (selectedDates.length > 0) {
-          const date = selectedDates[0].toISOString().split('T')[0];
+          const d = selectedDates[0];
+          const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
           onChange(date);
         }
       },
