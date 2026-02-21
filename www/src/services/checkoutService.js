@@ -51,7 +51,7 @@ export async function getSavedRecipients(customerId) {
 }
 
 export async function createReminder(payload) {
-  return api.post('/reminders', payload);
+  return api.post('/reminders/checkout', payload);
 }
 
 export default {

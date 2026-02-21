@@ -261,12 +261,6 @@ const WizardCheckout = ({ onOrderPlaced, persistedOrderResult = null }) => {
   }, [isAuthenticated]);
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      setRememberDate(false);
-    }
-  }, [isAuthenticated]);
-
-  useEffect(() => {
     api
       .get('/messages')
       .then((data) => {
@@ -557,7 +551,6 @@ const WizardCheckout = ({ onOrderPlaced, persistedOrderResult = null }) => {
     if (checked) {
       setSavedRecipientDraft(recipient);
       setIsForMe(true);
-      setShowMessageStepForForMe(false);
       if (selectedSavedRecipientOption !== 'new') {
         setSelectedSavedRecipientOption('new');
       }
@@ -691,8 +684,14 @@ const WizardCheckout = ({ onOrderPlaced, persistedOrderResult = null }) => {
     navigateToStep(4);
   };
 
-  const maybeCreateReminder = async (occasionValue, dateValue, recipientName) => {
-    if (!isAuthenticated || !dateValue) {
+  const maybeCreateReminder = async ({
+    occasionValue,
+    dateValue,
+    recipientName,
+    customerId,
+    customerEmail,
+  }) => {
+    if (!dateValue || !customerId) {
       return;
     }
 
@@ -701,6 +700,8 @@ const WizardCheckout = ({ onOrderPlaced, persistedOrderResult = null }) => {
         occasion: occasionValue || 'OTHER',
         deliveryDate: dateValue,
         recipientName,
+        customerId,
+        customerEmail,
       });
     } catch (error) {
       console.error('Failed to save reminder:', error);
@@ -1020,7 +1021,13 @@ const WizardCheckout = ({ onOrderPlaced, persistedOrderResult = null }) => {
 
       const recipientName = [effectiveRecipient.firstName, effectiveRecipient.lastName].filter(Boolean).join(' ').trim();
       if (rememberDate) {
-        await maybeCreateReminder(occasionValue, deliveryDate, recipientName);
+        await maybeCreateReminder({
+          occasionValue,
+          dateValue: deliveryDate,
+          recipientName,
+          customerId: buyerId,
+          customerEmail: customer.email || null,
+        });
       }
 
       const result = {
@@ -1066,7 +1073,6 @@ const WizardCheckout = ({ onOrderPlaced, persistedOrderResult = null }) => {
       setCardError('');
       setBirthday({ optIn: false, month: '', day: '', year: '' });
       setRememberDate(false);
-      setShowMessageStepForForMe(false);
       clearCoupon();
       setSelectedSavedRecipientOption('new');
       setRecipientWasAutofilled(false);
@@ -1149,13 +1155,19 @@ const WizardCheckout = ({ onOrderPlaced, persistedOrderResult = null }) => {
         sessionStorage.removeItem('pendingCheckout');
         checkoutIdempotencyKeyRef.current = null;
 
-        if (pendingData.rememberDate && pendingData.deliveryDate && isAuthenticated) {
+        if (pendingData.rememberDate && pendingData.deliveryDate) {
           try {
             const recipientName = [pendingData.recipient?.firstName, pendingData.recipient?.lastName]
               .filter(Boolean)
               .join(' ')
               .trim();
-            await maybeCreateReminder(pendingData.occasion, pendingData.deliveryDate, recipientName);
+            await maybeCreateReminder({
+              occasionValue: pendingData.occasion,
+              dateValue: pendingData.deliveryDate,
+              recipientName,
+              customerId: pendingData.buyerId,
+              customerEmail: pendingData.buyer?.email || null,
+            });
           } catch (error) {
             console.error('Failed to save reminder after redirect:', error);
           }
@@ -1180,7 +1192,7 @@ const WizardCheckout = ({ onOrderPlaced, persistedOrderResult = null }) => {
       .finally(() => {
         setIsSubmitting(false);
       });
-  }, [clearCart, isAuthenticated, setDeliveryDate]);
+  }, [clearCart, setDeliveryDate]);
 
   const occasionLabel = mapOccasionLabel(recipient.occasion);
   const displayOrderResult = orderResult || persistedOrderResult;
@@ -1236,7 +1248,10 @@ const WizardCheckout = ({ onOrderPlaced, persistedOrderResult = null }) => {
           onStepClick={handleStepClick}
         />
 
-        <div className="rounded-2xl border border-stroke bg-white p-4 sm:p-6 dark:border-dark-3 dark:bg-dark-2">
+        <div className={activeStep === 4
+          ? ''
+          : 'rounded-2xl border border-stroke bg-white p-4 sm:p-6 dark:border-dark-3 dark:bg-dark-2'}
+        >
           {activeStep === 1 && (
             <DeliveryStep
               recipient={effectiveRecipient}
@@ -1280,7 +1295,6 @@ const WizardCheckout = ({ onOrderPlaced, persistedOrderResult = null }) => {
               suggestions={messageSuggestions}
               showSuggestions={showSuggestions}
               onToggleSuggestions={() => setShowSuggestions((prev) => !prev)}
-              isAuthenticated={isAuthenticated}
               rememberDate={rememberDate}
               onRememberDateChange={setRememberDate}
               onBack={() => navigateToStep(1)}

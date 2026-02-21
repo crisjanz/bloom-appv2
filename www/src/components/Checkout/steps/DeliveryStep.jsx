@@ -23,7 +23,7 @@ const SurpriseWarningModal = ({ onAccept, onCancel }) => (
         </p>
         <ul className="list-disc space-y-2 pl-5">
           <li>
-            <strong className="text-dark dark:text-white">Redelivery fee:</strong> If the recipient is not home and the delivery cannot be completed, a redelivery fee will be charged to your card on file for a second attempt.
+            <strong className="text-dark dark:text-white">Redelivery fee:</strong> If delivery cannot be completed on the first attempt, the order returns to the shop and a redelivery fee will be charged for the next attempt.
           </li>
           <li>
             <strong className="text-dark dark:text-white">No phone contact:</strong> Our driver will not call or text the recipient. If no one answers the door, we may leave the arrangement at the door depending on conditions, or return to the shop.
@@ -32,7 +32,7 @@ const SurpriseWarningModal = ({ onAccept, onCancel }) => (
             <strong className="text-dark dark:text-white">Detailed instructions required:</strong> Please provide the best delivery time, which door to use, and any gate codes or access instructions to help ensure a successful first attempt.
           </li>
           <li>
-            <strong className="text-dark dark:text-white">Weather conditions:</strong> Flowers left at the door in extreme heat or cold may be affected. We cannot guarantee quality if the recipient is unavailable.
+            <strong className="text-dark dark:text-white">Below-zero weather warning:</strong> During below-zero temperatures we cannot leave flowers outside. If no one answers, the order is returned to the shop and redelivery fee rules apply.
           </li>
         </ul>
       </div>
@@ -88,6 +88,13 @@ const DeliveryStep = ({
   const [showSurpriseModal, setShowSurpriseModal] = useState(false);
   const showRecipientIdentityFields = !isForMe;
   const showAddressFields = orderType === 'DELIVERY';
+  const instructionsLabel = recipient.isSurprise
+    ? orderType === 'PICKUP'
+      ? 'Pickup instructions (required)'
+      : 'Delivery instructions (required)'
+    : orderType === 'PICKUP'
+      ? 'Pickup instructions (optional)'
+      : 'Delivery instructions (optional)';
 
   const handleSurpriseToggle = (checked) => {
     if (checked) {
@@ -109,50 +116,41 @@ const DeliveryStep = ({
         />
       )}
       <div className="rounded-xl border border-stroke p-4 dark:border-dark-3">
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <p className="mb-2 text-sm font-semibold text-dark dark:text-white">Order Type</p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => onOrderTypeChange('DELIVERY')}
-                className={`flex-1 rounded-md border px-4 py-2 text-sm font-semibold transition ${
-                  orderType === 'DELIVERY'
-                    ? 'border-primary bg-primary text-white'
-                    : 'border-stroke text-dark hover:border-primary dark:border-dark-3 dark:text-white'
-                }`}
-              >
-                Delivery
-              </button>
-              <button
-                type="button"
-                onClick={() => onOrderTypeChange('PICKUP')}
-                className={`flex-1 rounded-md border px-4 py-2 text-sm font-semibold transition ${
-                  orderType === 'PICKUP'
-                    ? 'border-primary bg-primary text-white'
-                    : 'border-stroke text-dark hover:border-primary dark:border-dark-3 dark:text-white'
-                }`}
-              >
-                Pickup
-              </button>
-            </div>
-          </div>
-
-          <label className="flex cursor-pointer items-center gap-3 p-3">
-            <input
-              type="checkbox"
-              checked={isForMe}
-              onChange={(event) => onToggleForMe(event.target.checked)}
-              className="h-4 w-4 rounded border border-stroke text-primary focus:ring-primary"
-            />
-            <div>
-              <p className="text-sm font-semibold text-dark dark:text-white">This order is for me</p>
-              <p className="text-xs text-body-color dark:text-dark-6">
-                Use your info from step 3 as the recipient.
-              </p>
-            </div>
-          </label>
+        <p className="mb-2 text-sm font-semibold text-dark dark:text-white">Order Type</p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => onOrderTypeChange('DELIVERY')}
+            className={`flex-1 rounded-md border px-4 py-2 text-sm font-semibold transition ${
+              orderType === 'DELIVERY'
+                ? 'border-primary bg-primary text-white'
+                : 'border-stroke text-dark hover:border-primary dark:border-dark-3 dark:text-white'
+            }`}
+          >
+            Delivery
+          </button>
+          <button
+            type="button"
+            onClick={() => onOrderTypeChange('PICKUP')}
+            className={`flex-1 rounded-md border px-4 py-2 text-sm font-semibold transition ${
+              orderType === 'PICKUP'
+                ? 'border-primary bg-primary text-white'
+                : 'border-stroke text-dark hover:border-primary dark:border-dark-3 dark:text-white'
+            }`}
+          >
+            Pickup
+          </button>
         </div>
+
+        <label className="mt-3 inline-flex cursor-pointer items-center gap-3 rounded-md px-1 py-2">
+          <input
+            type="checkbox"
+            checked={isForMe}
+            onChange={(event) => onToggleForMe(event.target.checked)}
+            className="h-4 w-4 rounded border border-stroke text-primary focus:ring-primary"
+          />
+          <span className="text-sm font-semibold text-dark dark:text-white">I am the recipient</span>
+        </label>
       </div>
 
       {isForMe && orderType === 'PICKUP' && (
@@ -323,7 +321,7 @@ const DeliveryStep = ({
         )}
 
         <TextAreaGroup
-          labelTitle={recipient.isSurprise ? 'Delivery instructions *' : orderType === 'PICKUP' ? 'Pickup instructions' : 'Delivery instructions'}
+          labelTitle={instructionsLabel}
           placeholder={recipient.isSurprise
             ? 'Preferred time, gate code, where to leave if not home...'
             : orderType === 'PICKUP'

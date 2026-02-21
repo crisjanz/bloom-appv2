@@ -41,6 +41,12 @@ const coerceString = (value: unknown) => {
   return trimmed || null;
 };
 
+const normalizeEmail = (value: unknown) => {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim().toLowerCase();
+  return normalized || null;
+};
+
 async function getOrCreateReminderSettings(): Promise<ReminderSettingsRecord> {
   const existing = await prisma.reminderSettings.findFirst();
   if (existing) {
@@ -380,6 +386,56 @@ router.post('/send-test', async (req, res) => {
   } catch (error) {
     console.error('Failed to send test reminder:', error);
     res.status(500).json({ error: 'Failed to send test reminder' });
+  }
+});
+
+router.post('/checkout', async (req, res) => {
+  try {
+    const { occasion, deliveryDate, recipientName, note, customerId, customerEmail } = req.body || {};
+
+    const parsedDate = parseReminderDate(deliveryDate);
+    if (!parsedDate) {
+      return res.status(400).json({ error: 'Valid deliveryDate is required' });
+    }
+
+    const normalizedCustomerId = coerceString(customerId);
+    const normalizedCustomerEmail = normalizeEmail(customerEmail);
+    if (!normalizedCustomerId || !normalizedCustomerEmail) {
+      return res.status(400).json({ error: 'customerId and customerEmail are required' });
+    }
+
+    const customer = await prisma.customer.findFirst({
+      where: {
+        id: normalizedCustomerId,
+        email: normalizedCustomerEmail,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!customer) {
+      return res.status(404).json({ error: 'Customer not found for reminder creation' });
+    }
+
+    const normalizedOccasion = coerceString(occasion)?.toUpperCase() || 'OTHER';
+
+    const reminder = await prisma.customerReminder.create({
+      data: {
+        customerId: customer.id,
+        occasion: normalizedOccasion,
+        month: parsedDate.month,
+        day: parsedDate.day,
+        recipientName: coerceString(recipientName),
+        note: coerceString(note),
+        isActive: true,
+      },
+    });
+
+    res.status(201).json(reminder);
+  } catch (error) {
+    console.error('Failed to create checkout reminder:', error);
+    res.status(500).json({ error: 'Failed to create reminder' });
   }
 });
 

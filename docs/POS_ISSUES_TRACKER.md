@@ -20,10 +20,10 @@ Status values: `TODO` | `IN_PROGRESS` | `BLOCKED` | `DONE`
 | POS-012 | P0 | Payment Reliability | Partial-failure path can leave orders created without PT/gift-card completion | DONE | - | Shipped atomic order+PT transaction flow (`/api/orders/create`), PT idempotency key (`PaymentTransaction.idempotencyKey`), and removed silent PT failure continuation in TakeOrder/POS submission paths |
 | POS-013 | P1 | Website Checkout | Website orders do not send confirmation email after successful checkout | DONE | - | `/api/orders/save-draft` now triggers configured PAID notifications (same template/settings path as POS) |
 | POS-014 | P1 | Website Ops | Website delivery orders do not auto-queue fulfillment ticket printing | DONE | - | `/api/orders/save-draft` now queues `ORDER_TICKET` print jobs for confirmed website delivery and pickup orders |
-| POS-015 | P2 | Website UX | "This order is for me" copy/placement is confusing in checkout | TODO | - | Rename to "I am the recipient" and place under delivery/pickup toggle |
-| POS-016 | P2 | Website UX | Surprise-delivery modal copy is vague (missing explicit below-zero warning) | TODO | - | Tighten warning and redelivery fee wording |
-| POS-017 | P2 | Website UX | Delivery instructions label does not indicate optional vs required state | TODO | - | Show "(optional)" except when surprise flow makes it required |
-| POS-018 | P2 | Website UX | "Remind me next year" is gated to authenticated users only | TODO | - | Allow guest reminder creation using checkout email |
+| POS-015 | P2 | Website UX | "This order is for me" copy/placement is confusing in checkout | DONE | - | Renamed to "I am the recipient" and placed directly under delivery/pickup toggle |
+| POS-016 | P2 | Website UX | Surprise-delivery modal copy is vague (missing explicit below-zero warning) | DONE | - | Updated modal copy with explicit below-zero handling and clearer redelivery wording |
+| POS-017 | P2 | Website UX | Delivery instructions label does not indicate optional vs required state | DONE | - | Delivery/pickup instruction labels now explicitly show optional vs required states |
+| POS-018 | P2 | Website UX | "Remind me next year" is gated to authenticated users only | DONE | - | Reminder opt-in now shown for guests and persists via checkout reminder endpoint using checkout customer email |
 | POS-019 | P1 | Website UX | Checkout Step 3 login link navigates away and risks state loss | DONE | - | Replaced Step 3 `/login` link with inline checkout login modal to preserve entered state |
 | POS-020 | P1 | Website UX | Terms link navigates away from checkout instead of modal overlay | DONE | - | Checkout review step now opens Terms in inline modal (`CheckoutTermsModal`) and preserves checkout state |
 | POS-021 | P2 | Mobile Scan | Desktop scan modal (`ScanExternalOrderModal`) still present on External Orders page | TODO | - | Remove desktop scan entry points; keep scan mobile-only |

@@ -10,7 +10,6 @@ const CardMessageStep = ({
   suggestions,
   showSuggestions,
   onToggleSuggestions,
-  isAuthenticated,
   rememberDate,
   onRememberDateChange,
   onBack,
@@ -76,20 +75,20 @@ const CardMessageStep = ({
         />
       )}
 
-      {isAuthenticated && (
-        <label className="flex cursor-pointer items-start gap-3 rounded-md border border-stroke p-3 dark:border-dark-3">
-          <input
-            type="checkbox"
-            checked={rememberDate}
-            onChange={(event) => onRememberDateChange(event.target.checked)}
-            className="mt-1 h-4 w-4 rounded border border-stroke text-primary focus:ring-primary"
-          />
-          <div>
-            <p className="text-sm font-semibold text-dark dark:text-white">Remind me next year</p>
-            <p className="text-xs text-body-color dark:text-dark-6">Remember this date for future flower reminders.</p>
-          </div>
-        </label>
-      )}
+      <label className="flex cursor-pointer items-start gap-3 rounded-md border border-stroke p-3 dark:border-dark-3">
+        <input
+          type="checkbox"
+          checked={rememberDate}
+          onChange={(event) => onRememberDateChange(event.target.checked)}
+          className="mt-1 h-4 w-4 rounded border border-stroke text-primary focus:ring-primary"
+        />
+        <div>
+          <p className="text-sm font-semibold text-dark dark:text-white">Remind me next year</p>
+          <p className="text-xs text-body-color dark:text-dark-6">
+            We&apos;ll send a reminder to the email you enter in Your Info.
+          </p>
+        </div>
+      </label>
 
       <div className="flex flex-wrap justify-between gap-3">
         <button
@@ -119,7 +118,6 @@ CardMessageStep.propTypes = {
   suggestions: PropTypes.array.isRequired,
   showSuggestions: PropTypes.bool.isRequired,
   onToggleSuggestions: PropTypes.func.isRequired,
-  isAuthenticated: PropTypes.bool.isRequired,
   rememberDate: PropTypes.bool.isRequired,
   onRememberDateChange: PropTypes.func.isRequired,
   onBack: PropTypes.func.isRequired,
