@@ -1,11 +1,13 @@
 // components/pos/payment/CardPaymentModal.tsx - Simplified Stripe-only flow
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Elements, CardElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { Modal } from '@shared/ui/components/ui/modal';
 import stripeService from '@shared/legacy-services/stripeService';
 import { CreditCardIcon } from '@shared/assets/icons';
 import InputField from '@shared/ui/forms/input/InputField';
 import { formatCurrency } from '@shared/utils/currency';
+
+const stripePromise = stripeService.getStripe();
 
 type Props = {
   open: boolean;
@@ -94,19 +96,25 @@ const ManualCardEntryForm = ({
 }: ManualCardEntryFormProps) => {
   const stripe = useStripe();
   const elements = useElements();
+  const submitGuardRef = useRef(false);
   const [postalCode, setPostalCode] = useState('');
   const [saveCard, setSaveCard] = useState(false);
   const [cardReady, setCardReady] = useState(false);
 
   const handleManualCharge = async () => {
+    if (submitGuardRef.current) return;
+    submitGuardRef.current = true;
+
     if (!stripe || !elements) {
       onError('Stripe is still loading. Please try again.');
+      submitGuardRef.current = false;
       return;
     }
 
     const cardElement = elements.getElement(CardElement);
     if (!cardElement) {
       onError('Card input is not ready.');
+      submitGuardRef.current = false;
       return;
     }
 
@@ -161,6 +169,7 @@ const ManualCardEntryForm = ({
       onError(err instanceof Error ? err.message : 'Payment failed');
     } finally {
       onProcessingChange(false);
+      submitGuardRef.current = false;
     }
   };
 
@@ -237,7 +246,6 @@ export default function CardPaymentModal({
   onCancel,
   embedded = false,
 }: Props) {
-  const stripePromise = useMemo(() => stripeService.getStripe(), []);
   const [viewMode, setViewMode] = useState<ViewMode>(defaultMode);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -679,11 +679,12 @@ router.post('/payment-intent', async (req, res) => {
  * POST /api/stripe/payment-intent/:id/confirm
  */
 router.post('/payment-intent/:id/confirm', async (req, res) => {
+  let stripe: Stripe | null = null;
   try {
     const { id } = req.params;
     const { paymentMethodId } = req.body;
 
-    const stripe = await paymentProviderFactory.getStripeClient();
+    stripe = await paymentProviderFactory.getStripeClient();
     const confirmData: Stripe.PaymentIntentConfirmParams = {};
 
     if (paymentMethodId) {
@@ -763,6 +764,48 @@ router.post('/payment-intent/:id/confirm', async (req, res) => {
   } catch (error) {
     console.error('❌ Payment intent confirmation failed:', error);
     const stripeError = error as any;
+    const details =
+      stripeError?.raw?.message ||
+      stripeError?.message ||
+      (error instanceof Error ? error.message : 'Unknown error');
+
+    if (
+      stripe &&
+      stripeError?.code === 'payment_intent_unexpected_state'
+    ) {
+      try {
+        const { id } = req.params;
+        const replayIntent = await stripe.paymentIntents.retrieve(id, {
+          expand: ['latest_charge'],
+        });
+
+        if (replayIntent.status === 'succeeded') {
+          const charge: any =
+            replayIntent.latest_charge && typeof replayIntent.latest_charge === 'object'
+              ? replayIntent.latest_charge
+              : null;
+
+          return res.json({
+            success: true,
+            replayed: true,
+            status: replayIntent.status,
+            paymentIntentId: replayIntent.id,
+            cardFingerprint: charge?.payment_method_details?.card?.fingerprint,
+            cardLast4: charge?.payment_method_details?.card?.last4,
+            cardBrand: charge?.payment_method_details?.card?.brand,
+            stripePaymentMethodId:
+              typeof replayIntent.payment_method === 'string'
+                ? replayIntent.payment_method
+                : replayIntent.payment_method?.id,
+            stripeCustomerId:
+              typeof replayIntent.customer === 'string' ? replayIntent.customer : undefined,
+          });
+        }
+      } catch (replayError) {
+        console.error('❌ Failed to replay payment intent state:', replayError);
+      }
+    }
+
     const statusCode =
       typeof stripeError?.statusCode === 'number'
         ? stripeError.statusCode
@@ -772,7 +815,7 @@ router.post('/payment-intent/:id/confirm', async (req, res) => {
 
     res.status(statusCode >= 400 && statusCode < 600 ? statusCode : 500).json({
       error: 'Failed to confirm payment intent',
-      details: error instanceof Error ? error.message : 'Unknown error',
+      details,
       code: stripeError?.code,
     });
   }

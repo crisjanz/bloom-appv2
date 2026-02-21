@@ -68,8 +68,8 @@ class StripeService {
   /**
    * Get Stripe instance
    */
-  async getStripe(): Promise<Stripe | null> {
-    return await this.stripePromise;
+  getStripe(): Promise<Stripe | null> {
+    return this.stripePromise;
   }
 
   /**
@@ -135,11 +135,9 @@ class StripeService {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(
-          errorData.details ||
-          errorData.error ||
-          'Failed to confirm payment intent'
-        );
+        const detail = errorData.details || errorData.error || 'Failed to confirm payment intent';
+        const code = errorData.code ? ` (${errorData.code})` : '';
+        throw new Error(`${detail}${code}`);
       }
 
       const result = await response.json();
