@@ -471,6 +471,7 @@ model OrderCommunication {
   subject      String?
   isAutomatic  Boolean           @default(false)
   sentVia      String?
+  twilioSid    String?
   createdAt    DateTime          @default(now())
   readAt       DateTime?
   employee     Employee?         @relation(fields: [employeeId], references: [id])

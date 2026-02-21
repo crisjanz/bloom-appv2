@@ -46,7 +46,7 @@ class SMSService {
   /**
    * Send a basic SMS
    */
-  async sendSMS(options: SMSOptions): Promise<boolean> {
+  async sendSMS(options: SMSOptions): Promise<string | null> {
     try {
       const twilioClient = await this.getTwilioClient();
       const fromPhone = await this.getFromPhone();
@@ -54,14 +54,14 @@ class SMSService {
 
       if (!cleanFromPhone) {
         console.error('❌ SMS from phone is not configured:', fromPhone);
-        return false;
+        return null;
       }
 
       // Validate phone number format
       const cleanPhone = this.formatPhoneNumber(options.to);
       if (!cleanPhone) {
         console.error('❌ Invalid phone number format:', options.to);
-        return false;
+        return null;
       }
 
       console.log('📱 Sending SMS:', {
@@ -69,17 +69,22 @@ class SMSService {
         message: options.message.substring(0, 50) + '...'
       });
 
+      const statusCallbackUrl = process.env.BACKEND_URL
+        ? `${process.env.BACKEND_URL}/api/sms/status-callback`
+        : undefined;
+
       const message = await twilioClient.messages.create({
         body: options.message,
         from: cleanFromPhone,
-        to: cleanPhone
+        to: cleanPhone,
+        ...(statusCallbackUrl ? { statusCallback: statusCallbackUrl } : {})
       });
 
       console.log('✅ SMS sent successfully:', message.sid);
-      return true;
+      return message.sid;
     } catch (error) {
       console.error('❌ Failed to send SMS:', error);
-      return false;
+      return null;
     }
   }
 
@@ -93,10 +98,10 @@ class SMSService {
       console.log('📱 Generated receipt SMS message:', message);
       console.log('📱 Message length:', message.length);
       
-      return await this.sendSMS({
+      return (await this.sendSMS({
         to: data.phoneNumber,
         message: message
-      });
+      })) !== null;
     } catch (error) {
       console.error('❌ Failed to send receipt SMS:', error);
       return false;
@@ -109,11 +114,11 @@ class SMSService {
   async sendOrderConfirmationSMS(data: OrderConfirmationSMSData): Promise<boolean> {
     try {
       const message = this.generateOrderConfirmationMessage(data);
-      
-      return await this.sendSMS({
+
+      return (await this.sendSMS({
         to: data.phoneNumber,
         message: message
-      });
+      })) !== null;
     } catch (error) {
       console.error('❌ Failed to send order confirmation SMS:', error);
       return false;
@@ -128,10 +133,10 @@ class SMSService {
     message: string;
   }): Promise<boolean> {
     try {
-      return await this.sendSMS({
+      return (await this.sendSMS({
         to: options.phoneNumber,
         message: options.message
-      });
+      })) !== null;
     } catch (error) {
       console.error('❌ Failed to send custom SMS:', error);
       return false;
@@ -145,11 +150,11 @@ class SMSService {
     const message = `Test SMS from Bloom Flower Shop!
 
 This is a test message to verify SMS integration is working. If you received this, the setup is successful!`;
-    
-    return await this.sendSMS({
+
+    return (await this.sendSMS({
       to: phoneNumber,
       message: message
-    });
+    })) !== null;
   }
 
   /**

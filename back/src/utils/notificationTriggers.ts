@@ -195,6 +195,7 @@ export async function triggerStatusNotifications(order: any, newStatus: string, 
                     recipient: notification.recipient,
                     isAutomatic: true,
                     sentVia: 'Twilio',
+                    status: 'sent',
                     readAt: new Date()
                   }
                 });

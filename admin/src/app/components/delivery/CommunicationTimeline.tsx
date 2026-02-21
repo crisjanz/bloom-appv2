@@ -148,6 +148,18 @@ export default function CommunicationTimeline({ communications, loading }: Commu
           <div className={`text-xs mt-1 ${timeClass}`}>
             {formatDate(comm.createdAt)}
           </div>
+          {isOutgoing && comm.type === 'SMS_SENT' && comm.status && (
+            <div className={`text-[11px] mt-0.5 text-right ${
+              comm.status === 'delivered' ? 'text-green-300' :
+              comm.status === 'failed' ? 'text-red-300' :
+              'text-white/50'
+            }`}>
+              {comm.status === 'delivered' ? 'Delivered' :
+               comm.status === 'failed' ? 'Failed' :
+               comm.status === 'sending' ? 'Sending...' :
+               comm.status === 'sent' ? 'Sent' : null}
+            </div>
+          )}
         </div>
       </div>
     );

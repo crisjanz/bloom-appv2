@@ -188,4 +188,61 @@ router.post('/webhook', express.urlencoded({ extended: false }), async (req, res
   }
 });
 
+// Twilio delivery status callback
+const StatusCallbackSchema = z.object({
+  MessageSid: z.string(),
+  MessageStatus: z.string() // queued, sending, sent, delivered, undelivered, failed
+});
+
+router.post('/status-callback', express.urlencoded({ extended: false }), async (req, res) => {
+  try {
+    const parsed = StatusCallbackSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.sendStatus(400);
+    }
+
+    const { MessageSid, MessageStatus } = parsed.data;
+
+    // Map Twilio status to our display status
+    const statusMap: Record<string, string> = {
+      queued: 'sending',
+      sending: 'sending',
+      sent: 'sending',
+      delivered: 'delivered',
+      undelivered: 'failed',
+      failed: 'failed'
+    };
+    const status = statusMap[MessageStatus] ?? MessageStatus;
+
+    const communication = await prisma.orderCommunication.findFirst({
+      where: { twilioSid: MessageSid },
+      select: { id: true, orderId: true, recipient: true, order: { select: { orderNumber: true } } }
+    });
+
+    if (!communication) {
+      return res.sendStatus(200);
+    }
+
+    await prisma.orderCommunication.update({
+      where: { id: communication.id },
+      data: { status }
+    });
+
+    if (status === 'failed') {
+      const adminBaseUrl = process.env.ADMIN_BASE_URL || '';
+      sendPushoverNotification({
+        title: `SMS Failed → Order #${communication.order?.orderNumber ?? communication.orderId}`,
+        message: `To: ${communication.recipient ?? 'unknown'} — ${MessageStatus}`,
+        priority: 1,
+        ...(adminBaseUrl ? { link: `${adminBaseUrl}/orders/${communication.orderId}` } : {})
+      });
+    }
+
+    return res.sendStatus(200);
+  } catch (error) {
+    console.error('Error handling SMS status callback:', error);
+    return res.sendStatus(500);
+  }
+});
+
 export default router;

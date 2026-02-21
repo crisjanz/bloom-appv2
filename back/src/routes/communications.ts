@@ -115,12 +115,12 @@ router.post('/:orderId/sms', async (req: Request, res: Response) => {
     }
 
     // Send SMS via Twilio
-    const smsSent = await smsService.sendSMS({
+    const twilioSid = await smsService.sendSMS({
       to: phoneNumber,
       message
     });
 
-    if (!smsSent) {
+    if (!twilioSid) {
       return res.status(500).json({
         success: false,
         error: 'Failed to send SMS'
@@ -137,6 +137,8 @@ router.post('/:orderId/sms', async (req: Request, res: Response) => {
         recipient: phoneNumber,
         isAutomatic: false,
         sentVia: 'Twilio',
+        twilioSid,
+        status: 'sending',
         readAt: new Date()
       },
       include: {
