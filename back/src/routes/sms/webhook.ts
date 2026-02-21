@@ -5,6 +5,7 @@ import { PrismaClient, CommunicationType } from '@prisma/client';
 import { emailSettingsService } from '../../services/emailSettingsService';
 import { smsService } from '../../services/smsService';
 import { broadcastSmsReceived } from '../../services/communicationsSocketService';
+import { sendPushoverNotification } from '../../services/pushoverService';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -115,6 +116,11 @@ router.post('/webhook', express.urlencoded({ extended: false }), async (req, res
 
     if (matchingOrders.length === 0) {
       console.warn('No matching order found for incoming SMS', normalizedPhone, 'candidates:', phoneCandidates, 'outbound match:', recentOutboundMatch?.order?.orderNumber ?? 'none');
+      sendPushoverNotification({
+        title: `SMS from ${normalizedPhone}`,
+        message: Body,
+        priority: 0
+      });
       return res.type('text/xml').send('<Response/>');
     }
 
@@ -162,6 +168,17 @@ router.post('/webhook', express.urlencoded({ extended: false }), async (req, res
       communicationId: communication.id,
       orderUnreadCount,
       totalUnreadCount
+    });
+
+    const adminBaseUrl = process.env.ADMIN_BASE_URL || '';
+    sendPushoverNotification({
+      title: `SMS re: Order #${order.orderNumber}`,
+      message: `${normalizedPhone}: ${Body}`,
+      priority: 0,
+      ...(adminBaseUrl ? {
+        url: `${adminBaseUrl}/orders/${order.id}`,
+        urlTitle: `Open Order #${order.orderNumber}`
+      } : {})
     });
 
     return res.type('text/xml').send('<Response/>');
