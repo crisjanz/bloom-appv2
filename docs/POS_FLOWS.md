@@ -600,7 +600,240 @@ No auto-print or notifications after scan — correct behavior. Staff reviews th
 ---
 
 ## 6. Post-Order Flows
-<!-- TODO: Editing, cancellation, refunds, fulfillment -->
+
+### 6.1 Order Editing
+
+All editing happens on `OrderEditPage` (`/orders/:id`). Each section opens a modal:
+
+| Section | What's Editable |
+|---------|-----------------|
+| Customer | First name, last name, email, phone (updates actual Customer record — intentional, keeps data current across all orders) |
+| Recipient | Name, company, phone, address fields (updates Address record) |
+| Delivery | Date, time, card message, instructions, occasion, delivery fee |
+| Products | Add/remove/edit line items (name, unitPrice, quantity) |
+| Payment | Delivery fee, discount, GST, PST |
+| Images | Upload/remove design photos |
+
+**Auto-recalculation:** When products, fees, or taxes change, backend recalculates `paymentAmount = subtotal + deliveryFee - discount + totalTax`.
+
+**Payment Adjustment Flow (triggered when total changes by >= $0.50):**
+1. `PaymentAdjustmentModal` appears showing old vs new total
+2. New total > old → collect additional payment (creates new PT linked to order)
+3. New total < old → process partial refund (records against original PT)
+4. User can skip (just add a note) or cancel (order reverts to previous values)
+
+**Order Activity Timeline (on OrderEditPage):**
+- Activity card under Order Details shows newest-first merged events from three sources: `OrderActivity` (status/payment/edit/create/refund logs), `OrderCommunication` (SMS/email/notes), and `PrintJob` history.
+- Uses cursor pagination (`GET /api/orders/:orderId/activity?limit=20&before=<timestamp>`) with “Load more”.
+- Logging is append-only and non-blocking: activity write failures never block the parent operation.
+
+### 6.2 Fulfillment Status Progression
+
+Two independent status fields (see Section 8 for design rationale):
+
+**`status` (fulfillment):**
+```
+DRAFT → PAID → IN_DESIGN → READY → OUT_FOR_DELIVERY → COMPLETED
+                                  ↘ (pickup orders skip OUT_FOR_DELIVERY)
+```
+Terminal: CANCELLED, REJECTED (no transitions out)
+
+**`paymentStatus` (payment) — auto-calculated, not manually set:**
+```
+UNPAID → PAID (when PT with settling method created)
+PAID → PARTIALLY_REFUNDED → REFUNDED (when refunds processed)
+```
+
+`paymentStatus` is recalculated by `recalculateOrderPaymentStatuses()` whenever a PT is created or a refund is processed. It considers only "settling" payment methods — Pay Later and House Account don't count as settled (order stays UNPAID until actual money changes hands).
+
+**Status transition rules (`getAllowedTransitions`):**
+- DRAFT → PAID or CANCELLED only
+- CANCELLED → nothing (terminal)
+- All other statuses → any non-DRAFT status (flexible, allows skipping or going back)
+- Pickup orders → OUT_FOR_DELIVERY blocked
+
+**On status change** (`PATCH /api/orders/:orderId/status`):
+- Updates `status` only (never touches `paymentStatus`)
+- Triggers `triggerStatusNotifications()` (see Section 7 for what should/shouldn't fire)
+- CANCELLED triggers automatic refund processing (see 6.3)
+
+### 6.3 Cancellation & Refund
+
+**From OrderEditPage header:** "Cancel/Refund" button (hidden when CANCELLED, COMPLETED, or already refunded).
+
+**Flow:**
+1. Check if order has payment transactions (`GET /api/payment-transactions/order/:id`)
+2. **No PT:** Confirm dialog → cancel without refund
+3. **Has PT:** Opens `RefundModal` with transaction details
+
+**Refund processing (`processOrderRefunds`):**
+1. Find all PTs linked to order via `OrderPayment`
+2. Calculate refundable amount per PT (total - already refunded)
+3. Proportionally allocate refund across payment methods in each PT
+4. Per payment method type:
+   - **Stripe CARD** → `stripe.refunds.create()` (automatic)
+   - **Square CARD** → `squareService.createRefund()` (automatic)
+   - **Cash/other** → recorded as "manual" (staff handles)
+   - **House Account** → reverse ledger entry (credit back to HA balance)
+5. Create `Refund` + `RefundMethod` + `OrderRefund` records
+6. `recalculateOrderPaymentStatuses()` → updates `paymentStatus` to REFUNDED or PARTIALLY_REFUNDED
+7. Update PT status to match
+
+**After refund completes:** frontend calls `PATCH /api/orders/:id/status` with `CANCELLED` + `skipRefund: true` (refund already handled by modal).
+
+### 6.4 Draft Deletion
+
+- `DELETE /api/orders/:id/draft` — hard delete, DRAFT status only
+- Cascades: order items, communications, payments, refunds, route stops, print jobs
+- Non-draft orders use CANCELLED status instead
+
+### 6.5 Current Issues
+
+⚠️ **No "Apply Payment" for unpaid orders:**
+- Orders with `paymentStatus: UNPAID` (Pay Later, House Account) have no way to record payment later
+- When customer comes back to pay, no button to collect payment against the existing order
+- Need a "Collect Payment" action that opens payment modal and creates PT → triggers `recalculateOrderPaymentStatuses` → flips to PAID
+
+⚠️ **Status transitions allow going backward without confirmation:**
+- Any non-terminal order can jump to any non-DRAFT status (e.g., COMPLETED → IN_DESIGN)
+- No confirmation dialog — accidental status changes can't be undone
+
+⚠️ **Payment adjustment threshold ($0.50) causes silent gaps:**
+- Changes under $0.50 update the order total but create no PT adjustment
+- Small discrepancies accumulate between PT amounts and order totals over time
+
+⚠️ **Test notification endpoint still exists:**
+- `POST /api/orders/test-notification` in status.ts — remove before production
+
+---
+
+## 9. Delivery & Route Flow
+
+### 9.1 Overview
+
+Three interfaces for delivery management:
+
+| Interface | Path | Used By | Purpose |
+|-----------|------|---------|---------|
+| **Delivery Page** | `/delivery` (admin) | Staff | Daily order board — view all orders by date, change statuses, contact recipients |
+| **Route Builder** | `/delivery/routes` (admin) | Staff | Create delivery routes, assign drivers, sequence stops |
+| **Driver Route View** | `/driver/route?token=...` (admin) | Driver | Mobile-friendly route view with map, delivery confirmation, signature capture |
+
+### 9.2 Delivery Page (Daily Board)
+
+**Layout:** Date selector (today/tomorrow/future tabs) + three sections:
+
+1. **For Delivery** — delivery orders not yet completed (sorted by delivery time, then creation)
+2. **For Pickup** — pickup orders not yet completed
+3. **Completed** — completed, cancelled, rejected orders (sorted by most recent)
+
+**Each order card shows:** order number, recipient name, address, delivery time, items, payment amount, status badge, paymentStatus badge, unread SMS count
+
+**Actions per order:**
+- **Status dropdown** — change fulfillment status (same transitions as section 6.2)
+- **Contact button** — opens `OrderCommunicationModal` (SMS/notes)
+- **Click order number** — navigates to OrderEditPage
+- **Route badge** — shows if order is assigned to a route
+
+**Filters:** Date picker, payment status filter (ALL, PAID, UNPAID)
+
+**Map button:** Opens Google Maps with all delivery addresses for the selected date
+
+**Real-time:** WebSocket updates unread SMS counts live via `useCommunicationsSocket`
+
+### 9.3 Route Builder
+
+**Purpose:** Group delivery orders into routes, assign a driver, set stop sequence.
+
+**Layout:** Two-panel — unassigned orders on left, routes on right.
+
+**Creating a route:**
+1. Select date
+2. Check orders from unassigned list
+3. "Create Route" → `POST /api/routes` with orderIds
+4. Backend validates: all orders must be DELIVERY type, none already assigned to a route
+5. Auto-sequences stops by delivery time, then creation time
+6. Optionally assign a driver (from employees with type=DRIVER)
+
+**Route management:**
+- **Drag-and-drop resequencing** (`@hello-pangea/dnd`) → `PUT /api/routes/:id/resequence`
+- **Assign/change driver** → `PATCH /api/routes/:id`
+- **Delete route** → `DELETE /api/routes/:id` (only PLANNED routes)
+- **Route status:** PLANNED → IN_PROGRESS → COMPLETED
+
+**Stop sequencing is manual** — all deliveries have custom times, no auto-optimization needed.
+
+**Constraint:** Each order can only be in one route (`orderId @unique` on RouteStop).
+
+### 9.4 Driver Route View
+
+**Access:** QR code generated per order → `GET /api/driver/qr/:orderId` → returns signed JWT token → driver opens URL on phone.
+
+**No login required** — token-based auth (JWT with orderId, expires after set time).
+
+**What the driver sees:**
+- Google Map with all stops pinned
+- Stop list in sequence order with recipient name, address, delivery status
+- Current stop highlighted
+
+**Delivery confirmation flow (per stop):**
+1. Driver taps a stop → opens delivery form
+2. **Driver notes** — free text (e.g., "left at side door")
+3. **Recipient name** — who received (e.g., "front desk")
+4. **Delivery photo** (optional) — snap photo if left at door/unattended
+5. **Signature capture** — `react-signature-canvas` draws on screen
+6. Tap "Mark Delivered" → `POST /api/driver/route/stop/:stopId/deliver`
+
+**Backend on delivery confirmation:**
+1. Update RouteStop: status=DELIVERED, deliveredAt=now, driverNotes, signatureUrl, photoUrl, recipientName
+2. Signature uploaded to R2 storage via `uploadSignature()`
+3. Photo uploaded to R2 (if provided)
+4. Update Order: status=COMPLETED
+5. Check if all stops in route are delivered → if yes, route status=COMPLETED + completedAt=now
+6. If not all delivered → route status=IN_PROGRESS + startedAt=now
+
+### 9.5 Non-Route Deliveries
+
+Orders delivered without a route (ad-hoc, owner delivers personally) should use the **same Driver Route View** — just as a standalone single-order view.
+
+**Flow:**
+1. From Delivery Page → "Confirm Delivery" action on any non-routed order
+2. Opens Driver Route View in standalone mode (already supported — backend returns `type: 'standalone'` when order has no routeStop)
+3. Same confirmation form: notes, recipient name, photo (optional), signature
+4. Same backend endpoint marks order COMPLETED with delivery details captured
+
+This ensures ALL deliveries go through the same confirmation flow — no shortcut where manually changing status to COMPLETED skips signature/photo/notes.
+
+### 9.6 Data Model
+
+**Route:** `routeNumber` (auto-increment), date, driver (optional), status (PLANNED/IN_PROGRESS/COMPLETED/CANCELLED), startedAt, completedAt
+
+**RouteStop:** orderId (unique — one route per order), sequence, status (PENDING/DELIVERED), deliveredAt, driverNotes, signatureUrl, photoUrl, recipientName
+
+### 9.7 Current Issues
+
+⚠️ **Delivery confirmation doesn't trigger notification:**
+- Driver marks DELIVERED → order goes COMPLETED, but no email/SMS sent to buyer
+- Section 7 specifies delivery confirmation as the #1 most important notification
+- Need to trigger notification with delivery photo (if available) when driver confirms
+
+⚠️ **No delivery photo capture in driver view:**
+- `RouteStop` has `photoUrl` field but driver view has no camera/upload UI
+- Add optional photo capture to delivery confirmation form (camera button, not required)
+- Photo is for "left at door" scenarios — most hand-delivered orders won't have one
+
+⚠️ **Non-route deliveries skip confirmation flow:**
+- Delivery Page lets staff change status to COMPLETED via dropdown — no signature/photo/notes
+- Should add a "Confirm Delivery" button that opens the Driver Route View in standalone mode
+- Alternatively, block COMPLETED status on delivery orders unless confirmed through the proper flow
+
+⚠️ **Unused StopStatus values — clean up:**
+- EN_ROUTE, ARRIVED, ATTEMPTED, SKIPPED are defined in enum but never set in code
+- Only PENDING and DELIVERED are used — remove the unused values
+- Requires Prisma migration to update the enum
+
+⚠️ **Test notification endpoint still exists:**
+- `POST /api/orders/test-notification` in status.ts — remove before production
 
 ---
 
@@ -667,25 +900,30 @@ If per-customer opt-out is ever needed, add a `notificationsEnabled` boolean on 
 
 ---
 
-## 8. Payment Status Separation (Major Refactor)
+## 8. Payment Status Separation ✅
 
-> See full feature plan: `/docs/FEATURE_PLANS/payment-status-separation.md`
+> Implemented. Migration: `20260219120000_payment_status_separation`
 
-### Problem
-`OrderStatus` currently mixes fulfillment and payment concerns into one field. This breaks when:
-- Pay Later orders get fulfilled (unpaid info lost when status moves to IN_DESIGN, READY, etc.)
-- House Account orders are delivered but not yet billed
-- Refunded orders need to keep their fulfillment history
-
-### Solution
-Add a separate `paymentStatus` field on the Order model:
+### Design
+Two independent fields on Order:
 
 | Field | Tracks | Values |
 |-------|--------|--------|
-| `status` | **Fulfillment** | DRAFT, PAID*, IN_DESIGN, READY, OUT_FOR_DELIVERY, COMPLETED, CANCELLED, REJECTED |
+| `status` | **Fulfillment** | DRAFT, PAID, IN_DESIGN, READY, OUT_FOR_DELIVERY, COMPLETED, CANCELLED, REJECTED |
 | `paymentStatus` | **Payment** | UNPAID, PAID, PARTIALLY_PAID, REFUNDED, PARTIALLY_REFUNDED |
 
-*PAID remains in OrderStatus as a fulfillment milestone (order confirmed/accepted), but actual payment tracking moves to `paymentStatus`.
+PAID remains in `status` as a fulfillment milestone (order confirmed/accepted). Actual payment tracking is on `paymentStatus`.
+
+### How `paymentStatus` Is Calculated
+
+Auto-managed by `recalculateOrderPaymentStatuses()` in `orderPaymentStatusService.ts`. Called when:
+- A Payment Transaction is created (via `transactionService`)
+- A Refund is processed (via `refundService`)
+
+**Logic:**
+- Sums "settled" amounts from PTs — Pay Later and House Account are **non-settling** (don't count as paid)
+- Sums settled refund amounts
+- Resolves: UNPAID → PAID → PARTIALLY_REFUNDED → REFUNDED based on amounts
 
 ### Examples
 | Scenario | `status` | `paymentStatus` |
@@ -695,3 +933,7 @@ Add a separate `paymentStatus` field on the Order model:
 | House Account, fulfilled | COMPLETED | UNPAID |
 | Partial refund after delivery | COMPLETED | PARTIALLY_REFUNDED |
 | Cash order, ready for pickup | READY | PAID |
+
+### UI
+- `OrderHeader` shows `paymentStatus` badge alongside fulfillment status
+- `getPaymentStatusColor()` and `getPaymentStatusDisplayText()` for consistent display

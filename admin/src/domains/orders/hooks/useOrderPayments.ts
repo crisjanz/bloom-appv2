@@ -230,7 +230,20 @@ export const useOrderPayments = () => {
     totals: any,
     employee: string,
     orderSource: string,
-    cleanPhoneNumber: (value: string) => string
+    cleanPhoneNumber: (value: string) => string,
+    options?: {
+      paymentTransaction?: {
+        channel?: 'POS' | 'PHONE' | 'WEBSITE';
+        totalAmount?: number;
+        taxAmount?: number;
+        tipAmount?: number;
+        notes?: string;
+        receiptEmail?: string;
+        employeeId?: string;
+        paymentMethods: any[];
+      };
+      idempotencyKey?: string;
+    }
   ) => {
     setProcessing(true);
     setError(null);
@@ -431,6 +444,8 @@ export const useOrderPayments = () => {
         paymentConfirmed: true,
         employee,
         orderSource: orderSource.toUpperCase(),
+        ...(options?.paymentTransaction ? { paymentTransaction: options.paymentTransaction } : {}),
+        ...(options?.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : {}),
       };
 
       console.log('📦 Creating orders via API...', { orderCount: ordersWithRecipientIds.length });
@@ -455,7 +470,9 @@ export const useOrderPayments = () => {
 
       return {
         success: true,
-        orders: result.orders
+        orders: result.orders,
+        paymentTransaction: result.paymentTransaction,
+        replayed: Boolean(result.replayed),
       };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Order payment completion failed';

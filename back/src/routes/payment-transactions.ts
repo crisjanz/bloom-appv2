@@ -23,7 +23,8 @@ router.post('/', async (req, res) => {
       paymentMethods,
       orderIds,
       isAdjustment,
-      orderPaymentAllocations
+      orderPaymentAllocations,
+      idempotencyKey
     } = req.body;
 
     const adjustmentFlag = Boolean(isAdjustment);
@@ -82,7 +83,8 @@ router.post('/', async (req, res) => {
       paymentMethods,
       orderIds: resolvedOrderIds,
       isAdjustment: adjustmentFlag,
-      orderPaymentAllocations: allocationList
+      orderPaymentAllocations: allocationList,
+      idempotencyKey
     });
 
     // Update Stripe PaymentIntent description with order numbers (fire-and-forget)

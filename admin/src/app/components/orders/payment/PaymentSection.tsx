@@ -1,5 +1,5 @@
 // src/components/orders/payment/PaymentSection.tsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TakeOrderPaymentTiles from './TakeOrderPaymentTiles';
 import type { PaymentEntry } from '@domains/payments/hooks/usePaymentComposer';
@@ -97,6 +97,7 @@ const PaymentSection: React.FC<Props> = ({
   const [automaticDiscounts, setAutomaticDiscounts] = useState<any[]>([]);
   const [automaticDiscountAmount, setAutomaticDiscountAmount] = useState(0);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const orderSubmissionIdempotencyKey = useRef<string | null>(null);
 
   const amountAfterGiftCards = Math.max(0, grandTotal - giftCardDiscount);
 
@@ -283,11 +284,30 @@ const PaymentSection: React.FC<Props> = ({
 
     // MIGRATION: Handle regular payment completion using domain hook
     try {
-      const paymentsData = payments.length > 0 ? payments : [{
-        method: 'GIFT_CARD',
-        amount: giftCardDiscount,
-        notes: 'Gift card payment'
-      }];
+      const paymentMethods: any[] = [];
+      for (const payment of payments) {
+        const mappedMethod = mapTakeOrderPaymentToAPI(payment);
+        if (mappedMethod) {
+          paymentMethods.push(mappedMethod);
+        }
+      }
+      if (giftCardDiscount > 0 && !payments.some((p) => p.method === 'gift_card')) {
+        paymentMethods.push({
+          type: 'GIFT_CARD',
+          provider: 'INTERNAL',
+          amount: giftCardDiscount,
+        });
+      }
+
+      if (paymentMethods.length === 0) {
+        setFormError('No payments were entered.');
+        return;
+      }
+
+      const paymentMethodsTotal = paymentMethods.reduce((sum, method) => sum + method.amount, 0);
+      const requestIdempotencyKey =
+        orderSubmissionIdempotencyKey.current || crypto.randomUUID();
+      orderSubmissionIdempotencyKey.current = requestIdempotencyKey;
 
       const totals = {
         itemTotal,
@@ -301,11 +321,23 @@ const PaymentSection: React.FC<Props> = ({
       const result = await completeOrderPayment(
         customerState,
         orderState,
-        paymentsData,
+        payments,
         totals,
         employee,
         orderSource,
-        cleanPhoneNumber
+        cleanPhoneNumber,
+        {
+          paymentTransaction: {
+            employeeId: employee,
+            channel: 'PHONE',
+            totalAmount: paymentMethodsTotal,
+            taxAmount: gst + pst,
+            tipAmount: 0,
+            notes: `Phone order from ${customerState.customerName || 'customer'}`,
+            paymentMethods,
+          },
+          idempotencyKey: requestIdempotencyKey,
+        }
       );
 
       if (!result.success) {
@@ -317,81 +349,9 @@ const PaymentSection: React.FC<Props> = ({
 
       // Create order data object for transaction tracking
       const orderData: any = {
-        orders: result.orders
+        orders: result.orders,
+        transactionNumber: result.paymentTransaction?.transactionNumber,
       };
-
-      // 💰 Create PT-XXXX payment transaction for all non-POS payments
-      if (payments.length > 0 || giftCardDiscount > 0) {
-        try {
-          console.log('💳 Creating PT-XXXX payment transaction...');
-          
-          // Map payment methods to PT transaction format
-          const paymentMethods = [];
-          
-          // Add regular payment methods
-          for (const payment of payments) {
-            const mappedMethod = mapTakeOrderPaymentToAPI(payment);
-            if (mappedMethod) {
-              paymentMethods.push(mappedMethod);
-            }
-          }
-          
-          // Add gift card payment if present
-          if (giftCardDiscount > 0 && !payments.some(p => p.method === 'gift_card')) {
-            paymentMethods.push({
-              type: 'GIFT_CARD',
-              provider: 'INTERNAL',
-              amount: giftCardDiscount
-            });
-          }
-
-          if (paymentMethods.length > 0) {
-            const paymentMethodsTotal = paymentMethods.reduce((sum, method) => sum + method.amount, 0);
-            const employeeId = employee; // Should be employee ID, not name
-            // Get customer ID from the created orders (they always have the customer ID)
-            const currentCustomerId = result.orders[0]?.customerId;
-
-            console.log('💳 PT Transaction - Customer ID:', currentCustomerId);
-
-            if (!currentCustomerId) {
-              console.error('❌ No customer ID found in created orders');
-              throw new Error('Customer ID missing from orders');
-            }
-
-            const transactionResponse = await fetch('/api/payment-transactions', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                customerId: currentCustomerId,
-                employeeId: employeeId,
-                channel: 'PHONE',
-                totalAmount: paymentMethodsTotal,
-                taxAmount: gst + pst,
-                tipAmount: 0,
-                notes: `Phone order from ${customerState.customerName || 'customer'}`,
-                paymentMethods: paymentMethods,
-                orderIds: result.orders.map((order: any) => order.id)
-              }),
-            });
-
-            if (transactionResponse.ok) {
-              const transaction = await transactionResponse.json();
-              console.log('✅ PT transaction created:', transaction.transactionNumber);
-              
-              // You could store the transaction number for display/receipt purposes
-              orderData.transactionNumber = transaction.transactionNumber;
-            } else {
-              const error = await transactionResponse.json();
-              console.error('❌ Failed to create PT transaction:', error);
-              // Continue with order completion even if PT transaction fails
-              setFormError(`Orders created but payment tracking failed: ${error.error}`);
-            }
-          }
-        } catch (error) {
-          console.error('❌ PT transaction creation failed:', error);
-          // Continue with order completion even if PT transaction fails
-        }
-      }
 
       // 🎁 Create/activate gift cards if any were purchased
       const giftCardOrders = orderState.orders
@@ -502,6 +462,7 @@ const PaymentSection: React.FC<Props> = ({
       setCouponCode("");
       setPendingGiftCardRedemptions([]);
       setFormError(null);
+      orderSubmissionIdempotencyKey.current = null;
       
       // Auto-hide toast after 3 seconds, then redirect to order view
       setTimeout(() => {

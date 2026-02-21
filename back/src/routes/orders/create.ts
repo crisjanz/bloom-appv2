@@ -1,5 +1,5 @@
 import express from 'express';
-import { OrderActivityType, PrismaClient, OrderSource, OrderStatus, PaymentStatus, PrintJobType } from '@prisma/client';
+import { OrderActivityType, Prisma, PrismaClient, OrderSource, OrderStatus, PaymentStatus, PrintJobType } from '@prisma/client';
 import { calculateTax } from '../../utils/taxCalculator';
 import { triggerStatusNotifications } from '../../utils/notificationTriggers';
 import { printService } from '../../services/printService';
@@ -75,12 +75,13 @@ const recordDiscountUsage = async (
   customerId: string | null,
   orderId: string,
   source: string | null,
+  tx?: Prisma.TransactionClient,
 ) => {
   if (!customerId || discounts.length === 0) return;
 
-  await prisma.$transaction(async (tx) => {
+  const recordWithTx = async (activeTx: Prisma.TransactionClient) => {
     for (const discount of discounts) {
-      await tx.discountUsage.create({
+      await activeTx.discountUsage.create({
         data: {
           discountId: discount.id,
           customerId,
@@ -90,33 +91,139 @@ const recordDiscountUsage = async (
         },
       });
 
-      await tx.discount.update({
+      await activeTx.discount.update({
         where: { id: discount.id },
         data: {
           usageCount: { increment: 1 },
         },
       });
     }
+  };
+
+  if (tx) {
+    await recordWithTx(tx);
+    return;
+  }
+
+  await prisma.$transaction(async (innerTx) => {
+    await recordWithTx(innerTx);
   });
+};
+
+const orderIncludeForResponse = {
+  customer: true,
+  recipientCustomer: {
+    include: {
+      primaryAddress: true,
+      addresses: true,
+    }
+  },
+  deliveryAddress: true,
+  orderItems: {
+    include: {
+      product: true
+    }
+  },
+  orderPayments: {
+    include: {
+      transaction: {
+        include: {
+          paymentMethods: true,
+        },
+      },
+    },
+  },
+};
+const IDEMPOTENCY_REPLAY_MARKER = '__IDEMPOTENCY_REPLAY__';
+
+const getExistingTransactionReplay = async (idempotencyKey: string) => {
+  const existingTransaction = await prisma.paymentTransaction.findUnique({
+    where: { idempotencyKey },
+    include: {
+      customer: true,
+      employee: true,
+      paymentMethods: true,
+      orderPayments: {
+        include: {
+          order: {
+            include: orderIncludeForResponse,
+          },
+        },
+      },
+    },
+  });
+
+  if (!existingTransaction) {
+    return null;
+  }
+
+  const seen = new Set<string>();
+  const existingOrders = existingTransaction.orderPayments
+    .map((op) => op.order)
+    .filter((order): order is NonNullable<typeof order> => Boolean(order))
+    .filter((order) => {
+      if (seen.has(order.id)) return false;
+      seen.add(order.id);
+      return true;
+    });
+
+  return {
+    transaction: existingTransaction,
+    orders: existingOrders,
+  };
 };
 
 // Create orders after payment confirmation
 router.post('/create', async (req, res) => {
   try {
-    const { customerId, orders, paymentConfirmed } = req.body;
+    const { customerId, orders, paymentConfirmed, paymentTransaction, idempotencyKey } = req.body;
 
-    console.log('Order creation request:', { customerId, orderCount: orders?.length, paymentConfirmed });
+    console.log('Order creation request:', {
+      customerId,
+      orderCount: orders?.length,
+      paymentConfirmed,
+      hasPaymentTransaction: Boolean(paymentTransaction),
+      idempotencyKey,
+    });
 
     if (!customerId || !orders || !Array.isArray(orders)) {
-      return res.status(400).json({ 
-        error: 'customerId and orders array are required' 
+      return res.status(400).json({
+        error: 'customerId and orders array are required'
       });
     }
 
     if (!paymentConfirmed) {
-      return res.status(400).json({ 
-        error: 'Payment must be confirmed before creating orders' 
+      return res.status(400).json({
+        error: 'Payment must be confirmed before creating orders'
       });
+    }
+
+    const paymentMethods = Array.isArray(paymentTransaction?.paymentMethods)
+      ? paymentTransaction.paymentMethods
+      : [];
+    if (paymentMethods.length === 0) {
+      return res.status(400).json({
+        error: 'paymentTransaction.paymentMethods is required for atomic order creation'
+      });
+    }
+
+    const normalizedIdempotencyKey =
+      typeof idempotencyKey === 'string' && idempotencyKey.trim().length > 0
+        ? idempotencyKey.trim()
+        : undefined;
+
+    if (normalizedIdempotencyKey) {
+      const replay = await getExistingTransactionReplay(normalizedIdempotencyKey);
+      if (replay) {
+        return res.json({
+          success: true,
+          replayed: true,
+          orders: replay.orders,
+          totalAmount: replay.orders.reduce((sum, order) => sum + (order.paymentAmount || 0), 0),
+          paymentTransaction: replay.transaction,
+          printActions: [],
+        });
+      }
     }
 
     const orderWithBirthday = orders.find((order: any) => order.birthdayOptIn !== undefined);
@@ -137,248 +244,297 @@ router.post('/create', async (req, res) => {
       });
     }
 
+    const requestOrderSourceRaw =
+      typeof req.body.orderSource === 'string' ? req.body.orderSource.toUpperCase() : null;
+    const requestOrderSource =
+      requestOrderSourceRaw && Object.values(OrderSource).includes(requestOrderSourceRaw as OrderSource)
+        ? (requestOrderSourceRaw as OrderSource)
+        : null;
+
+    const requestedChannelRaw =
+      typeof paymentTransaction?.channel === 'string' ? paymentTransaction.channel.toUpperCase() : null;
+    const channel: 'POS' | 'PHONE' | 'WEBSITE' =
+      requestedChannelRaw === 'POS' || requestedChannelRaw === 'PHONE' || requestedChannelRaw === 'WEBSITE'
+        ? requestedChannelRaw
+        : 'PHONE';
+
     const orderNumberPrefix = await getOrderNumberPrefix(prisma);
 
-    const createdOrders = [];
-    const printActions: Array<Record<string, any>> = [];
+    const transactionResult = await prisma.$transaction(async (tx) => {
+      const createdOrderIds: string[] = [];
 
-    for (const orderData of orders) {
-      console.log('Creating order for:', orderData.orderType);
+      for (const orderData of orders) {
+        console.log('Creating order for:', orderData.orderType);
 
-      // NEW: Use Customer-based recipient system (recipientCustomerId + deliveryAddressId)
-      let recipientCustomerId = orderData.recipientCustomerId || null;
-      let deliveryAddressId = orderData.deliveryAddressId || null;
+        const recipientCustomerId = orderData.recipientCustomerId || null;
+        const deliveryAddressId = orderData.deliveryAddressId || null;
 
-      if (orderData.orderType === 'DELIVERY' && !recipientCustomerId) {
-        console.warn('⚠️ Delivery order created without recipient - recipient should be managed via customer API');
-      }
+        if (orderData.orderType === 'DELIVERY' && !recipientCustomerId) {
+          console.warn('⚠️ Delivery order created without recipient - recipient should be managed via customer API');
+        }
 
-      // Calculate totals
-      let subtotal = 0;
-      const orderItems = orderData.customProducts.map((product: any) => {
-        const unitPrice = Math.round(parseFloat(product.price) * 100);
-        const quantity = parseInt(product.qty);
-        const rowTotal = unitPrice * quantity;
-        subtotal += rowTotal;
-        
-        return {
-          customName: product.description,
-          description: product.description,
-          unitPrice,
-          quantity,
-          rowTotal
-        };
-      });
+        let subtotal = 0;
+        const orderItems = orderData.customProducts.map((product: any) => {
+          const unitPrice = Math.round(parseFloat(product.price) * 100);
+          const quantity = parseInt(product.qty);
+          const rowTotal = unitPrice * quantity;
+          subtotal += rowTotal;
 
-      // Calculate taxes using centralized tax rates
-      const taxableAmount = orderItems
-        .filter((_: any, index: number) => orderData.customProducts[index].tax)
-        .reduce((sum: number, item: any) => sum + item.rowTotal, 0);
+          return {
+            customName: product.description,
+            description: product.description,
+            unitPrice,
+            quantity,
+            rowTotal
+          };
+        });
 
-      const {
-        discountAmountCents,
-        discountBreakdown,
-        discountId,
-        discountCode,
-        appliedDiscounts,
-      } = resolveDiscountPayload(orderData);
+        const taxableAmount = orderItems
+          .filter((_: any, index: number) => orderData.customProducts[index].tax)
+          .reduce((sum: number, item: any) => sum + item.rowTotal, 0);
 
-      const discountedSubtotal = Math.max(subtotal - discountAmountCents, 0);
-      const taxableAmountAfterDiscount = applyDiscountToTaxableAmount(
-        taxableAmount,
-        subtotal,
-        discountAmountCents,
-      );
-      
-      const taxCalculation = await calculateTax(taxableAmountAfterDiscount);
-
-      const deliveryFeeInCents = Math.round(orderData.deliveryFee * 100);
-      const totalAmount = discountedSubtotal + taxCalculation.totalAmount + deliveryFeeInCents;
-
-      // Create order with DRAFT status first, will be updated to PAID by PT transaction
-      const order = await prisma.order.create({
-        data: {
-          type: orderData.orderType,
-          status: OrderStatus.DRAFT, // Start as DRAFT, PT transaction will update to PAID
-          paymentStatus: PaymentStatus.UNPAID,
-          orderSource: orderData.orderSource || 'PHONE', // Default to PHONE if not provided
-          customerId,
-          recipientCustomerId,
-          deliveryAddressId,
-          cardMessage: orderData.cardMessage || null,
-          occasion: orderData.occasion || null,
-          specialInstructions: orderData.deliveryInstructions || null,
-          deliveryDate: orderData.deliveryDate
-            ? new Date(orderData.deliveryDate + 'T00:00:00')  // Explicitly midnight to avoid timezone shift
-            : null,
-          deliveryTime: orderData.deliveryTime || null,
-          deliveryFee: deliveryFeeInCents,
-          discount: discountAmountCents,
+        const {
+          discountAmountCents,
           discountBreakdown,
           discountId,
           discountCode,
-          taxBreakdown: taxCalculation.breakdown, // Dynamic tax breakdown
-          totalTax: taxCalculation.totalAmount, // Total tax amount
-          paymentAmount: totalAmount,
-          images: [], // Initialize empty images array
-          orderItems: {
-            create: orderItems
-          }
-        },
-        include: {
-          orderItems: true,
-          recipientCustomer: {
-            include: {
-              primaryAddress: true,
-              addresses: true,
+          appliedDiscounts,
+        } = resolveDiscountPayload(orderData);
+
+        const discountedSubtotal = Math.max(subtotal - discountAmountCents, 0);
+        const taxableAmountAfterDiscount = applyDiscountToTaxableAmount(
+          taxableAmount,
+          subtotal,
+          discountAmountCents,
+        );
+
+        const taxCalculation = await calculateTax(taxableAmountAfterDiscount);
+        const deliveryFeeInCents = Math.round(orderData.deliveryFee * 100);
+        const totalAmount = discountedSubtotal + taxCalculation.totalAmount + deliveryFeeInCents;
+
+        const orderSourceRaw =
+          typeof orderData.orderSource === 'string' ? orderData.orderSource.toUpperCase() : null;
+        const orderSource =
+          orderSourceRaw && Object.values(OrderSource).includes(orderSourceRaw as OrderSource)
+            ? (orderSourceRaw as OrderSource)
+            : requestOrderSource || OrderSource.PHONE;
+
+        const order = await tx.order.create({
+          data: {
+            type: orderData.orderType,
+            status: OrderStatus.DRAFT,
+            paymentStatus: PaymentStatus.UNPAID,
+            orderSource,
+            customerId,
+            recipientCustomerId,
+            deliveryAddressId,
+            cardMessage: orderData.cardMessage || null,
+            occasion: orderData.occasion || null,
+            specialInstructions: orderData.deliveryInstructions || null,
+            deliveryDate: orderData.deliveryDate
+              ? new Date(orderData.deliveryDate + 'T00:00:00')
+              : null,
+            deliveryTime: orderData.deliveryTime || null,
+            deliveryFee: deliveryFeeInCents,
+            discount: discountAmountCents,
+            discountBreakdown,
+            discountId,
+            discountCode,
+            taxBreakdown: taxCalculation.breakdown,
+            totalTax: taxCalculation.totalAmount,
+            paymentAmount: totalAmount,
+            images: [],
+            orderItems: {
+              create: orderItems
             }
           },
-          deliveryAddress: true,
-          customer: true
-        }
-      });
-
-      console.log('Order created:', order.id);
-      await logOrderActivity({
-        orderId: order.id,
-        type: OrderActivityType.ORDER_CREATED,
-        summary: 'Order created',
-        details: {
-          source: order.orderSource,
-          channel: orderData.orderSource || 'POS',
-          status: order.status,
-        },
-        actorId: req.employee?.id || null,
-        actorName: req.employee?.name || null,
-      });
-      createdOrders.push(order);
-
-      await recordDiscountUsage(
-        appliedDiscounts,
-        customerId,
-        order.id,
-        orderData.orderSource || 'POS',
-      );
-    }
-
-    // Update all orders to PAID status and trigger notifications
-    for (const order of createdOrders) {
-      try {
-        // Update order status to PAID
-        const updatedOrder = await prisma.order.update({
-          where: { id: order.id },
-          data: {
-            status: OrderStatus.PAID,
-            paymentStatus: PaymentStatus.PAID,
-            updatedAt: new Date()
-          },
-          include: {
-            customer: true,
-            recipientCustomer: {
-              include: {
-                primaryAddress: true,
-                addresses: true,
-              }
-            },
-            deliveryAddress: true,
-            orderItems: {
-              include: {
-                product: true
-              }
-            },
-            orderPayments: {
-              include: {
-                transaction: {
-                  include: {
-                    paymentMethods: true,
-                  },
-                },
-              },
-            },
+          select: {
+            id: true,
+            orderNumber: true,
+            paymentAmount: true,
+            orderSource: true,
+            status: true,
           }
         });
 
-        console.log(`📋 Order #${order.orderNumber} status updated: DRAFT → PAID`);
+        await logOrderActivity({
+          tx,
+          orderId: order.id,
+          type: OrderActivityType.ORDER_CREATED,
+          summary: 'Order created',
+          details: {
+            source: order.orderSource,
+            channel: orderSource,
+            status: order.status,
+          },
+          actorId: req.employee?.id || null,
+          actorName: req.employee?.name || null,
+        });
 
-        // Trigger status notifications in background (non-blocking)
-        triggerStatusNotifications(updatedOrder, 'PAID', 'DRAFT')
-          .then(() => {
-            console.log(`✅ Order confirmation notifications sent for order #${updatedOrder.orderNumber}`);
-          })
-          .catch((error) => {
-            console.error(`❌ Order confirmation notification failed for order #${updatedOrder.orderNumber}:`, error);
-            // TODO: Log to monitoring service for production
+        await recordDiscountUsage(
+          appliedDiscounts,
+          customerId,
+          order.id,
+          orderSource,
+          tx,
+        );
+
+        createdOrderIds.push(order.id);
+      }
+
+      const totalAmount =
+        typeof paymentTransaction?.totalAmount === 'number'
+          ? Math.round(paymentTransaction.totalAmount)
+          : paymentMethods.reduce((sum: number, method: any) => sum + (Number(method.amount) || 0), 0);
+
+      const createdPaymentTransaction = await transactionService.createTransaction({
+        customerId,
+        employeeId:
+          paymentTransaction?.employeeId ||
+          req.employee?.id ||
+          req.body.employee ||
+          undefined,
+        channel,
+        totalAmount,
+        taxAmount: Number(paymentTransaction?.taxAmount) || 0,
+        tipAmount: Number(paymentTransaction?.tipAmount) || 0,
+        notes:
+          typeof paymentTransaction?.notes === 'string'
+            ? paymentTransaction.notes
+            : undefined,
+        receiptEmail:
+          typeof paymentTransaction?.receiptEmail === 'string'
+            ? paymentTransaction.receiptEmail
+            : undefined,
+        paymentMethods,
+        orderIds: createdOrderIds,
+        idempotencyKey: normalizedIdempotencyKey,
+      }, { tx });
+
+      if (normalizedIdempotencyKey) {
+        const linkedOrderIds = new Set(
+          (createdPaymentTransaction.orderPayments || []).map((orderPayment: any) => orderPayment.orderId)
+        );
+        const allOrdersLinked = createdOrderIds.every((orderId) => linkedOrderIds.has(orderId));
+        if (!allOrdersLinked) {
+          throw new Error(IDEMPOTENCY_REPLAY_MARKER);
+        }
+      }
+
+      return {
+        createdOrderIds,
+        paymentTransaction: createdPaymentTransaction,
+      };
+    });
+
+    const createdOrdersUnordered = await prisma.order.findMany({
+      where: { id: { in: transactionResult.createdOrderIds } },
+      include: orderIncludeForResponse,
+    });
+
+    const createdOrdersById = new Map(
+      createdOrdersUnordered.map((order) => [order.id, order])
+    );
+    const createdOrders = transactionResult.createdOrderIds
+      .map((id) => createdOrdersById.get(id))
+      .filter((order): order is NonNullable<typeof order> => Boolean(order));
+
+    const printActions: Array<Record<string, any>> = [];
+
+    for (const order of createdOrders) {
+      triggerStatusNotifications(order as any, 'PAID', 'DRAFT')
+        .then(() => {
+          console.log(`✅ Order confirmation notifications sent for order #${order.orderNumber}`);
+        })
+        .catch((notifyError) => {
+          console.error(
+            `❌ Order confirmation notification failed for order #${order.orderNumber}:`,
+            notifyError
+          );
+        });
+
+      if (order.type === 'DELIVERY') {
+        try {
+          const result = await printService.queuePrintJob({
+            type: PrintJobType.ORDER_TICKET,
+            orderId: order.id,
+            order: order as any,
+            template: 'delivery-ticket-v1',
+            priority: 10,
+            orderNumberPrefix,
           });
-
-        if (updatedOrder.type === 'DELIVERY') {
-          try {
-            const result = await printService.queuePrintJob({
-              type: PrintJobType.ORDER_TICKET,
-              orderId: updatedOrder.id,
-              order: updatedOrder as any,
-              template: 'delivery-ticket-v1',
-              priority: 10,
-              orderNumberPrefix,
-            });
-            printActions.push({ orderId: updatedOrder.id, orderNumber: updatedOrder.orderNumber, ...result });
-          } catch (error) {
-            console.error(`❌ Failed to queue delivery print job for order #${updatedOrder.orderNumber}:`, error);
-          }
+          printActions.push({ orderId: order.id, orderNumber: order.orderNumber, ...result });
+        } catch (printError) {
+          console.error(`❌ Failed to queue delivery print job for order #${order.orderNumber}:`, printError);
         }
+      }
 
-        if (updatedOrder.orderSource === 'POS' || updatedOrder.orderSource === 'WALKIN') {
-          try {
-            const config = await printSettingsService.getConfigForType(PrintJobType.RECEIPT);
-            const orderWithTransactions = {
-              ...updatedOrder,
-              transactions: getOrderTransactions(updatedOrder),
-            };
-            let jobOrder: any = orderWithTransactions;
-            let template = 'receipt-pdf-v1';
+      if (order.orderSource === 'POS' || order.orderSource === 'WALKIN') {
+        try {
+          const config = await printSettingsService.getConfigForType(PrintJobType.RECEIPT);
+          const orderWithTransactions = {
+            ...order,
+            transactions: getOrderTransactions(order),
+          };
+          let jobOrder: any = orderWithTransactions;
+          let template = 'receipt-pdf-v1';
 
-            if (config.destination === 'electron-agent') {
-              const pdfBuffer = await buildReceiptPdf(orderWithTransactions, orderNumberPrefix);
-              jobOrder = { ...orderWithTransactions, pdfBase64: pdfBuffer.toString('base64') };
-            }
-
-            if (config.destination === 'receipt-agent') {
-              const thermalBuffer = await buildThermalReceipt(orderWithTransactions, orderNumberPrefix);
-              jobOrder = { ...orderWithTransactions, thermalCommands: thermalBuffer.toString('base64') };
-              template = 'receipt-thermal-v1';
-            }
-
-            const result = await printService.queuePrintJob({
-              type: PrintJobType.RECEIPT,
-              orderId: updatedOrder.id,
-              order: jobOrder,
-              template,
-              priority: 10
-            });
-            printActions.push({ orderId: updatedOrder.id, orderNumber: updatedOrder.orderNumber, ...result });
-          } catch (error) {
-            console.error(`❌ Failed to queue receipt print job for order #${updatedOrder.orderNumber}:`, error);
+          if (config.destination === 'electron-agent') {
+            const pdfBuffer = await buildReceiptPdf(orderWithTransactions, orderNumberPrefix);
+            jobOrder = { ...orderWithTransactions, pdfBase64: pdfBuffer.toString('base64') };
           }
-        }
 
-      } catch (error) {
-        console.error(`❌ Failed to update order ${order.id} to PAID:`, error);
-        // Continue with other orders even if one fails
+          if (config.destination === 'receipt-agent') {
+            const thermalBuffer = await buildThermalReceipt(orderWithTransactions, orderNumberPrefix);
+            jobOrder = { ...orderWithTransactions, thermalCommands: thermalBuffer.toString('base64') };
+            template = 'receipt-thermal-v1';
+          }
+
+          const result = await printService.queuePrintJob({
+            type: PrintJobType.RECEIPT,
+            orderId: order.id,
+            order: jobOrder,
+            template,
+            priority: 10
+          });
+          printActions.push({ orderId: order.id, orderNumber: order.orderNumber, ...result });
+        } catch (printError) {
+          console.error(`❌ Failed to queue receipt print job for order #${order.orderNumber}:`, printError);
+        }
       }
     }
 
     console.log(`Successfully created ${createdOrders.length} orders`);
 
-    // Respond immediately - notifications are sent in background
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       orders: createdOrders,
-      totalAmount: createdOrders.reduce((sum, order) => sum + order.paymentAmount, 0),
-      printActions
+      totalAmount: createdOrders.reduce((sum, order) => sum + (order.paymentAmount || 0), 0),
+      paymentTransaction: transactionResult.paymentTransaction,
+      printActions,
     });
-
   } catch (error) {
+    const replayKey =
+      typeof req.body?.idempotencyKey === 'string' && req.body.idempotencyKey.trim().length > 0
+        ? req.body.idempotencyKey.trim()
+        : undefined;
+
+    if (error instanceof Error && error.message === IDEMPOTENCY_REPLAY_MARKER && replayKey) {
+      const replay = await getExistingTransactionReplay(replayKey);
+      if (replay) {
+        return res.json({
+          success: true,
+          replayed: true,
+          orders: replay.orders,
+          totalAmount: replay.orders.reduce((sum, order) => sum + (order.paymentAmount || 0), 0),
+          paymentTransaction: replay.transaction,
+          printActions: [],
+        });
+      }
+    }
+
     console.error('Error creating orders:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to create orders',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -626,37 +782,31 @@ router.post('/save-draft', async (req, res) => {
 
     if (websitePaymentGroups.size > 0) {
       for (const [paymentIntentId, group] of websitePaymentGroups.entries()) {
-        try {
-          await transactionService.createTransaction({
-            customerId,
-            channel: 'WEBSITE',
-            totalAmount: group.totalAmount,
-            taxAmount: group.taxAmount,
-            tipAmount: 0,
-            notes: `Website checkout ${paymentIntentId}`,
-            paymentMethods: [
-              {
-                type: 'CARD',
-                provider: 'STRIPE',
-                amount: group.totalAmount,
-                providerTransactionId: paymentIntentId,
-                providerMetadata: {
-                  source: 'WEBSITE_CHECKOUT',
-                },
+        await transactionService.createTransaction({
+          customerId,
+          channel: 'WEBSITE',
+          totalAmount: group.totalAmount,
+          taxAmount: group.taxAmount,
+          tipAmount: 0,
+          notes: `Website checkout ${paymentIntentId}`,
+          paymentMethods: [
+            {
+              type: 'CARD',
+              provider: 'STRIPE',
+              amount: group.totalAmount,
+              providerTransactionId: paymentIntentId,
+              providerMetadata: {
+                source: 'WEBSITE_CHECKOUT',
               },
-            ],
-            orderIds: group.orderIds,
-          });
+            },
+          ],
+          orderIds: group.orderIds,
+          idempotencyKey: paymentIntentId,
+        });
 
-          console.log(
-            `✅ Created website payment transaction for ${paymentIntentId} (${group.orderIds.length} order(s))`
-          );
-        } catch (ptError) {
-          console.error(
-            `⚠️ Failed to create website payment transaction for ${paymentIntentId}:`,
-            ptError
-          );
-        }
+        console.log(
+          `✅ Created website payment transaction for ${paymentIntentId} (${group.orderIds.length} order(s))`
+        );
       }
     }
 

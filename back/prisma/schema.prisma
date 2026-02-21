@@ -975,6 +975,7 @@ model PaymentTransaction {
   notes              String?
   receiptSent        Boolean                  @default(false)
   receiptEmail       String?
+  idempotencyKey     String?                  @unique
   createdAt          DateTime                 @default(now())
   updatedAt          DateTime                 @updatedAt
   completedAt        DateTime?

@@ -17,7 +17,7 @@ Status values: `TODO` | `IN_PROGRESS` | `BLOCKED` | `DONE`
 | POS-009 | P2 | POS UI | Move quick actions to dedicated post-payment toggles row | TODO | - | Confirm tap targets and placement |
 | POS-010 | P0 | Data Model | Separate `paymentStatus` from fulfillment `status` (major refactor) | DONE | - | Tracked with dedicated feature plan |
 | POS-011 | P1 | Payment Architecture | Duplicate payment pipelines in TakeOrder (`PaymentSection/useOrderPayments`) and POS (`PaymentController/useTransactionSubmission`) | TODO | - | Consolidate to a shared submission flow to remove drift |
-| POS-012 | P0 | Payment Reliability | Partial-failure path can leave orders created without PT/gift-card completion | TODO | - | Add transactional guardrails and clear operator alerting |
+| POS-012 | P0 | Payment Reliability | Partial-failure path can leave orders created without PT/gift-card completion | DONE | - | Shipped atomic order+PT transaction flow (`/api/orders/create`), PT idempotency key (`PaymentTransaction.idempotencyKey`), and removed silent PT failure continuation in TakeOrder/POS submission paths |
 | POS-013 | P1 | Website Checkout | Website orders do not send confirmation email after successful checkout | DONE | - | `/api/orders/save-draft` now triggers configured PAID notifications (same template/settings path as POS) |
 | POS-014 | P1 | Website Ops | Website delivery orders do not auto-queue fulfillment ticket printing | DONE | - | `/api/orders/save-draft` now queues `ORDER_TICKET` print jobs for confirmed website delivery and pickup orders |
 | POS-015 | P2 | Website UX | "This order is for me" copy/placement is confusing in checkout | TODO | - | Rename to "I am the recipient" and place under delivery/pickup toggle |
@@ -30,8 +30,9 @@ Status values: `TODO` | `IN_PROGRESS` | `BLOCKED` | `DONE`
 | POS-022 | P1 | Mobile Scan | FTD scan flow hardcodes delivery fee to $15 | TODO | - | Make fee configurable or parse from order data |
 | POS-023 | P2 | Mobile Scan | DoorDash scan flow uses shared system customer record for all orders | TODO | - | Evaluate per-customer capture strategy without breaking current ops |
 | POS-024 | P2 | Mobile Scan | Scan customer matching by phone only creates duplicate customer records | TODO | - | Add secondary name/email matching heuristics |
-| POS-025 | P0 | Order Payments | No "Collect/Apply Payment" action for existing `paymentStatus: UNPAID` orders | TODO | - | Add payment collection flow that creates PT and recalculates payment status |
+| POS-025 | P0 | Order Payments | No "Collect/Apply Payment" action for existing `paymentStatus: UNPAID` orders | DONE | - | Implemented Collect/Apply Payment flow for unpaid orders (creates PT and updates payment status) |
 | POS-026 | P1 | Order Status | Status transitions allow backward jumps without confirmation | TODO | - | Add confirmation/guardrails for regressions in fulfillment status |
 | POS-027 | P1 | Payment Adjustments | Sub-$0.50 order edits skip PT adjustments and create accounting drift | TODO | - | Revisit threshold behavior to avoid silent mismatches |
 | POS-028 | P1 | Cleanup | Test endpoint `POST /api/orders/test-notification` still exists | DONE | - | Removed test-only notification route from `orders/status.ts` |
 | POS-029 | P2 | Notifications | Notification system is over-built relative to simplified trigger spec | TODO | - | Reduce status-trigger/template sprawl to required notifications only |
+| POS-030 | P1 | Gift Card Sequencing | Gift card activation/redeem still executes after charge in some flows | TODO | - | Unify pre-charge gift card activation/redeem with rollback-safe behavior across POS + TakeOrder |

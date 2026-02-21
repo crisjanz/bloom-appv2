@@ -8,10 +8,10 @@
  * - Customer creation (using shared guest customer)
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { mapPaymentMethodType, getPaymentProvider, normalizePayments } from '@shared/utils/paymentHelpers';
 import { getOrCreateGuestCustomer } from '@shared/utils/customerHelpers';
-import { centsToDollars, formatCurrency } from '@shared/utils/currency';
+import { centsToDollars } from '@shared/utils/currency';
 import { getGiftCardLineItems } from '@shared/utils/giftCardHelpers';
 
 export type PaymentPayload = {
@@ -29,6 +29,7 @@ const MIN_BALANCE = 1;
 
 export const useTransactionSubmission = () => {
   const [activatedGiftCards, setActivatedGiftCards] = useState<any[]>([]);
+  const attemptIdempotencyKeyRef = useRef<string | null>(null);
 
   /**
    * Submit payment transaction to API
@@ -65,136 +66,24 @@ export const useTransactionSubmission = () => {
         customerId = await getOrCreateGuestCustomer();
       }
 
+      const requestIdempotencyKey =
+        attemptIdempotencyKeyRef.current || crypto.randomUUID();
+      attemptIdempotencyKeyRef.current = requestIdempotencyKey;
+
       const cartOrderIds = cartItems
         .map((item) => item.draftOrderId || item.orderId)
         .filter((orderId): orderId is string => typeof orderId === 'string' && orderId.trim().length > 0);
-
-      // Extract draft order IDs from cart items
       const draftOrderIds = Array.from(new Set(cartOrderIds));
-
       const explicitOrderIds = (orderIds || []).filter(
         (orderId): orderId is string => typeof orderId === 'string' && orderId.trim().length > 0
       );
-
-      // Get non-draft cart items that need to be converted to orders
       const nonDraftItems = cartItems.filter((item) => !item.draftOrderId);
 
-      // Collect all order IDs (draft + newly created)
       let allOrderIds = Array.from(new Set([...explicitOrderIds, ...draftOrderIds]));
-
       let printActions: any[] = [];
       let createdOrderIds: string[] = [];
+      let transaction: any = null;
 
-      // Create orders for non-draft cart items if any
-      if (nonDraftItems.length > 0) {
-        console.log('📦 Creating POS orders from cart items...', { count: nonDraftItems.length });
-
-        // Convert cart items to order format
-        const orderData = {
-          customerId,
-          orders: [{
-            orderType: 'PICKUP', // POS grid items are PICKUP by default
-            deliveryFee: 0,
-            cardMessage: '',
-            deliveryInstructions: `POS transaction for ${customerDisplayName || 'Walk-in Customer'}`,
-            deliveryDate: null,
-            deliveryTime: null,
-            customProducts: nonDraftItems.map((item) => ({
-              description: item.name || item.customName || 'POS Item', // Backend expects 'description'
-              price: centsToDollars(item.customPrice ?? item.price ?? 0).toFixed(2),
-              qty: String(item.quantity ?? 1),
-              tax: item.isTaxable ?? true, // Include taxability
-            })),
-          }],
-          paymentConfirmed: true,
-          employee: employeeId,
-          orderSource: 'POS',
-        };
-
-        const orderResponse = await fetch('/api/orders/create', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(orderData),
-        });
-
-        if (!orderResponse.ok) {
-          const errorData = await orderResponse.json();
-          throw new Error(errorData.error || 'Failed to create POS orders');
-        }
-
-        const orderResult = await orderResponse.json();
-        if (!orderResult.success || !orderResult.orders) {
-          throw new Error('Failed to create POS orders');
-        }
-
-        // Add newly created order IDs
-        createdOrderIds = orderResult.orders.map((order: any) => order.id);
-        allOrderIds = Array.from(new Set([...allOrderIds, ...createdOrderIds]));
-        if (Array.isArray(orderResult.printActions)) {
-          printActions = orderResult.printActions;
-        }
-        console.log('✅ Created POS orders:', createdOrderIds);
-      }
-
-      // Update draft orders to PAID status
-      if (draftOrderIds.length > 0) {
-        console.log('📝 Updating draft orders to PAID status...', { count: draftOrderIds.length });
-        for (const draftId of draftOrderIds) {
-          try {
-            // Fetch the draft order to get its calculated total
-            const orderResponse = await fetch(`/api/orders/${draftId}`);
-            if (!orderResponse.ok) {
-              console.error(`❌ Failed to fetch draft order ${draftId}`);
-              continue;
-            }
-
-            const orderData = await orderResponse.json();
-            const order = orderData.order || orderData;
-
-            // Calculate order total from its items, fees, and taxes
-            const itemsSubtotal = order.orderItems?.reduce((sum: number, item: any) =>
-              sum + (item.rowTotal || item.unitPrice * item.quantity), 0) || 0;
-            const calculatedTotal = itemsSubtotal + (order.deliveryFee || 0) + (order.totalTax || 0) - (order.discount || 0);
-
-            console.log(`📊 Draft order ${draftId} calculated total: ${formatCurrency(calculatedTotal)}`);
-
-            const updateResponse = await fetch(`/api/orders/${draftId}/update`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                status: 'PAID',
-                paymentAmount: calculatedTotal, // Use the order's calculated total
-                employeeId,
-              }),
-            });
-
-            if (!updateResponse.ok) {
-              const errorData = await updateResponse.json().catch(() => ({}));
-              console.error(`❌ Failed to update draft order ${draftId}:`, errorData);
-            } else {
-              console.log(`✅ Updated draft order ${draftId} to PAID with paymentAmount: ${formatCurrency(calculatedTotal)}`);
-            }
-          } catch (error) {
-            console.error(`❌ Error updating draft order ${draftId}:`, error);
-          }
-        }
-      }
-
-      // Validate we have order IDs before creating PT transaction
-      if (allOrderIds.length === 0) {
-        console.error('❌ Cannot create PT transaction: No order IDs collected!');
-        throw new Error('No orders were created or found. Cannot process payment.');
-      }
-
-      console.log('💳 Creating PT transaction with order IDs:', allOrderIds);
-      console.log('📊 Payment details:', {
-        total: payments.reduce((sum, payment) => sum + payment.amount, 0),
-        taxAmount,
-        tipAmount,
-        orderCount: allOrderIds.length,
-      });
-
-      // Transform payments for API
       const apiPayments = payments.map((payment) => {
         const base = {
           type: mapPaymentMethodType(payment.method),
@@ -251,29 +140,135 @@ export const useTransactionSubmission = () => {
         return base;
       });
 
-      // Submit transaction
-      const transactionResponse = await fetch('/api/payment-transactions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customerId,
-          employeeId,
-          channel: 'POS',
-          totalAmount: payments.reduce((sum, payment) => sum + payment.amount, 0),
-          taxAmount,
-          tipAmount,
-          notes: `POS transaction for ${customerDisplayName || 'Walk-in Customer'}`,
-          paymentMethods: apiPayments,
-          orderIds: allOrderIds, // Use collected order IDs (draft + newly created)
-        }),
-      });
+      if (nonDraftItems.length > 0) {
+        console.log('📦 Creating POS orders from cart items...', { count: nonDraftItems.length });
+        const ordersPayload = [{
+          orderType: 'PICKUP',
+          orderSource: 'POS',
+          deliveryFee: 0,
+          cardMessage: '',
+          deliveryInstructions: `POS transaction for ${customerDisplayName || 'Walk-in Customer'}`,
+          deliveryDate: null,
+          deliveryTime: null,
+          customProducts: nonDraftItems.map((item) => ({
+            description: item.name || item.customName || 'POS Item',
+            price: centsToDollars(item.customPrice ?? item.price ?? 0).toFixed(2),
+            qty: String(item.quantity ?? 1),
+            tax: item.isTaxable ?? true,
+          })),
+        }];
 
-      if (!transactionResponse.ok) {
-        const errorData = await transactionResponse.json();
-        throw new Error(errorData.error || 'Failed to process payment');
+        const totalAmount = payments.reduce((sum, payment) => sum + payment.amount, 0);
+        const canCreateAtomically =
+          draftOrderIds.length === 0 && explicitOrderIds.length === 0;
+
+        if (canCreateAtomically) {
+          const orderResponse = await fetch('/api/orders/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              customerId,
+              orders: ordersPayload,
+              paymentConfirmed: true,
+              employee: employeeId,
+              orderSource: 'POS',
+              idempotencyKey: requestIdempotencyKey,
+              paymentTransaction: {
+                employeeId,
+                channel: 'POS',
+                totalAmount,
+                taxAmount,
+                tipAmount,
+                notes: `POS transaction for ${customerDisplayName || 'Walk-in Customer'}`,
+                paymentMethods: apiPayments,
+              },
+            }),
+          });
+
+          if (!orderResponse.ok) {
+            const errorData = await orderResponse.json();
+            throw new Error(errorData.error || 'Failed to create POS orders');
+          }
+
+          const orderResult = await orderResponse.json();
+          if (!orderResult.success || !orderResult.orders) {
+            throw new Error('Failed to create POS orders');
+          }
+
+          createdOrderIds = orderResult.orders.map((order: any) => order.id);
+          allOrderIds = Array.from(new Set([...allOrderIds, ...createdOrderIds]));
+          if (Array.isArray(orderResult.printActions)) {
+            printActions = orderResult.printActions;
+          }
+
+          transaction = orderResult.paymentTransaction || null;
+          console.log('✅ Created POS orders atomically:', createdOrderIds);
+        } else {
+          const draftResponse = await fetch('/api/orders/save-draft', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              customerId,
+              orders: ordersPayload,
+            }),
+          });
+
+          if (!draftResponse.ok) {
+            const errorData = await draftResponse.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Failed to create draft POS orders');
+          }
+
+          const draftResult = await draftResponse.json();
+          const drafts = Array.isArray(draftResult?.drafts) ? draftResult.drafts : [];
+          if (drafts.length === 0) {
+            throw new Error('Failed to create draft POS orders');
+          }
+
+          createdOrderIds = drafts.map((order: any) => order.id);
+          allOrderIds = Array.from(new Set([...allOrderIds, ...createdOrderIds]));
+          console.log('✅ Created draft POS orders:', createdOrderIds);
+        }
       }
 
-      const transaction = await transactionResponse.json();
+      if (!transaction) {
+        if (allOrderIds.length === 0) {
+          console.error('❌ Cannot create PT transaction: No order IDs collected!');
+          throw new Error('No orders were created or found. Cannot process payment.');
+        }
+
+        console.log('💳 Creating PT transaction with order IDs:', allOrderIds);
+        console.log('📊 Payment details:', {
+          total: payments.reduce((sum, payment) => sum + payment.amount, 0),
+          taxAmount,
+          tipAmount,
+          orderCount: allOrderIds.length,
+        });
+
+        const transactionResponse = await fetch('/api/payment-transactions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customerId,
+            employeeId,
+            channel: 'POS',
+            totalAmount: payments.reduce((sum, payment) => sum + payment.amount, 0),
+            taxAmount,
+            tipAmount,
+            notes: `POS transaction for ${customerDisplayName || 'Walk-in Customer'}`,
+            paymentMethods: apiPayments,
+            orderIds: allOrderIds,
+            idempotencyKey: requestIdempotencyKey,
+          }),
+        });
+
+        if (!transactionResponse.ok) {
+          const errorData = await transactionResponse.json();
+          throw new Error(errorData.error || 'Failed to process payment');
+        }
+
+        transaction = await transactionResponse.json();
+      }
+
       console.log('✅ PT transaction created successfully:', {
         transactionNumber: transaction.transactionNumber,
         transactionId: transaction.id,
@@ -321,6 +316,8 @@ export const useTransactionSubmission = () => {
         }
       }
 
+      attemptIdempotencyKeyRef.current = null;
+
       return {
         success: true,
         data: {
@@ -359,6 +356,7 @@ export const useTransactionSubmission = () => {
 
   const resetTransaction = useCallback(() => {
     setActivatedGiftCards([]);
+    attemptIdempotencyKeyRef.current = null;
   }, []);
 
   return {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Modal } from '@shared/ui/components/ui/modal';
 import {
   CreditCardIcon,
@@ -64,6 +64,7 @@ export default function CollectPaymentModal({
   const [view, setView] = useState<View>('methods');
   const [animating, setAnimating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const paymentAttemptIdempotencyKey = useRef<string | null>(null);
 
   const navigate = (next: View) => {
     setAnimating(true);
@@ -75,10 +76,15 @@ export default function CollectPaymentModal({
   const handleClose = () => {
     setView('methods');
     setAnimating(false);
+    paymentAttemptIdempotencyKey.current = null;
     onClose();
   };
 
   const recordPayment = async (paymentMethods: any[]) => {
+    if (!paymentAttemptIdempotencyKey.current) {
+      paymentAttemptIdempotencyKey.current = crypto.randomUUID();
+    }
+
     setSubmitting(true);
     try {
       await apiClient.post('/api/payment-transactions', {
@@ -90,8 +96,10 @@ export default function CollectPaymentModal({
         tipAmount: 0,
         paymentMethods,
         orderIds: [orderId],
+        idempotencyKey: paymentAttemptIdempotencyKey.current,
       });
       toast.success('Payment recorded');
+      paymentAttemptIdempotencyKey.current = null;
       handleClose();
       onSuccess();
     } catch {
@@ -104,29 +112,37 @@ export default function CollectPaymentModal({
   const handleCash = (data: { cashReceived: number; changeDue: number }) => {
     recordPayment([{
       type: 'CASH',
-      provider: 'CASH',
+      provider: 'INTERNAL',
       amount,
-      cashReceived: data.cashReceived,
-      changeDue: data.changeDue,
+      providerMetadata: {
+        cashReceived: data.cashReceived,
+        changeDue: data.changeDue,
+      },
     }]);
   };
 
   const handleManual = (methodType: string, data: { amount: number; reference?: string }) => {
+    const normalizedType = methodType === 'ETRANSFER' ? 'OFFLINE' : methodType;
     recordPayment([{
-      type: methodType,
-      provider: methodType,
+      type: normalizedType,
+      provider: 'INTERNAL',
       amount: data.amount,
-      transactionId: data.reference,
+      providerMetadata: {
+        reference: data.reference,
+        sourceType: methodType,
+      },
     }]);
   };
 
   const handleCard = (paymentData: any) => {
     recordPayment([{
-      type: 'CREDIT',
+      type: 'CARD',
       provider: 'STRIPE',
       amount,
-      transactionId: paymentData.transactionId,
-      paymentIntentId: paymentData.paymentIntentId,
+      providerTransactionId: paymentData.transactionId,
+      providerMetadata: paymentData.paymentIntentId
+        ? { paymentIntentId: paymentData.paymentIntentId }
+        : undefined,
       cardLast4: paymentData.cardLast4,
       cardBrand: paymentData.cardBrand,
     }]);

@@ -17,6 +17,11 @@ export interface CreateTransactionData {
   paymentMethods: PaymentMethodData[];
   isAdjustment?: boolean;
   orderPaymentAllocations?: OrderPaymentAllocation[];
+  idempotencyKey?: string;
+}
+
+interface CreateTransactionOptions {
+  tx?: Prisma.TransactionClient;
 }
 
 export interface PaymentMethodData {
@@ -112,45 +117,75 @@ function parseBusinessDate(dateString: string): Date | null {
 }
 
 class TransactionService {
+  private normalizeIdempotencyKey(idempotencyKey?: string): string | undefined {
+    if (typeof idempotencyKey !== 'string') return undefined;
+    const normalized = idempotencyKey.trim();
+    return normalized.length > 0 ? normalized : undefined;
+  }
+
+  private async getTransactionById(tx: Prisma.TransactionClient, transactionId: string) {
+    return tx.paymentTransaction.findUniqueOrThrow({
+      where: { id: transactionId },
+      include: {
+        customer: true,
+        employee: true,
+        paymentMethods: true,
+        orderPayments: {
+          include: {
+            order: true,
+          },
+        },
+      },
+    });
+  }
+
+  private async generateTransactionNumberTx(tx: Prisma.TransactionClient): Promise<string> {
+    let counter = await tx.transactionCounter.findFirst();
+
+    if (!counter) {
+      counter = await tx.transactionCounter.create({
+        data: {
+          currentValue: 1,
+          prefix: 'PT',
+        },
+      });
+    } else {
+      counter = await tx.transactionCounter.update({
+        where: { id: counter.id },
+        data: {
+          currentValue: counter.currentValue + 1,
+        },
+      });
+    }
+
+    const paddedNumber = counter.currentValue.toString().padStart(5, '0');
+    return `${counter.prefix}-${paddedNumber}`;
+  }
+
   /**
    * Generate next PT-XXXX transaction number
    */
   async generateTransactionNumber(): Promise<string> {
-    const result = await prisma.$transaction(async (tx) => {
-      // Get or create the counter
-      let counter = await tx.transactionCounter.findFirst();
-      
-      if (!counter) {
-        // Initialize counter if it doesn't exist
-        counter = await tx.transactionCounter.create({
-          data: {
-            currentValue: 1,
-            prefix: 'PT'
-          }
-        });
-      } else {
-        // Increment the counter
-        counter = await tx.transactionCounter.update({
-          where: { id: counter.id },
-          data: {
-            currentValue: counter.currentValue + 1
-          }
-        });
-      }
-      
-      return counter;
-    });
-    
-    // Format as PT-00001, PT-00002, etc.
-    const paddedNumber = result.currentValue.toString().padStart(5, '0');
-    return `${result.prefix}-${paddedNumber}`;
+    return prisma.$transaction(async (tx) => this.generateTransactionNumberTx(tx));
   }
 
   /**
    * Create a new payment transaction with all related data
    */
-  async createTransaction(data: CreateTransactionData) {
-    const transactionNumber = await this.generateTransactionNumber();
+  async createTransaction(data: CreateTransactionData, options: CreateTransactionOptions = {}) {
+    const createInTransaction = async (tx: Prisma.TransactionClient) => {
+      const normalizedIdempotencyKey = this.normalizeIdempotencyKey(data.idempotencyKey);
+      if (normalizedIdempotencyKey) {
+        const existing = await tx.paymentTransaction.findUnique({
+          where: { idempotencyKey: normalizedIdempotencyKey },
+          select: { id: true },
+        });
+        if (existing?.id) {
+          return this.getTransactionById(tx, existing.id);
+        }
+      }
+
+      const transactionNumber = await this.generateTransactionNumberTx(tx);
     const isAdjustment = Boolean(data.isAdjustment);
     const normalizedPaymentMethods = data.paymentMethods.map((method) => ({
       ...method,
@@ -180,8 +215,7 @@ class TransactionService {
     if (hasHouseAccount && hasNonHouseAccount) {
       throw new Error('House account payments cannot be combined with other payment methods');
     }
-    
-    return await prisma.$transaction(async (tx) => {
+
       if (hasHouseAccount) {
         const customer = await tx.customer.findUnique({
           where: { id: data.customerId },
@@ -197,21 +231,42 @@ class TransactionService {
         }
       }
 
-      // Create the main payment transaction
-      const paymentTransaction = await tx.paymentTransaction.create({
-        data: {
-          transactionNumber,
-          channel: data.channel,
-          totalAmount: data.totalAmount,
-          taxAmount: data.taxAmount || 0,
-          tipAmount: data.tipAmount || 0,
-          customerId: data.customerId,
-          employeeId: data.employeeId,
-          notes: data.notes,
-          receiptEmail: data.receiptEmail,
-          status: 'PROCESSING'
+      let paymentTransaction: { id: string };
+      try {
+        paymentTransaction = await tx.paymentTransaction.create({
+          data: {
+            transactionNumber,
+            channel: data.channel,
+            totalAmount: data.totalAmount,
+            taxAmount: data.taxAmount || 0,
+            tipAmount: data.tipAmount || 0,
+            customerId: data.customerId,
+            employeeId: data.employeeId,
+            notes: data.notes,
+            receiptEmail: data.receiptEmail,
+            status: 'PROCESSING',
+            idempotencyKey: normalizedIdempotencyKey,
+          },
+          select: {
+            id: true,
+          },
+        });
+      } catch (error) {
+        if (
+          normalizedIdempotencyKey &&
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002'
+        ) {
+          const existing = await tx.paymentTransaction.findUnique({
+            where: { idempotencyKey: normalizedIdempotencyKey },
+            select: { id: true },
+          });
+          if (existing?.id) {
+            return this.getTransactionById(tx, existing.id);
+          }
         }
-      });
+        throw error;
+      }
 
       // Create payment methods
       console.log(`💳 Creating ${normalizedPaymentMethods.length} payment methods for ${transactionNumber}`);
@@ -484,7 +539,13 @@ class TransactionService {
       );
 
       return updatedTransaction;
-    });
+    };
+
+    if (options.tx) {
+      return createInTransaction(options.tx);
+    }
+
+    return prisma.$transaction(async (tx) => createInTransaction(tx));
   }
 
   /**
