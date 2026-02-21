@@ -8,25 +8,6 @@ import { getGiftCardLineItems } from '@shared/utils/giftCardHelpers';
 import { useOrderPayments } from '@domains/orders/hooks/useOrderPayments';
 import { coerceCents } from '@shared/utils/currency';
 
-// Simple success toast component that won't kick you out of fullscreen
-const SuccessToast = ({ show, message, onClose }: { show: boolean; message: string; onClose: () => void }) => {
-  if (!show) return null;
-  
-  return (
-    <div className="fixed top-4 right-4 z-[100001] bg-green-600 text-white px-6 py-4 rounded-lg shadow-lg flex items-center gap-3">
-      <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
-        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-      </svg>
-      <span className="font-medium">{message}</span>
-      <button onClick={onClose} className="ml-2 text-white hover:text-gray-200">
-        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-        </svg>
-      </button>
-    </div>
-  );
-};
-
 type Props = {
   customerState: any;
   orderState: any;
@@ -96,7 +77,7 @@ const PaymentSection: React.FC<Props> = ({
   const [pendingGiftCardRedemptions, setPendingGiftCardRedemptions] = useState<any[]>([]);
   const [automaticDiscounts, setAutomaticDiscounts] = useState<any[]>([]);
   const [automaticDiscountAmount, setAutomaticDiscountAmount] = useState(0);
-  const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [isFinalizingRedirect, setIsFinalizingRedirect] = useState(false);
   const orderSubmissionIdempotencyKey = useRef<string | null>(null);
 
   const amountAfterGiftCards = Math.max(0, grandTotal - giftCardDiscount);
@@ -458,28 +439,29 @@ const PaymentSection: React.FC<Props> = ({
         }
       }
 
-      setShowSuccessToast(true);
       setCouponCode("");
       setPendingGiftCardRedemptions([]);
       setFormError(null);
       orderSubmissionIdempotencyKey.current = null;
-      
-      // Auto-hide toast after 3 seconds, then redirect to order view
-      setTimeout(() => {
-        setShowSuccessToast(false);
-        
-        // Redirect to the first created order's view page
-        if (result.orders && result.orders.length > 0) {
-          const firstOrderId = result.orders[0].id;
+
+      if (!isOverlay && result.orders && result.orders.length > 0) {
+        const firstOrderId = result.orders[0].id;
+        setIsFinalizingRedirect(true);
+
+        // Let the overlay render first so the transition feels intentional.
+        window.setTimeout(() => {
+          onOrderComplete();
           navigate(`/orders/${firstOrderId}`);
-        }
-      }, 3000);
-      
+        }, 50);
+        return;
+      }
+
       onOrderComplete();
       
     } catch (error) {
       console.error("Error creating orders:", error);
       setFormError("An error occurred while creating orders.");
+      setIsFinalizingRedirect(false);
     }
   };
 
@@ -556,12 +538,17 @@ const PaymentSection: React.FC<Props> = ({
         isDigital={activatedGiftCards.some(card => card.type === 'DIGITAL')}
       />
       
-      {/* Success Toast - won't kick you out of fullscreen */}
-      <SuccessToast 
-        show={showSuccessToast}
-        message="✅ All orders created successfully!"
-        onClose={() => setShowSuccessToast(false)}
-      />
+      {isFinalizingRedirect && (
+        <div className="fixed inset-0 z-[100002] bg-white/85 dark:bg-gray-950/85 backdrop-blur-sm flex items-center justify-center">
+          <div className="flex flex-col items-center gap-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-8 py-6 shadow-lg">
+            <svg className="h-7 w-7 animate-spin text-brand-500" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+              <path className="opacity-90" fill="currentColor" d="M12 2a10 10 0 0 1 10 10h-3A7 7 0 0 0 12 5V2z" />
+            </svg>
+            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Finalizing order...</p>
+          </div>
+        </div>
+      )}
     </>
   );
 };
