@@ -4,7 +4,7 @@ import twilio from 'twilio';
 import { PrismaClient, CommunicationType } from '@prisma/client';
 import { emailSettingsService } from '../../services/emailSettingsService';
 import { smsService } from '../../services/smsService';
-import { broadcastSmsReceived } from '../../services/communicationsSocketService';
+import { broadcastSmsReceived, broadcastSmsStatusUpdated } from '../../services/communicationsSocketService';
 import { sendPushoverNotification } from '../../services/pushoverService';
 
 const router = Router();
@@ -226,6 +226,12 @@ router.post('/status-callback', express.urlencoded({ extended: false }), async (
     await prisma.orderCommunication.update({
       where: { id: communication.id },
       data: { status }
+    });
+
+    broadcastSmsStatusUpdated({
+      communicationId: communication.id,
+      orderId: communication.orderId,
+      status
     });
 
     if (status === 'failed') {

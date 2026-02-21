@@ -30,3 +30,14 @@ export function broadcastSmsReceived(data: {
     data
   });
 }
+
+export function broadcastSmsStatusUpdated(data: {
+  communicationId: string;
+  orderId: string;
+  status: string;
+}) {
+  broadcastCommunicationsEvent({
+    type: 'sms:status_updated',
+    data
+  });
+}

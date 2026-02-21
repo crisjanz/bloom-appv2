@@ -1,16 +1,25 @@
 import { useEffect, useRef } from 'react';
 
-export type CommunicationsSocketEvent = {
-  type: 'sms:received';
-  data: {
-    orderId: string;
-    message: string;
-    createdAt: string;
-    communicationId: string;
-    totalUnreadCount?: number;
-    orderUnreadCount?: number;
-  };
-};
+export type CommunicationsSocketEvent =
+  | {
+      type: 'sms:received';
+      data: {
+        orderId: string;
+        message: string;
+        createdAt: string;
+        communicationId: string;
+        totalUnreadCount?: number;
+        orderUnreadCount?: number;
+      };
+    }
+  | {
+      type: 'sms:status_updated';
+      data: {
+        communicationId: string;
+        orderId: string;
+        status: string;
+      };
+    };
 
 type EventHandler = (event: CommunicationsSocketEvent) => void;
 

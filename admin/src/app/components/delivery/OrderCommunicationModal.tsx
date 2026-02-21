@@ -255,20 +255,27 @@ export default function OrderCommunicationModal({
 
   const handleSocketEvent = useCallback(
     (event: CommunicationsSocketEvent) => {
-      if (!isOpen || event.type !== 'sms:received' || event.data.orderId !== order?.id) {
-        return;
+      if (!isOpen || event.data.orderId !== order?.id) return;
+
+      if (event.type === 'sms:received') {
+        fetchCommunications();
+        onActivityChanged?.();
+
+        if (typeof event.data.orderUnreadCount === 'number' && typeof event.data.totalUnreadCount === 'number') {
+          onUnreadCountsUpdated?.({
+            orderId: order.id,
+            orderUnreadCount: event.data.orderUnreadCount,
+            totalUnreadCount: event.data.totalUnreadCount
+          });
+        }
       }
 
-      fetchCommunications();
-      onActivityChanged?.();
-
-      if (typeof event.data.orderUnreadCount === 'number' && typeof event.data.totalUnreadCount === 'number') {
-        onUnreadCountsUpdated?.({
-          orderId: order.id,
-          orderUnreadCount: event.data.orderUnreadCount,
-          totalUnreadCount: event.data.totalUnreadCount
-        });
-
+      if (event.type === 'sms:status_updated') {
+        setCommunications((prev) =>
+          prev.map((c) =>
+            c.id === event.data.communicationId ? { ...c, status: event.data.status } : c
+          )
+        );
       }
     },
     [fetchCommunications, isOpen, onUnreadCountsUpdated, order?.id]
