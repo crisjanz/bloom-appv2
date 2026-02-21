@@ -615,7 +615,7 @@ router.post('/payment-intent', async (req, res) => {
         customer: resolvedCustomerId,
         description: description || `Bloom POS - Order${orderIdList.length > 1 ? 's' : ''} ${orderIdList.join(', ')}`,
         metadata: metadataPayload,
-        automatic_payment_methods: { enabled: true, allow_redirects: 'always' },
+        automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
         receipt_email: customerEmail,
         setup_future_usage: (saveCard && resolvedCustomerId) ? 'off_session' : undefined,
       }, stripeRequestOptions);
@@ -645,7 +645,7 @@ router.post('/payment-intent', async (req, res) => {
           customer: resolvedCustomerId,
           description: description || `Bloom POS - Order${orderIdList.length > 1 ? 's' : ''} ${orderIdList.join(', ')}`,
           metadata: metadataPayload,
-          automatic_payment_methods: { enabled: true, allow_redirects: 'always' },
+          automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
           receipt_email: customerEmail,
           setup_future_usage: saveCard ? 'off_session' : undefined,
         }, stripeRequestOptions);
@@ -1313,7 +1313,7 @@ router.post('/setup-intent', async (req, res) => {
     const setupIntent = await stripe.setupIntents.create({
       customer: stripeCustomerId,
       usage: 'off_session',
-      automatic_payment_methods: { enabled: true, allow_redirects: 'always' },
+      automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
     });
 
     if (!setupIntent.client_secret) {
