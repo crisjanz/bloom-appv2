@@ -16,7 +16,7 @@ import { useEventsNew } from '@shared/hooks/useEventsNew';
 // Payment types matching the database schema
 const paymentTypeOptions = [
   { value: "CASH", label: "Cash" },
-  { value: "CHECK", label: "Check" },
+  { value: "CHECK", label: "Cheque" },
   { value: "BANK_TRANSFER", label: "Bank Transfer" },
   { value: "POS_SYSTEM", label: "POS System" },
   { value: "CREDIT_CARD", label: "Credit Card (Manual)" },

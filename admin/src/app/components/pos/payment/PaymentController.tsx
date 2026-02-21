@@ -72,8 +72,8 @@ type PaymentTileId =
   | 'cash'
   | 'card_stripe'
   | 'house_account'
-  | 'cod'
-  | 'check'
+  | 'pay_later'
+  | 'cheque'
   | 'split'
   | 'discounts';
 
@@ -126,14 +126,14 @@ const PAYMENT_TILES: PaymentTile[] = [
     icon: <HomeIcon className={iconWrapperClass} />,
   },
   {
-    id: 'cod',
+    id: 'pay_later',
     label: 'Pay Later',
     description: '',
     icon: <TruckIcon className={iconWrapperClass} />,
   },
   {
-    id: 'check',
-    label: 'Check',
+    id: 'cheque',
+    label: 'Cheque',
     description: '',
     icon: <DocsIcon className={iconWrapperClass} />,
   },
@@ -152,7 +152,7 @@ const PAYMENT_TILES: PaymentTile[] = [
 ];
 
 const MANUAL_METHOD_CONFIG: Record<
-  'house_account' | 'cod' | 'check',
+  'house_account' | 'pay_later' | 'cheque',
   {
     label: string;
     referenceLabel: string;
@@ -166,16 +166,16 @@ const MANUAL_METHOD_CONFIG: Record<
     instructions: 'Enter the name of the person who ordered on this account.',
     requireReference: true,
   },
-  cod: {
+  pay_later: {
     label: 'Pay Later',
     referenceLabel: 'Delivery Notes',
     instructions: 'Leave guidance for the driver when collecting payment on delivery.',
     requireReference: false,
   },
-  check: {
-    label: 'Check',
-    referenceLabel: 'Check Number',
-    instructions: 'Record the check number for bookkeeping.',
+  cheque: {
+    label: 'Cheque',
+    referenceLabel: 'Cheque Number',
+    instructions: 'Record the cheque number for bookkeeping.',
     requireReference: true,
   },
 };
@@ -563,7 +563,7 @@ const handleCardComplete = (data: {
   );
 };
 
-  const handleManualComplete = (method: 'house_account' | 'cod' | 'check', data: { reference?: string }) => {
+  const handleManualComplete = (method: 'house_account' | 'pay_later' | 'cheque', data: { reference?: string }) => {
     if (!paymentModals.modalContext) return;
     finalizeFromModal(
       {
@@ -935,8 +935,8 @@ const handleCardComplete = (data: {
 
         {paymentModals.activeModal &&
           (paymentModals.activeModal === 'house_account' ||
-            paymentModals.activeModal === 'cod' ||
-            paymentModals.activeModal === 'check') && (
+            paymentModals.activeModal === 'pay_later' ||
+            paymentModals.activeModal === 'cheque') && (
             <ManualPaymentModal
               open
               methodLabel={MANUAL_METHOD_CONFIG[paymentModals.activeModal].label}

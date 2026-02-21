@@ -16,8 +16,8 @@ export type PaymentTileId =
   | 'card_square'
   | 'card_stripe'
   | 'house_account'
-  | 'cod'
-  | 'check'
+  | 'pay_later'
+  | 'cheque'
   | 'split'
   | 'discounts';
 

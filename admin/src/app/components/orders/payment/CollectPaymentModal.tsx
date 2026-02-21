@@ -14,7 +14,7 @@ import { useApiClient } from '@shared/hooks/useApiClient';
 import CardPaymentModal from '@app/components/pos/payment/CardPaymentModal';
 import { toast } from 'sonner';
 
-type View = 'methods' | 'cash' | 'card' | 'etransfer' | 'check' | 'house_account' | 'pay_later';
+type View = 'methods' | 'cash' | 'card' | 'etransfer' | 'cheque' | 'house_account' | 'pay_later';
 
 interface CollectPaymentModalProps {
   open: boolean;
@@ -34,7 +34,7 @@ const VIEW_TITLES: Record<View, string> = {
   cash: 'Cash Payment',
   card: 'Card Payment',
   etransfer: 'E-Transfer',
-  check: 'Check Payment',
+  cheque: 'Cheque Payment',
   house_account: 'House Account',
   pay_later: 'Pay Later',
 };
@@ -45,7 +45,7 @@ const METHODS: { id: View; label: string; Icon: React.ComponentType<{ className?
   { id: 'etransfer', label: 'E-Transfer', Icon: EnvelopeIcon },
   { id: 'house_account', label: 'House Account', Icon: HomeIcon },
   { id: 'pay_later', label: 'Pay Later', Icon: ClockIcon },
-  { id: 'check', label: 'Check', Icon: FileIcon },
+  { id: 'cheque', label: 'Cheque', Icon: FileIcon },
 ];
 
 export default function CollectPaymentModal({
@@ -214,12 +214,12 @@ export default function CollectPaymentModal({
             />
           )}
 
-          {view === 'check' && (
+          {view === 'cheque' && (
             <ManualPanel
               total={amount}
-              methodLabel="Check"
+              methodLabel="Cheque"
               requireReference
-              referenceLabel="Check Number"
+              referenceLabel="Cheque Number"
               onComplete={(data) => handleManual('CHECK', data)}
               onBack={goBack}
               submitting={submitting}

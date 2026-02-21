@@ -114,7 +114,7 @@ export const useTransactionSubmission = () => {
           };
         }
 
-        if (payment.method === 'check') {
+        if (payment.method === 'cheque' || payment.method === 'check') {
           return {
             ...base,
             checkNumber: payment.metadata?.reference,
@@ -122,7 +122,7 @@ export const useTransactionSubmission = () => {
           };
         }
 
-        if (payment.method === 'house_account' || payment.method === 'cod') {
+        if (payment.method === 'house_account' || payment.method === 'pay_later' || payment.method === 'cod') {
           return {
             ...base,
             providerMetadata: payment.metadata?.reference ? { reference: payment.metadata.reference } : undefined,

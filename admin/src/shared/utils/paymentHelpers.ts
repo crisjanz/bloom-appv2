@@ -20,7 +20,9 @@ export const mapPaymentMethodType = (method: string): string => {
     debit: 'CARD',
     gift_card: 'GIFT_CARD',
     store_credit: 'STORE_CREDIT',
+    cheque: 'CHECK',
     check: 'CHECK',
+    pay_later: 'PAY_LATER',
     cod: 'PAY_LATER',
     house_account: 'HOUSE_ACCOUNT',
   };
@@ -89,11 +91,14 @@ export const generatePaymentSummary = (payment: { method: string; amount: number
     return `${provider}${last4}`;
   }
 
-  if (payment.method === 'check' && payment.metadata?.reference) {
-    return `Check #${payment.metadata.reference}`;
+  if ((payment.method === 'cheque' || payment.method === 'check') && payment.metadata?.reference) {
+    return `Cheque #${payment.metadata.reference}`;
   }
 
-  if ((payment.method === 'cod' || payment.method === 'house_account') && payment.metadata?.reference) {
+  if (
+    (payment.method === 'pay_later' || payment.method === 'cod' || payment.method === 'house_account') &&
+    payment.metadata?.reference
+  ) {
     return payment.metadata.reference;
   }
 

@@ -33,7 +33,7 @@ const formatPaymentMethod = (method: any) => {
   }
 
   if (method.type === 'CHECK' && method.checkNumber) {
-    return `Check #${method.checkNumber}`;
+    return `Cheque #${method.checkNumber}`;
   }
 
   if (method.type === 'GIFT_CARD' && method.giftCardNumber) {

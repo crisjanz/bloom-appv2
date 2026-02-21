@@ -1083,7 +1083,7 @@ class TransactionService {
       CASH: 'Cash',
       GIFT_CARD: 'Gift Card',
       STORE_CREDIT: 'Store Credit',
-      CHECK: 'Check',
+      CHECK: 'Cheque',
       PAY_LATER: 'Pay Later',
       COD: 'Pay Later',
       HOUSE_ACCOUNT: 'House Account',

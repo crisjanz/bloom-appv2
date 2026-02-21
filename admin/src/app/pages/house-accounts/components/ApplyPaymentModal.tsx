@@ -77,7 +77,7 @@ export default function ApplyPaymentModal({ isOpen, customerName, onClose, onSub
         <InputField
           label="Reference"
           type="text"
-          placeholder="Check #1234"
+          placeholder="Cheque #1234"
           value={reference || ''}
           onChange={(event) => setReference(event.target.value)}
         />

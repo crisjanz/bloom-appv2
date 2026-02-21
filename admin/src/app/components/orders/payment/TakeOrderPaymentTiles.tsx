@@ -100,11 +100,11 @@ const TakeOrderPaymentTiles: FC<Props> = ({
 
   const activeModalAmount = splitRowInPayment?.amount ?? safeGrandTotal;
 
-  const normalizeSplitMethodForSummary = (method: string): 'cash' | 'credit' | 'house_account' | 'cod' | 'check' => {
+  const normalizeSplitMethodForSummary = (method: string): 'cash' | 'credit' | 'house_account' | 'pay_later' | 'cheque' => {
     if (method === 'CARD_STRIPE' || method === 'CARD') return 'credit';
     if (method === 'HOUSE_ACCOUNT') return 'house_account';
-    if (method === 'COD' || method === 'PAY_LATER') return 'cod';
-    if (method === 'CHECK') return 'check';
+    if (method === 'COD' || method === 'PAY_LATER') return 'pay_later';
+    if (method === 'CHECK' || method === 'CHEQUE') return 'cheque';
     return 'cash';
   };
 
@@ -188,13 +188,13 @@ const TakeOrderPaymentTiles: FC<Props> = ({
       disabled: !houseAccountEnabled,
     },
     {
-      id: 'cod',
+      id: 'pay_later',
       label: 'Pay Later',
       icon: <DollarLineIcon className="h-5 w-5" />,
     },
     {
-      id: 'check',
-      label: 'Check',
+      id: 'cheque',
+      label: 'Cheque',
       icon: <CheckLineIcon className="h-5 w-5" />,
     },
     {
@@ -625,7 +625,7 @@ const TakeOrderPaymentTiles: FC<Props> = ({
         />
 
         <ManualPaymentModal
-          open={activeModal === 'cod'}
+          open={activeModal === 'pay_later'}
           methodLabel="Pay Later"
           defaultAmount={activeModalAmount}
           requireReference={false}
@@ -635,12 +635,12 @@ const TakeOrderPaymentTiles: FC<Props> = ({
         />
 
         <ManualPaymentModal
-          open={activeModal === 'check'}
-          methodLabel="Check Payment"
+          open={activeModal === 'cheque'}
+          methodLabel="Cheque Payment"
           defaultAmount={activeModalAmount}
           requireReference={true}
-          referenceLabel="Check Number"
-          instructions="Enter the check number"
+          referenceLabel="Cheque Number"
+          instructions="Enter the cheque number"
           onSubmit={(data) => handleManualComplete('CHECK', data)}
           onCancel={handleModalCancel}
         />

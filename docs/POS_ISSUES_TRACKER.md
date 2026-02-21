@@ -11,8 +11,8 @@ Status values: `TODO` | `IN_PROGRESS` | `BLOCKED` | `DONE`
 | POS-003 | P0 | Website Payments | No PT record created for website orders (`/save-draft`) | DONE | - | `save-draft` now creates Stripe CARD PT entries (channel `WEBSITE`) for confirmed payment intents |
 | POS-004 | P1 | Payment Actions | Print/Email toggles not unified across TakeOrder/POS and not auto-executed consistently | TODO | - | Verify toggles work the same in both flows |
 | POS-005 | P1 | House Account | House Account payment option enabled for customers without HA activation | DONE | - | House Account tile now disabled unless `customer.isHouseAccount`, with split-row guard in POS/TakeOrder and full customer object preserved on selection |
-| POS-006 | P1 | Naming | Rename `Check` to `Cheque` in labels/types/enums | TODO | - | Verify labels and payload mappings |
-| POS-007 | P1 | Naming | Rename `COD` to `Pay Later` across flow and split tender options | TODO | - | Verify UI + method mappings |
+| POS-006 | P1 | Naming | Rename `Check` to `Cheque` in labels/types/enums | DONE | - | Updated POS/TakeOrder payment tender IDs and labels to `cheque`, with payload mapping to `CHECK` and reporting/print/invoice labels updated to “Cheque” |
+| POS-007 | P1 | Naming | Rename `COD` to `Pay Later` across flow and split tender options | DONE | - | Updated POS/TakeOrder payment tender IDs and split options to `pay_later`, with backward-compatible `cod` alias mapping to `PAY_LATER` |
 | POS-008 | P2 | UI Consistency | `AdjustmentsModal` should use shared `Modal` component pattern | TODO | - | Match shared modal styling + behavior |
 | POS-009 | P2 | POS UI | Move quick actions to dedicated post-payment toggles row | TODO | - | Confirm tap targets and placement |
 | POS-010 | P0 | Data Model | Separate `paymentStatus` from fulfillment `status` (major refactor) | DONE | - | Tracked with dedicated feature plan |

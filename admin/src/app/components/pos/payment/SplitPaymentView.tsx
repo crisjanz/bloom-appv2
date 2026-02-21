@@ -7,8 +7,8 @@ export type SplitPaymentTender =
   | 'cash'
   | 'card_stripe'
   | 'house_account'
-  | 'cod'
-  | 'check';
+  | 'pay_later'
+  | 'cheque';
 
 export type SplitPaymentRow = {
   id: string;
@@ -34,8 +34,8 @@ const tenderOptions = [
   { value: 'cash', label: 'Cash' },
   { value: 'card_stripe', label: 'Credit Card' },
   { value: 'house_account', label: 'House Account' },
-  { value: 'cod', label: 'Pay Later' },
-  { value: 'check', label: 'Check' },
+  { value: 'pay_later', label: 'Pay Later' },
+  { value: 'cheque', label: 'Cheque' },
 ];
 
 const renderStatus = (status: SplitPaymentRow['status']) => {

@@ -601,15 +601,15 @@ const normalizeSinglePayment = (payment: any): PaymentEntry => {
 
   if (rawMethod === 'COD' || rawMethod === 'PAY_LATER') {
     return {
-      method: 'cod',
+      method: 'pay_later',
       amount: payment.amount,
       metadata: payment.metadata,
     };
   }
 
-  if (rawMethod === 'CHECK') {
+  if (rawMethod === 'CHECK' || rawMethod === 'CHEQUE') {
     return {
-      method: 'check',
+      method: 'cheque',
       amount: payment.amount,
       metadata: payment.metadata,
     };
@@ -645,6 +645,7 @@ const mapTakeOrderPaymentToAPI = (payment: any) => {
         ...baseMethod,
         giftCardNumber: payment.metadata?.cardNumber
       };
+    case 'cheque':
     case 'check':
       return {
         ...baseMethod,
@@ -656,6 +657,7 @@ const mapTakeOrderPaymentToAPI = (payment: any) => {
         ...baseMethod,
         providerMetadata: payment.metadata?.reference ? { reference: payment.metadata.reference } : undefined
       };
+    case 'pay_later':
     case 'cod':
       return {
         ...baseMethod,
@@ -684,7 +686,9 @@ const mapPaymentMethodType = (method: string): string => {
     'debit': 'CARD',
     'gift_card': 'GIFT_CARD',
     'store_credit': 'STORE_CREDIT',
+    'cheque': 'CHECK',
     'check': 'CHECK',
+    'pay_later': 'PAY_LATER',
     'cod': 'PAY_LATER',
     'house_account': 'HOUSE_ACCOUNT'
   };
