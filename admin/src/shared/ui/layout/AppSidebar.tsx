@@ -232,6 +232,12 @@ const AppSidebar: React.FC = () => {
   }, [openSubmenu]);
 
   const handleSubmenuToggle = (index: number, menuType: "main" | "others") => {
+    const isPinnedOrdersSubmenu =
+      menuType === "main" && navItems[index]?.name === "Orders";
+    if (isPinnedOrdersSubmenu) {
+      return;
+    }
+
     setOpenSubmenu((prevOpenSubmenu) => {
       if (
         prevOpenSubmenu &&
@@ -248,13 +254,16 @@ const AppSidebar: React.FC = () => {
     <ul className="flex flex-col gap-2">
       {items.map((nav, index) => {
         const hasSubItems = Boolean(nav.subItems?.length);
+        const isPinnedOrdersSubmenu =
+          menuType === "main" && nav.name === "Orders";
         const isSubmenuOpen =
-          openSubmenu?.type === menuType && openSubmenu?.index === index;
+          isPinnedOrdersSubmenu ||
+          (openSubmenu?.type === menuType && openSubmenu?.index === index);
         const isNavPathActive = nav.path ? isActive(nav.path) : false;
         const isAnySubItemActive =
           nav.subItems?.some((subItem) => isActive(subItem.path)) ?? false;
         const isItemActive =
-          isNavPathActive || isAnySubItemActive || isSubmenuOpen;
+          isNavPathActive || isAnySubItemActive || (!isPinnedOrdersSubmenu && isSubmenuOpen);
 
         return (
           <li key={nav.name}>
@@ -295,21 +304,23 @@ const AppSidebar: React.FC = () => {
                   )}
                 </Link>
                 {(isExpanded || isHovered || isMobileOpen) && (
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      handleSubmenuToggle(index, menuType);
-                    }}
-                    className="ml-auto"
-                  >
-                    <ChevronDownIcon
-                      className={`w-5 h-5 transition-transform duration-200 ${
-                        isSubmenuOpen ? "rotate-180 text-brand-500" : ""
-                      }`}
-                    />
-                  </button>
+                  !isPinnedOrdersSubmenu && (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        handleSubmenuToggle(index, menuType);
+                      }}
+                      className="ml-auto"
+                    >
+                      <ChevronDownIcon
+                        className={`w-5 h-5 transition-transform duration-200 ${
+                          isSubmenuOpen ? "rotate-180 text-brand-500" : ""
+                        }`}
+                      />
+                    </button>
+                  )
                 )}
               </div>
             ) : (
@@ -345,7 +356,9 @@ const AppSidebar: React.FC = () => {
                 className="overflow-hidden transition-all duration-300"
                 style={{
                   height: isSubmenuOpen
-                    ? `${subMenuHeight[`${menuType}-${index}`]}px`
+                    ? isPinnedOrdersSubmenu
+                      ? "auto"
+                      : `${subMenuHeight[`${menuType}-${index}`]}px`
                     : "0px",
                 }}
               >
