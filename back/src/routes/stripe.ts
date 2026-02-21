@@ -762,9 +762,18 @@ router.post('/payment-intent/:id/confirm', async (req, res) => {
 
   } catch (error) {
     console.error('❌ Payment intent confirmation failed:', error);
-    res.status(500).json({ 
+    const stripeError = error as any;
+    const statusCode =
+      typeof stripeError?.statusCode === 'number'
+        ? stripeError.statusCode
+        : typeof stripeError?.raw?.statusCode === 'number'
+          ? stripeError.raw.statusCode
+          : 500;
+
+    res.status(statusCode >= 400 && statusCode < 600 ? statusCode : 500).json({
       error: 'Failed to confirm payment intent',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
+      code: stripeError?.code,
     });
   }
 });
@@ -1191,6 +1200,10 @@ router.post('/customer/payment-methods', async (req, res) => {
       },
       paymentMethods: uniqueMethods.map((method) => ({
         id: method.id,
+        customerId:
+          typeof method.customer === 'string'
+            ? method.customer
+            : method.customer?.id ?? null,
         type: method.card?.brand ?? 'card',
         brand: method.card?.brand ?? 'card',
         last4: method.card?.last4 ?? '',

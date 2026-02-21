@@ -135,7 +135,11 @@ class StripeService {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to confirm payment intent');
+        throw new Error(
+          errorData.details ||
+          errorData.error ||
+          'Failed to confirm payment intent'
+        );
       }
 
       const result = await response.json();
@@ -212,6 +216,7 @@ class StripeService {
     customer: any;
     paymentMethods: Array<{
       id: string;
+      customerId?: string | null;
       type: string;
       brand?: string;
       last4: string;

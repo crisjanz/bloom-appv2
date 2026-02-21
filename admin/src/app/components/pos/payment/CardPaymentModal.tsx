@@ -1,5 +1,5 @@
 // components/pos/payment/CardPaymentModal.tsx - Simplified Stripe-only flow
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Elements, CardElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { Modal } from '@shared/ui/components/ui/modal';
 import stripeService from '@shared/legacy-services/stripeService';
@@ -33,6 +33,7 @@ type ViewMode = 'main' | 'manual';
 
 interface SavedCard {
   id: string;
+  customerId?: string | null;
   brand: string;
   last4: string;
   expMonth: number;
@@ -236,6 +237,7 @@ export default function CardPaymentModal({
   onCancel,
   embedded = false,
 }: Props) {
+  const stripePromise = useMemo(() => stripeService.getStripe(), []);
   const [viewMode, setViewMode] = useState<ViewMode>(defaultMode);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -308,6 +310,7 @@ export default function CardPaymentModal({
       if (result.success && result.paymentMethods) {
         setSavedCards(result.paymentMethods.map(pm => ({
           ...pm,
+          customerId: pm.customerId ?? null,
           brand: pm.brand || pm.type || 'card'
         })));
       }
@@ -366,6 +369,7 @@ export default function CardPaymentModal({
       const paymentIntentResult = await stripeService.createPaymentIntent({
         amount: total,
         currency: 'cad',
+        customerId: card.customerId || undefined,
         customerEmail,
         customerPhone,
         customerName,
@@ -622,7 +626,7 @@ export default function CardPaymentModal({
               </div>
             )}
 
-            <Elements stripe={stripeService.getStripe()}>
+            <Elements stripe={stripePromise}>
               <ManualCardEntryForm
                 total={total}
                 cardType={cardType}
