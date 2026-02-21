@@ -4,6 +4,7 @@ import { centsToDollars, formatCurrency, dollarsToCents, parseUserCurrency } fro
 import { useApiClient } from '@shared/hooks/useApiClient';
 import ProductVariantModal from '@app/components/pos/ProductVariantModal';
 import FormFooter from '@shared/ui/components/ui/form/FormFooter';
+import { useTaxRates } from '@shared/hooks/useTaxRates';
 
 const SearchIcon = ({ className }: { className?: string }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -51,6 +52,7 @@ type VariantModalProduct = Product & { price: number };
 interface FinancialsEditModalProps {
   products: OrderItem[];
   payment: FinancialsPaymentData;
+  originalTotal: number;
   onSave: (products: OrderItem[], payment: FinancialsPaymentData) => void;
   onCancel: () => void;
   saving: boolean;
@@ -59,6 +61,7 @@ interface FinancialsEditModalProps {
 const FinancialsEditModal: React.FC<FinancialsEditModalProps> = ({
   products,
   payment,
+  originalTotal,
   onSave,
   onCancel,
   saving,
@@ -84,15 +87,16 @@ const FinancialsEditModal: React.FC<FinancialsEditModalProps> = ({
   // --- Payment state (string display values for inputs) ---
   const [deliveryFeeStr, setDeliveryFeeStr] = useState(centsToDollars(payment.deliveryFee).toFixed(2));
   const [discountStr, setDiscountStr] = useState(centsToDollars(payment.discount).toFixed(2));
-  const [gstStr, setGstStr] = useState(centsToDollars(payment.gst).toFixed(2));
-  const [pstStr, setPstStr] = useState(centsToDollars(payment.pst).toFixed(2));
+
+  // Tax rates — computed, not manually editable
+  const { getGSTRate, getPSTRate } = useTaxRates();
 
   // Live total preview (all in cents)
   const deliveryFeeCents = parseUserCurrency(deliveryFeeStr);
   const discountCents = parseUserCurrency(discountStr);
-  const gstCents = parseUserCurrency(gstStr);
-  const pstCents = parseUserCurrency(pstStr);
   const subtotalCents = editingProducts.reduce((sum, item) => sum + item.rowTotal, 0);
+  const gstCents = Math.round(subtotalCents * getGSTRate());
+  const pstCents = Math.round(subtotalCents * getPSTRate());
   const newTotal = subtotalCents + deliveryFeeCents - discountCents + gstCents + pstCents;
 
   // Product search
@@ -201,8 +205,8 @@ const FinancialsEditModal: React.FC<FinancialsEditModalProps> = ({
     onSave(validProducts, {
       deliveryFee: parseUserCurrency(deliveryFeeStr),
       discount: parseUserCurrency(discountStr),
-      gst: parseUserCurrency(gstStr),
-      pst: parseUserCurrency(pstStr),
+      gst: gstCents,
+      pst: pstCents,
     });
   };
 
@@ -356,8 +360,6 @@ const FinancialsEditModal: React.FC<FinancialsEditModalProps> = ({
           {[
             { label: 'Delivery Fee', value: deliveryFeeStr, onChange: setDeliveryFeeStr },
             { label: 'Discount', value: discountStr, onChange: setDiscountStr },
-            { label: 'GST', value: gstStr, onChange: setGstStr },
-            { label: 'PST', value: pstStr, onChange: setPstStr },
           ].map(({ label, value, onChange }) => (
             <div key={label}>
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{label}</label>
@@ -402,6 +404,16 @@ const FinancialsEditModal: React.FC<FinancialsEditModalProps> = ({
         <div className="flex justify-between font-semibold text-gray-900 dark:text-white border-t border-gray-200 dark:border-gray-700 pt-2 mt-1">
           <span>New Total</span><span>{formatCurrency(newTotal)}</span>
         </div>
+        {newTotal !== originalTotal && (
+          <div className="flex items-center justify-between mt-2 pt-2 border-t border-yellow-200 dark:border-yellow-800">
+            <span className="text-xs text-yellow-700 dark:text-yellow-400">
+              Saving will trigger a {newTotal > originalTotal ? 'charge' : 'refund'}
+            </span>
+            <span className={`text-xs font-semibold ${newTotal > originalTotal ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+              {newTotal > originalTotal ? '+' : '-'}{formatCurrency(Math.abs(newTotal - originalTotal))}
+            </span>
+          </div>
+        )}
       </div>
 
       <FormFooter onCancel={onCancel} onSubmit={handleSave} submitting={saving} submitIcon={<SaveIcon className="w-4 h-4" />} />
