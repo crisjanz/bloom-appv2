@@ -1,16 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
-  ArrowDownIcon,
-  ArrowRightIcon,
-  ArrowUpIcon,
-  ChatIcon,
-  CreditCardIcon,
-  DollarSignIcon,
-  EnvelopeIcon,
-  FileIcon,
-  PencilIcon,
-  PlusIcon,
-  PrinterIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
 } from '@shared/assets/icons';
 import { formatCurrency } from '@shared/utils/currency';
 
@@ -97,49 +88,18 @@ const getEntryTone = (entry: OrderTimelineEntry): string => {
       : null;
 
   if (entry.type === 'PAYMENT_RECEIVED') {
-    return 'text-green-600 dark:text-green-400';
+    return 'bg-green-500';
   }
 
   if (entry.type === 'REFUND_PROCESSED' || targetStatus === 'CANCELLED' || targetStatus === 'REJECTED') {
-    return 'text-red-600 dark:text-red-400';
+    return 'bg-red-500';
   }
 
-  return 'text-gray-600 dark:text-gray-400';
-};
-
-const getEntryIcon = (type: string) => {
-  switch (type) {
-    case 'STATUS_CHANGE':
-      return ArrowUpIcon;
-    case 'PAYMENT_STATUS_CHANGE':
-      return CreditCardIcon;
-    case 'PAYMENT_RECEIVED':
-      return DollarSignIcon;
-    case 'REFUND_PROCESSED':
-      return ArrowDownIcon;
-    case 'PAYMENT_ADJUSTMENT':
-      return ArrowRightIcon;
-    case 'ORDER_EDITED':
-      return PencilIcon;
-    case 'ORDER_CREATED':
-      return PlusIcon;
-    case 'SMS_SENT':
-    case 'SMS_RECEIVED':
-      return ChatIcon;
-    case 'EMAIL_SENT':
-      return EnvelopeIcon;
-    case 'NOTE':
-      return FileIcon;
-    case 'PRINT':
-      return PrinterIcon;
-    default:
-      return FileIcon;
-  }
+  return 'bg-gray-400';
 };
 
 export default function ActivityEntry({ entry }: ActivityEntryProps) {
   const [expanded, setExpanded] = useState(false);
-  const Icon = getEntryIcon(entry.type);
   const toneClass = getEntryTone(entry);
 
   const detailRows = useMemo(() => {
@@ -156,36 +116,39 @@ export default function ActivityEntry({ entry }: ActivityEntryProps) {
   }, [entry.details]);
 
   return (
-    <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-3 min-w-0">
-          <div className={`mt-0.5 ${toneClass}`}>
-            <Icon className="w-5 h-5" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-gray-900 dark:text-white break-words">{entry.summary}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              {entry.actorName ? `By ${entry.actorName}` : 'System'}
-            </p>
-          </div>
-        </div>
-        <div className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
-          {formatRelativeTime(entry.createdAt)}
+    <div className="py-1.5">
+      <div className="flex items-start gap-2">
+        <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${toneClass}`} />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm leading-5 text-gray-900 dark:text-white break-words">{entry.summary}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {formatRelativeTime(entry.createdAt)} · {entry.actorName ? `By ${entry.actorName}` : 'System'}
+          </p>
         </div>
       </div>
 
       {detailRows.length > 0 && (
-        <div className="mt-3">
+        <div className="mt-1 pl-4">
           <button
             type="button"
-            className="text-xs text-brand-500 hover:text-brand-600"
+            className="inline-flex items-center gap-1 text-xs text-brand-500 hover:text-brand-600"
             onClick={() => setExpanded((prev) => !prev)}
           >
-            {expanded ? 'Hide details' : 'Show details'}
+            {expanded ? (
+              <>
+                <ChevronUpIcon className="h-3.5 w-3.5" />
+                Hide details
+              </>
+            ) : (
+              <>
+                <ChevronDownIcon className="h-3.5 w-3.5" />
+                Show details
+              </>
+            )}
           </button>
 
           {expanded && (
-            <div className="mt-2 space-y-1 text-xs text-gray-600 dark:text-gray-300">
+            <div className="mt-1 space-y-0.5 text-xs text-gray-600 dark:text-gray-300">
               {detailRows.map((row) => (
                 <p key={row.key}>
                   <span className="font-medium text-gray-700 dark:text-gray-200">{row.label}:</span> {row.value}

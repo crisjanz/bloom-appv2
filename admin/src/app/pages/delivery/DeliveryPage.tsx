@@ -351,7 +351,6 @@ const DeliveryPage: React.FC = () => {
       monthSelectorType: 'static',
       dateFormat: 'Y-m-d',
       defaultDate: selectedDate,
-      minDate: today,
       clickOpens: true,
       allowInput: false,
       onChange: async (selectedDates, dateStr) => {
@@ -362,7 +361,7 @@ const DeliveryPage: React.FC = () => {
           const endDay = new Date();
           endDay.setDate(endDay.getDate() + 10);
           const endDayStr = getBusinessDateString(endDay);
-          const isInRange = dateStr <= endDayStr;
+          const isInRange = dateStr >= today && dateStr <= endDayStr;
 
           const extractDate = (isoString: string) => {
             if (!isoString) return '';
