@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { PrismaClient, CommunicationType } from '@prisma/client';
 import smsService from '../services/smsService';
+import { sendPushoverNotification } from '../services/pushoverService';
 
 const router = Router();
 const metaRouter = Router();
@@ -144,8 +145,19 @@ router.post('/:orderId/sms', async (req: Request, res: Response) => {
             id: true,
             name: true
           }
+        },
+        order: {
+          select: { orderNumber: true }
         }
       }
+    });
+
+    const adminBaseUrl = process.env.ADMIN_BASE_URL || '';
+    sendPushoverNotification({
+      title: `SMS Sent → Order #${communication.order?.orderNumber ?? orderId}`,
+      message: `To: ${phoneNumber}\n${message}`,
+      group: 'sms-sent',
+      ...(adminBaseUrl ? { link: `${adminBaseUrl}/orders/${orderId}` } : {})
     });
 
     res.json({

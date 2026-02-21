@@ -2,6 +2,7 @@ import { PrismaClient, CommunicationType } from '@prisma/client';
 import { notificationService } from '../services/notificationService';
 import { formatOrderNumber } from './formatOrderNumber';
 import { getOrderNumberPrefix } from './orderNumberSettings';
+import { sendPushoverNotification } from '../services/pushoverService';
 
 const prisma = new PrismaClient();
 
@@ -198,6 +199,14 @@ export async function triggerStatusNotifications(order: any, newStatus: string, 
                   }
                 });
                 console.log(`📝 Logged SMS communication for order #${order.orderNumber}`);
+
+                const adminBaseUrl = process.env.ADMIN_BASE_URL || '';
+                sendPushoverNotification({
+                  title: `Auto SMS Sent → Order #${order.orderNumber}`,
+                  message: `To: ${notification.recipient}\n${notificationData.template || ''}`,
+                  group: 'sms-sent',
+                  ...(adminBaseUrl ? { link: `${adminBaseUrl}/orders/${fullOrder.id}` } : {})
+                });
               } catch (logError) {
                 console.error('❌ Failed to log SMS communication:', logError);
                 // Don't fail the notification if logging fails
